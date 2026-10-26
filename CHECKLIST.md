@@ -247,4 +247,5 @@
 - [x] Compilar NSIS Windows x64 0.1.1 e validar o executável empacotado com perfil temporário.
 - [x] Atualizar a instalação usada no mesmo caminho e confirmar app.asar por SHA-256, versão do registro, atalho e smoke instalado.
 - [x] Preparar `.gitignore`, README, identidade de licença e remover caminhos pessoais de documentos publicados.
-- [ ] Inicializar Git local, revisar arquivos staged, criar commit e fazer push para `https://github.com/cascaoconcurseiro/zerobrowser`.
+- [x] Inicializar Git `main`, revisar 96 arquivos staged e criar o commit inicial `9f18eee` com código, testes e docs; excluir builds, dados, backup, resultados e relatórios locais de REA.
+- [ ] Reconfirmar remoto vazio e fazer push de `main` para `https://github.com/cascaoconcurseiro/zerobrowser`; verificar o commit remoto.
