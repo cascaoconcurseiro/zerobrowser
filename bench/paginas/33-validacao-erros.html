@@ -1,0 +1,37 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Cadastro de cliente</title><link rel="stylesheet" href="/_comum.css"><script src="/_comum.js"></script></head>
+<body data-tarefa="33-validacao-erros">
+<h1>Cadastro de cliente</h1>
+<form id="form" class="cartao" novalidate>
+  <label for="nome">Nome completo</label><input id="nome">
+  <label for="cpf">CPF</label><input id="cpf">
+  <label for="nascimento">Data de nascimento</label><input id="nascimento" placeholder="dd/mm/aaaa">
+  <label for="telefone">Telefone</label><input id="telefone">
+  <p id="erro" role="alert" style="color:#b00020"></p>
+  <button type="submit">Cadastrar</button>
+</form>
+<p id="aviso" role="status"></p>
+<script>
+  // O sistema "legado" só aponta um erro por vez, depois do envio.
+  let tentativas = 0;
+  form.onsubmit = (e) => {
+    e.preventDefault();
+    tentativas++;
+    const v = (id) => document.getElementById(id).value.trim();
+    const regras = [
+      [v('nome').split(/\s+/).length >= 2, 'Nome: informe nome e sobrenome.'],
+      [/^\d{11}$/.test(v('cpf')), 'CPF: digite só os 11 números, sem ponto nem traço.'],
+      [/^\d{4}-\d{2}-\d{2}$/.test(v('nascimento')), 'Data de nascimento: o sistema só aceita o formato AAAA-MM-DD.'],
+      [/^\d{11}$/.test(v('telefone')), 'Telefone: só números, com DDD (11 dígitos).']
+    ];
+    const falha = regras.find(([passou]) => !passou);
+    if (falha) {
+      erro.textContent = falha[1];
+      registrar({ tentativas });
+      return;
+    }
+    erro.textContent = '';
+    registrar({ tentativas, cadastro: { nome: v('nome'), cpf: v('cpf'), nascimento: v('nascimento'), telefone: v('telefone') } });
+    avisar('Cliente cadastrada.');
+  };
+</script>
+</body></html>

@@ -1,0 +1,23 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Armazenamento</title><link rel="stylesheet" href="/_comum.css"><script src="/_comum.js"></script></head>
+<body data-tarefa="35-shadow-dom">
+<h1>Armazenamento</h1>
+<painel-armazenamento></painel-armazenamento>
+<p id="aviso" role="status"></p>
+<script>
+  // Componente com shadow root fechado: os controles não aparecem em document.querySelectorAll.
+  customElements.define('painel-armazenamento', class extends HTMLElement {
+    constructor() {
+      super();
+      const raiz = this.attachShadow({ mode: 'closed' });
+      raiz.innerHTML = `<style>div{border:1px solid #9aa3b5;border-radius:6px;padding:12px;max-width:420px}</style>
+        <div><p>Espaço usado: 12,4 GB de 50 GB</p>
+        <label><input type="checkbox" id="backup"> Backup automático</label><br>
+        <label><input type="checkbox" id="compactar" checked> Compactar arquivos antigos</label>
+        <p><button id="salvar">Salvar preferências</button></p></div>`;
+      const backup = raiz.getElementById('backup');
+      backup.onchange = () => registrar({ backup: backup.checked });
+      raiz.getElementById('salvar').onclick = () => { registrar({ backup: backup.checked, salvo: true }); avisar('Preferências salvas.'); };
+    }
+  });
+</script>
+</body></html>

@@ -1,0 +1,18 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Notas</title><link rel="stylesheet" href="/_comum.css"><script src="/_comum.js"></script>
+<style>#corpo { border: 1px solid #9aa3b5; border-radius: 6px; min-height: 120px; padding: 8px; }</style></head>
+<body data-tarefa="19-editor-rico">
+<h1>Nova nota</h1>
+<label for="titulo">Título</label><input id="titulo">
+<label id="rotulo-corpo">Corpo da nota</label>
+<div id="corpo" contenteditable="true" role="textbox" aria-multiline="true" aria-labelledby="rotulo-corpo" tabindex="0"></div>
+<div><button id="salvar">Salvar nota</button></div>
+<p id="aviso" role="status"></p>
+<script>
+  salvar.onclick = () => {
+    const texto = corpo.innerText.trim();
+    if (!titulo.value.trim() || !texto) { avisar('Preencha título e corpo.'); return; }
+    registrar({ nota: { titulo: titulo.value.trim(), texto } });
+    avisar('Nota salva.');
+  };
+</script>
+</body></html>

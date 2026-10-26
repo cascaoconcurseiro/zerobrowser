@@ -1,0 +1,32 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Reembolso</title><link rel="stylesheet" href="/_comum.css"><script src="/_comum.js"></script>
+<style>.escondido{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden}</style></head>
+<body data-tarefa="43-upload-comprovante">
+<h1>Pedido de reembolso</h1>
+<p>Seu comprovante da corrida está disponível: <a href="/arquivos/comprovante-4471.txt">comprovante-4471.txt</a></p>
+<form id="form" class="cartao">
+  <label for="motivo">Motivo</label>
+  <select id="motivo"><option>Transporte</option><option>Alimentação</option></select>
+  <!-- Campo de arquivo escondido atrás de um botão próprio, como em muitos sites. -->
+  <span>Comprovante</span>
+  <input type="file" id="arquivo" class="escondido" aria-label="Comprovante">
+  <button type="button" onclick="arquivo.click()">Escolher arquivo</button>
+  <span id="escolhido">nenhum arquivo</span>
+  <button type="submit">Enviar pedido</button>
+</form>
+<p id="aviso" role="status"></p>
+<script>
+  let conteudo = '';
+  arquivo.onchange = async () => {
+    const f = arquivo.files[0];
+    escolhido.textContent = f ? f.name : 'nenhum arquivo';
+    conteudo = f ? await f.text() : '';
+  };
+  form.onsubmit = (e) => {
+    e.preventDefault();
+    const f = arquivo.files[0];
+    if (!f) return avisar('Anexe o comprovante.');
+    registrar({ reembolso: { motivo: motivo.value, arquivo: f.name, conteudo: conteudo.slice(0, 200) } });
+    avisar('Pedido de reembolso enviado.');
+  };
+</script>
+</body></html>

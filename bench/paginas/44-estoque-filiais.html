@@ -1,0 +1,30 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Estoque por filial</title><link rel="stylesheet" href="/_comum.css"><script src="/_comum.js"></script></head>
+<body data-tarefa="44-estoque-filiais">
+<main id="tela"></main>
+<p id="aviso" role="status"></p>
+<script>
+  // Tarefa longa: o dado de cada filial fica numa página própria, no meio de uma tabela grande, com um item parecido de isca.
+  const filiais = { centro: ['Centro', 14, 31], norte: ['Norte', 9, 4], sul: ['Sul', 22, 6], leste: ['Leste', 7, 27], oeste: ['Oeste', 18, 2], litoral: ['Litoral', 11, 40] };
+  const outros = ['Mesa Linea', 'Gaveteiro Box', 'Armário Alto', 'Estante Modular', 'Luminária Flex', 'Apoio de Pés', 'Quadro Branco', 'Lixeira Inox', 'Cabideiro', 'Poltrona Lounge', 'Banqueta Alta', 'Painel Acústico', 'Divisória Vidro', 'Suporte Monitor', 'Tapete Antiestático', 'Mesa Reunião', 'Arquivo Aço', 'Carrinho Auxiliar'];
+  const id = new URLSearchParams(location.search).get('f');
+  if (filiais[id]) {
+    const [nome, ergo, plus] = filiais[id];
+    const linhas = outros.map((item, i) => [item, (i * 7 + nome.length * 3) % 37 + 1]);
+    linhas.splice(5, 0, ['Cadeira Ergo Plus', plus]);
+    linhas.splice(13, 0, ['Cadeira Ergo', ergo]);
+    document.title = `Filial ${nome} — estoque`;
+    tela.innerHTML = `<h1>Filial ${nome}</h1><p><a href="?">Voltar às filiais</a></p><table class="cartao"><thead><tr><th>Item</th><th>Unidades</th></tr></thead><tbody>${linhas.map(([item, n]) => `<tr><td>${item}</td><td>${n}</td></tr>`).join('')}</tbody></table>`;
+  } else {
+    tela.innerHTML = `<h1>Estoque por filial</h1>
+      <p>Cada filial mostra o próprio estoque:</p>
+      <ul>${Object.entries(filiais).map(([k, [nome]]) => `<li><a href="?f=${k}">Filial ${nome}</a></li>`).join('')}</ul>
+      <form id="form" class="cartao"><h2>Transferência</h2><label for="origem">Filial com mais unidades</label><select id="origem"><option value="">Escolha…</option>${Object.entries(filiais).map(([k, [nome]]) => `<option value="${k}">${nome}</option>`).join('')}</select>
+      <label for="total">Total de unidades nas 6 filiais</label><input id="total"><button type="submit">Registrar</button></form>`;
+    form.onsubmit = (e) => {
+      e.preventDefault();
+      registrar({ transferencia: { origem: origem.value, total: total.value.trim() } });
+      avisar('Transferência registrada.');
+    };
+  }
+</script>
+</body></html>

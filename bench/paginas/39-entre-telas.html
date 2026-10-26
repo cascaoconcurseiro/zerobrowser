@@ -1,0 +1,32 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Minha conta</title><link rel="stylesheet" href="/_comum.css"><script src="/_comum.js"></script></head>
+<body data-tarefa="39-entre-telas">
+<h1>Minha conta</h1>
+<nav aria-label="Seções"><a href="#inicio">Início</a> · <a href="#pedidos">Meus pedidos</a> · <a href="#reclamacao">Abrir reclamação</a></nav>
+<main id="tela"></main>
+<p id="aviso" role="status"></p>
+<script>
+  // Uma tela por vez: o código de rastreio some quando o agente vai para o formulário.
+  const pedidos = [
+    { numero: '7718', rastreio: 'BR482915073', status: 'Entregue' },
+    { numero: '7781', rastreio: 'BR482915037', status: 'Em trânsito' },
+    { numero: '7817', rastreio: 'BR482951037', status: 'Aguardando envio' }
+  ];
+  const telas = {
+    inicio: () => '<p>Bem-vindo de volta. Use o menu para ver pedidos ou abrir uma reclamação.</p>',
+    pedidos: () => `<table><thead><tr><th>Pedido</th><th>Status</th><th>Rastreio</th></tr></thead><tbody>${pedidos.map((p) => `<tr><td>${p.numero}</td><td>${p.status}</td><td>${p.rastreio}</td></tr>`).join('')}</tbody></table>`,
+    reclamacao: () => '<form id="form" class="cartao"><label for="pedido">Número do pedido</label><input id="pedido"><label for="rastreio">Código de rastreio</label><input id="rastreio"><label for="motivo">Motivo</label><select id="motivo"><option>Atraso na entrega</option><option>Produto danificado</option></select><button type="submit">Enviar reclamação</button></form>'
+  };
+  const mostrar = () => {
+    const nome = location.hash.slice(1) || 'inicio';
+    tela.innerHTML = (telas[nome] || telas.inicio)();
+    const form = document.getElementById('form');
+    if (form) form.onsubmit = (e) => {
+      e.preventDefault();
+      registrar({ reclamacao: { pedido: document.getElementById('pedido').value.trim(), rastreio: document.getElementById('rastreio').value.trim().toUpperCase() } });
+      avisar('Reclamação enviada.');
+    };
+  };
+  addEventListener('hashchange', mostrar);
+  mostrar();
+</script>
+</body></html>

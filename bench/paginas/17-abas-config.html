@@ -1,0 +1,36 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Configurações</title><link rel="stylesheet" href="/_comum.css"><script src="/_comum.js"></script></head>
+<body data-tarefa="17-abas-config">
+<h1>Configurações</h1>
+<div role="tablist" aria-label="Seções">
+  <button role="tab" id="aba-perfil" aria-selected="true" aria-controls="painel-perfil">Perfil</button>
+  <button role="tab" id="aba-notificacoes" aria-selected="false" aria-controls="painel-notificacoes">Notificações</button>
+  <button role="tab" id="aba-privacidade" aria-selected="false" aria-controls="painel-privacidade">Privacidade</button>
+</div>
+<section role="tabpanel" id="painel-perfil" aria-labelledby="aba-perfil"><p>Nome de exibição: Wes. Idioma: português.</p></section>
+<section role="tabpanel" id="painel-notificacoes" aria-labelledby="aba-notificacoes" hidden>
+  <p><button role="switch" id="promocionais" aria-checked="true">E-mails promocionais</button> <span id="estado-promo">ligado</span></p>
+  <p><button role="switch" id="seguranca" aria-checked="true">Alertas de segurança</button> <span id="estado-seg">ligado</span></p>
+</section>
+<section role="tabpanel" id="painel-privacidade" aria-labelledby="aba-privacidade" hidden><p>Perfil visível só para contatos.</p></section>
+<script>
+  for (const aba of document.querySelectorAll('[role=tab]')) {
+    aba.onclick = () => {
+      for (const outra of document.querySelectorAll('[role=tab]')) {
+        outra.setAttribute('aria-selected', String(outra === aba));
+        document.getElementById(outra.getAttribute('aria-controls')).hidden = outra !== aba;
+      }
+    };
+  }
+  const alternar = (chave, rotulo) => {
+    const botao = document.getElementById(chave);
+    botao.onclick = () => {
+      const ligado = botao.getAttribute('aria-checked') !== 'true';
+      botao.setAttribute('aria-checked', String(ligado));
+      rotulo.textContent = ligado ? 'ligado' : 'desligado';
+      registrar({ promocionais: promocionais.getAttribute('aria-checked') === 'true', seguranca: seguranca.getAttribute('aria-checked') === 'true' });
+    };
+  };
+  alternar('promocionais', document.getElementById('estado-promo'));
+  alternar('seguranca', document.getElementById('estado-seg'));
+</script>
+</body></html>

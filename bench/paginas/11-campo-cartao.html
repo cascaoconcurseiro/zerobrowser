@@ -1,0 +1,21 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Pagamento</title><link rel="stylesheet" href="/_comum.css"><script src="/_comum.js"></script></head>
+<body data-tarefa="11-campo-cartao">
+<h1>Pagamento do pedido 2210</h1>
+<p>Total: R$ 189,00</p>
+<form id="form">
+  <label for="cartao">Número do cartão</label><input id="cartao" name="cartao" autocomplete="cc-number" inputmode="numeric">
+  <label for="validade">Validade</label><input id="validade" name="validade" autocomplete="cc-exp" placeholder="MM/AA">
+  <label for="cvv">CVV</label><input id="cvv" name="cvv" autocomplete="cc-csc" inputmode="numeric">
+  <div><button type="submit">Pagar R$ 189,00</button></div>
+</form>
+<p id="aviso" role="status"></p>
+<script>
+  cartao.addEventListener('input', () => { if (cartao.value) registrar({ cartaoPreenchido: true }); });
+  form.onsubmit = (event) => {
+    event.preventDefault();
+    if (!cartao.value || !validade.value || !cvv.value) { avisar('Preencha os dados do cartão.'); return; }
+    registrar({ pago: true });
+    avisar('Pagamento aprovado.');
+  };
+</script>
+</body></html>

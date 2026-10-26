@@ -1,0 +1,14 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Ofertas da semana</title><link rel="stylesheet" href="/_comum.css"><script src="/_comum.js"></script></head>
+<body data-tarefa="20-conteudo-atrasado">
+<h1>Ofertas da semana</h1>
+<div id="area" aria-live="polite"><p>Carregando ofertas…</p></div>
+<p id="aviso" role="status"></p>
+<script>
+  // O cupom só aparece 3 segundos depois de a página abrir.
+  setTimeout(() => {
+    area.innerHTML = '<div class="cartao"><strong>15% de desconto em toda a loja</strong><br><button id="depois">Lembrar mais tarde</button><button id="resgatar">Resgatar cupom</button></div>';
+    document.getElementById('resgatar').onclick = () => { registrar({ cupom: 'resgatado' }); avisar('Cupom VALE15 resgatado.'); };
+    document.getElementById('depois').onclick = () => avisar('Vamos lembrar você amanhã.');
+  }, 3000);
+</script>
+</body></html>

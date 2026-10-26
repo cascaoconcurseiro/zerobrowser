@@ -1,0 +1,36 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Notificações</title><link rel="stylesheet" href="/_comum.css"><script src="/_comum.js"></script>
+<style>#lista li { padding: 14px 8px; border-bottom: 1px solid #d7dce2; list-style: none; }</style></head>
+<body data-tarefa="37-rolagem-infinita">
+<h1>Notificações</h1>
+<ul id="lista"></ul>
+<p id="carregando" aria-live="polite">Carregando mais…</p>
+<p id="aviso" role="status"></p>
+<script>
+  const assuntos = ['Novo login detectado', 'Backup concluído', 'Mensagem de Ana', 'Promoção da semana', 'Relatório pronto'];
+  const todas = Array.from({ length: 80 }, (_, i) => ({ id: `n${i}`, texto: `${assuntos[i % assuntos.length]} (${i + 1})` }));
+  todas[12] = { id: 'n118-paga', texto: 'Fatura #118 paga' };
+  todas[30] = { id: 'n181', texto: 'Fatura #181 vencida' };
+  todas[55] = { id: 'n118', texto: 'Fatura #118 vencida' };
+  let mostradas = 0;
+  const arquivadas = [];
+  const carregar = () => {
+    const lote = todas.slice(mostradas, mostradas + 15);
+    mostradas += lote.length;
+    lista.insertAdjacentHTML('beforeend', lote.map((n) => `<li id="item-${n.id}">${n.texto} <button data-id="${n.id}" aria-label="Arquivar ${n.texto}">Arquivar</button></li>`).join(''));
+    if (mostradas >= todas.length) carregando.textContent = 'Fim da lista.';
+  };
+  // Mais itens só chegam quando o fim da lista aparece na tela, com atraso de rede.
+  new IntersectionObserver((entradas) => {
+    if (entradas[0].isIntersecting && mostradas < todas.length) setTimeout(carregar, 800);
+  }).observe(carregando);
+  lista.onclick = (e) => {
+    const id = e.target.dataset.id;
+    if (!id) return;
+    arquivadas.push(id);
+    document.getElementById(`item-${id}`).remove();
+    registrar({ arquivadas: [...arquivadas] });
+    avisar('Notificação arquivada.');
+  };
+  carregar();
+</script>
+</body></html>

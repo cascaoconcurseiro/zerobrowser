@@ -1,0 +1,120 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Painel de solicitações</title><link rel="stylesheet" href="/_comum.css"><script src="/_comum.js"></script></head>
+<body data-tarefa="45-spa-recovery">
+<main id="app" aria-live="polite"></main>
+<p id="aviso" role="status"></p>
+<script>
+  // SPA local: a lista chega depois do primeiro render; cada etapa substitui a árvore de controles.
+  const app = document.getElementById('app');
+  const state = { view: 'loading', ticket: null, tipo: '', motivo: '', valor: '', serie: '', etapas: [], invalidAttempts: 0, renderCount: 0 };
+  const tickets = [
+    { id: 'RA-8452', cliente: 'Camila Prado', pedido: '5842', produto: 'Roteador AX441', serie: 'SN-AX441-992', status: 'Aguardando análise' },
+    { id: 'RA-8453', cliente: 'Camila Prado', pedido: '5843', produto: 'Roteador AX441', serie: 'SN-AX441-993', status: 'Aguardando análise' },
+    { id: 'RA-8451', cliente: 'Caio Prado', pedido: '5842', produto: 'Roteador AX441', serie: 'SN-AX441-991', status: 'Concluído' }
+  ];
+  const etapa = (valor) => { if (!state.etapas.includes(valor)) state.etapas.push(valor); };
+  const render = () => {
+    state.renderCount++;
+    if (state.view === 'loading') {
+      app.innerHTML = '<h1>Painel de solicitações</h1><p role="status">Carregando solicitações…</p>';
+      return;
+    }
+    if (state.view === 'list') {
+      app.innerHTML = `<h1>Painel de solicitações</h1><p>Solicitações de devolução aguardando tratamento.</p>
+        <section aria-label="Solicitações">${tickets.map((t) => `<article class="cartao"><h2>Chamado ${t.id}</h2><p>Cliente: ${t.cliente} · Pedido: ${t.pedido}</p><p>Produto: ${t.produto} · Status: ${t.status}</p><button type="button" data-open="${t.id}">Abrir chamado</button></article>`).join('')}</section>`;
+      return;
+    }
+    if (state.view === 'detail') {
+      const t = state.ticket;
+      app.innerHTML = `<h1>Chamado ${t.id}</h1><section class="cartao"><h2>Ficha do equipamento</h2><p>Cliente: ${t.cliente}</p><p>Pedido: ${t.pedido}</p><p>Produto: ${t.produto}</p><p>Número de série: <strong>${t.serie}</strong></p><p>Status: ${t.status}</p>
+        <button type="button" id="start-refund">Registrar devolução</button><button type="button" id="back-list">Voltar à lista</button></section>`;
+      return;
+    }
+    if (state.view === 'form') {
+      const serialField = state.motivo === 'defeito' ? `<label for="serie">Número de série</label><input id="serie" value="${state.serie}" autocomplete="off">` : '';
+      app.innerHTML = `<h1>Registrar devolução — ${state.ticket.id}</h1><p>Cliente: ${state.ticket.cliente} · Pedido: ${state.ticket.pedido}</p>
+        <form id="refund-form" class="cartao" novalidate>
+          <label for="tipo">Tipo de solução</label><select id="tipo"><option value="">Escolha…</option><option value="Reembolso" ${state.tipo === 'Reembolso' ? 'selected' : ''}>Reembolso</option><option value="Troca" ${state.tipo === 'Troca' ? 'selected' : ''}>Troca</option></select>
+          ${state.tipo === 'Reembolso' ? `<label for="valor">Valor do reembolso</label><input id="valor" inputmode="decimal" value="${state.valor}">
+            <label for="motivo">Motivo</label><select id="motivo"><option value="">Escolha…</option><option value="defeito" ${state.motivo === 'defeito' ? 'selected' : ''}>Produto com defeito</option><option value="desistencia" ${state.motivo === 'desistencia' ? 'selected' : ''}>Desistência</option></select>${serialField}` : ''}
+          <p id="erro" role="alert" style="color:#b00020"></p><button type="submit">Enviar para aprovação</button><button type="button" id="back-detail">Voltar à ficha</button>
+        </form>`;
+    }
+  };
+  app.addEventListener('click', (event) => {
+    const open = event.target.closest('[data-open]');
+    if (open) {
+      state.ticket = tickets.find((t) => t.id === open.dataset.open);
+      if (!state.ticket) return;
+      state.view = 'detail';
+      etapa(`detalhe:${state.ticket.id}`);
+      render();
+      return;
+    }
+    if (event.target.id === 'start-refund') {
+      state.view = 'form';
+      state.tipo = '';
+      state.motivo = '';
+      state.valor = '';
+      state.serie = '';
+      render();
+      return;
+    }
+    if (event.target.id === 'back-list') { state.view = 'list'; render(); return; }
+    if (event.target.id === 'back-detail') { state.view = 'detail'; render(); }
+  });
+  // Delegação no root sobrevive à substituição completa do formulário.
+  app.addEventListener('change', (event) => {
+    if (event.target.id === 'tipo') {
+      state.tipo = event.target.value;
+      if (state.tipo) etapa(`formulario:${state.tipo}`);
+      render();
+    } else if (event.target.id === 'motivo') {
+      state.motivo = event.target.value;
+      if (state.motivo === 'defeito') etapa('campo:serie');
+      render();
+    }
+  });
+  app.addEventListener('input', (event) => {
+    if (event.target.id === 'valor') state.valor = event.target.value;
+    if (event.target.id === 'serie') state.serie = event.target.value;
+  });
+  app.addEventListener('submit', (event) => {
+    if (event.target.id !== 'refund-form') return;
+    event.preventDefault();
+    const valor = state.valor.trim().replace(',', '.');
+    const serie = state.serie.trim().toUpperCase();
+    const regras = [
+      [state.tipo === 'Reembolso', 'Escolha Reembolso como tipo de solução.'],
+      [/^184\.90$/.test(valor), 'Valor incorreto: confira o valor autorizado no chamado.'],
+      [state.motivo === 'defeito', 'Escolha o motivo Produto com defeito.'],
+      [serie === state.ticket.serie, 'Número de série incorreto: confira a ficha do equipamento.']
+    ];
+    const falha = regras.find(([passou]) => !passou);
+    if (falha) {
+      state.invalidAttempts++;
+      document.getElementById('erro').textContent = falha[1];
+      avisar(falha[1]);
+      registrar({ invalidAttempts: state.invalidAttempts, etapas: state.etapas, renderCount: state.renderCount });
+      return;
+    }
+    const reembolso = {
+      concluido: true,
+      chamado: state.ticket.id,
+      cliente: state.ticket.cliente,
+      pedido: state.ticket.pedido,
+      serie,
+      tipo: state.tipo,
+      valor,
+      motivo: 'Produto com defeito',
+      protocolo: 'RB-5842-731'
+    };
+    state.view = 'done';
+    etapa('confirmado:RB-5842-731');
+    app.innerHTML = `<h1>Solicitação registrada</h1><section class="cartao"><p>Reembolso enviado para aprovação.</p><p>Protocolo: <strong>RB-5842-731</strong></p></section>`;
+    avisar('Reembolso registrado.');
+    registrar({ reembolso, etapas: state.etapas, invalidAttempts: state.invalidAttempts, renderCount: state.renderCount });
+  });
+  render();
+  setTimeout(() => { state.view = 'list'; render(); avisar('Solicitações carregadas.'); }, 1100);
+</script>
+</body></html>

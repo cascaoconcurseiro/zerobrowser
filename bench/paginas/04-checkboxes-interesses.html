@@ -1,0 +1,21 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Preferências da newsletter</title><link rel="stylesheet" href="/_comum.css"><script src="/_comum.js"></script></head>
+<body data-tarefa="04-checkboxes-interesses">
+<h1>Preferências da newsletter</h1>
+<fieldset id="grupo"><legend>Assuntos que você quer receber</legend>
+  <label><input type="checkbox" value="esportes" checked> Esportes</label>
+  <label><input type="checkbox" value="politica" checked> Política</label>
+  <label><input type="checkbox" value="tecnologia"> Tecnologia</label>
+  <label><input type="checkbox" value="ciencia"> Ciência</label>
+  <label><input type="checkbox" value="cultura"> Cultura</label>
+  <label><input type="checkbox" value="economia"> Economia</label>
+</fieldset>
+<button id="salvar">Salvar preferências</button>
+<p id="aviso" role="status"></p>
+<script>
+  salvar.onclick = () => {
+    const interesses = [...grupo.querySelectorAll('input:checked')].map((caixa) => caixa.value);
+    registrar({ salvo: { interesses } });
+    avisar(`Preferências salvas: ${interesses.join(', ') || 'nenhum assunto'}.`);
+  };
+</script>
+</body></html>

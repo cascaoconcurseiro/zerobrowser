@@ -1,0 +1,39 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Pedidos</title><link rel="stylesheet" href="/_comum.css"><script src="/_comum.js"></script></head>
+<body data-tarefa="32-marcar-varias-paginas">
+<h1>Pedidos</h1>
+<table><thead><tr><th>Pedido</th><th>Cliente</th><th>Status</th><th>Ação</th></tr></thead><tbody id="linhas"></tbody></table>
+<nav aria-label="Páginas"><button id="anterior">Anterior</button> <span id="pagina"></span> <button id="proxima">Próxima</button></nav>
+<p id="aviso" role="status"></p>
+<script>
+  const nomes = ['Carlos Lima', 'Joana Prado', 'Marta Reis', 'Joana Pradi', 'Paulo Assis', 'Joana Prado Costa'];
+  const status = ['Pago', 'Aguardando', 'Pago', 'Cancelado', 'Pago'];
+  const pedidos = Array.from({ length: 48 }, (_, i) => ({ id: `P-${1000 + i}`, cliente: nomes[(i * 5) % nomes.length], status: status[(i * 3) % status.length] }));
+  // Garante exatamente três alvos (Joana Prado + Pago) em páginas diferentes e iscas parecidas.
+  for (const p of pedidos) if (p.cliente === 'Joana Prado' && p.status === 'Pago') p.status = 'Aguardando';
+  Object.assign(pedidos[7], { cliente: 'Joana Prado', status: 'Pago' });
+  Object.assign(pedidos[23], { cliente: 'Joana Prado', status: 'Pago' });
+  Object.assign(pedidos[41], { cliente: 'Joana Prado', status: 'Pago' });
+  Object.assign(pedidos[12], { cliente: 'Joana Prado', status: 'Aguardando' });
+  Object.assign(pedidos[30], { cliente: 'Joana Pradi', status: 'Pago' });
+  Object.assign(pedidos[35], { cliente: 'Joana Prado Costa', status: 'Pago' });
+  const POR_PAGINA = 10;
+  let pagina = 0;
+  const enviados = new Set();
+  const desenhar = () => {
+    const visiveis = pedidos.slice(pagina * POR_PAGINA, (pagina + 1) * POR_PAGINA);
+    linhas.innerHTML = visiveis.map((p) => `<tr><td>${p.id}</td><td>${p.cliente}</td><td>${enviados.has(p.id) ? 'Enviado' : p.status}</td><td>${enviados.has(p.id) ? '' : `<button data-id="${p.id}" aria-label="Marcar ${p.id} como enviado">Marcar como enviado</button>`}</td></tr>`).join('');
+    document.getElementById('pagina').textContent = `Página ${pagina + 1} de ${Math.ceil(pedidos.length / POR_PAGINA)}`;
+  };
+  linhas.onclick = (e) => {
+    const id = e.target.dataset.id;
+    if (!id) return;
+    enviados.add(id);
+    registrar({ enviados: [...enviados] });
+    desenhar();
+    avisar(`${id} marcado como enviado.`);
+  };
+  anterior.onclick = () => { if (pagina > 0) { pagina--; desenhar(); } };
+  proxima.onclick = () => { if ((pagina + 1) * POR_PAGINA < pedidos.length) { pagina++; desenhar(); } };
+  desenhar();
+</script>
+</body></html>

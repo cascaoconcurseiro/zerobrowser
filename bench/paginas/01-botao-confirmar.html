@@ -1,0 +1,14 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Encontro de Leitores</title><link rel="stylesheet" href="/_comum.css"><script src="/_comum.js"></script></head>
+<body data-tarefa="01-botao-confirmar">
+<h1>Encontro de Leitores — sábado, 14h</h1>
+<p>Biblioteca Municipal, sala 3. Traga seu livro favorito.</p>
+<button id="compartilhar">Compartilhar evento</button>
+<button id="cancelar">Cancelar inscrição</button>
+<button id="confirmar">Confirmar presença</button>
+<p id="aviso" role="status"></p>
+<script>
+  confirmar.onclick = () => { registrar({ presenca: 'confirmada' }); avisar('Presença confirmada. Até sábado!'); };
+  cancelar.onclick = () => { registrar({ cancelou: true }); avisar('Inscrição cancelada.'); };
+  compartilhar.onclick = () => avisar('Link copiado.');
+</script>
+</body></html>

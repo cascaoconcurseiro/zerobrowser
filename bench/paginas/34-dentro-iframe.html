@@ -1,0 +1,19 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Central de ajuda</title><link rel="stylesheet" href="/_comum.css"><script src="/_comum.js"></script></head>
+<body data-tarefa="34-dentro-iframe">
+<h1>Central de ajuda</h1>
+<p>Precisa de ajuda? Use o widget de suporte abaixo.</p>
+<iframe id="widget" title="Widget de suporte" style="width:420px;height:220px;border:1px solid #9aa3b5;border-radius:6px" srcdoc='
+<!doctype html><html lang="pt-BR"><body style="font-family:sans-serif">
+<label for="assunto">Assunto</label>
+<select id="assunto"><option value="">Escolha...</option><option value="duvida">Dúvida sobre pedido</option><option value="troca">Troca de produto</option><option value="cancelar">Cancelar compra</option></select>
+<p><button id="abrir">Abrir chamado</button></p><p id="ok"></p>
+<script>
+  document.getElementById("abrir").onclick = () => {
+    const assunto = document.getElementById("assunto").value;
+    if (!assunto) { document.getElementById("ok").textContent = "Escolha um assunto."; return; }
+    parent.registrar({ chamado: assunto });
+    document.getElementById("ok").textContent = "Chamado aberto.";
+  };
+</script></body></html>'></iframe>
+<p id="aviso" role="status"></p>
+</body></html>

@@ -1,0 +1,16 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Escolha seu plano</title><link rel="stylesheet" href="/_comum.css"><script src="/_comum.js"></script></head>
+<body data-tarefa="05-radio-plano">
+<h1>Escolha seu plano</h1>
+<div class="cartao"><label><input type="radio" name="plano" value="mensal" checked> Mensal — R$ 29,90/mês</label></div>
+<div class="cartao"><label><input type="radio" name="plano" value="trimestral"> Trimestral — R$ 79,90</label></div>
+<div class="cartao"><label><input type="radio" name="plano" value="anual"> Anual — R$ 269,90 (economize 25%)</label></div>
+<button id="continuar">Continuar</button>
+<p id="aviso" role="status"></p>
+<script>
+  continuar.onclick = () => {
+    const plano = document.querySelector('input[name=plano]:checked').value;
+    registrar({ plano });
+    avisar(`Plano ${plano} selecionado. Próximo passo: pagamento.`);
+  };
+</script>
+</body></html>

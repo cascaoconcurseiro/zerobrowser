@@ -1,0 +1,16 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Meu perfil</title><link rel="stylesheet" href="/_comum.css"><script src="/_comum.js"></script></head>
+<body data-tarefa="03-selecionar-cidade">
+<h1>Meu perfil</h1>
+<label for="cidade">Cidade</label>
+<select id="cidade">
+  <option value="belo-horizonte">Belo Horizonte</option><option value="curitiba">Curitiba</option>
+  <option value="florianopolis">Florianópolis</option><option value="porto-alegre">Porto Alegre</option>
+  <option value="porto-velho">Porto Velho</option><option value="recife">Recife</option>
+  <option value="rio-de-janeiro">Rio de Janeiro</option><option value="sao-paulo" selected>São Paulo</option>
+</select>
+<div><button id="salvar">Salvar alterações</button></div>
+<p id="aviso" role="status"></p>
+<script>
+  salvar.onclick = () => { registrar({ salvo: { cidade: cidade.value } }); avisar(`Cidade salva: ${cidade.selectedOptions[0].textContent}.`); };
+</script>
+</body></html>

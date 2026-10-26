@@ -1,0 +1,49 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Loja Sonora</title><link rel="stylesheet" href="/_comum.css"><script src="/_comum.js"></script></head>
+<body data-tarefa="31-carrinho-orcamento">
+<h1>Loja Sonora</h1>
+<div id="vitrine"></div>
+<section class="cartao" aria-labelledby="titulo-carrinho">
+  <h2 id="titulo-carrinho">Carrinho</h2>
+  <ul id="carrinho"></ul>
+  <p>Subtotal: <strong id="subtotal">R$ 0,00</strong></p>
+  <label for="cupom">Cupom</label><input id="cupom"><button id="aplicar">Aplicar cupom</button>
+  <p id="cupom-status"></p>
+  <button id="finalizar">Finalizar pedido</button>
+</section>
+<p id="aviso" role="status"></p>
+<script>
+  const produtos = [
+    { id: 'fone-pro', nome: 'Fone Pro sem fio', categoria: 'Áudio', preco: 249.0, selo: 'Mais vendido' },
+    { id: 'cabo-usbc-2m', nome: 'Cabo USB-C 2 m', categoria: 'Cabos', preco: 29.9 },
+    { id: 'suporte-parede', nome: 'Suporte de parede', categoria: 'Suportes', preco: 99.9 },
+    { id: 'caixa-som', nome: 'Caixa de som portátil', categoria: 'Áudio', preco: 129.9, de: 159.9 },
+    { id: 'hdmi-2m', nome: 'Cabo HDMI 2 m', categoria: 'Cabos', preco: 39.9 },
+    { id: 'fone-basico', nome: 'Fone com fio básico', categoria: 'Áudio', preco: 89.9 },
+    { id: 'suporte-mesa', nome: 'Suporte de mesa articulado', categoria: 'Suportes', preco: 79.9 },
+    { id: 'cabo-usbc-1m', nome: 'Cabo USB-C 1 m', categoria: 'Cabos', preco: 19.9 },
+    { id: 'suporte-notebook', nome: 'Suporte para notebook', categoria: 'Suportes', preco: 119.0, de: 89.9 }
+  ];
+  // "de" maior que o preço é promoção; no suporte-notebook o "de" é menor (preço subiu) para confundir.
+  const real = (v) => 'R$ ' + v.toFixed(2).replace('.', ',');
+  const carrinho = [];
+  let cupom = null;
+  vitrine.innerHTML = produtos.map((p) => `<article class="cartao"><h3>${p.nome}</h3><p>Categoria: ${p.categoria}${p.selo ? ' · ' + p.selo : ''}</p><p>${p.de ? `<s>${real(p.de)}</s> ` : ''}<strong>${real(p.preco)}</strong></p><button data-id="${p.id}">Adicionar ${p.nome}</button></article>`).join('');
+  const subtotal = () => Math.round(carrinho.reduce((s, id) => s + produtos.find((p) => p.id === id).preco, 0) * 100) / 100;
+  const desenhar = () => {
+    document.getElementById('carrinho').innerHTML = carrinho.map((id, i) => `<li>${produtos.find((p) => p.id === id).nome} <button data-remover="${i}">Remover</button></li>`).join('') || '<li>Vazio</li>';
+    document.getElementById('subtotal').textContent = real(subtotal());
+  };
+  vitrine.onclick = (e) => { const id = e.target.dataset.id; if (id) { carrinho.push(id); desenhar(); avisar('Adicionado.'); } };
+  document.getElementById('carrinho').onclick = (e) => { const i = e.target.dataset.remover; if (i !== undefined) { carrinho.splice(Number(i), 1); desenhar(); } };
+  aplicar.onclick = () => {
+    cupom = document.getElementById('cupom').value.trim().toUpperCase() || null;
+    document.getElementById('cupom-status').textContent = cupom ? `Cupom ${cupom} aplicado.` : 'Nenhum cupom.';
+  };
+  finalizar.onclick = () => {
+    if (!carrinho.length) { avisar('Carrinho vazio.'); return; }
+    registrar({ pedido: { itens: [...carrinho], cupom, subtotal: subtotal() } });
+    avisar('Pedido finalizado.');
+  };
+  desenhar();
+</script>
+</body></html>

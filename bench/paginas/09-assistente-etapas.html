@@ -1,0 +1,39 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Cadastro</title><link rel="stylesheet" href="/_comum.css"><script src="/_comum.js"></script></head>
+<body data-tarefa="09-assistente-etapas">
+<h1>Cadastro — <span id="titulo-etapa">Etapa 1 de 3: seus dados</span></h1>
+<section id="etapa1">
+  <label for="nome">Nome completo</label><input id="nome">
+  <label for="telefone">Telefone</label><input id="telefone" type="tel" placeholder="(00) 00000-0000">
+  <div><button id="avancar1">Próximo</button></div>
+</section>
+<section id="etapa2" hidden>
+  <label for="cep">CEP</label><input id="cep" placeholder="00000-000">
+  <label for="numero">Número</label><input id="numero">
+  <div><button id="voltar2">Voltar</button><button id="avancar2">Próximo</button></div>
+</section>
+<section id="etapa3" hidden>
+  <p>Confira seus dados:</p>
+  <ul id="resumo"></ul>
+  <div><button id="voltar3">Voltar</button><button id="concluir">Concluir cadastro</button></div>
+</section>
+<p id="aviso" role="status"></p>
+<script>
+  const mostrar = (n) => {
+    [etapa1, etapa2, etapa3].forEach((secao, i) => { secao.hidden = i !== n - 1; });
+    document.getElementById('titulo-etapa').textContent = ['Etapa 1 de 3: seus dados', 'Etapa 2 de 3: endereço', 'Etapa 3 de 3: confirmação'][n - 1];
+    registrar({ etapa: n });
+  };
+  avancar1.onclick = () => (nome.value && telefone.value ? mostrar(2) : avisar('Preencha nome e telefone.'));
+  avancar2.onclick = () => {
+    if (!cep.value || !numero.value) { avisar('Preencha CEP e número.'); return; }
+    resumo.innerHTML = `<li>Nome: ${nome.value}</li><li>Telefone: ${telefone.value}</li><li>CEP: ${cep.value}</li><li>Número: ${numero.value}</li>`;
+    mostrar(3);
+  };
+  voltar2.onclick = () => mostrar(1);
+  voltar3.onclick = () => mostrar(2);
+  concluir.onclick = () => {
+    registrar({ concluido: { nome: nome.value, telefone: telefone.value, cep: cep.value, numero: numero.value } });
+    avisar('Cadastro concluído com sucesso.');
+  };
+</script>
+</body></html>

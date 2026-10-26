@@ -1,0 +1,45 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Contatos</title><link rel="stylesheet" href="/_comum.css"><script src="/_comum.js"></script></head>
+<body data-tarefa="08-paginacao">
+<h1>Contatos</h1>
+<table><thead><tr><th>Nome</th><th>Cidade</th><th></th></tr></thead><tbody id="linhas"></tbody></table>
+<nav aria-label="Páginas" id="paginas"></nav>
+<p id="pagina-atual"></p>
+<p id="aviso" role="status"></p>
+<script>
+  const contatos = ['Ana Beatriz Lima', 'Bruno Carvalho', 'Camila Duarte', 'Daniel Esteves', 'Eduarda Farias',
+    'Felipe Gomes', 'Gabriela Henriques', 'Heitor Igarashi', 'Isabela Jardim', 'João Kalil',
+    'Larissa Moreira', 'Marina Albuquerque', 'Nicolas Oliveira', 'Olívia Pacheco', 'Pedro Queiroz',
+    'Rafaela Santos', 'Samuel Teixeira', 'Tatiana Uchoa', 'Vinícius Vieira', 'Yasmin Xavier']
+    .map((nome) => ({ nome, id: nome.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, '-') }));
+  const favoritos = new Set();
+  let pagina = 1;
+  const desenhar = () => {
+    linhas.innerHTML = '';
+    for (const contato of contatos.slice((pagina - 1) * 5, pagina * 5)) {
+      const linha = document.createElement('tr');
+      const favorito = favoritos.has(contato.id);
+      linha.innerHTML = `<td>${contato.nome}</td><td>Porto Alegre</td><td><button aria-label="${favorito ? 'Remover dos favoritos' : 'Favoritar'} ${contato.nome}">${favorito ? '★ Favorito' : '☆ Favoritar'}</button></td>`;
+      linha.querySelector('button').onclick = () => {
+        favorito ? favoritos.delete(contato.id) : favoritos.add(contato.id);
+        registrar({ favoritos: [...favoritos] });
+        avisar(`${contato.nome} ${favorito ? 'removido dos' : 'adicionado aos'} favoritos.`);
+        desenhar();
+      };
+      linhas.append(linha);
+    }
+    paginas.innerHTML = '';
+    const botao = (rotulo, destino, ativo = true) => {
+      const b = document.createElement('button');
+      b.textContent = rotulo;
+      b.disabled = !ativo;
+      b.onclick = () => { pagina = destino; desenhar(); };
+      paginas.append(b);
+    };
+    botao('Anterior', pagina - 1, pagina > 1);
+    for (let n = 1; n <= 4; n++) botao(String(n), n, n !== pagina);
+    botao('Próxima', pagina + 1, pagina < 4);
+    document.getElementById('pagina-atual').textContent = `Página ${pagina} de 4`;
+  };
+  desenhar();
+</script>
+</body></html>

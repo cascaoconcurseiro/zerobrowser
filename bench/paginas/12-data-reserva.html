@@ -1,0 +1,16 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Reserva de quarto</title><link rel="stylesheet" href="/_comum.css"><script src="/_comum.js"></script></head>
+<body data-tarefa="12-data-reserva">
+<h1>Pousada Vale Verde — reserva</h1>
+<label for="entrada">Data de entrada</label><input id="entrada" type="date" min="2026-10-01" max="2027-12-31">
+<label for="hospedes">Hóspedes</label>
+<select id="hospedes"><option value="1">1 hóspede</option><option value="2">2 hóspedes</option><option value="3">3 hóspedes</option><option value="4">4 hóspedes</option></select>
+<div><button id="reservar">Reservar</button></div>
+<p id="aviso" role="status"></p>
+<script>
+  reservar.onclick = () => {
+    if (!entrada.value) { avisar('Escolha a data de entrada.'); return; }
+    registrar({ reserva: { data: entrada.value, hospedes: hospedes.value } });
+    avisar(`Reserva feita para ${entrada.value.split('-').reverse().join('/')}, ${hospedes.selectedOptions[0].textContent}.`);
+  };
+</script>
+</body></html>

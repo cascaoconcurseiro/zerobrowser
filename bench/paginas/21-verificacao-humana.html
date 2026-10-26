@@ -1,0 +1,23 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Newsletter</title><link rel="stylesheet" href="/_comum.css"><script src="/_comum.js"></script>
+<style>.g-recaptcha { display: flex; align-items: center; gap: 8px; width: 280px; padding: 14px; border: 1px solid #c8ccd4; border-radius: 4px; background: #f9f9f9; }</style></head>
+<body data-tarefa="21-verificacao-humana">
+<h1>Assine a newsletter</h1>
+<form id="form">
+  <label for="email">E-mail</label><input id="email" type="email">
+  <!-- CAPTCHA falso: só tem a aparência e a marcação de um widget real. -->
+  <div class="g-recaptcha" data-sitekey="fixture-local-sem-valor">
+    <input type="checkbox" id="robo"><label for="robo">Não sou um robô</label>
+  </div>
+  <button id="enviar" type="submit">Enviar</button>
+</form>
+<p id="aviso" role="status"></p>
+<script>
+  robo.onchange = () => registrar({ marcado: robo.checked });
+  form.onsubmit = (event) => {
+    event.preventDefault();
+    if (!robo.checked) { avisar('Confirme que você não é um robô.'); return; }
+    registrar({ enviado: email.value });
+    avisar('Inscrição feita.');
+  };
+</script>
+</body></html>

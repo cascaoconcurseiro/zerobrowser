@@ -1,0 +1,24 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Central de relatórios</title><link rel="stylesheet" href="/_comum.css"><script src="/_comum.js"></script></head>
+<body data-tarefa="15-lista-longa">
+<h1>Central de relatórios</h1>
+<p>Índice de documentos arquivados. Os botões para gerar relatórios ficam no fim da página.</p>
+<nav id="indice" aria-label="Índice de documentos"></nav>
+<section class="cartao">
+  <h2>Gerar relatórios</h2>
+  <button id="mensal">Gerar relatório mensal</button>
+  <button id="anual">Gerar relatório anual</button>
+</section>
+<p id="aviso" role="status"></p>
+<script>
+  // 300 links antes dos botões: mais controles do que cabem num snapshot de 250 nós.
+  for (let n = 1; n <= 300; n++) {
+    const link = document.createElement('a');
+    link.href = `#documento-${n}`;
+    link.textContent = `Documento arquivado ${n}`;
+    link.style.display = 'block';
+    indice.append(link);
+  }
+  mensal.onclick = () => { registrar({ relatorio: 'mensal' }); avisar('Relatório mensal gerado.'); };
+  anual.onclick = () => { registrar({ relatorio: 'anual' }); avisar('Relatório anual gerado.'); };
+</script>
+</body></html>

@@ -1,0 +1,34 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Painel</title><link rel="stylesheet" href="/_comum.css"><script src="/_comum.js"></script>
+<style>
+  nav { display: flex; gap: 16px; }
+  .menu { position: relative; padding: 6px 10px; border: 1px solid #9aa3b5; border-radius: 6px; cursor: default; }
+  .sub { position: absolute; top: 100%; left: 0; background: #fff; border: 1px solid #9aa3b5; border-radius: 6px; padding: 6px; min-width: 180px; }
+  .sub .sub { left: 100%; top: 0; }
+</style></head>
+<body data-tarefa="36-menu-hover">
+<h1>Painel</h1>
+<nav aria-label="Principal">
+  <div class="menu" id="m-ajuda">Ajuda</div>
+  <div class="menu" id="m-conta">Conta</div>
+</nav>
+<p id="aviso" role="status"></p>
+<script>
+  // Os submenus só existem no DOM enquanto o ponteiro está em cima (como muitos menus reais).
+  const montar = (pai, html) => { const s = document.createElement('div'); s.className = 'sub'; s.innerHTML = html; pai.appendChild(s); return s; };
+  const conta = document.getElementById('m-conta');
+  conta.addEventListener('mouseenter', () => {
+    if (conta.querySelector('.sub')) return;
+    const sub = montar(conta, '<div id="perfil">Perfil</div><div id="exportar" style="position:relative">Exportar dados ▸</div><div id="sair">Sair</div>');
+    const exportar = sub.querySelector('#exportar');
+    exportar.addEventListener('mouseenter', () => {
+      if (exportar.querySelector('.sub')) return;
+      const formatos = montar(exportar, '<span data-f="pdf">PDF</span><br><span data-f="csv">CSV</span><br><span data-f="json">JSON</span>');
+      formatos.onclick = (e) => { const f = e.target.dataset.f; if (f) { registrar({ exportar: f }); avisar(`Exportação em ${f.toUpperCase()} iniciada.`); } };
+    });
+    exportar.addEventListener('mouseleave', () => exportar.querySelector('.sub')?.remove());
+  });
+  conta.addEventListener('mouseleave', () => conta.querySelector('.sub')?.remove());
+  document.getElementById('m-ajuda').addEventListener('mouseenter', (e) => { if (!e.target.querySelector('.sub')) montar(e.target, '<div>Central de ajuda</div><div>Falar conosco</div>'); });
+  document.getElementById('m-ajuda').addEventListener('mouseleave', (e) => e.target.querySelector('.sub')?.remove());
+</script>
+</body></html>

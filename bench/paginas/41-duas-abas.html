@@ -1,0 +1,26 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Cotação de frete</title><link rel="stylesheet" href="/_comum.css"><script src="/_comum.js"></script></head>
+<body data-tarefa="41-duas-abas">
+<main id="tela"></main>
+<p id="aviso" role="status"></p>
+<script>
+  // O preço de cada transportadora só aparece na página dela, que abre em outra aba (target=_blank).
+  const fretes = { rapidex: { nome: 'Rapidex', preco: 'R$ 47,90', prazo: '3 dias' }, cargaleve: { nome: 'CargaLeve', preco: 'R$ 39,50', prazo: '6 dias' } };
+  const escolhida = new URLSearchParams(location.search).get('t');
+  if (fretes[escolhida]) {
+    const f = fretes[escolhida];
+    document.title = `${f.nome} — cotação`;
+    tela.innerHTML = `<h1>${f.nome}</h1><div class="cartao"><p>Frete para o CEP 90010-000: <strong>${f.preco}</strong></p><p>Prazo: ${f.prazo}</p></div>`;
+  } else {
+    tela.innerHTML = `<h1>Cotação de frete</h1>
+      <p>Veja a cotação de cada transportadora (abre em outra aba):</p>
+      <ul><li><a href="?t=rapidex" target="_blank">Cotação Rapidex</a></li><li><a href="?t=cargaleve" target="_blank">Cotação CargaLeve</a></li></ul>
+      <form id="form" class="cartao"><label for="transp">Transportadora escolhida</label><select id="transp"><option value="">Escolha…</option><option value="rapidex">Rapidex</option><option value="cargaleve">CargaLeve</option></select>
+      <label for="valor">Valor do frete</label><input id="valor"><button type="submit">Confirmar frete</button></form>`;
+    form.onsubmit = (e) => {
+      e.preventDefault();
+      registrar({ escolha: { transportadora: transp.value, valor: valor.value.trim() } });
+      avisar('Frete confirmado.');
+    };
+  }
+</script>
+</body></html>

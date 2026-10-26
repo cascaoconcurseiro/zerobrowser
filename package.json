@@ -1,0 +1,57 @@
+{
+  "name": "navegante",
+  "version": "0.1.1",
+  "description": "Navegador com agente de IA - versão própria baseada em arquitetura REA",
+  "main": "src/main/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "build": "electron-builder",
+    "automation": "node src/automation/service/index.js",
+    "test": "node --test",
+    "test:electron": "electron scripts/electron-ax.integration.js",
+    "test:bench-store": "electron scripts/electron-bench-store.integration.js",
+    "test:agent-download": "electron scripts/electron-agent-download.integration.js",
+    "test:installed": "node scripts/installed-agent.integration.js",
+    "bench": "node bench/avaliar.js",
+    "mcp": "node scripts/mcp-stdio.js"
+  },
+  "keywords": [
+    "browser",
+    "automation",
+    "ai",
+    "electron"
+  ],
+  "author": "Wesley",
+  "license": "MIT",
+  "dependencies": {
+    "abstract-level": "^1.0.0",
+    "classic-level": "^1.0.0",
+    "electron-store": "^10.0.0",
+    "level": "^8.0.0",
+    "level-supports": "^4.0.0",
+    "level-transcoder": "^1.0.0",
+    "tldts": "^7.4.19",
+    "ws": "^8.18.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "electron": "^45.0.0",
+    "electron-builder": "^26.15.7"
+  },
+  "build": {
+    "appId": "com.wesley.navegante",
+    "productName": "Navegante",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "src/**/*",
+      "assets/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": "nsis"
+    }
+  }
+}

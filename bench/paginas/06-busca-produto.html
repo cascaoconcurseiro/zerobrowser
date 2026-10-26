@@ -1,0 +1,39 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Loja de Informática</title><link rel="stylesheet" href="/_comum.css"><script src="/_comum.js"></script></head>
+<body data-tarefa="06-busca-produto">
+<h1>Loja de Informática</h1>
+<label for="busca">Buscar produtos</label>
+<input id="busca" type="search" placeholder="Digite o nome do produto">
+<button id="buscar">Buscar</button>
+<p id="contagem"></p>
+<div id="lista"></div>
+<section id="detalhes" hidden class="cartao" aria-live="polite"></section>
+<script>
+  const produtos = [
+    ['mouse-sem-fio', 'Mouse sem fio', 'R$ 89,90'], ['monitor-24', 'Monitor 24 polegadas', 'R$ 899,00'],
+    ['teclado-us', 'Teclado mecânico US', 'R$ 329,00'], ['webcam-hd', 'Webcam HD', 'R$ 199,00'],
+    ['headset', 'Headset com microfone', 'R$ 249,00'], ['teclado-abnt2', 'Teclado mecânico ABNT2', 'R$ 349,00'],
+    ['hub-usb', 'Hub USB-C 7 em 1', 'R$ 159,00'], ['ssd-1tb', 'SSD 1 TB', 'R$ 429,00'],
+    ['teclado-membrana', 'Teclado de membrana ABNT2', 'R$ 99,00'], ['suporte-notebook', 'Suporte para notebook', 'R$ 119,00'],
+    ['cabo-hdmi', 'Cabo HDMI 2 m', 'R$ 39,90'], ['mousepad', 'Mousepad grande', 'R$ 59,90']
+  ];
+  const desenhar = (termo = '') => {
+    const achados = produtos.filter(([, nome]) => nome.toLowerCase().includes(termo.trim().toLowerCase()));
+    contagem.textContent = `${achados.length} produto(s)`;
+    lista.innerHTML = '';
+    for (const [id, nome, preco] of achados) {
+      const cartao = document.createElement('div');
+      cartao.className = 'cartao';
+      cartao.innerHTML = `<strong>${nome}</strong> — ${preco} <button aria-label="Ver detalhes de ${nome}">Ver detalhes</button>`;
+      cartao.querySelector('button').onclick = () => {
+        registrar({ aberto: id });
+        detalhes.hidden = false;
+        detalhes.innerHTML = `<h2>${nome}</h2><p>Preço: ${preco}. Garantia de 12 meses.</p>`;
+      };
+      lista.append(cartao);
+    }
+  };
+  buscar.onclick = () => desenhar(busca.value);
+  busca.onkeydown = (event) => { if (event.key === 'Enter') desenhar(busca.value); };
+  desenhar();
+</script>
+</body></html>

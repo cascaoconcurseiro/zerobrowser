@@ -1,0 +1,39 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Faturas</title><link rel="stylesheet" href="/_comum.css"><script src="/_comum.js"></script></head>
+<body data-tarefa="14-excluir-linha">
+<h1>Faturas</h1>
+<table><thead><tr><th>Mês</th><th>Valor</th><th></th></tr></thead><tbody id="linhas"></tbody></table>
+<div id="confirmacao" role="dialog" aria-modal="true" aria-labelledby="pergunta" class="cartao" hidden>
+  <p id="pergunta"></p>
+  <button id="sim">Sim, excluir</button><button id="voltar">Voltar</button>
+</div>
+<p id="aviso" role="status"></p>
+<script>
+  const faturas = [['janeiro', 'Janeiro', 'R$ 210,00'], ['fevereiro', 'Fevereiro', 'R$ 198,40'], ['marco', 'Março', 'R$ 225,10'], ['abril', 'Abril', 'R$ 204,90']];
+  const removidas = [];
+  let pendente = null;
+  const desenhar = () => {
+    linhas.innerHTML = '';
+    for (const [id, mes, valor] of faturas.filter(([id]) => !removidas.includes(id))) {
+      const linha = document.createElement('tr');
+      linha.innerHTML = `<td>${mes}</td><td>${valor}</td><td><button aria-label="Excluir fatura de ${mes}">Excluir</button></td>`;
+      linha.querySelector('button').onclick = () => {
+        pendente = id;
+        pergunta.textContent = `Tem certeza que deseja excluir a fatura de ${mes}?`;
+        confirmacao.hidden = false;
+      };
+      linhas.append(linha);
+    }
+  };
+  sim.onclick = () => {
+    if (!pendente) return;
+    removidas.push(pendente);
+    registrar({ removidas });
+    avisar('Fatura excluída.');
+    pendente = null;
+    confirmacao.hidden = true;
+    desenhar();
+  };
+  voltar.onclick = () => { pendente = null; confirmacao.hidden = true; };
+  desenhar();
+</script>
+</body></html>

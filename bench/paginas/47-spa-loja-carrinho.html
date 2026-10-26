@@ -1,0 +1,97 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Loja Aurora — demonstração</title><link rel="stylesheet" href="/_comum.css"><script src="/_comum.js"></script>
+<style>
+  body{font:16px system-ui,sans-serif;margin:24px;background:#f4f6f8;color:#20242a}main{max-width:1000px;margin:auto}header,.layout,.card,.modal,.cart{background:white;border:1px solid #d7dce2;border-radius:10px;padding:16px;margin:12px 0}.layout{display:grid;grid-template-columns:240px 1fr;gap:18px}aside label{display:block;margin:12px 0}.products{display:grid;grid-template-columns:repeat(2,minmax(240px,1fr));gap:12px}.card h2{margin-top:4px}button,select,input{font:inherit;padding:8px;margin:4px}button{cursor:pointer}.modal{position:fixed;inset:16% 25%;box-shadow:0 12px 50px #0005;max-height:65vh;overflow:auto}output{display:block;padding:8px;color:#3c515f}
+</style></head>
+<body data-tarefa="47-spa-loja-carrinho"><main id="app" aria-live="polite"></main><p id="aviso" role="status"></p>
+<script>
+(() => {
+  const taskId = document.body.dataset.tarefa;
+  const app = document.getElementById('app');
+  const catalog = [
+    { id:'aurora-x-pro', name:'Fone Aurora X Pro', brand:'Aurora', category:'Áudio', rating:4.8, variants:[
+      { color:'Preto', connection:'Bluetooth 5.3', sku:'AUR-XP-BLK-53', price:'749.90' },
+      { color:'Azul', connection:'Bluetooth 5.3', sku:'AUR-XP-BLU-53', price:'729.90' },
+      { color:'Preto', connection:'Bluetooth 5.2', sku:'AUR-XP-BLK-52', price:'699.90' }
+    ]},
+    { id:'aurora-x-lite', name:'Fone Aurora X Lite', brand:'Aurora', category:'Áudio', rating:4.6, variants:[{color:'Preto',connection:'Bluetooth 5.3',sku:'AUR-XL-BLK-53',price:'399.90'}]},
+    { id:'aurora-speaker', name:'Caixa Aurora Mini', brand:'Aurora', category:'Áudio', rating:4.3, variants:[{color:'Preto',connection:'Bluetooth 5.3',sku:'AUR-CM-BLK-53',price:'529.90'}]},
+    { id:'nebula-pro', name:'Fone Nebula Pro', brand:'Nebula', category:'Áudio', rating:4.9, variants:[{color:'Preto',connection:'Bluetooth 5.3',sku:'NEB-NP-BLK-53',price:'779.90'}]},
+    { id:'aurora-keyboard', name:'Teclado Aurora Compact', brand:'Aurora', category:'Acessórios', rating:4.7, variants:[{color:'Preto',connection:'Bluetooth 5.3',sku:'AUR-KC-BLK-53',price:'349.90'}]},
+    { id:'sonora-x-pro', name:'Fone Sonora X Pro', brand:'Sonora', category:'Áudio', rating:4.5, variants:[{color:'Preto',connection:'Bluetooth 5.3',sku:'SON-XP-BLK-53',price:'749.90'}]},
+    { id:'aurora-studio', name:'Fone Aurora Studio', brand:'Aurora', category:'Áudio', rating:4.9, variants:[{color:'Preto',connection:'Bluetooth 5.3',sku:'AUR-ST-BLK-53',price:'899.90'}]},
+    { id:'aurora-x-pro-used', name:'Fone Aurora X Pro (mostruário)', brand:'Aurora', category:'Áudio', rating:3.9, variants:[{color:'Preto',connection:'Bluetooth 5.3',sku:'AUR-XP-BLK-53-M',price:'599.90'}]}
+  ];
+  const state = { view:'loading', query:'', category:false, brand:false, maxPrice:'', rows:[], request:0, timer:0, product:null, color:'', connection:'', variantTouched:{color:false,connection:false}, quantity:1, cart:[] };
+  const esc = (s) => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const norm = (s) => String(s).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt-BR');
+  const etap = (s) => { if (!state.etapas) state.etapas=[]; if (!state.etapas.includes(s)) state.etapas.push(s); };
+  const markIfFiltered = () => {
+    if (norm(state.query).includes('aurora')) etap('busca:aurora');
+    if (state.category && state.brand && state.maxPrice === '800' && state.rows.some(p=>p.id==='aurora-x-pro')) etap('filtro:audio-aurora-ate-800');
+  };
+  const filtered = () => catalog.filter(p => {
+    const hay = norm(`${p.name} ${p.brand} ${p.category}`);
+    const max = Number(state.maxPrice || Infinity);
+    return (!state.query || hay.includes(norm(state.query)))
+      && (!state.category || p.category === 'Áudio')
+      && (!state.brand || p.brand === 'Aurora')
+      && Math.min(...p.variants.map(v=>Number(v.price))) < max;
+  });
+  const load = () => {
+    const id = ++state.request;
+    state.view='loading-results'; render();
+    const query = state.query;
+    const delay = query.length % 2 ? 680 : 260;
+    setTimeout(() => {
+      if (id !== state.request) return;
+      state.rows=filtered(); state.view='catalog'; markIfFiltered(); render();
+    }, delay);
+  };
+  const startSearch = () => { state.request++; clearTimeout(state.timer); state.timer=setTimeout(load,300); };
+  const render = () => {
+    const header = `<header><h1>Loja Aurora — catálogo de demonstração</h1><button type="button" id="show-cart">Carrinho (${state.cart.reduce((n,i)=>n+i.quantity,0)})</button></header>`;
+    if (state.view==='loading') { app.innerHTML=header+'<p role="status">Carregando catálogo…</p>'; return; }
+    if (state.view==='loading-results') { app.innerHTML=header+`<p role="status">Atualizando busca e filtros…</p>`; return; }
+    if (state.view==='catalog') {
+      const filters=`<aside><h2>Filtros</h2><label><input type="checkbox" id="category" ${state.category?'checked':''}> Categoria Áudio</label><label><input type="checkbox" id="brand" ${state.brand?'checked':''}> Marca Aurora</label><label for="max-price">Preço máximo</label><select id="max-price"><option value="">Sem limite</option><option value="800" ${state.maxPrice==='800'?'selected':''}>Até R$ 800</option><option value="600" ${state.maxPrice==='600'?'selected':''}>Até R$ 600</option></select></aside>`;
+      const products=state.rows.map(p=>`<article class="card"><h2>${esc(p.name)}</h2><p>Marca: ${esc(p.brand)} · Categoria: ${esc(p.category)}</p><p>Avaliação: ${p.rating} · a partir de R$ ${Math.min(...p.variants.map(v=>Number(v.price))).toFixed(2)}</p><button type="button" data-open="${esc(p.id)}">Ver opções</button></article>`).join('')||'<p>Nenhum produto encontrado.</p>';
+      app.innerHTML=header+`<div class="layout">${filters}<section><label for="search">Buscar produtos</label><input id="search" value="${esc(state.query)}" placeholder="Nome, categoria ou marca"><p>Resultados: ${state.rows.length}</p><div class="products">${products}</div></section></div>`; return;
+    }
+    if (state.view==='modal') {
+      const variants=state.product.variants;
+      app.innerHTML=header+`<section class="modal" role="dialog" aria-label="Opções do produto"><h2>${esc(state.product.name)}</h2><p>Marca: ${esc(state.product.brand)} · Categoria: ${esc(state.product.category)}</p><label for="color">Cor</label><select id="color"><option value="" disabled ${!state.color?'selected':''}>Escolha a cor</option>${[...new Set(variants.map(v=>v.color))].map(x=>`<option value="${esc(x)}" ${state.color===x?'selected':''}>${esc(x)}</option>`).join('')}</select><label for="connection">Conexão</label><select id="connection"><option value="" disabled ${!state.connection?'selected':''}>Escolha a conexão</option>${[...new Set(variants.filter(v=>v.color===state.color).map(v=>v.connection))].map(x=>`<option value="${esc(x)}" ${state.connection===x?'selected':''}>${esc(x)}</option>`).join('')}</select><p>SKU: <output id="sku">${esc(variants.find(v=>v.color===state.color&&v.connection===state.connection)?.sku||'selecione')}</output></p><p>Preço: <output id="price">R$ ${esc(variants.find(v=>v.color===state.color&&v.connection===state.connection)?.price||'—')}</output></p><label for="quantity">Quantidade</label><input id="quantity" type="number" min="1" max="5" value="${state.quantity}"><button type="button" id="add-cart">Adicionar ao carrinho</button><button type="button" id="back-catalog">Voltar ao catálogo</button></section>`; return;
+    }
+    if (state.view==='cart') {
+      const total=state.cart.reduce((sum,i)=>sum+Number(i.precoUnitario)*i.quantity,0);
+      app.innerHTML=header+`<section class="cart"><h2>Seu carrinho</h2>${state.cart.map(i=>`<article><h3>${esc(i.produto)}</h3><p>SKU: ${esc(i.sku)}</p><p>Marca: ${esc(i.marca)} · Categoria: ${esc(i.categoria)}</p><p>Cor: ${esc(i.cor)} · Conexão: ${esc(i.conexao)}</p><p>Quantidade: ${i.quantity}</p><p>Preço unitário: R$ ${esc(i.precoUnitario)}</p><p>Subtotal: R$ ${esc((Number(i.precoUnitario)*i.quantity).toFixed(2))}</p></article>`).join('')||'<p>Carrinho vazio.</p>'}<p>Total: R$ ${total.toFixed(2)}</p></section>`; return;
+    }
+  };
+  app.addEventListener('input', e=>{
+    if(e.target.id==='search'){state.query=e.target.value;startSearch();}
+    if(e.target.id==='quantity') state.quantity=Math.max(1,Math.min(5,Number(e.target.value)||1));
+  });
+  app.addEventListener('change', e=>{
+    if(e.target.id==='category'){state.category=e.target.checked;load();}
+    if(e.target.id==='brand'){state.brand=e.target.checked;load();}
+    if(e.target.id==='max-price'){state.maxPrice=e.target.value;load();}
+    if(e.target.id==='color'){state.color=e.target.value;state.connection='';state.variantTouched.color=true;render();}
+    if(e.target.id==='connection'){state.connection=e.target.value;state.variantTouched.connection=true;}
+  });
+  app.addEventListener('click', async e=>{
+    if(e.target.id==='show-cart'){state.view='cart';render();return;}
+    const open=e.target.closest('[data-open]');
+    if(open){state.product=state.rows.find(p=>p.id===open.dataset.open);if(!state.product)return;state.color='';state.connection='';state.variantTouched={color:false,connection:false};state.view='modal';render();return;}
+    if(e.target.id==='back-catalog'){state.view='catalog';render();return;}
+    if(e.target.id==='add-cart'){
+      const v=state.product.variants.find(x=>x.color===state.color&&x.connection===state.connection);if(!v||!state.variantTouched.color||!state.variantTouched.connection)return;
+      const found=state.cart.find(x=>x.sku===v.sku);if(found)found.quantity+=state.quantity;else state.cart.push({sku:v.sku,produto:state.product.name,marca:state.product.brand,categoria:state.product.category,cor:v.color,conexao:v.connection,quantidade:state.quantity,precoUnitario:v.price,quantity:state.quantity});
+      const item=state.cart.find(x=>x.sku===v.sku);item.quantity=state.quantity;item.subtotal=(Number(item.precoUnitario)*item.quantity).toFixed(2);
+      etap(`variante:${v.sku}`);etap(`carrinho:${v.sku}:${item.quantity}`);state.view='cart';render();
+      await registrar({carrinho:{itens:state.cart.map(({quantity,...item})=>({...item,quantidade:quantity,subtotal:(Number(item.precoUnitario)*quantity).toFixed(2)}))},etapas:state.etapas});
+      avisar('Produto adicionado ao carrinho de demonstração.');
+    }
+  });
+  render();
+  setTimeout(()=>{state.rows=filtered();state.view='catalog';render();},650);
+})();
+</script></main></body></html>

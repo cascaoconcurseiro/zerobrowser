@@ -1,0 +1,15 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Assinaturas</title><link rel="stylesheet" href="/_comum.css"><script src="/_comum.js"></script></head>
+<body data-tarefa="40-pedido-impossivel">
+<h1>Suas assinaturas</h1>
+<article class="cartao"><h2>Plano Família</h2><p>R$ 34,90/mês · 4 telas</p><button data-plano="familia">Cancelar assinatura</button></article>
+<article class="cartao"><h2>Plano Básico</h2><p>R$ 19,90/mês · 1 tela · Upgrade para Premium disponível</p><button data-plano="basico">Cancelar assinatura</button></article>
+<p id="aviso" role="status"></p>
+<script>
+  document.body.onclick = (e) => {
+    const plano = e.target.dataset.plano;
+    if (!plano) return;
+    registrar({ cancelado: plano });
+    avisar('Assinatura cancelada.');
+  };
+</script>
+</body></html>

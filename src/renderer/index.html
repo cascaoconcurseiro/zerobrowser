@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Navegante</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="app">
+    <div id="titlebar">
+      <div id="window-controls">
+        <button id="btn-minimize" class="window-btn" title="Minimizar">−</button>
+        <button id="btn-maximize" class="window-btn" title="Maximizar">□</button>
+        <button id="btn-close" class="window-btn" title="Fechar">×</button>
+      </div>
+      <div id="tab-bar" class="tab-bar" role="tablist">
+        <div id="tabs-container" class="tabs-container"></div>
+        <button id="btn-new-tab" class="tab-btn" title="Nova aba (Ctrl+T)">+</button>
+      </div>
+    </div>
+
+    <div id="toolbar">
+      <div class="toolbar-group">
+        <button id="btn-back" class="toolbar-btn" title="Voltar (Alt+←)" disabled>←</button>
+        <button id="btn-forward" class="toolbar-btn" title="Avançar (Alt+→)" disabled>→</button>
+        <button id="btn-reload" class="toolbar-btn" title="Recarregar (Ctrl+R)">↻</button>
+        <button id="btn-home" class="toolbar-btn" title="Início">⌂</button>
+      </div>
+      <div class="toolbar-group address-bar-container">
+        <input type="text" id="address-bar" class="address-bar" placeholder="Digite um URL ou termo de pesquisa" spellcheck="false"
+          role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="url-suggestions" aria-label="Endereço ou pesquisa">
+        <button id="btn-bookmark" class="bookmark-star" type="button" aria-pressed="false" aria-label="Adicionar aos favoritos (Ctrl+D)" title="Adicionar aos favoritos (Ctrl+D)">☆</button>
+        <ul id="url-suggestions" class="url-suggestions hidden" role="listbox" aria-label="Sugestões"></ul>
+      </div>
+      <div class="toolbar-group">
+        <button id="btn-flame" class="toolbar-btn hidden" title="Flame (agente da extensão)" aria-label="Abrir o Flame" aria-pressed="false">🔥</button>
+        <button id="btn-extensions" class="toolbar-btn" title="Extensões">🧩</button>
+        <button id="btn-settings" class="toolbar-btn" title="Configurações">⚙</button>
+        <button id="btn-ai" class="toolbar-btn primary" title="Agente de IA (Ctrl+Shift+A)">🤖</button>
+      </div>
+    </div>
+
+    <nav id="bookmarks-bar" class="bookmarks-bar hidden" aria-label="Barra de favoritos">
+      <ul id="bookmarks-bar-items" class="bookmarks-bar-items"></ul>
+      <button id="bookmarks-bar-more" class="bookmark-item bookmarks-bar-more" type="button" aria-haspopup="menu" title="Mais favoritos" hidden>»</button>
+      <p id="bookmarks-bar-empty" class="bookmarks-bar-empty">Para guardar um site aqui, clique na estrela ☆ da barra de endereço.</p>
+    </nav>
+
+    <div id="browser-container">
+    </div>
+
+    <div id="ai-panel" class="panel hidden">
+      <div class="panel-header">
+        <div class="panel-heading">
+          <span class="panel-kicker">NAVEGANTE</span>
+          <strong>Agente de IA</strong>
+          <span class="panel-subtitle">Peça ao agente para trabalhar na aba atual.</span>
+        </div>
+        <button id="btn-close-ai" class="panel-close" aria-label="Fechar agente">×</button>
+      </div>
+      <div class="ai-toolbar">
+        <label class="field-label" for="ai-provider">Provedor</label>
+        <select id="ai-provider" class="ai-select" aria-label="Provedor de IA">
+          <option value="openrouter">OpenRouter</option>
+          <option value="deepseek">DeepSeek direto</option>
+        </select>
+        <label class="field-label" for="ai-model">Modelo</label>
+        <div class="ai-model-row">
+          <select id="ai-model" class="ai-select" aria-label="Modelo de IA">
+            <option value="">Sincronize os modelos</option>
+          </select>
+          <button id="btn-ai-refresh-models" class="btn-secondary" title="Atualizar modelos">Atualizar</button>
+        </div>
+        <label class="field-label" for="ai-api-key">Chave API</label>
+        <div class="ai-key-input-row">
+          <input type="password" id="ai-api-key" class="ai-input" placeholder="Chave API do OpenRouter" autocomplete="new-password">
+          <button id="btn-ai-toggle-key" class="btn-secondary" type="button" aria-pressed="false">Mostrar</button>
+        </div>
+        <button id="btn-ai-save-key" class="btn-secondary">Salvar chave</button>
+        <span id="ai-model-status" class="ai-model-status" role="status"></span>
+        <button id="btn-ai-connect" class="btn-primary">Conectar</button>
+      </div>
+      <p id="ai-privacy-note" class="ai-privacy-note">O texto da página será enviado ao provedor selecionado para realizar a tarefa.</p>
+      <div id="ai-chat" class="ai-chat"></div>
+      <div class="ai-input-area">
+        <textarea id="ai-input" class="ai-textarea" placeholder="Descreva a tarefa para o agente... (Enter para enviar, Shift+Enter para nova linha)"></textarea>
+        <button id="btn-ai-send" class="btn-primary">Enviar</button>
+      </div>
+    </div>
+
+    <div id="settings-panel" class="panel hidden">
+      <div class="panel-header">
+        <div class="panel-heading">
+          <span class="panel-kicker">NAVEGANTE</span>
+          <strong>Configurações</strong>
+          <span class="panel-subtitle">Preferências do navegador e do agente.</span>
+        </div>
+        <button id="btn-close-settings" class="panel-close" aria-label="Fechar configurações">×</button>
+      </div>
+      <div class="settings-content">
+        <section class="settings-section">
+          <h3>Geral</h3>
+          <label class="setting-item">
+            <input type="checkbox" id="setting-show-full-url">
+            <span>Mostrar URL completa</span>
+          </label>
+          <label class="setting-item">
+            <input type="checkbox" id="setting-clear-on-exit">
+            <span>Limpar dados ao sair</span>
+          </label>
+          <label class="setting-item">
+            <input type="checkbox" id="setting-restore-session">
+            <span>Reabrir as abas da última vez</span>
+          </label>
+          <label class="setting-item">
+            <input type="checkbox" id="setting-show-bookmarks-bar">
+            <span>Mostrar barra de favoritos (Ctrl+Shift+B)</span>
+          </label>
+          <label class="setting-item">
+            <select id="setting-theme">
+              <option value="system">Sistema</option>
+              <option value="light">Claro</option>
+              <option value="dark">Escuro</option>
+            </select>
+            <span>Tema</span>
+          </label>
+        </section>
+        <section class="settings-section" aria-labelledby="import-heading">
+          <h3 id="import-heading">Importar favoritos</h3>
+          <p class="setting-description">Traz os favoritos de outro navegador instalado. Senhas e cookies não são copiados.</p>
+          <div id="import-sources" class="import-sources"></div>
+          <button id="btn-import-html" class="btn-secondary" type="button">Importar de arquivo HTML…</button>
+          <p id="import-status" class="setting-description" role="status" aria-live="polite"></p>
+        </section>
+        <section class="settings-section">
+          <h3>Histórico</h3>
+          <button id="btn-clear-history" class="btn-secondary" type="button">Apagar todo o histórico</button>
+        </section>
+        <section class="settings-section">
+          <h3>Agente de IA · aprovações</h3>
+          <label class="setting-field" for="setting-agent-approval-mode">
+            <span>Nível de aprovação</span>
+            <select id="setting-agent-approval-mode">
+              <option value="always-ask">Sempre perguntar</option>
+              <option value="allow-read">Permitir leitura</option>
+              <option value="low-risk">Permitir ações de baixo risco</option>
+              <option value="allow-all">Permitir todas automaticamente</option>
+            </select>
+          </label>
+          <p class="setting-description">A opção automática pode enviar formulários, publicar, comprar ou excluir sem confirmação. Bloqueios técnicos do navegador continuam ativos.</p>
+        </section>
+        <section class="settings-section">
+          <h3>Privacidade</h3>
+          <label class="setting-item">
+            <input type="checkbox" id="setting-block-3rd-party" checked>
+            <span>Bloquear cookies de terceiros</span>
+          </label>
+          <label class="setting-item">
+            <input type="checkbox" id="setting-do-not-track" checked>
+            <span>Enviar "Não rastrear"</span>
+          </label>
+        </section>
+        <section class="settings-section">
+          <h3>Desenvolvedor</h3>
+          <label class="setting-item">
+            <input type="checkbox" id="setting-cdp-enabled">
+            <span>Ativar CDP completo (Risco elevado)</span>
+          </label>
+          <label class="setting-item">
+            <input type="checkbox" id="setting-webmcp-enabled" disabled>
+            <span>WebMCP indisponível nesta versão do Chromium</span>
+          </label>
+        </section>
+        <section class="settings-section">
+          <h3>Downloads</h3>
+          <label class="setting-item">
+            <input type="text" id="setting-download-path" readonly>
+            <span>Pasta de downloads</span>
+          </label>
+          <button id="btn-change-download" class="btn-secondary">Alterar</button>
+          <label class="setting-item">
+            <input type="checkbox" id="setting-download-prompt" checked>
+            <span>Perguntar onde salvar</span>
+          </label>
+        </section>
+      </div>
+    </div>
+
+    <div id="toast-container" class="toast-container"></div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

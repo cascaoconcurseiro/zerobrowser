@@ -1,0 +1,1096 @@
+class NaveganteApp {
+  constructor() {
+    this.tabs = new Map();
+    this.activeTabId = null;
+    this.aiConnected = false;
+    this.aiModel = 'openai/gpt-4o-mini';
+    this.settings = {};
+    this.aiModelCatalog = [];
+    this.aiProviderConfigs = new Map();
+    this.aiKeyRevealed = false;
+    this.aiRevealedStoredKey = false;
+    this.init();
+  }
+
+  async init() {
+    this.bindElements();
+    this.bindEvents();
+    await this.loadSettings();
+    await this.createInitialTab();
+    this.initLibraryUi();
+  }
+
+  bindElements() {
+    this.elements = {
+      tabsContainer: document.getElementById('tabs-container'),
+      btnNewTab: document.getElementById('btn-new-tab'),
+      btnBack: document.getElementById('btn-back'),
+      btnForward: document.getElementById('btn-forward'),
+      btnReload: document.getElementById('btn-reload'),
+      btnHome: document.getElementById('btn-home'),
+      addressBar: document.getElementById('address-bar'),
+      urlSuggestions: document.getElementById('url-suggestions'),
+      btnBookmark: document.getElementById('btn-bookmark'),
+      btnFlame: document.getElementById('btn-flame'),
+      bookmarksBar: document.getElementById('bookmarks-bar'),
+      bookmarksBarItems: document.getElementById('bookmarks-bar-items'),
+      bookmarksBarEmpty: document.getElementById('bookmarks-bar-empty'),
+      bookmarksBarMore: document.getElementById('bookmarks-bar-more'),
+      browserContainer: document.getElementById('browser-container'),
+      btnExtensions: document.getElementById('btn-extensions'),
+      btnSettings: document.getElementById('btn-settings'),
+      btnAi: document.getElementById('btn-ai'),
+      btnMinimize: document.getElementById('btn-minimize'),
+      btnMaximize: document.getElementById('btn-maximize'),
+      btnClose: document.getElementById('btn-close'),
+      aiPanel: document.getElementById('ai-panel'),
+      btnCloseAi: document.getElementById('btn-close-ai'),
+      aiProvider: document.getElementById('ai-provider'),
+      aiModel: document.getElementById('ai-model'),
+      aiApiKey: document.getElementById('ai-api-key'),
+      aiRefreshModels: document.getElementById('btn-ai-refresh-models'),
+      aiSaveKey: document.getElementById('btn-ai-save-key'),
+      aiToggleKey: document.getElementById('btn-ai-toggle-key'),
+      aiModelStatus: document.getElementById('ai-model-status'),
+      aiPrivacyNote: document.getElementById('ai-privacy-note'),
+      btnAiConnect: document.getElementById('btn-ai-connect'),
+      aiChat: document.getElementById('ai-chat'),
+      aiInput: document.getElementById('ai-input'),
+      btnAiSend: document.getElementById('btn-ai-send'),
+      settingsPanel: document.getElementById('settings-panel'),
+      btnCloseSettings: document.getElementById('btn-close-settings'),
+      btnChangeDownload: document.getElementById('btn-change-download'),
+      browserView: document.getElementById('browser-view'),
+      toastContainer: document.getElementById('toast-container')
+    };
+  }
+
+  bindEvents() {
+    this.elements.btnNewTab.addEventListener('click', () => this.createTab());
+    this.elements.btnBack.addEventListener('click', () => this.goBack());
+    this.elements.btnForward.addEventListener('click', () => this.goForward());
+    this.elements.btnReload.addEventListener('click', () => this.reload());
+    this.elements.btnHome.addEventListener('click', () => this.navigateHome());
+    this.elements.btnExtensions.addEventListener('click', () => this.showToast('O gerenciamento de extensões ainda não está disponível.', 'info'));
+
+    this.elements.addressBar.addEventListener('keydown', (e) => this.handleAddressKey(e));
+    this.elements.addressBar.addEventListener('input', () => this.scheduleSuggestions());
+    this.elements.addressBar.addEventListener('blur', () => this.closeSuggestions());
+    this.elements.btnBookmark.addEventListener('click', () => this.toggleBookmark());
+    this.elements.bookmarksBarMore.addEventListener('click', () => {
+      const rect = this.elements.bookmarksBarMore.getBoundingClientRect();
+      window.navegante.library.openFolderMenu('1', rect.left, rect.bottom, Number(this.elements.bookmarksBarMore.dataset.fromIndex) || 0);
+    });
+    window.addEventListener('resize', () => {
+      clearTimeout(this.fitTimer);
+      this.fitTimer = setTimeout(() => this.fitBookmarksBar(), 100);
+    });
+    this.elements.btnFlame.addEventListener('click', () => window.navegante.flame.togglePanel());
+
+    this.elements.addressBar.addEventListener('focus', () => {
+      this.elements.addressBar.select();
+    });
+
+    this.elements.btnAi.addEventListener('click', () => this.toggleAiPanel());
+    this.elements.btnCloseAi.addEventListener('click', () => this.closeAiPanel());
+    this.elements.btnSettings.addEventListener('click', () => this.toggleSettingsPanel());
+    this.elements.btnCloseSettings.addEventListener('click', () => this.closeSettingsPanel());
+
+    this.elements.btnAiConnect.addEventListener('click', () => this.connectAi());
+    this.elements.btnAiSend.addEventListener('click', () => this.sendAiMessage());
+    this.elements.aiRefreshModels.addEventListener('click', () => this.refreshAiModels());
+    this.elements.aiSaveKey.addEventListener('click', () => this.saveAiKey());
+    this.elements.aiToggleKey.addEventListener('click', () => this.toggleAiKeyVisibility());
+    this.elements.aiProvider.addEventListener('change', async () => {
+      this.aiConnected = false;
+      const provider = this.elements.aiProvider.value;
+      await this.loadProviderConfig(provider);
+      if (this.aiProviderConfigs.get(provider)?.hasApiKey) await this.refreshAiModels({ quiet: true });
+    });
+    this.elements.aiModel.addEventListener('change', () => { this.aiConnected = false; });
+    this.elements.btnClose.addEventListener('click', () => window.close());
+    const settingKeys = {
+      'setting-show-full-url': 'browser.showFullUrl',
+      'setting-clear-on-exit': 'privacy.clearOnExit',
+      'setting-restore-session': 'browser.restoreSession',
+      'setting-show-bookmarks-bar': 'browser.showBookmarksBar',
+      'setting-theme': 'theme',
+      'setting-agent-approval-mode': 'automation.approvalMode',
+      'setting-block-3rd-party': 'privacy.blockThirdPartyCookies',
+      'setting-do-not-track': 'privacy.doNotTrack',
+      'setting-cdp-enabled': 'developer.cdpEnabled',
+      'setting-webmcp-enabled': 'developer.webMcpEnabled',
+      'setting-download-prompt': 'downloads.prompt'
+    };
+    for (const [id, key] of Object.entries(settingKeys)) {
+      const element = document.getElementById(id);
+      element.addEventListener('change', async () => {
+        const value = element.type === 'checkbox' ? element.checked : element.value;
+        try {
+          if (key === 'theme') await window.navegante.settings.applyTheme(value);
+          else await window.navegante.store.set(key, value);
+          this.settings[key] = value;
+          if (key === 'theme') this.applySettings({ theme: value });
+          if (key === 'browser.showFullUrl') this.updateAddressBar();
+          if (key === 'browser.showBookmarksBar') this.setBookmarksBarVisible(value);
+          this.showToast('Configuração aplicada.', 'success');
+        } catch (error) {
+          this.showToast(`Não foi possível aplicar a configuração: ${error.message}`, 'error');
+          await this.loadSettingsToUI();
+        }
+      });
+    }
+    document.getElementById('btn-import-html').addEventListener('click', (e) => this.importBookmarks('html', e.currentTarget));
+    document.getElementById('btn-clear-history').addEventListener('click', () => this.clearHistory());
+    this.elements.btnChangeDownload.addEventListener('click', async () => {
+      try {
+        const selected = await window.navegante.settings.chooseDownloadDirectory();
+        if (!selected) return;
+        document.getElementById('setting-download-path').value = selected;
+        this.settings['downloads.path'] = selected;
+        this.showToast('Pasta de downloads atualizada.', 'success');
+      } catch (error) {
+        this.showToast(`Não foi possível selecionar a pasta: ${error.message}`, 'error');
+      }
+    });
+    this.elements.aiInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        this.sendAiMessage();
+      }
+    });
+
+    this.elements.btnMinimize.addEventListener('click', () => window.navegante.browser.minimize());
+    this.elements.btnMaximize.addEventListener('click', () => window.navegante.browser.maximize());
+
+    document.addEventListener('keydown', (e) => {
+      if (e.ctrlKey && e.key === 't') {
+        e.preventDefault();
+        this.createTab();
+      }
+      if (e.ctrlKey && e.key === 'w') {
+        e.preventDefault();
+        this.closeActiveTab();
+      }
+      if (e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === 'd') {
+        e.preventDefault();
+        this.toggleBookmark();
+      }
+      if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'b') {
+        e.preventDefault();
+        const visible = this.elements.bookmarksBar.classList.contains('hidden');
+        window.navegante.store.set('browser.showBookmarksBar', visible);
+        this.settings['browser.showBookmarksBar'] = visible;
+        this.setBookmarksBarVisible(visible);
+      }
+      if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 't') {
+        e.preventDefault();
+        window.navegante.browser.reopenClosedTab();
+      }
+      if (e.ctrlKey && e.key === 'l') {
+        e.preventDefault();
+        this.elements.addressBar.focus();
+      }
+      if (e.ctrlKey && e.shiftKey && e.key === 'A') {
+        e.preventDefault();
+        this.toggleAiPanel();
+      }
+      if (e.altKey && e.key === 'ArrowLeft') this.goBack();
+      if (e.altKey && e.key === 'ArrowRight') this.goForward();
+    });
+
+    if (window.navegante) {
+      window.navegante.browser.onTabEvent((data) => this.handleTabEvent(data));
+      window.navegante.automation.onIntervention((data) => this.showHumanCheckBanner(data));
+      window.navegante.automation.onInterventionEnd(({ id }) => this.hideHumanCheckBanner(id));
+    }
+  }
+
+  // The agent paused on a CAPTCHA; the user solves it on the page and the agent resumes.
+  showHumanCheckBanner({ id, origin }) {
+    this.hideHumanCheckBanner();
+    if (this.elements.aiPanel.classList.contains('hidden')) this.toggleAiPanel();
+    const banner = document.createElement('div');
+    banner.className = 'human-check-banner';
+    banner.dataset.id = id;
+    banner.setAttribute('role', 'status');
+    banner.setAttribute('aria-live', 'polite');
+    const text = document.createElement('p');
+    text.textContent = 'A página pediu uma verificação humana. Resolva na página; o agente continua sozinho.';
+    const site = document.createElement('p');
+    site.className = 'human-check-origin';
+    site.textContent = origin || '';
+    const actions = document.createElement('div');
+    actions.className = 'human-check-actions';
+    const reply = (action) => {
+      window.navegante.automation.replyIntervention(id, action);
+      this.hideHumanCheckBanner(id);
+    };
+    const resume = document.createElement('button');
+    resume.className = 'btn-primary';
+    resume.textContent = 'Já resolvi, continuar';
+    resume.addEventListener('click', () => reply('continue'));
+    const stop = document.createElement('button');
+    stop.className = 'btn-secondary';
+    stop.textContent = 'Parar tarefa';
+    stop.addEventListener('click', () => reply('cancel'));
+    actions.append(resume, stop);
+    banner.append(text, site, actions);
+    this.elements.aiChat.before(banner);
+    resume.focus();
+    this.showToast('O agente pausou: resolva a verificação na página.', 'warning');
+  }
+
+  hideHumanCheckBanner(id) {
+    const banner = this.elements.aiPanel.querySelector('.human-check-banner');
+    if (!banner || (id && banner.dataset.id !== id)) return;
+    const hadFocus = banner.contains(document.activeElement);
+    banner.remove();
+    if (hadFocus) this.elements.aiInput.focus();
+  }
+
+  async loadSettings() {
+    const settings = await window.navegante.store.getAll();
+    this.settings = { ...settings };
+    this.applySettings(settings);
+    const media = window.matchMedia('(prefers-color-scheme: dark)');
+    media.addEventListener?.('change', () => {
+      if (this.settings.theme === 'system') this.applySettings({ theme: 'system' });
+    });
+  }
+
+  applySettings(settings) {
+    this.settings = { ...this.settings, ...settings };
+    if (settings.theme === 'dark' || (settings.theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+      document.body.classList.add('dark');
+    } else {
+      document.body.classList.remove('dark');
+    }
+    this.updateAddressBar();
+  }
+
+  async createInitialTab() {
+    const lastTabs = await window.navegante.browser.getLastSession().catch(() => []);
+    if (lastTabs.length) {
+      for (const url of lastTabs) await this.createTab(url);
+      return;
+    }
+    const homepage = await window.navegante.store.get('browser.defaultHomepage') || 'https://www.google.com';
+    await this.createTab(homepage);
+  }
+
+  // --- Favoritos, sugestões e Flame ------------------------------------------------------------------------
+
+  async initLibraryUi() {
+    window.navegante.library.onChanged(({ area }) => {
+      if (area === 'bookmarks') {
+        this.renderBookmarksBar();
+        this.updateBookmarkStar();
+      }
+    });
+    this.setBookmarksBarVisible(this.settings['browser.showBookmarksBar'] !== false);
+    this.renderBookmarksBar();
+    this.updateBookmarkStar();
+    const flame = await window.navegante.flame.status().catch(() => ({ available: false }));
+    this.elements.btnFlame.classList.toggle('hidden', !flame.available);
+    this.setFlamePressed(flame.open);
+    window.navegante.flame.onPanel(({ tabId, open }) => {
+      if (tabId === this.activeTabId) this.setFlamePressed(open);
+    });
+  }
+
+  setFlamePressed(open) {
+    this.elements.btnFlame.setAttribute('aria-pressed', String(Boolean(open)));
+    this.elements.btnFlame.setAttribute('aria-label', open ? 'Fechar o Flame' : 'Abrir o Flame');
+  }
+
+  setBookmarksBarVisible(visible) {
+    this.elements.bookmarksBar.classList.toggle('hidden', !visible);
+    window.navegante.browser.setBookmarksBar(Boolean(visible));
+  }
+
+  async renderBookmarksBar() {
+    const items = await window.navegante.library.bookmarks('getChildren', '1').catch(() => []);
+    const list = this.elements.bookmarksBarItems;
+    list.replaceChildren();
+    this.elements.bookmarksBarEmpty.classList.toggle('hidden', items.length > 0);
+    for (const node of items) {
+      const item = document.createElement('li');
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'bookmark-item';
+      const label = this.bookmarkLabel(node);
+      if (node.url) {
+        const text = document.createElement('span');
+        text.className = 'bookmark-label';
+        text.textContent = label;
+        button.append(text);
+        if (node.favicon) button.prepend(this.faviconImage(node.favicon));
+        button.title = `${label}\n${node.url}`;
+        button.addEventListener('click', (e) => (e.ctrlKey ? this.createTab(node.url) : this.navigateTo(node.url)));
+        button.addEventListener('auxclick', (e) => { if (e.button === 1) this.createTab(node.url); });
+      } else {
+        button.textContent = `📁 ${label}`;
+        button.setAttribute('aria-haspopup', 'menu');
+        button.addEventListener('click', () => {
+          const rect = button.getBoundingClientRect();
+          window.navegante.library.openFolderMenu(node.id, rect.left, rect.bottom);
+        });
+      }
+      button.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        window.navegante.library.openItemMenu(node.id, e.clientX, e.clientY);
+      });
+      item.append(button);
+      list.append(item);
+    }
+    this.fitBookmarksBar();
+  }
+
+  faviconImage(src) {
+    const img = document.createElement('img');
+    img.className = 'site-icon';
+    img.alt = '';
+    img.src = src;
+    img.addEventListener('error', () => img.remove());
+    return img;
+  }
+
+  bookmarkLabel(node) {
+    if (node.title && node.title !== node.url) return node.title;
+    try {
+      return new URL(node.url).hostname.replace(/^www\./, '');
+    } catch {
+      return node.url || 'Pasta';
+    }
+  }
+
+  // Como no Chrome: o que não cabe na largura vai para o botão », que abre o resto num menu.
+  fitBookmarksBar() {
+    const list = this.elements.bookmarksBarItems;
+    const more = this.elements.bookmarksBarMore;
+    const items = [...list.children];
+    items.forEach((item) => { item.hidden = false; });
+    more.hidden = true;
+    const limit = list.getBoundingClientRect().right;
+    const firstHidden = items.findIndex((item) => item.getBoundingClientRect().right > limit + 1);
+    if (firstHidden < 0) return;
+    more.hidden = false;
+    // O botão » ocupa espaço: esconde também o último item visível se ele passar a ficar por baixo.
+    const moreLeft = more.getBoundingClientRect().left;
+    let cut = firstHidden;
+    while (cut > 0 && items[cut - 1].getBoundingClientRect().right > moreLeft) cut -= 1;
+    items.slice(cut).forEach((item) => { item.hidden = true; });
+    more.dataset.fromIndex = String(cut);
+    more.setAttribute('aria-label', `Mais ${items.length - cut} favoritos`);
+  }
+
+  currentUrl() {
+    return this.tabs.get(this.activeTabId)?.url || '';
+  }
+
+  async updateBookmarkStar() {
+    const url = this.currentUrl();
+    const allowed = /^https?:/i.test(url);
+    const marked = allowed && await window.navegante.library.bookmarks('isBookmarked', url).catch(() => false);
+    const star = this.elements.btnBookmark;
+    star.disabled = !allowed;
+    star.textContent = marked ? '★' : '☆';
+    star.classList.toggle('active', Boolean(marked));
+    star.setAttribute('aria-pressed', String(Boolean(marked)));
+    const label = marked ? 'Remover dos favoritos (Ctrl+D)' : 'Adicionar aos favoritos (Ctrl+D)';
+    star.setAttribute('aria-label', label);
+    star.title = label;
+  }
+
+  async toggleBookmark() {
+    const url = this.currentUrl();
+    if (!/^https?:/i.test(url)) return;
+    try {
+      const existing = await window.navegante.library.bookmarks('findByUrl', url);
+      if (existing.length) {
+        for (const node of existing) await window.navegante.library.bookmarks('remove', node.id);
+        this.showToast('Removido dos favoritos.', 'info');
+      } else {
+        const title = this.tabs.get(this.activeTabId)?.title || url;
+        await window.navegante.library.bookmarks('create', { parentId: '1', title, url });
+        this.showToast('Adicionado à barra de favoritos.', 'success');
+      }
+    } catch (error) {
+      this.showToast(`Não foi possível alterar o favorito: ${error.message}`, 'error');
+    }
+    this.updateBookmarkStar();
+  }
+
+  navigateTo(url) {
+    if (this.activeTabId) window.navegante.browser.navigate(this.activeTabId, url);
+  }
+
+  scheduleSuggestions() {
+    clearTimeout(this.suggestTimer);
+    this.suggestTimer = setTimeout(() => this.showSuggestions(), 80);
+  }
+
+  async showSuggestions() {
+    const text = this.elements.addressBar.value.trim();
+    const items = text ? await window.navegante.library.suggest(text).catch(() => []) : [];
+    if (document.activeElement !== this.elements.addressBar || this.elements.addressBar.value.trim() !== text) return;
+    if (!items.length) return this.closeSuggestions();
+    this.suggestions = items;
+    this.suggestionIndex = -1;
+    this.elements.addressBar.removeAttribute('aria-activedescendant');
+    const list = this.elements.urlSuggestions;
+    list.replaceChildren(...items.map((item, index) => {
+      const option = document.createElement('li');
+      option.id = `suggestion-${index}`;
+      option.className = 'suggestion-item';
+      option.setAttribute('role', 'option');
+      option.setAttribute('aria-selected', 'false');
+      const icon = document.createElement('span');
+      icon.className = 'suggestion-icon';
+      icon.setAttribute('aria-hidden', 'true');
+      if (item.favicon) icon.append(this.faviconImage(item.favicon));
+      else icon.textContent = item.kind === 'bookmark' ? '★' : '🕘';
+      const title = document.createElement('span');
+      title.className = 'suggestion-title';
+      title.textContent = this.bookmarkLabel(item);
+      const url = document.createElement('span');
+      url.className = 'suggestion-url';
+      url.textContent = this.formatAddressBarUrl(item.url);
+      option.append(icon, title, url);
+      option.setAttribute('aria-label', `${item.kind === 'bookmark' ? 'Favorito' : 'Histórico'}: ${item.title || ''} ${item.url}`);
+      // mousedown, não click: o clique tiraria o foco da barra e fecharia a lista antes.
+      option.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        this.chooseSuggestion(index);
+      });
+      return option;
+    }));
+    if (list.classList.contains('hidden')) {
+      list.classList.remove('hidden');
+      this.elements.addressBar.setAttribute('aria-expanded', 'true');
+      const frozen = await window.navegante.browser.freezePage(true).catch(() => null);
+      if (list.classList.contains('hidden')) return window.navegante.browser.freezePage(false);
+      if (frozen?.image) {
+        const container = this.elements.browserContainer;
+        container.style.backgroundImage = `url("${frozen.image}")`;
+        container.style.backgroundSize = `${frozen.bounds.width}px ${frozen.bounds.height}px`;
+        container.classList.add('frozen');
+      }
+    }
+  }
+
+  closeSuggestions() {
+    clearTimeout(this.suggestTimer);
+    const list = this.elements.urlSuggestions;
+    this.elements.addressBar.removeAttribute('aria-activedescendant');
+    if (list.classList.contains('hidden')) return;
+    list.classList.add('hidden');
+    list.replaceChildren();
+    this.suggestions = [];
+    this.elements.addressBar.setAttribute('aria-expanded', 'false');
+    window.navegante.browser.freezePage(false).finally(() => {
+      const container = this.elements.browserContainer;
+      container.classList.remove('frozen');
+      container.style.backgroundImage = '';
+    });
+  }
+
+  highlightSuggestion(index) {
+    const options = [...this.elements.urlSuggestions.children];
+    this.suggestionIndex = index;
+    options.forEach((option, i) => option.setAttribute('aria-selected', String(i === index)));
+    if (index >= 0) {
+      this.elements.addressBar.setAttribute('aria-activedescendant', options[index].id);
+      options[index].scrollIntoView({ block: 'nearest' });
+    } else {
+      this.elements.addressBar.removeAttribute('aria-activedescendant');
+    }
+  }
+
+  chooseSuggestion(index) {
+    const item = this.suggestions?.[index];
+    if (!item) return;
+    this.closeSuggestions();
+    this.navigateTo(item.url);
+    this.elements.addressBar.blur();
+  }
+
+  handleAddressKey(e) {
+    const open = !this.elements.urlSuggestions.classList.contains('hidden') && this.suggestions?.length;
+    if (open && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+      e.preventDefault();
+      // -1 é "nenhuma escolhida" (vale o texto digitado); as setas giram entre ele e as sugestões.
+      const count = this.suggestions.length;
+      let next = this.suggestionIndex + (e.key === 'ArrowDown' ? 1 : -1);
+      if (next >= count) next = -1;
+      if (next < -1) next = count - 1;
+      this.highlightSuggestion(next);
+      return;
+    }
+    if (e.key === 'Escape' && open) {
+      e.preventDefault();
+      this.closeSuggestions();
+      return;
+    }
+    if (e.key === 'Enter') {
+      if (open && this.suggestionIndex >= 0) return this.chooseSuggestion(this.suggestionIndex);
+      this.closeSuggestions();
+      this.navigate(this.elements.addressBar.value);
+    }
+  }
+
+  async createTab(url = 'about:blank') {
+    try {
+      const result = await window.navegante.browser.newTab(url);
+      if (result && result.tabId) {
+        this.addTabToUI(result.tabId, url);
+        this.switchTab(result.tabId);
+      }
+    } catch (err) {
+      console.error('Failed to create tab:', err);
+      this.showToast('Erro ao criar aba', 'error');
+    }
+  }
+
+  addTabToUI(tabId, url) {
+    if (this.tabs.has(tabId)) {
+      this.tabs.get(tabId).url = url || this.tabs.get(tabId).url;
+      return;
+    }
+    const tab = document.createElement('div');
+    tab.className = 'tab';
+    tab.dataset.tabId = tabId;
+    tab.innerHTML = `
+      <img class="tab-favicon" src="" alt="">
+      <span class="tab-title">Carregando...</span>
+      <button class="tab-close" data-tab-id="${tabId}" aria-label="Fechar aba">×</button>
+    `;
+
+    tab.querySelector('.tab-close').addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.closeTab(tabId);
+    });
+
+    tab.addEventListener('click', () => this.switchTab(tabId));
+    this.elements.tabsContainer.appendChild(tab);
+    this.tabs.set(tabId, { element: tab, url, title: 'Carregando...' });
+  }
+
+  switchTab(tabId) {
+    const prevActive = this.elements.tabsContainer.querySelector('.tab.active');
+    if (prevActive) prevActive.classList.remove('active');
+
+    const tabEl = this.elements.tabsContainer.querySelector(`[data-tab-id="${tabId}"]`);
+    if (tabEl) tabEl.classList.add('active');
+
+    window.navegante.browser.switchTab(tabId);
+    this.activeTabId = tabId;
+    this.updateAddressBar();
+  }
+
+  updateAddressBar() {
+    if (this.elements.btnBookmark) this.updateBookmarkStar();
+    if (this.activeTabId && this.tabs.has(this.activeTabId)) {
+      const tab = this.tabs.get(this.activeTabId);
+      this.elements.addressBar.value = this.formatAddressBarUrl(tab.url || '');
+    } else {
+      this.elements.addressBar.value = '';
+    }
+  }
+
+  formatAddressBarUrl(value) {
+    if (!value || this.settings['browser.showFullUrl']) return value;
+    try {
+      const url = new URL(value);
+      if (!['http:', 'https:'].includes(url.protocol)) return value;
+      const host = url.host.replace(/^www\./i, '');
+      const path = url.pathname === '/' ? '' : url.pathname;
+      return `${host}${path}${url.search}${url.hash}`;
+    } catch {
+      return value;
+    }
+  }
+
+  closeTab(tabId) {
+    if (this.tabs.size <= 1) {
+      this.showToast('Não é possível fechar a última aba', 'warning');
+      return;
+    }
+
+    const wasActive = this.activeTabId === tabId;
+    window.navegante.browser.closeTab(tabId);
+    this.tabs.delete(tabId);
+
+    const tabEl = this.elements.tabsContainer.querySelector(`[data-tab-id="${tabId}"]`);
+    if (tabEl) tabEl.remove();
+
+    if (wasActive) {
+      const remainingTabs = Array.from(this.tabs.keys());
+      if (remainingTabs.length > 0) {
+        this.switchTab(remainingTabs[remainingTabs.length - 1]);
+      }
+    }
+  }
+
+  closeActiveTab() {
+    if (this.activeTabId) this.closeTab(this.activeTabId);
+  }
+
+  navigate(url) {
+    if (!this.activeTabId) return;
+    let finalUrl = url.trim();
+    if (!finalUrl) return;
+
+    if (!finalUrl.match(/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//)) {
+      if (finalUrl.includes('.') && !finalUrl.includes(' ')) {
+        finalUrl = 'https://' + finalUrl;
+      } else {
+        finalUrl = `https://www.google.com/search?q=${encodeURIComponent(finalUrl)}`;
+      }
+    }
+
+    window.navegante.browser.navigate(this.activeTabId, finalUrl);
+    this.elements.addressBar.blur();
+  }
+
+  async navigateHome() {
+    const homepage = await window.navegante.store.get('browser.defaultHomepage') || 'https://www.google.com';
+    this.navigate(homepage);
+  }
+
+  goBack() {
+    if (this.activeTabId) window.navegante.browser.goBack(this.activeTabId);
+  }
+
+  goForward() {
+    if (this.activeTabId) window.navegante.browser.goForward(this.activeTabId);
+  }
+
+  reload() {
+    if (this.activeTabId) window.navegante.browser.reload(this.activeTabId);
+  }
+
+  handleTabEvent(data) {
+    switch (data.type || Object.keys(data)[0]) {
+      case 'tab:created':
+        this.addTabToUI(data.tabId, data.url);
+        break;
+      case 'tab:closed':
+        this.tabs.delete(data.tabId);
+        const tabEl = this.elements.tabsContainer.querySelector(`[data-tab-id="${data.tabId}"]`);
+        if (tabEl) tabEl.remove();
+        if (this.activeTabId === data.tabId) {
+          const remaining = Array.from(this.tabs.keys());
+          if (remaining.length > 0) this.switchTab(remaining[remaining.length - 1]);
+        }
+        break;
+      case 'tab:switched':
+        this.activeTabId = data.tabId;
+        window.navegante.flame.status().then(({ open }) => this.setFlamePressed(open)).catch(() => {});
+        this.updateTabUI(data.tabId);
+        this.updateAddressBar();
+        break;
+      case 'tab:navigated':
+        this.updateTabInfo(data.tabId, { url: data.url, title: data.title });
+        this.updateNavigationButtons();
+        break;
+      case 'tab:title-updated':
+        this.updateTabInfo(data.tabId, { title: data.title });
+        break;
+      case 'tab:favicon-updated':
+        this.updateFavicon(data.tabId, data.favicon);
+        break;
+      case 'tab:load-error':
+        this.showToast(`Erro ao carregar: ${data.errorDescription}`, 'error');
+        break;
+      case 'download:event':
+        if (data.state === 'completed') this.showToast(`Download concluído: ${data.filename}`, 'success');
+        else if (data.state === 'cancelled') this.showToast(`Download cancelado: ${data.filename}`, 'warning');
+        else if (data.state === 'interrupted') this.showToast(`Download interrompido: ${data.filename}`, 'error');
+        break;
+    }
+  }
+
+  updateTabInfo(tabId, info) {
+    if (!this.tabs.has(tabId)) return;
+    const tab = this.tabs.get(tabId);
+    Object.assign(tab, info);
+    this.updateTabUI(tabId);
+    if (tabId === this.activeTabId) this.updateAddressBar();
+  }
+
+  updateTabUI(tabId) {
+    const tab = this.tabs.get(tabId);
+    if (!tab) return;
+
+    const tabEl = this.elements.tabsContainer.querySelector(`[data-tab-id="${tabId}"]`);
+    if (!tabEl) return;
+
+    const titleEl = tabEl.querySelector('.tab-title');
+    if (titleEl && tab.title) {
+      titleEl.textContent = tab.title.length > 30 ? tab.title.substring(0, 30) + '…' : tab.title;
+    }
+  }
+
+  updateFavicon(tabId, faviconUrl) {
+    const tabEl = this.elements.tabsContainer.querySelector(`[data-tab-id="${tabId}"]`);
+    if (!tabEl) return;
+    const faviconEl = tabEl.querySelector('.tab-favicon');
+    if (faviconEl && faviconUrl) {
+      faviconEl.src = faviconUrl;
+    }
+  }
+
+  async updateNavigationButtons() {
+    if (!this.activeTabId) return;
+    const tab = await window.navegante.browser.getTab(this.activeTabId);
+    this.elements.btnBack.disabled = !tab?.canGoBack;
+    this.elements.btnForward.disabled = !tab?.canGoForward;
+  }
+
+  async loadAiSettings() {
+    const config = await window.navegante.ai.getConfig();
+    this.elements.aiProvider.value = config.provider;
+    this.elements.aiApiKey.value = '';
+    this.resetAiKeyVisibility();
+    await this.loadProviderConfig(config.provider, config);
+    if (config.hasApiKey) await this.refreshAiModels({ quiet: true, preferredModel: config.model });
+    if (config.hasApiKey && config.model) this.aiConnected = true;
+  }
+
+  async loadProviderConfig(provider, knownConfig) {
+    const config = knownConfig || await window.navegante.ai.getConfig(provider);
+    this.aiProviderConfigs.set(provider, config);
+    this.elements.aiApiKey.value = '';
+    this.resetAiKeyVisibility();
+    const providerName = provider === 'deepseek' ? 'DeepSeek' : 'OpenRouter';
+    this.elements.aiApiKey.placeholder = config.hasApiKey ? `Salva: ${config.keyHint || '••••••••'} (vazio mantém a atual)` : `Chave API do ${providerName}`;
+    this.elements.aiPrivacyNote.textContent = `O texto e os dados necessários da página ativa serão enviados ao ${providerName} para realizar a tarefa.`;
+    this.elements.aiModelStatus.textContent = config.hasApiKey ? 'Chave salva com segurança. Atualize o catálogo para carregar modelos.' : 'Digite a chave e clique em Salvar chave.';
+  }
+
+  resetAiKeyVisibility() {
+    this.aiKeyRevealed = false;
+    this.aiRevealedStoredKey = false;
+    this.elements.aiApiKey.type = 'password';
+    this.elements.aiToggleKey.textContent = 'Mostrar';
+    this.elements.aiToggleKey.setAttribute('aria-pressed', 'false');
+  }
+
+  async toggleAiKeyVisibility() {
+    const provider = this.elements.aiProvider.value;
+    if (this.aiKeyRevealed) {
+      if (this.aiRevealedStoredKey) this.elements.aiApiKey.value = '';
+      this.aiRevealedStoredKey = false;
+      this.aiKeyRevealed = false;
+      this.elements.aiApiKey.type = 'password';
+      this.elements.aiToggleKey.textContent = 'Mostrar';
+      this.elements.aiToggleKey.setAttribute('aria-pressed', 'false');
+      return;
+    }
+
+    try {
+      if (!this.elements.aiApiKey.value) {
+        this.elements.aiApiKey.value = await window.navegante.ai.revealKey(provider);
+        this.aiRevealedStoredKey = true;
+      }
+      this.aiKeyRevealed = true;
+      this.elements.aiApiKey.type = 'text';
+      this.elements.aiToggleKey.textContent = 'Ocultar';
+      this.elements.aiToggleKey.setAttribute('aria-pressed', 'true');
+    } catch (error) {
+      this.showToast(error.message, 'warning');
+    }
+  }
+
+  async saveAiKey() {
+    const provider = this.elements.aiProvider.value;
+    const apiKey = this.elements.aiApiKey.value;
+    this.elements.aiSaveKey.disabled = true;
+    try {
+      const saved = await window.navegante.ai.saveKey(provider, apiKey);
+      const config = await window.navegante.ai.getConfig(provider);
+      this.aiProviderConfigs.set(provider, config);
+      this.elements.aiApiKey.value = '';
+      this.resetAiKeyVisibility();
+      this.elements.aiApiKey.placeholder = `Salva: ${saved.keyHint || config.keyHint || '••••••••'} (vazio mantém a atual)`;
+      this.elements.aiModelStatus.textContent = 'Chave salva com segurança. Agora atualize o catálogo e escolha um modelo.';
+      this.showToast(`Chave ${provider === 'deepseek' ? 'DeepSeek' : 'OpenRouter'} salva com segurança.`, 'success');
+      return saved;
+    } catch (error) {
+      this.elements.aiModelStatus.textContent = `Não foi possível salvar a chave: ${error.message}`;
+      this.showToast(`Não foi possível salvar a chave: ${error.message}`, 'error');
+      return null;
+    } finally {
+      this.elements.aiSaveKey.disabled = false;
+    }
+  }
+
+  async refreshAiModels({ quiet = false, preferredModel } = {}) {
+    const provider = this.elements.aiProvider.value;
+    const config = this.aiProviderConfigs.get(provider) || await window.navegante.ai.getConfig(provider);
+    const key = this.elements.aiApiKey.value.trim();
+    if (!key && !config.hasApiKey) {
+      this.elements.aiModelStatus.textContent = 'Digite a chave de API e clique em Atualizar.';
+      if (!quiet) this.showToast('Informe a chave do provedor para sincronizar os modelos.', 'warning');
+      return;
+    }
+    this.elements.aiRefreshModels.disabled = true;
+    this.elements.aiModelStatus.textContent = 'Sincronizando catálogo…';
+    try {
+      const models = await window.navegante.ai.listModels(provider, key || undefined);
+      if (!models.length) throw new Error('O provedor não retornou modelos disponíveis.');
+      this.aiModelCatalog = models;
+      const select = this.elements.aiModel;
+      const currentModel = preferredModel || config.model || select.value;
+      select.replaceChildren();
+      const placeholder = document.createElement('option');
+      placeholder.value = '';
+      placeholder.textContent = 'Selecione um modelo';
+      select.appendChild(placeholder);
+      let enabledCount = 0;
+      for (const model of models) {
+        const option = document.createElement('option');
+        option.value = model.id;
+        option.textContent = `${model.name} — ${model.id}${model.supportsTools === false ? ' (sem chamadas de ferramenta)' : model.supportsTools === null ? ' (compatibilidade não informada)' : ''}`;
+        option.title = [model.description, model.contextLength ? `Contexto: ${model.contextLength} tokens` : '', model.promptPrice ? `Preço de entrada: ${model.promptPrice}` : ''].filter(Boolean).join('\n');
+        option.disabled = model.supportsTools === false;
+        if (!option.disabled) enabledCount++;
+        select.appendChild(option);
+      }
+      const chosen = models.find((model) => model.id === currentModel && model.supportsTools !== false)
+        || models.find((model) => model.supportsTools === true)
+        || models.find((model) => model.supportsTools !== false);
+      if (currentModel && !models.some((model) => model.id === currentModel)) {
+        const unavailable = document.createElement('option');
+        unavailable.value = currentModel;
+        unavailable.textContent = `${currentModel} (não consta no catálogo atualizado)`;
+        unavailable.disabled = true;
+        select.appendChild(unavailable);
+      }
+      select.value = chosen?.id || (currentModel && !models.some((model) => model.id === currentModel) ? currentModel : '');
+      this.elements.aiModelStatus.textContent = `${models.length} modelos sincronizados; ${enabledCount} selecionáveis para o agente.`;
+      if (!quiet) this.showToast(`Catálogo ${provider === 'deepseek' ? 'DeepSeek' : 'OpenRouter'} atualizado: ${models.length} modelos.`, 'success');
+    } catch (error) {
+      this.elements.aiModelStatus.textContent = `Falha ao sincronizar: ${error.message}`;
+      if (!quiet) this.showToast(`Não foi possível carregar modelos: ${error.message}`, 'error');
+    } finally {
+      this.elements.aiRefreshModels.disabled = false;
+    }
+  }
+
+  async loadSettingsToUI() {
+    const settings = await window.navegante.store.getAll();
+    document.getElementById('setting-show-full-url').checked = settings['browser.showFullUrl'] || false;
+    document.getElementById('setting-clear-on-exit').checked = settings['privacy.clearOnExit'] || false;
+    document.getElementById('setting-restore-session').checked = settings['browser.restoreSession'] !== false;
+    document.getElementById('setting-show-bookmarks-bar').checked = settings['browser.showBookmarksBar'] !== false;
+    this.renderImportSources();
+    document.getElementById('setting-theme').value = settings.theme || 'system';
+    document.getElementById('setting-agent-approval-mode').value = settings['automation.approvalMode'] || 'low-risk';
+    document.getElementById('setting-block-3rd-party').checked = settings['privacy.blockThirdPartyCookies'] !== false;
+    document.getElementById('setting-do-not-track').checked = settings['privacy.doNotTrack'] !== false;
+    document.getElementById('setting-cdp-enabled').checked = settings['developer.cdpEnabled'] || false;
+    document.getElementById('setting-webmcp-enabled').checked = settings['developer.webMcpEnabled'] || false;
+    document.getElementById('setting-download-path').value = settings['downloads.path'] || '';
+    document.getElementById('setting-download-prompt').checked = settings['downloads.prompt'] !== false;
+  }
+
+  async renderImportSources() {
+    const container = document.getElementById('import-sources');
+    const sources = await window.navegante.library.importSources().catch(() => []);
+    container.replaceChildren();
+    if (!sources.length) {
+      const note = document.createElement('p');
+      note.className = 'setting-description';
+      note.textContent = 'Nenhum Brave, Chrome ou Edge encontrado neste computador.';
+      container.append(note);
+      return;
+    }
+    for (const source of sources) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'btn-secondary';
+      button.textContent = source.profile === 'Default' ? source.browser : `${source.browser} · ${source.profile}`;
+      button.setAttribute('aria-label', `Importar favoritos do ${button.textContent}`);
+      button.addEventListener('click', () => this.importBookmarks(source.id, button));
+      container.append(button);
+    }
+  }
+
+  async importBookmarks(sourceId, button) {
+    const status = document.getElementById('import-status');
+    if (button) button.disabled = true;
+    status.textContent = 'Importando…';
+    try {
+      const result = await window.navegante.library.importFrom(sourceId);
+      if (!result) {
+        status.textContent = '';
+        return;
+      }
+      status.textContent = result.added
+        ? `${result.added} favorito(s) importado(s)${result.skipped ? `, ${result.skipped} já existiam` : ''}.`
+        : 'Nada novo para importar: todos já estavam nos favoritos.';
+      this.showToast(status.textContent, 'success');
+    } catch (error) {
+      status.textContent = `Não foi possível importar: ${error.message}`;
+      this.showToast(status.textContent, 'error');
+    } finally {
+      if (button) button.disabled = false;
+    }
+  }
+
+  async clearHistory() {
+    if (!window.confirm('Apagar todo o histórico de navegação? Isso não pode ser desfeito.')) return;
+    try {
+      await window.navegante.library.history('deleteAll');
+      this.showToast('Histórico apagado.', 'success');
+    } catch (error) {
+      this.showToast(`Não foi possível apagar o histórico: ${error.message}`, 'error');
+    }
+  }
+
+  toggleAiPanel() {
+    const opening = this.elements.aiPanel.classList.contains('hidden');
+    this.elements.aiPanel.classList.toggle('hidden', !opening);
+    this.elements.settingsPanel.classList.add('hidden');
+    window.navegante.browser.setSidePanelOpen(opening);
+    if (opening) {
+      this.elements.aiInput.focus();
+      this.loadAiSettings();
+    }
+  }
+
+  closeAiPanel() {
+    this.elements.aiPanel.classList.add('hidden');
+    if (this.elements.settingsPanel.classList.contains('hidden')) window.navegante.browser.setSidePanelOpen(false);
+  }
+
+  toggleSettingsPanel() {
+    const opening = this.elements.settingsPanel.classList.contains('hidden');
+    this.elements.settingsPanel.classList.toggle('hidden', !opening);
+    this.elements.aiPanel.classList.add('hidden');
+    window.navegante.browser.setSidePanelOpen(opening);
+    if (opening) {
+      this.loadSettingsToUI();
+    }
+  }
+
+  closeSettingsPanel() {
+    this.elements.settingsPanel.classList.add('hidden');
+    if (this.elements.aiPanel.classList.contains('hidden')) window.navegante.browser.setSidePanelOpen(false);
+  }
+
+  async connectAi() {
+    const provider = this.elements.aiProvider.value;
+    const apiKey = this.elements.aiApiKey.value.trim();
+    const model = this.elements.aiModel.value;
+
+    if (!model || !this.aiModelCatalog.some((item) => item.id === model && item.supportsTools !== false)) {
+      this.showToast('Sincronize os modelos e escolha um que aceite chamadas de ferramentas.', 'warning');
+      return;
+    }
+
+    this.elements.btnAiConnect.disabled = true;
+    this.elements.btnAiConnect.textContent = 'Conectando...';
+
+    try {
+      const saved = await window.navegante.ai.saveConfig({ provider, model, apiKey: apiKey || undefined });
+      if (!saved.hasApiKey) throw new Error(`Informe a chave API do ${provider === 'deepseek' ? 'DeepSeek' : 'OpenRouter'}`);
+      const result = await window.navegante.automation.runAgent(this.activeTabId, 'Use inspect_page exatamente uma vez para confirmar que as chamadas de ferramenta funcionam. Não clique, navegue ou altere nada.', true, true);
+      if (!result.success) throw new Error(result.error);
+      this.aiConnected = true;
+      this.addAiMessage('assistant', `Conectado a ${provider === 'deepseek' ? 'DeepSeek' : 'OpenRouter'} com ${model}. Posso operar a aba ativa usando as ferramentas disponíveis.`);
+      this.aiProviderConfigs.set(provider, saved);
+      this.elements.aiApiKey.value = '';
+      this.resetAiKeyVisibility();
+      this.elements.aiApiKey.placeholder = `Salva: ${saved.keyHint || '••••••••'} (vazio mantém a atual)`;
+      this.showToast(`Agente conectado: ${model}`, 'success');
+    } catch (err) {
+      this.showToast('Erro ao conectar: ' + err.message, 'error');
+    } finally {
+      this.elements.btnAiConnect.disabled = false;
+      this.elements.btnAiConnect.textContent = 'Conectar';
+    }
+  }
+
+  // Com chave e modelo já salvos, o agente fica pronto sem clicar em Conectar (o teste extra gastava uma chamada).
+  async useSavedAiConfig() {
+    const provider = this.elements.aiProvider.value;
+    const model = this.elements.aiModel.value;
+    const config = this.aiProviderConfigs.get(provider);
+    if (!config?.hasApiKey || !model) return false;
+    if (config.model !== model) this.aiProviderConfigs.set(provider, await window.navegante.ai.saveConfig({ provider, model }));
+    this.aiConnected = true;
+    return true;
+  }
+
+  addAiMessage(role, content) {
+    const msg = document.createElement('div');
+    msg.className = `ai-message ${role}`;
+    msg.textContent = content;
+    this.elements.aiChat.appendChild(msg);
+    this.elements.aiChat.scrollTop = this.elements.aiChat.scrollHeight;
+    return msg;
+  }
+
+  async sendAiMessage(resumeId = null) {
+    if (this.aiRunning) return;
+    const text = this.elements.aiInput.value.trim();
+    if (!resumeId && !text) return;
+
+    this.aiRunning = true;
+    this.elements.btnAiSend.disabled = true;
+    const previousContinue = this.aiContinueButton;
+    try {
+      if (!this.aiConnected && !(await this.useSavedAiConfig())) {
+        this.showToast('Salve a chave e escolha um modelo primeiro', 'warning');
+        return;
+      }
+      if (previousContinue) previousContinue.disabled = true;
+      this.addAiMessage('user', resumeId ? 'Continuar tarefa' : text);
+      if (!resumeId) this.elements.aiInput.value = '';
+      const result = await window.navegante.automation.runAgent(this.activeTabId, resumeId ? '' : text, false, false, resumeId);
+      if (result.success) {
+        const message = this.addAiMessage('assistant', result.message);
+        if (result.paused && result.resumeId) {
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'btn btn-primary';
+          button.textContent = 'Continuar';
+          button.addEventListener('click', () => this.sendAiMessage(result.resumeId));
+          message.appendChild(document.createElement('br'));
+          message.appendChild(button);
+          this.aiContinueButton = button;
+          this.elements.aiChat.scrollTop = this.elements.aiChat.scrollHeight;
+        }
+      } else {
+        this.addAiMessage('error', 'Erro: ' + result.error);
+        if (resumeId && previousContinue) previousContinue.disabled = false;
+      }
+    } catch (err) {
+      this.addAiMessage('error', 'Erro: ' + err.message);
+      if (resumeId && previousContinue) previousContinue.disabled = false;
+    } finally {
+      this.aiRunning = false;
+      this.elements.btnAiSend.disabled = false;
+    }
+  }
+
+  showToast(message, type = 'info') {
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    toast.textContent = message;
+    this.elements.toastContainer.appendChild(toast);
+
+    setTimeout(() => {
+      toast.style.animation = 'slideIn 200ms ease reverse';
+      setTimeout(() => toast.remove(), 200);
+    }, 4000);
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  window.app = new NaveganteApp();
+});

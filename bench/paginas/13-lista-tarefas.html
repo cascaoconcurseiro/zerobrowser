@@ -1,0 +1,32 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Minhas tarefas</title><link rel="stylesheet" href="/_comum.css"><script src="/_comum.js"></script></head>
+<body data-tarefa="13-lista-tarefas">
+<h1>Minhas tarefas</h1>
+<label for="nova">Nova tarefa</label>
+<input id="nova" placeholder="O que precisa ser feito?">
+<button id="adicionar">Adicionar</button>
+<ul id="lista"></ul>
+<script>
+  const itens = [];
+  const salvar = () => registrar({ itens: itens.map(({ texto, feita }) => ({ texto, feita })) });
+  const desenhar = () => {
+    lista.innerHTML = '';
+    itens.forEach((item, i) => {
+      const linha = document.createElement('li');
+      linha.innerHTML = `<label><input type="checkbox" ${item.feita ? 'checked' : ''}> ${item.texto}</label> <button aria-label="Remover ${item.texto}">Remover</button>`;
+      linha.querySelector('input').onchange = (event) => { item.feita = event.target.checked; salvar(); };
+      linha.querySelector('button').onclick = () => { itens.splice(i, 1); salvar(); desenhar(); };
+      lista.append(linha);
+    });
+  };
+  const incluir = () => {
+    const texto = nova.value.trim();
+    if (!texto) return;
+    itens.push({ texto, feita: false });
+    nova.value = '';
+    salvar();
+    desenhar();
+  };
+  adicionar.onclick = incluir;
+  nova.onkeydown = (event) => { if (event.key === 'Enter') incluir(); };
+</script>
+</body></html>

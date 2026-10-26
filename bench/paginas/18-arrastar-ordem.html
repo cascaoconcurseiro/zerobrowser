@@ -1,0 +1,33 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Quadro de prioridades</title><link rel="stylesheet" href="/_comum.css"><script src="/_comum.js"></script>
+<style>#lista { list-style: none; padding: 0; } #lista li { user-select: none; cursor: grab; } #lista li.arrastando { opacity: .5; }</style></head>
+<body data-tarefa="18-arrastar-ordem">
+<h1>Quadro de prioridades</h1>
+<p>Arraste um cartão e solte sobre outro para colocá-lo antes dele.</p>
+<ul id="lista" role="list">
+  <li class="cartao" role="listitem" tabindex="0" data-id="enviar-proposta">Enviar proposta</li>
+  <li class="cartao" role="listitem" tabindex="0" data-id="agendar-reuniao">Agendar reunião</li>
+  <li class="cartao" role="listitem" tabindex="0" data-id="revisar-contrato">Revisar contrato</li>
+  <li class="cartao" role="listitem" tabindex="0" data-id="arquivar-notas">Arquivar notas</li>
+</ul>
+<p id="aviso" role="status"></p>
+<script>
+  // Arrasto por eventos de mouse (não HTML5 drag): funciona com entrada real e com eventos sintéticos.
+  let arrastado = null;
+  lista.addEventListener('mousedown', (event) => {
+    arrastado = event.target.closest('li');
+    arrastado?.classList.add('arrastando');
+  });
+  document.addEventListener('mouseup', (event) => {
+    if (!arrastado) return;
+    const alvo = document.elementFromPoint(event.clientX, event.clientY)?.closest('#lista li') || event.target.closest?.('#lista li');
+    arrastado.classList.remove('arrastando');
+    if (alvo && alvo !== arrastado) {
+      lista.insertBefore(arrastado, alvo);
+      const ordem = [...lista.children].map((item) => item.dataset.id);
+      registrar({ ordem });
+      avisar(`Nova ordem: ${[...lista.children].map((item) => item.textContent).join(', ')}.`);
+    }
+    arrastado = null;
+  });
+</script>
+</body></html>

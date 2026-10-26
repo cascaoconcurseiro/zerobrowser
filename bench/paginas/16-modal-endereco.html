@@ -1,0 +1,26 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Minha conta</title><link rel="stylesheet" href="/_comum.css"><script src="/_comum.js"></script></head>
+<body data-tarefa="16-modal-endereco">
+<h1>Minha conta</h1>
+<section class="cartao">
+  <h2>Endereço de entrega</h2>
+  <p id="atual">Avenida Ipiranga, 6681</p>
+  <button id="alterar">Alterar endereço</button>
+</section>
+<div id="modal" role="dialog" aria-modal="true" aria-labelledby="titulo-modal" class="cartao" hidden>
+  <h2 id="titulo-modal">Novo endereço de entrega</h2>
+  <label for="novo">Endereço</label><input id="novo" placeholder="Rua, número">
+  <div><button id="salvar">Salvar endereço</button><button id="fechar">Fechar</button></div>
+</div>
+<p id="aviso" role="status"></p>
+<script>
+  alterar.onclick = () => { modal.hidden = false; novo.focus(); };
+  fechar.onclick = () => { modal.hidden = true; };
+  salvar.onclick = () => {
+    if (!novo.value.trim()) { avisar('Informe o endereço.'); return; }
+    atual.textContent = novo.value.trim();
+    registrar({ endereco: novo.value.trim() });
+    modal.hidden = true;
+    avisar('Endereço atualizado.');
+  };
+</script>
+</body></html>

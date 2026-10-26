@@ -1,0 +1,122 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Central financeira</title><link rel="stylesheet" href="/_comum.css"><script src="/_comum.js"></script></head>
+<body data-tarefa="46-spa-async-search">
+<main id="app" aria-live="polite"></main>
+<p id="aviso" role="status"></p>
+<script>
+  // Fixture de SPA: pesquisa com debounce e respostas assíncronas, lista filtrável,
+  // detalhe e confirmação substituem a árvore de controles em cada etapa.
+  const app = document.getElementById('app');
+  const state = { view: 'loading', query: '', status: 'Pendente', rows: [], invoice: null, etapas: [], requestId: 0, debounce: 0 };
+  const invoices = [
+    { id: 'F-2026-1832', client: 'Horizonte Logística', contract: 'HL-110', period: '2026-05', amount: '2480.00', status: 'Pendente' },
+    { id: 'F-2026-1841', client: 'Bosque Digital', contract: 'BD-904', period: '2026-04', amount: '2480.00', status: 'Pendente' },
+    { id: 'F-2026-1843', client: 'Bosque Digital', contract: 'BD-940', period: '2026-05', amount: '2480.00', status: 'Pendente' },
+    { id: 'F-2026-1845', client: 'Bosque Serviços', contract: 'BD-904', period: '2026-05', amount: '2480.00', status: 'Pendente' },
+    { id: 'F-2026-1847', client: 'Bosque Digital', contract: 'BD-904', period: '2026-05', amount: '2480.00', status: 'Pendente' },
+    { id: 'F-2026-1848', client: 'Bosque Digital', contract: 'BD-904', period: '2026-05', amount: '2840.00', status: 'Pendente' },
+    { id: 'F-2026-1850', client: 'Bosque Digital', contract: 'BD-904', period: '2026-05', amount: '2480.00', status: 'Aprovada' },
+    { id: 'F-2026-1852', client: 'Bosque Digital', contract: 'BD-904', period: '2026-06', amount: '2480.00', status: 'Pendente' },
+    { id: 'F-2026-1861', client: 'Estúdio Pinheiro', contract: 'EP-320', period: '2026-05', amount: '1180.00', status: 'Pendente' },
+    { id: 'F-2026-1870', client: 'Maré Sistemas', contract: 'MS-804', period: '2026-05', amount: '982.50', status: 'Pendente' },
+    { id: 'F-2026-1881', client: 'Cobalto Design', contract: 'CD-119', period: '2026-04', amount: '2100.00', status: 'Pendente' }
+  ];
+  const etapa = (value) => { if (!state.etapas.includes(value)) state.etapas.push(value); };
+  const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+  const loadRows = (query = state.query, status = state.status) => {
+    const request = ++state.requestId;
+    state.view = 'loading-results';
+    render();
+    // Latência variável simula resultados retornando fora de ordem.
+    const delay = query.length % 2 ? 760 : 420;
+    setTimeout(() => {
+      if (request !== state.requestId) return;
+      const needle = query.trim().toLocaleLowerCase('pt-BR');
+      state.rows = invoices.filter((row) => row.status === status
+        && (!needle || `${row.id} ${row.client} ${row.contract} ${row.period} ${row.amount}`.toLocaleLowerCase('pt-BR').includes(needle)));
+      state.view = 'list';
+      render();
+      avisar(`${state.rows.length} faturas carregadas.`);
+    }, delay);
+  };
+  const render = () => {
+    if (state.view === 'loading') {
+      app.innerHTML = '<h1>Central financeira</h1><p role="status">Carregando painel…</p>';
+      return;
+    }
+    if (state.view === 'loading-results') {
+      app.innerHTML = `<h1>Central financeira</h1><label for="busca">Pesquisar faturas</label><input id="busca" value="${escapeHtml(state.query)}" placeholder="Cliente, contrato ou fatura"><label for="status">Situação</label><select id="status"><option value="Pendente" ${state.status === 'Pendente' ? 'selected' : ''}>Pendente</option><option value="Aprovada" ${state.status === 'Aprovada' ? 'selected' : ''}>Aprovada</option></select><p role="status">Atualizando resultados…</p>`;
+      return;
+    }
+    if (state.view === 'list') {
+      app.innerHTML = `<h1>Central financeira</h1><label for="busca">Pesquisar faturas</label><input id="busca" value="${escapeHtml(state.query)}" placeholder="Cliente, contrato ou fatura"><label for="status">Situação</label><select id="status"><option value="Pendente" ${state.status === 'Pendente' ? 'selected' : ''}>Pendente</option><option value="Aprovada" ${state.status === 'Aprovada' ? 'selected' : ''}>Aprovada</option></select><p>Resultados: ${state.rows.length}</p><section aria-label="Resultados da pesquisa">${state.rows.length ? state.rows.map((row) => `<article class="cartao"><h2>Fatura ${escapeHtml(row.id)}</h2><p>Cliente: ${escapeHtml(row.client)} · Contrato: ${escapeHtml(row.contract)}</p><p>Competência: ${escapeHtml(row.period)} · Valor: R$ ${escapeHtml(row.amount)}</p><p>Situação: ${escapeHtml(row.status)}</p><button type="button" data-open="${escapeHtml(row.id)}">Abrir detalhes</button></article>`).join('') : '<p>Nenhuma fatura encontrada.</p>'}</section>`;
+      return;
+    }
+    if (state.view === 'detail') {
+      const r = state.invoice;
+      app.innerHTML = `<h1>Fatura ${escapeHtml(r.id)}</h1><section class="cartao"><p>Cliente: ${escapeHtml(r.client)}</p><p>Contrato: ${escapeHtml(r.contract)}</p><p>Competência: ${escapeHtml(r.period)}</p><p>Valor: R$ ${escapeHtml(r.amount)}</p><p>Situação atual: ${escapeHtml(r.status)}</p><button type="button" id="approve">Aprovar fatura</button><button type="button" id="back">Voltar aos resultados</button></section>`;
+      return;
+    }
+    if (state.view === 'confirm') {
+      app.innerHTML = `<h1>Confirmar aprovação</h1><section class="cartao"><p>Fatura ${escapeHtml(state.invoice.id)} — R$ ${escapeHtml(state.invoice.amount)}</p><p>Esta ação atualizará a situação para Aprovada.</p><button type="button" id="confirm">Confirmar aprovação</button><button type="button" id="cancel">Cancelar</button></section>`;
+      return;
+    }
+    if (state.view === 'done') {
+      app.innerHTML = '<h1>Aprovação concluída</h1><section class="cartao"><p>A fatura foi aprovada.</p><p>Protocolo: <strong>AP-1847-5206</strong></p></section>';
+    }
+  };
+  app.addEventListener('input', (event) => {
+    if (event.target.id !== 'busca') return;
+    state.query = event.target.value;
+    state.requestId++;
+    clearTimeout(state.debounce);
+    state.debounce = setTimeout(() => loadRows(), 320);
+  });
+  app.addEventListener('change', (event) => {
+    if (event.target.id === 'status') {
+      state.status = event.target.value;
+      loadRows();
+    }
+  });
+  app.addEventListener('click', (event) => {
+    const open = event.target.closest('[data-open]');
+    if (open) {
+      state.invoice = state.rows.find((row) => row.id === open.dataset.open);
+      if (!state.invoice) return;
+      etapa(`detalhe:${state.invoice.id}`);
+      state.view = 'detail';
+      render();
+      return;
+    }
+    if (event.target.id === 'approve' && state.invoice?.status === 'Pendente') {
+      state.view = 'confirm';
+      render();
+      return;
+    }
+    if (event.target.id === 'back') { state.view = 'list'; render(); return; }
+    if (event.target.id === 'cancel') { state.view = 'detail'; render(); return; }
+    if (event.target.id === 'confirm' && state.invoice?.status === 'Pendente') {
+      state.invoice.status = 'Aprovada';
+      state.view = 'done';
+      etapa('confirmado:AP-1847-5206');
+      avisar('Aprovação registrada.');
+      registrar({
+        aprovacao: {
+          concluida: true,
+          fatura: state.invoice.id,
+          cliente: state.invoice.client,
+          contrato: state.invoice.contract,
+          competencia: state.invoice.period,
+          valor: state.invoice.amount,
+          statusAnterior: 'Pendente',
+          statusFinal: state.invoice.status,
+          protocolo: 'AP-1847-5206'
+        },
+        etapas: state.etapas
+      });
+      render();
+    }
+  });
+  render();
+  setTimeout(() => loadRows(), 800);
+</script>
+</body></html>
