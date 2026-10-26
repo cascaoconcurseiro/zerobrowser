@@ -47,7 +47,7 @@
 - [x] Fazer backup verificável do app, perfil, atalhos e instalador anterior em `backups/2026-10-26-before-0.1.3`.
 - [x] Validar nome, ícone, instalação sobre a versão anterior, preservação do perfil e atalho para o executável instalado.
 - [x] Rodar testes aplicáveis do aplicativo e do executável instalado; os benchmarks amplos de acerto/tokens/latência continuam como trabalho de evolução do motor.
-- [x] Atualizar este checklist e os documentos de estado; instalação de produção concluída. Publicação no GitHub fica pendente do commit/push desta sessão.
+- [x] Atualizar este checklist e os documentos de estado; instalação de produção concluída e publicação em `origin/main` confirmada no commit `90cbcd4`.
 
 ### Release 0.1.3 — status em 2026-10-26
 
@@ -58,7 +58,7 @@
 - [x] Backup da instalação anterior: 184 arquivos do app; executável e `app.asar` conferidos por SHA-256.
 - [x] Backup do perfil: 7.571 arquivos e 762.275.248 bytes; mesma contagem e tamanho após a atualização.
 - [x] Instalar 0.1.3 no caminho de produção; NSIS exit code 0; executável informa versão 0.1.3; atalhos do Desktop e menu Iniciar apontam para produção.
-- [ ] Commit e push do estado aprovado para `origin/main`.
+- [x] Commit e push do estado aprovado para `origin/main` (`90cbcd4`).
 
 ### Revisão das mudanças Antigravity — correções
 
