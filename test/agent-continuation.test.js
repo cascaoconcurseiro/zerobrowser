@@ -272,3 +272,21 @@ test('same-URL reloads invalidate the prior snapshot before index based actions'
   assert.equal(output.success, false);
   assert.match(output.error, /snapshot da página ficou desatualizado/i);
 });
+
+test('deepseek thinking mode preserves and passes back reasoning_content in multi-turn requests', async () => {
+  const reasoningMsg = {
+    role: 'assistant',
+    content: null,
+    reasoning_content: 'Analisando a estrutura da página...',
+    tool_calls: [{ id: 'call-reasoning', type: 'function', function: { name: 'inspect_page', arguments: '{}' } }]
+  };
+  const finalMsg = { role: 'assistant', content: 'Tarefa concluída com raciocínio preservado.' };
+  const { run, requests } = fixture([reasoningMsg, finalMsg]);
+  await run();
+
+  assert.equal(requests.length, 2, 'executou as duas rodadas do modelo');
+  const secondTurnMessages = requests[1].messages;
+  const assistantInTurn2 = secondTurnMessages.find((m) => m.role === 'assistant');
+  assert.ok(assistantInTurn2, 'mensagem do assistente está presente na rodada 2');
+  assert.equal(assistantInTurn2.reasoning_content, 'Analisando a estrutura da página...', 'reasoning_content foi preservado e reenviado');
+});

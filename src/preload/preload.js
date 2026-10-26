@@ -1,8 +1,8 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
-contextBridge.exposeInMainWorld('navegante', {
+const browserApi = {
   browser: {
-    newTab: (url, options) => ipcRenderer.invoke('browser:new-tab', url, options),
+    newTab: (url) => ipcRenderer.invoke('browser:new-tab', url),
     closeTab: (tabId) => ipcRenderer.invoke('browser:close-tab', tabId),
     switchTab: (tabId) => ipcRenderer.invoke('browser:switch-tab', tabId),
     navigate: (tabId, url) => ipcRenderer.invoke('browser:navigate', tabId, url),
@@ -14,13 +14,15 @@ contextBridge.exposeInMainWorld('navegante', {
     setSidePanelOpen: (isOpen) => ipcRenderer.invoke('browser:set-side-panel-open', isOpen),
     getSidePanelLayout: () => ipcRenderer.invoke('browser:get-side-panel-layout'),
     setBookmarksBar: (visible) => ipcRenderer.invoke('browser:set-bookmarks-bar', visible),
-    freezePage: (frozen) => ipcRenderer.invoke('browser:freeze-page', frozen),
+    freezePage: (frozen, reason) => ipcRenderer.invoke('browser:freeze-page', frozen, reason),
     reopenClosedTab: () => ipcRenderer.invoke('browser:reopen-closed-tab'),
     getLastSession: () => ipcRenderer.invoke('browser:get-last-session'),
+    getDownloads: () => ipcRenderer.invoke('browser:get-downloads'),
+    showDownload: (id) => ipcRenderer.invoke('browser:show-download', id),
     minimize: () => ipcRenderer.invoke('window:minimize'),
     maximize: () => ipcRenderer.invoke('window:toggle-maximize'),
     onTabEvent: (callback) => {
-      const channels = ['tab:created', 'tab:closed', 'tab:switched', 'tab:navigated', 'tab:navigation-start', 'tab:title-updated', 'tab:favicon-updated', 'tab:console', 'tab:load-error', 'download:event'];
+      const channels = ['tab:created', 'tab:closed', 'tab:switched', 'tab:navigated', 'tab:navigation-start', 'tab:title-updated', 'tab:favicon-updated', 'tab:console', 'tab:load-error', 'download:event', 'browser:shortcut', 'browser:open-ai'];
       const handlers = channels.map((channel) => {
         const handler = (_event, data) => callback({ ...data, type: channel });
         ipcRenderer.on(channel, handler);
@@ -45,6 +47,13 @@ contextBridge.exposeInMainWorld('navegante', {
     }
   },
 
+  extensions: {
+    list: () => ipcRenderer.invoke('browser:extensions:list'),
+    chooseAndInstall: () => ipcRenderer.invoke('browser:extensions:add'),
+    setEnabled: (id, enabled) => ipcRenderer.invoke('browser:extensions:set-enabled', id, enabled),
+    remove: (id) => ipcRenderer.invoke('browser:extensions:remove', id)
+  },
+
   flame: {
     status: () => ipcRenderer.invoke('flame:status'),
     togglePanel: () => ipcRenderer.invoke('flame:toggle-panel'),
@@ -58,6 +67,7 @@ contextBridge.exposeInMainWorld('navegante', {
   automation: {
     execute: (action) => ipcRenderer.invoke('automation:execute', action),
     runAgent: (tabId, prompt, testOnly = false, requireToolCall = false, resumeId = null) => ipcRenderer.invoke('automation:run-agent', { tabId, prompt, testOnly, requireToolCall, resumeId }),
+    cancelAgent: (tabId) => ipcRenderer.invoke('automation:cancel-agent', tabId),
     getState: (tabId) => ipcRenderer.invoke('automation:get-state', tabId),
     cdpSend: (tabId, method, params) => ipcRenderer.invoke('automation:cdp-send', tabId, method, params),
     replyIntervention: (id, action) => ipcRenderer.invoke('automation:intervention-reply', { id, action }),
@@ -100,4 +110,8 @@ contextBridge.exposeInMainWorld('navegante', {
 
   platform: process.platform,
   versions: process.versions
-});
+};
+
+// Alias novo da interface; mantemos o nome antigo para integrações externas existentes.
+contextBridge.exposeInMainWorld('zeroBrowser', browserApi);
+contextBridge.exposeInMainWorld('navegante', browserApi);

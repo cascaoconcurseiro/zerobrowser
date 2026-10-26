@@ -1,4 +1,72 @@
-# Checklist — Navegante
+# Checklist — Zero Browser
+
+## Transformação de produto e marca
+
+- [x] Definir a marca visível como **Zero Browser**.
+- [x] Atualizar nome exibido no pacote, título, cabeçalhos e documentação principal.
+- [x] Criar símbolo visual Zero Browser e aplicá-lo aos painéis e ícone do aplicativo.
+- [x] Preservar `appId` e identidade interna `navegante` para manter o perfil existente durante a mudança de marca.
+- [x] Fazer build Windows e conferir nome/ícone, instalador, executável e atalhos; criar backup verificável antes de instalar por cima.
+
+## Painel de IA inspirado no formulário do Flame
+
+- [x] Inspecionar o formulário real do Flame: caixa de comando, anexos por seletor/arrastar-e-soltar, tags de contexto e skills, seletor de modelo no rodapé, abas de provedor, busca, filtros populares/grátis/todos, modelos customizados, fila e enviar/interromper.
+- [x] Levar provedor, credencial, configurações e catálogo de modelos para Configurações do Zero Browser; manter o provedor/modelo preferido salvo.
+- [x] Refazer a estrutura do compositor no rodapé com área de texto confortável e seletor compacto de modelo sincronizado com Configurações.
+- [x] Indicar estado pronto usando a configuração salva; manter teste de conexão como diagnóstico, sem exigir conexão manual a cada tarefa.
+- [ ] Implementar anexos removíveis e tags de contexto/skills apenas após ligar cada item a capacidades reais do agente.
+- [ ] Adicionar o botão de anexos e ligar o estado de arrastar-e-soltar a validação de arquivos e permissões.
+- [ ] Rever foco, navegação por teclado, nomes acessíveis e estados de envio/erro/interrupção.
+- [ ] Comparar visualmente e validar o fluxo do painel com fixture antes de promover para a versão instalada.
+- [x] Reestruturar a extensão com cabeçalho Zero, estado de execução, aba em foco, navegação funcional e paleta navy/turquesa; build local da extensão passou.
+- [x] Validar typecheck da extensão e a suíte unitária atual (93 testes).
+- [ ] Conferir a aparência e os links da extensão no Zero Browser com perfil temporário; o CUA não iniciou nesta sessão e não houve validação visual ao vivo.
+
+## Casca de navegador familiar ao Chrome
+
+- [x] Adicionar menu `⋮` com Nova aba, Histórico, Downloads recentes, Favoritos e Configurações; os itens abrem fluxos reais já ligados ao perfil do navegador.
+- [x] Criar painel pesquisável de Histórico e Favoritos e painel de Downloads desta sessão; permitir abrir páginas guardadas e revelar na pasta um arquivo concluído.
+- [ ] Persistir histórico de downloads, oferecer abrir/pausar/cancelar/remover e acompanhar downloads em tempo real.
+- [ ] Integrar atalhos globais de histórico e downloads quando o foco estiver dentro da página; os atalhos ainda não são anunciados pelo menu.
+- [ ] Inspecionar visualmente o novo menu e os painéis de biblioteca em runtime e validar abrir item, busca e arquivo fixture baixado.
+- [x] Manter o botão `+` de Nova aba visível ao lado das abas.
+- [ ] Fazer os atalhos de navegador funcionarem quando o foco estiver dentro da página.
+- [ ] Completar o menu `⋮` já criado com nova janela, comandos de navegação e gerenciamento funcional de extensões.
+- [ ] Criar páginas completas de Downloads, Histórico, Favoritos e Configurações, com busca, estados vazios, ações e atalhos.
+- [ ] Completar abas: menu contextual, duplicar, fixar, reordenar, silenciar, reabrir fechadas, restaurar sessão e abrir janela privada.
+- [ ] Implementar páginas de configuração organizadas por Geral, Aparência, Inicialização, Privacidade e segurança, Senhas/preenchimento, Sites/permissões, Downloads, Agente, Extensões, Acessibilidade, navegador padrão, atualização e Sobre.
+- [ ] Implementar gerenciador de extensões com botão **Adicionar extensões**: instalar, listar, ativar/desativar, remover e apresentar permissões; definir fontes/compatibilidade e informar falhas reais de instalação.
+- [ ] Completar comandos comuns do menu: nova janela, zoom, localizar na página, imprimir, histórico, downloads, favoritos, extensões, configurações, ajuda e sobre.
+- [ ] Criar perfis locais isolados com favoritos, histórico, sessões, downloads e abas próprios; migrar o perfil atual sem perda de dados.
+- [ ] Projetar sincronização entre dispositivos com login, escolha de dados, criptografia, resolução de conflitos e recuperação; avaliar separadamente senhas e cookies e não assumir que o Chrome Sync está disponível.
+- [ ] Mapear recursos de referência do Chrome e definir critério de paridade por recurso, sem marcar como completo o que ainda não foi implementado/testado.
+
+## Qualidade, release e recuperação
+
+- [x] Manter a instalação anterior intacta até backup e validação isolada do release.
+- [x] Fazer backup verificável do app, perfil, atalhos e instalador anterior em `backups/2026-10-26-before-0.1.3`.
+- [x] Validar nome, ícone, instalação sobre a versão anterior, preservação do perfil e atalho para o executável instalado.
+- [x] Rodar testes aplicáveis do aplicativo e do executável instalado; os benchmarks amplos de acerto/tokens/latência continuam como trabalho de evolução do motor.
+- [x] Atualizar este checklist e os documentos de estado; instalação de produção concluída. Publicação no GitHub fica pendente do commit/push desta sessão.
+
+### Release 0.1.3 — status em 2026-10-26
+
+- [x] `npm test`: 93/93; `npm audit --omit=dev`: zero vulnerabilidades; `npm run test:electron`: exit code 0.
+- [x] Build Windows com versão 0.1.3 e pacote Electron 45; integração empacotada passa, incluindo nova aba `zero://newtab`, popup customizado negado e regressão freeze/unfreeze CUA.
+- [x] Hash SHA-256 do `app.asar` build e produção coincide: `9DD022EAA3FA9C8AF80A371408C1ED47572FAFC8095497720D4A46C44E9320C2`.
+- [x] Verificar no executável instalado preload ausente nas páginas, bloqueio de `javascript:`, popup interno inválido, providers mockados, AX, CUA, configurações, download e decisões de aprovação.
+- [x] Backup da instalação anterior: 184 arquivos do app; executável e `app.asar` conferidos por SHA-256.
+- [x] Backup do perfil: 7.571 arquivos e 762.275.248 bytes; mesma contagem e tamanho após a atualização.
+- [x] Instalar 0.1.3 no caminho de produção; NSIS exit code 0; executável informa versão 0.1.3; atalhos do Desktop e menu Iniciar apontam para produção.
+- [ ] Commit e push do estado aprovado para `origin/main`.
+
+### Revisão das mudanças Antigravity — correções
+
+- [x] Permitir apenas HTTP(S), `about:blank` e URLs internas exatas no IPC de navegação; a nova aba local não fica bloqueada.
+- [x] Revalidar motivo, aba ativa e `WebContentsView` após o `capturePage()` assíncrono; teste instalado simultâneo freeze/unfreeze deixa a viewport ativa.
+- [x] Impedir pop-ups para esquemas internos arbitrários.
+- [x] Mostrar no diálogo de instalação de extensão permissões, hosts opcionais e padrões de `content_scripts` sem truncar a lista.
+- [x] Alinhar versões `package.json` e `package-lock.json` em 0.1.3; corrigir a documentação de observação pós-ação.
 
 ## Correções verificadas
 
@@ -249,3 +317,104 @@
 - [x] Preparar `.gitignore`, README, identidade de licença e remover caminhos pessoais de documentos publicados.
 - [x] Inicializar Git `main`, revisar 96 arquivos staged e criar o commit inicial `9f18eee` com código, testes e docs; excluir builds, dados, backup, resultados e relatórios locais de REA.
 - [x] Reconfirmar remoto vazio, fazer push de `main` e verificar o commit remoto `88edb2f7457d74832af0d2a90e2045df846ddce3`.
+
+## Grade virtualizada e rolagem direcional — 2026-10-26
+- [x] Adicionar tarefa sintética de planilha com 60 linhas virtualizadas, reordenação, dois autosaves e verificação independente de não alteração das demais linhas.
+- [x] Corrigir `scroll` para contêineres internos, direção up/down/bottom, busca progressiva limitada e espera por cargas assíncronas.
+- [x] Validar tarefa 48 em 3 repetições: 3/3, média 12,3 passos, 26,5 s e 306.082 tokens de entrada; comparação anterior 3/3 em 24,3 passos, 65,8 s e 809.298 tokens.
+- [x] Revalidar rolagem infinita (tarefa 37) em 3 repetições: 3/3.
+- [x] Repetir a suíte difícil completa: 28/28 em duas rodadas; `npm test` 83/83; integrações Electron, bench-store e agent-download passaram.
+- [ ] Repetir tarefa 48 em 5 execuções e confirmar em um segundo provedor/modelo.
+- [ ] Rodar a suíte difícil em 5 execuções antes de preparar release; validar instalador isolado com perfil temporário e backup antes de trocar produção.
+- [ ] Validar fluxo de planilha real e site de comércio autorizado em ambiente de teste; os resultados atuais usam fixtures sintéticas.
+
+## Rebrand Zero Browser e próximos passos — 2026-10-26
+
+- [x] Atualizar a API usada pela interface para `window.zeroBrowser` e manter `window.navegante` como alias legado para integrações existentes.
+- [x] Atualizar nome do pacote npm, descrição, metadados visíveis do MCP e textos da interface/documentação de desenvolvimento para Zero Browser.
+- [x] Renomear os atalhos existentes na Área de Trabalho e no Menu Iniciar para `Zero Browser.lnk`, preservando destino e argumentos.
+- [x] Manter `appId`, pasta de dados, partição do Chromium e canais internos legados para preservar perfil, atualização e compatibilidade; a migração completa desses identificadores exige migração de perfil/integrações.
+- [x] Validar `npm test` (85/85) e `npm run test:electron`.
+- [ ] Validar visualmente o gerenciador de extensões e a sobreposição dos painéis em perfil temporário; conferir instalação/desinstalação de extensões unpacked.
+- [ ] Completar atalhos, páginas de Configurações/Downloads/Histórico e persistência de estado do navegador antes do próximo instalador.
+- [ ] Definir perfis locais e plano próprio de sincronização (conta, criptografia, conflitos e recuperação); isso não integra atualmente ao Chrome Sync.
+- [ ] Repetir tarefa 48 em 5 execuções e confirmar em um segundo provedor; depois rodar 5 repetições da suíte difícil.
+- [ ] Fazer build e validar instalador com perfil temporário, sem substituir a instalação de produção até conferir backup restaurável.
+- [ ] Testar em Planilhas e comércio eletrônico reais apenas com sessão de teste autorizada, sem compras/pagamentos.
+
+## Busca de rolagem orientada por DOM — 2026-10-26
+
+- [x] Extrair a busca por texto no `scroll` para `src/automation/scroll-search.js`, observar mutações DOM e manter fallback de 850 ms e limites existentes.
+- [x] Cobrir chegada rápida (320 ms) e tardia (1.100 ms) em Electron; rápido encontrado em 480 ms e carregamento tardio encontrado na etapa seguinte.
+- [x] Revalidar `npm test` (85/85), `npm run test:electron`, sintaxe JS e `git diff --check`.
+- [x] Medir tarefa 48 cinco vezes com DeepSeek Flash: 5/5, 12,4 passos, 28,13 s e 103.462 tokens de entrada.
+- [x] Comparar com referência anterior (3/3, 12,3 passos, 26,5 s, 102.027 tokens); registrar que o ganho de tempo/tokens não foi demonstrado e não declarar promoção global.
+- [ ] Rodar comparação pareada em grade rápida, lista lenta e página longa sem alvo; cinco repetições por variante, ordem alternada e segundo provedor antes de manter a otimização como padrão.
+- [ ] Próximo experimento de tokens: reduzir gradualmente schemas enviados por chamada, medir acerto/tempo/tokens e restaurar catálogo completo se faltar ferramenta; não desligar `observeAfterActions` sem nova evidência pareada.
+- [x] Rodar suíte pública em sites/demos atuais (12 tarefas): 12/12; limpeza confirmada em carrinho, TodoMVC, tabela e controle assíncrono; sem login ou checkout.
+- [x] Repetir suíte difícil 2x após a mudança: 27/28. Isolar a falha da tarefa 44 (transferência registrada, leitura Centro ausente) e reproduzir 3 vezes: 3/3, todas as seis leituras corretas.
+- [ ] Corrigir ou reduzir a variabilidade de cobertura da tarefa 44 e repetir suíte difícil 2x até 28/28 nas duas rodadas; a repetição isolada não fecha esta pendência.
+
+## Evidência de cobertura em leitura multiaba — 2026-10-26
+
+- [x] Adicionar resumo `pagesRead` / `pagesWithMatches` / `pagesWithoutMatches` ao resultado de `tabs.read_batch` quando há consulta; sinalizar que página índice sem correspondência não conta como fonte com dados.
+- [x] Guardar no trace contagens separadas de páginas lidas e páginas com correspondências, sem armazenar texto de página.
+- [x] Testar unidade: página índice + cinco fontes (5 correspondências/6 lidas), seis fontes completas e páginas que falham; `npm test` passou após a implementação.
+- [ ] Validar a dica nova em execução real que use `tabs.read_batch` e, em seguida, medir a taxa da tarefa 44 em cinco repetições. As tentativas atuais ainda variaram e alguns erros omitiram a filial antes de chamar `read_batch`.
+
+## Registry inspirado no Browsentic — 2026-10-26
+
+- [x] Extrair o catálogo fixo das 17 ferramentas do agente para `src/automation/tools/agent-tool-registry.js`, preservando nomes, descrições, parâmetros e ordem.
+- [x] Proteger a paridade do catálogo com teste de ferramentas, tamanho JSON de 6.764 bytes e cópia isolada por execução.
+- [x] Rodar `npm test`: 90/90.
+- [x] Repetir `npm run test:electron`; em 2026-10-26 concluiu com exit code 0 e log confirma cinco cenários de integração.
+- [x] Auditar a licença pública atual: Browsentic v0.9.0 Apache-2.0; versões até 0.7.15 MIT. Não copiar código nesta alteração; Zero permanece MIT.
+- [ ] Medir A/B de compactação ou exposição sob demanda com fallback completo; nenhuma economia de tokens ou ganho de acerto foi demonstrado por esta extração estrutural.
+## Evidência de navegação após clique — 2026-10-26
+
+- [x] Incluir URL ativa em `pageReads` quando a ação terminou com observação automática bem-sucedida, sempre com restrição de loopback, rota e chave permitida.
+- [x] Adicionar teste para clique que navega à filial Centro e leitura confirmada; `npm test` passou 91/91.
+- [x] Reexecutar integração Electron; exit code 0 e cinco cenários confirmados no log.
+- [ ] Repetir tarefa 44 cinco vezes e suíte difícil duas vezes; o app não estava conectado ao canal MCP (ENOENT), portanto ainda sem benchmark atualizado.
+- [ ] Não promover à produção até fechar benchmark difícil, inspeção visual e build/instalador isolado com backup restaurável.
+
+## Candidato local e gate CUA — 2026-10-26
+
+- [x] Gerar candidato local Windows x64 com `npm run build`; registrar SHA-256 no `HANDOFF.md`.
+- [x] Testar CUA por serviço Electron com debugger anexado; clique da fixture confirmado.
+- [x] Passar `npm run test:installed` no candidato: AX e CUA alteraram fixtures; painel da IA aberto e viewport visível; provedores mock, download, preferências, aprovar e cancelar passaram.
+- [ ] Repetir tarefa 44 cinco vezes, suíte difícil duas vezes e smoke visual dentro do Zero.
+- [ ] Instalar/publicar somente após todos os gates; produção permanece sem alterações.
+
+## Reteste CUA e janela visível — 2026-10-26
+
+- [x] Corrigir o harness de teste instalado para abrir janela visível; `windowsHide: true` tornava a página sem viewport e invalidava o primeiro diagnóstico.
+- [x] Abrir o painel da IA durante o teste CUA e confirmar que a página segue visível e clicável.
+- [x] Regenerar build local e passar `npm test` (91/91), `npm run test:electron` (exit 0) e `npm run test:installed` (exit 0).
+- [ ] Executar benchmark real da tarefa 44 e suíte difícil com modelo/provedor configurados; mocks não medem tokens, latência nem precisão real.
+
+## Correções da auditoria Gemini — 2026-10-26
+
+- [x] AUD-01: exigir token aleatório no WebSocket local, rejeitar conexões com `Origin` e parar de registrar a porta no log; testes cobrem cliente sem token, com Origin e autenticado.
+- [x] AUD-02: corrigir quebra de linhas do `read_batch` e cobrir busca após mais de 240 caracteres.
+- [x] AUD-03: remover preload/bridge sem consumidor das páginas; manter APIs privilegiadas apenas na interface do Zero.
+- [x] AUD-04: restringir `browser:new-tab` à janela principal, validar esquema da URL, remover opções arbitrárias do renderer e manter preferências seguras nas pop-ups.
+- [x] AUD-05: persistir sessão no evento `close` antes da flag de encerramento e salvar lista vazia.
+- [x] AUD-06: oferecer botão Parar, abortar requisição ao provider e bloquear as próximas ferramentas; operação CDP já enviada pode terminar.
+- [x] Rodar `npm test`: 92/92 passaram.
+- [ ] Obter encerramento limpo/exit code do `npm run test:electron` e validar pop-up/OAuth, restauração de sessão e parada no runtime Electron.
+- [ ] Avaliar CDP AX, poda, cache e batching por benchmark pareado antes de substituir o snapshot ou fluxo atual; números do relatório Gemini não foram comprovados.
+- [ ] Não instalar, publicar ou alterar perfil de produção sem novo pedido e validação completa.
+- [ ] Fazer smoke visual da extensão e conferir backup restaurável antes de promover a instalação.
+
+## Plano Zero próprio sobre Chromium — 2026-10-26
+
+- [x] Auditar a arquitetura atual sem alterar o motor: localizar acoplamentos a Electron, capacidades e caminho de dados/perfil.
+- [x] Pesquisar fontes públicas atuais de Chromium, Electron, Brave e BrowserOS neo; separar observação pública de inspeção instalada.
+- [x] Redigir plano completo em `docs/PLANO_ZERO_CHROMIUM_AI.md`, com opções, arquitetura-alvo, migração, critérios de acerto/tempo/tokens, segurança, perfil, sync, atualização e rollback.
+- [x] Registrar a direção de destino no `MASTER_BLUEPRINT.md`: Zero sobre Chromium, agente preservado, Electron apenas como ponte durante os gates.
+- [x] Verificar recursos locais: C: NTFS com 280,4 GB livres e 31,9 GB RAM; build oficial atual ainda requer preparar VS 2026 e Windows SDK 10.0.28000.2270 (instalados: VS 17.14.37710.0 e SDK 10.0.26100.0).
+- [x] Incorporar e fechar revisão independente: separar Gate 3A, definir build repetível sem exigir bit-identical, usar intervalos/amostras estatísticas e bloquear inconclusivos, detalhar ameaça, matriz Must-have, critérios de P95 e update/rollback autenticado com perfil restaurável.
+- [ ] Inspecionar visualmente BrowserOS neo instalado quando o MCP BrowserOS neo estiver conectado; pesquisa desta sessão é apenas pública.
+- [ ] Fase 0: criar baseline pareado reproduzível do agente atual, com custo de provedor aprovado antes de chamadas pagas.
+- [ ] Fase 1: corrigir a experiência diária de abas/atalhos na versão atual antes de iniciar o protótipo Chromium.

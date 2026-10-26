@@ -1,4 +1,4 @@
-// Hospeda extensões MV3 (o Flame) dentro do Navegante. O Electron carrega a extensão e cuida de runtime, storage,
+// Hospeda extensões MV3 (o Flame) dentro do Zero Browser. O Electron carrega a extensão e cuida de runtime, storage,
 // scripting e mensagens; aqui ficam as APIs que ele não tem, respondendo ao chrome-shim-preload.js.
 // O id de aba visto pela extensão é o webContents.id, o mesmo que o chrome.scripting nativo do Electron usa.
 const path = require('path');
@@ -23,6 +23,7 @@ class ExtensionHost {
     this.session = session;
     this.browser = browser;
     this.extensions = new Map(); // id -> Electron.Extension
+    this.primaryId = null;
     this.tabMeta = new Map(); // webContents.id -> { pinned, groupId }
     this.groups = new Map(); // groupId -> { id, title, color, collapsed, windowId }
     this.nextGroupId = 1;
@@ -60,21 +61,39 @@ class ExtensionHost {
     });
 
     const loaded = [];
-    for (const extensionPath of extensionPaths) {
+    for (const entry of extensionPaths) {
+      const descriptor = typeof entry === 'string'
+        ? { path: entry, primary: this.primaryId === null, allowFileAccess: this.primaryId === null }
+        : entry;
       try {
-        const extension = await this.session.extensions.loadExtension(extensionPath, { allowFileAccess: true });
-        this.extensions.set(extension.id, extension);
-        this.globalPanel.path = extension.manifest.side_panel?.default_path || null;
-        loaded.push(extension);
+        loaded.push(await this.loadExtension(descriptor));
       } catch (error) {
-        loaded.push({ error: error.message, path: extensionPath });
+        loaded.push({ error: error.message, path: descriptor.path });
       }
     }
     return loaded;
   }
 
+  async loadExtension({ path: extensionPath, primary = false, allowFileAccess = false } = {}) {
+    const extension = await this.session.extensions.loadExtension(extensionPath, { allowFileAccess });
+    this.extensions.set(extension.id, extension);
+    if (primary) {
+      this.primaryId = extension.id;
+      this.globalPanel.path = extension.manifest.side_panel?.default_path || null;
+    }
+    return extension;
+  }
+
+  unloadExtension(extensionId) {
+    if (extensionId === this.primaryId) throw new Error('A extensão principal do Zero Browser não pode ser removida.');
+    if (!this.extensions.has(extensionId)) return false;
+    this.session.extensions.removeExtension(extensionId);
+    this.extensions.delete(extensionId);
+    return true;
+  }
+
   get primary() {
-    return this.extensions.values().next().value || null;
+    return this.primaryId ? this.extensions.get(this.primaryId) || null : null;
   }
 
   isExtensionUrl(url) {
@@ -96,7 +115,7 @@ class ExtensionHost {
 
   async dispatch(method, args = [], context) {
     const handler = this.handlers[method];
-    if (!handler) return { error: `${method} não está disponível no Navegante` };
+    if (!handler) return { error: `${method} não está disponível no Zero Browser` };
     try {
       return { value: await handler(...(Array.isArray(args) ? args : []), context) };
     } catch (error) {
@@ -343,7 +362,7 @@ class ExtensionHost {
         host.browser.groupsChanged?.(host.groupsSnapshot());
       },
 
-      // windows (o Navegante tem uma janela só)
+      // windows (o Zero Browser tem uma janela só)
       'windows.get': (_id, info) => host.windowInfo(info?.populate),
       'windows.getCurrent': (info) => host.windowInfo(info?.populate),
       'windows.getLastFocused': (info) => host.windowInfo(info?.populate),
@@ -389,14 +408,14 @@ class ExtensionHost {
           host.debuggerAttachedHere.add(tabId);
         }
         host.debuggerOwned.add(tabId);
-        // Igual ao motor do Navegante: com a janela coberta, a aba congelada faz cada evento de entrada esperar segundos.
+        // Igual ao motor do Zero Browser: com a janela coberta, a aba congelada faz cada evento de entrada esperar segundos.
         webContents.setBackgroundThrottling?.(false);
       },
       'debugger.detach': ({ tabId }) => {
         if (!host.debuggerOwned.delete(tabId)) throw new Error(`Debugger is not attached to the tab with id: ${tabId}.`);
         const webContents = host.webContentsFor(tabId);
         webContents.setBackgroundThrottling?.(true);
-        // Se o agente do Navegante já estava conectado antes, o depurador continua com ele.
+        // Se o agente do Zero Browser já estava conectado antes, o depurador continua com ele.
         if (host.debuggerAttachedHere.delete(tabId)) {
           try { webContents.debugger.detach(); } catch {}
         }
@@ -429,7 +448,7 @@ class ExtensionHost {
       'sidePanel.setPanelBehavior': () => undefined,
       'sidePanel.getPanelBehavior': () => ({ openPanelOnActionClick: false }),
 
-      // favoritos e histórico vêm da biblioteca do Navegante
+      // favoritos e histórico vêm da biblioteca do Zero Browser
       'bookmarks.getTree': () => host.browser.library?.bookmarks.getTree() || [],
       'bookmarks.get': (ids) => host.browser.library?.bookmarks.get(ids) || [],
       'bookmarks.getChildren': (id) => host.browser.library?.bookmarks.getChildren(id) || [],
@@ -501,8 +520,8 @@ class ExtensionHost {
       'management.getSelf': () => host.selfInfo(),
       'management.get': () => host.selfInfo(),
       'management.getAll': () => [host.selfInfo()],
-      'management.setEnabled': () => { throw new Error('Não suportado no Navegante'); },
-      'management.uninstall': () => { throw new Error('Não suportado no Navegante'); },
+      'management.setEnabled': () => { throw new Error('Não suportado no Zero Browser'); },
+      'management.uninstall': () => { throw new Error('Não suportado no Zero Browser'); },
 
       'action.setBadgeText': () => undefined,
       'action.setBadgeBackgroundColor': () => undefined,
@@ -534,7 +553,7 @@ class ExtensionHost {
     return { id: ext?.id, name: ext?.name, version: ext?.version, enabled: true, type: 'extension', installType: 'development' };
   }
 
-  // Abre o painel da extensão na aba ativa (botão do agente na barra do Navegante).
+  // Abre o painel da extensão na aba ativa (botão do agente na barra do Zero Browser).
   openPanelForActiveTab() {
     const webContents = this.browser.activeWebContents();
     if (!webContents) return false;

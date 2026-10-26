@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Roda as tarefas do benchmark no Navegante aberto (pela ponte MCP) e grava o relatório de taxa de sucesso.
+// Roda as tarefas do benchmark no Zero Browser aberto (pela ponte MCP) e grava o relatório de taxa de sucesso.
 // Uso: node bench/avaliar.js [rotulo] [--conjunto=basico|dificeis|stress|todos|reais] [--tarefas=01,07] [--repeticoes=N] [--max-passos=N] [--tempo=SEGUNDOS] [--data-dir=PASTA] [--observe]
 //      node bench/avaliar.js --servidor            (só sobe as páginas, para testar à mão)
 //      node bench/avaliar.js --comparar A.json B.json
@@ -64,7 +64,7 @@ function conectarMcp(caminho) {
       }
     });
     socket.on('close', () => {
-      for (const espera of pendentes.values()) espera.reject(new Error('A conexão com o Navegante caiu.'));
+      for (const espera of pendentes.values()) espera.reject(new Error('A conexão com o Zero Browser caiu.'));
       pendentes.clear();
     });
     const chamar = (method, params, tempo = 30000) => new Promise((ok, falha) => {
@@ -73,7 +73,7 @@ function conectarMcp(caminho) {
       pendentes.set(id, { resolve: ok, reject: falha, timer });
       socket.write(`${JSON.stringify({ jsonrpc: '2.0', id, method, params })}\n`);
     });
-    socket.once('error', (erro) => reject(new Error(`Não consegui falar com o Navegante (${erro.code || erro.message}). Abra o app antes de rodar o benchmark.`)));
+    socket.once('error', (erro) => reject(new Error(`Não consegui falar com o Zero Browser (${erro.code || erro.message}). Abra o app antes de rodar o benchmark.`)));
     socket.once('connect', async () => {
       try {
         await chamar('initialize', { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'navegante-bench', version: '1' } });
@@ -199,7 +199,7 @@ async function lerTextoVisivelEFecharAba(mcp, tabId, limpeza = null, initialPage
 function relatorioMarkdown(relatorio) {
   const r = relatorio.resumo;
   const linhas = [
-    `# Benchmark Navegante — ${relatorio.rotulo}`,
+    `# Benchmark Zero Browser — ${relatorio.rotulo}`,
     '',
     `Data: ${relatorio.inicio} · Modelo: ${relatorio.modelo || 'desconhecido'} (${relatorio.provedor || '?'}) · Máx. passos: ${relatorio.maxPassos}`,
     '',
@@ -262,7 +262,7 @@ async function principal() {
   if (!tools.some((t) => t.name === 'run_task')) {
     mcp.fechar();
     await servidor.fechar();
-    throw new Error('O Navegante aberto é uma versão antiga, sem a ferramenta run_task. Feche-o e abra a versão nova com "npm start".');
+    throw new Error('O Zero Browser aberto é uma versão antiga, sem a ferramenta run_task. Feche-o e abra a versão nova com "npm start".');
   }
   const relatorio = { rotulo: opcoes.rotulo, motor: opcoes.motor, observeAfterActions: opcoes.observeAfterActions, inicio: new Date().toISOString(), maxPassos: opcoes.maxPassos, provedor: null, modelo: null, execucoes: [] };
   try {

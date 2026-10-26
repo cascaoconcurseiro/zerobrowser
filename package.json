@@ -1,7 +1,7 @@
 {
-  "name": "navegante",
-  "version": "0.1.1",
-  "description": "Navegador com agente de IA - versão própria baseada em arquitetura REA",
+  "name": "zero-browser",
+  "version": "0.1.3",
+  "description": "Zero Browser: navegador com agente de IA e arquitetura própria baseada em REA",
   "main": "src/main/main.js",
   "scripts": {
     "start": "electron .",
@@ -33,7 +33,7 @@
     "level-transcoder": "^1.0.0",
     "tldts": "^7.4.19",
     "ws": "^8.18.0",
-    "zod": "^3.23.8"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "electron": "^45.0.0",
@@ -41,7 +41,7 @@
   },
   "build": {
     "appId": "com.wesley.navegante",
-    "productName": "Navegante",
+    "productName": "Zero Browser",
     "directories": {
       "output": "dist"
     },
@@ -51,6 +51,7 @@
       "package.json"
     ],
     "win": {
+      "icon": "assets/zero-browser.ico",
       "target": "nsis"
     }
   }

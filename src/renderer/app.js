@@ -1,4 +1,4 @@
-class NaveganteApp {
+class ZeroBrowserApp {
   constructor() {
     this.tabs = new Map();
     this.activeTabId = null;
@@ -40,6 +40,14 @@ class NaveganteApp {
       btnExtensions: document.getElementById('btn-extensions'),
       btnSettings: document.getElementById('btn-settings'),
       btnAi: document.getElementById('btn-ai'),
+      btnAppMenu: document.getElementById('btn-app-menu'),
+      appMenu: document.getElementById('app-menu'),
+      libraryPanel: document.getElementById('library-panel'),
+      libraryTitle: document.getElementById('library-title'),
+      librarySubtitle: document.getElementById('library-subtitle'),
+      librarySearch: document.getElementById('library-search'),
+      libraryList: document.getElementById('library-list'),
+      btnCloseLibrary: document.getElementById('btn-close-library'),
       btnMinimize: document.getElementById('btn-minimize'),
       btnMaximize: document.getElementById('btn-maximize'),
       btnClose: document.getElementById('btn-close'),
@@ -47,12 +55,14 @@ class NaveganteApp {
       btnCloseAi: document.getElementById('btn-close-ai'),
       aiProvider: document.getElementById('ai-provider'),
       aiModel: document.getElementById('ai-model'),
+      aiQuickModel: document.getElementById('ai-quick-model'),
       aiApiKey: document.getElementById('ai-api-key'),
       aiRefreshModels: document.getElementById('btn-ai-refresh-models'),
       aiSaveKey: document.getElementById('btn-ai-save-key'),
       aiToggleKey: document.getElementById('btn-ai-toggle-key'),
       aiModelStatus: document.getElementById('ai-model-status'),
-      aiPrivacyNote: document.getElementById('ai-privacy-note'),
+      aiPrivacyNote: document.getElementById('ai-privacy-note-settings'),
+      aiReadyStatus: document.getElementById('ai-ready-status'),
       btnAiConnect: document.getElementById('btn-ai-connect'),
       aiChat: document.getElementById('ai-chat'),
       aiInput: document.getElementById('ai-input'),
@@ -66,12 +76,26 @@ class NaveganteApp {
   }
 
   bindEvents() {
-    this.elements.btnNewTab.addEventListener('click', () => this.createTab());
+    this.elements.btnNewTab.addEventListener('click', () => this.createTab('zero://newtab'));
     this.elements.btnBack.addEventListener('click', () => this.goBack());
     this.elements.btnForward.addEventListener('click', () => this.goForward());
     this.elements.btnReload.addEventListener('click', () => this.reload());
     this.elements.btnHome.addEventListener('click', () => this.navigateHome());
-    this.elements.btnExtensions.addEventListener('click', () => this.showToast('O gerenciamento de extensões ainda não está disponível.', 'info'));
+    this.elements.btnExtensions.addEventListener('click', () => this.openExtensionsManager());
+    document.getElementById('btn-add-extension').addEventListener('click', () => this.addExtension());
+    this.elements.btnAppMenu.addEventListener('click', () => this.toggleAppMenu());
+    this.elements.appMenu.addEventListener('click', (event) => {
+      const action = event.target.closest('[data-menu-action]')?.dataset.menuAction;
+      if (action) this.runMenuAction(action);
+    });
+    document.addEventListener('click', (event) => {
+      if (!this.elements.appMenu.contains(event.target) && event.target !== this.elements.btnAppMenu) this.closeAppMenu();
+    });
+    this.elements.librarySearch.addEventListener('input', () => {
+      clearTimeout(this.librarySearchTimer);
+      this.librarySearchTimer = setTimeout(() => this.renderLibrary(), 120);
+    });
+    this.elements.btnCloseLibrary.addEventListener('click', () => this.closeLibrary());
 
     this.elements.addressBar.addEventListener('keydown', (e) => this.handleAddressKey(e));
     this.elements.addressBar.addEventListener('input', () => this.scheduleSuggestions());
@@ -79,13 +103,13 @@ class NaveganteApp {
     this.elements.btnBookmark.addEventListener('click', () => this.toggleBookmark());
     this.elements.bookmarksBarMore.addEventListener('click', () => {
       const rect = this.elements.bookmarksBarMore.getBoundingClientRect();
-      window.navegante.library.openFolderMenu('1', rect.left, rect.bottom, Number(this.elements.bookmarksBarMore.dataset.fromIndex) || 0);
+      window.zeroBrowser.library.openFolderMenu('1', rect.left, rect.bottom, Number(this.elements.bookmarksBarMore.dataset.fromIndex) || 0);
     });
     window.addEventListener('resize', () => {
       clearTimeout(this.fitTimer);
       this.fitTimer = setTimeout(() => this.fitBookmarksBar(), 100);
     });
-    this.elements.btnFlame.addEventListener('click', () => window.navegante.flame.togglePanel());
+    this.elements.btnFlame.addEventListener('click', () => window.zeroBrowser.flame.togglePanel());
 
     this.elements.addressBar.addEventListener('focus', () => {
       this.elements.addressBar.select();
@@ -97,7 +121,10 @@ class NaveganteApp {
     this.elements.btnCloseSettings.addEventListener('click', () => this.closeSettingsPanel());
 
     this.elements.btnAiConnect.addEventListener('click', () => this.connectAi());
-    this.elements.btnAiSend.addEventListener('click', () => this.sendAiMessage());
+    this.elements.btnAiSend.addEventListener('click', () => {
+      if (this.aiRunning) window.zeroBrowser.automation.cancelAgent(this.runningAgentTabId || this.activeTabId);
+      else this.sendAiMessage();
+    });
     this.elements.aiRefreshModels.addEventListener('click', () => this.refreshAiModels());
     this.elements.aiSaveKey.addEventListener('click', () => this.saveAiKey());
     this.elements.aiToggleKey.addEventListener('click', () => this.toggleAiKeyVisibility());
@@ -107,7 +134,8 @@ class NaveganteApp {
       await this.loadProviderConfig(provider);
       if (this.aiProviderConfigs.get(provider)?.hasApiKey) await this.refreshAiModels({ quiet: true });
     });
-    this.elements.aiModel.addEventListener('change', () => { this.aiConnected = false; });
+    this.elements.aiModel.addEventListener('change', () => this.selectAiModel(this.elements.aiModel.value));
+    this.elements.aiQuickModel.addEventListener('change', () => this.selectAiModel(this.elements.aiQuickModel.value));
     this.elements.btnClose.addEventListener('click', () => window.close());
     const settingKeys = {
       'setting-show-full-url': 'browser.showFullUrl',
@@ -127,8 +155,8 @@ class NaveganteApp {
       element.addEventListener('change', async () => {
         const value = element.type === 'checkbox' ? element.checked : element.value;
         try {
-          if (key === 'theme') await window.navegante.settings.applyTheme(value);
-          else await window.navegante.store.set(key, value);
+          if (key === 'theme') await window.zeroBrowser.settings.applyTheme(value);
+          else await window.zeroBrowser.store.set(key, value);
           this.settings[key] = value;
           if (key === 'theme') this.applySettings({ theme: value });
           if (key === 'browser.showFullUrl') this.updateAddressBar();
@@ -144,7 +172,7 @@ class NaveganteApp {
     document.getElementById('btn-clear-history').addEventListener('click', () => this.clearHistory());
     this.elements.btnChangeDownload.addEventListener('click', async () => {
       try {
-        const selected = await window.navegante.settings.chooseDownloadDirectory();
+        const selected = await window.zeroBrowser.settings.chooseDownloadDirectory();
         if (!selected) return;
         document.getElementById('setting-download-path').value = selected;
         this.settings['downloads.path'] = selected;
@@ -160,17 +188,34 @@ class NaveganteApp {
       }
     });
 
-    this.elements.btnMinimize.addEventListener('click', () => window.navegante.browser.minimize());
-    this.elements.btnMaximize.addEventListener('click', () => window.navegante.browser.maximize());
+    this.elements.btnMinimize.addEventListener('click', () => window.zeroBrowser.browser.minimize());
+    this.elements.btnMaximize.addEventListener('click', () => window.zeroBrowser.browser.maximize());
 
     document.addEventListener('keydown', (e) => {
       if (e.ctrlKey && e.key === 't') {
         e.preventDefault();
         this.createTab();
       }
+      if (e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === 'h') {
+        e.preventDefault();
+        this.openLibrary('history');
+      }
+      if (e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === 'j') {
+        e.preventDefault();
+        this.openLibrary('downloads');
+      }
+      if (e.key === 'Escape') this.closeAppMenu();
       if (e.ctrlKey && e.key === 'w') {
         e.preventDefault();
         this.closeActiveTab();
+      }
+      if (e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === 'l') {
+        e.preventDefault();
+        this.elements.addressBar.focus();
+      }
+      if (e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === 'r') {
+        e.preventDefault();
+        this.reload();
       }
       if (e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === 'd') {
         e.preventDefault();
@@ -179,13 +224,13 @@ class NaveganteApp {
       if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'b') {
         e.preventDefault();
         const visible = this.elements.bookmarksBar.classList.contains('hidden');
-        window.navegante.store.set('browser.showBookmarksBar', visible);
+        window.zeroBrowser.store.set('browser.showBookmarksBar', visible);
         this.settings['browser.showBookmarksBar'] = visible;
         this.setBookmarksBarVisible(visible);
       }
       if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 't') {
         e.preventDefault();
-        window.navegante.browser.reopenClosedTab();
+        window.zeroBrowser.browser.reopenClosedTab();
       }
       if (e.ctrlKey && e.key === 'l') {
         e.preventDefault();
@@ -199,10 +244,10 @@ class NaveganteApp {
       if (e.altKey && e.key === 'ArrowRight') this.goForward();
     });
 
-    if (window.navegante) {
-      window.navegante.browser.onTabEvent((data) => this.handleTabEvent(data));
-      window.navegante.automation.onIntervention((data) => this.showHumanCheckBanner(data));
-      window.navegante.automation.onInterventionEnd(({ id }) => this.hideHumanCheckBanner(id));
+    if (window.zeroBrowser) {
+      window.zeroBrowser.browser.onTabEvent((data) => this.handleTabEvent(data));
+      window.zeroBrowser.automation.onIntervention((data) => this.showHumanCheckBanner(data));
+      window.zeroBrowser.automation.onInterventionEnd(({ id }) => this.hideHumanCheckBanner(id));
     }
   }
 
@@ -223,7 +268,7 @@ class NaveganteApp {
     const actions = document.createElement('div');
     actions.className = 'human-check-actions';
     const reply = (action) => {
-      window.navegante.automation.replyIntervention(id, action);
+      window.zeroBrowser.automation.replyIntervention(id, action);
       this.hideHumanCheckBanner(id);
     };
     const resume = document.createElement('button');
@@ -250,7 +295,7 @@ class NaveganteApp {
   }
 
   async loadSettings() {
-    const settings = await window.navegante.store.getAll();
+    const settings = await window.zeroBrowser.store.getAll();
     this.settings = { ...settings };
     this.applySettings(settings);
     const media = window.matchMedia('(prefers-color-scheme: dark)');
@@ -270,19 +315,19 @@ class NaveganteApp {
   }
 
   async createInitialTab() {
-    const lastTabs = await window.navegante.browser.getLastSession().catch(() => []);
+    const lastTabs = await window.zeroBrowser.browser.getLastSession().catch(() => []);
     if (lastTabs.length) {
       for (const url of lastTabs) await this.createTab(url);
       return;
     }
-    const homepage = await window.navegante.store.get('browser.defaultHomepage') || 'https://www.google.com';
-    await this.createTab(homepage);
+    const homepage = await window.zeroBrowser.store.get('browser.defaultHomepage');
+    await this.createTab(homepage || 'zero://newtab');
   }
 
   // --- Favoritos, sugestões e Flame ------------------------------------------------------------------------
 
   async initLibraryUi() {
-    window.navegante.library.onChanged(({ area }) => {
+    window.zeroBrowser.library.onChanged(({ area }) => {
       if (area === 'bookmarks') {
         this.renderBookmarksBar();
         this.updateBookmarkStar();
@@ -291,10 +336,10 @@ class NaveganteApp {
     this.setBookmarksBarVisible(this.settings['browser.showBookmarksBar'] !== false);
     this.renderBookmarksBar();
     this.updateBookmarkStar();
-    const flame = await window.navegante.flame.status().catch(() => ({ available: false }));
+    const flame = await window.zeroBrowser.flame.status().catch(() => ({ available: false }));
     this.elements.btnFlame.classList.toggle('hidden', !flame.available);
     this.setFlamePressed(flame.open);
-    window.navegante.flame.onPanel(({ tabId, open }) => {
+    window.zeroBrowser.flame.onPanel(({ tabId, open }) => {
       if (tabId === this.activeTabId) this.setFlamePressed(open);
     });
   }
@@ -306,11 +351,11 @@ class NaveganteApp {
 
   setBookmarksBarVisible(visible) {
     this.elements.bookmarksBar.classList.toggle('hidden', !visible);
-    window.navegante.browser.setBookmarksBar(Boolean(visible));
+    window.zeroBrowser.browser.setBookmarksBar(Boolean(visible));
   }
 
   async renderBookmarksBar() {
-    const items = await window.navegante.library.bookmarks('getChildren', '1').catch(() => []);
+    const items = await window.zeroBrowser.library.bookmarks('getChildren', '1').catch(() => []);
     const list = this.elements.bookmarksBarItems;
     list.replaceChildren();
     this.elements.bookmarksBarEmpty.classList.toggle('hidden', items.length > 0);
@@ -334,12 +379,12 @@ class NaveganteApp {
         button.setAttribute('aria-haspopup', 'menu');
         button.addEventListener('click', () => {
           const rect = button.getBoundingClientRect();
-          window.navegante.library.openFolderMenu(node.id, rect.left, rect.bottom);
+          window.zeroBrowser.library.openFolderMenu(node.id, rect.left, rect.bottom);
         });
       }
       button.addEventListener('contextmenu', (e) => {
         e.preventDefault();
-        window.navegante.library.openItemMenu(node.id, e.clientX, e.clientY);
+        window.zeroBrowser.library.openItemMenu(node.id, e.clientX, e.clientY);
       });
       item.append(button);
       list.append(item);
@@ -392,10 +437,12 @@ class NaveganteApp {
   async updateBookmarkStar() {
     const url = this.currentUrl();
     const allowed = /^https?:/i.test(url);
-    const marked = allowed && await window.navegante.library.bookmarks('isBookmarked', url).catch(() => false);
+    const marked = allowed && await window.zeroBrowser.library.bookmarks('isBookmarked', url).catch(() => false);
     const star = this.elements.btnBookmark;
     star.disabled = !allowed;
-    star.textContent = marked ? '★' : '☆';
+    star.innerHTML = marked
+      ? '<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>'
+      : '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>';
     star.classList.toggle('active', Boolean(marked));
     star.setAttribute('aria-pressed', String(Boolean(marked)));
     const label = marked ? 'Remover dos favoritos (Ctrl+D)' : 'Adicionar aos favoritos (Ctrl+D)';
@@ -407,13 +454,13 @@ class NaveganteApp {
     const url = this.currentUrl();
     if (!/^https?:/i.test(url)) return;
     try {
-      const existing = await window.navegante.library.bookmarks('findByUrl', url);
+      const existing = await window.zeroBrowser.library.bookmarks('findByUrl', url);
       if (existing.length) {
-        for (const node of existing) await window.navegante.library.bookmarks('remove', node.id);
+        for (const node of existing) await window.zeroBrowser.library.bookmarks('remove', node.id);
         this.showToast('Removido dos favoritos.', 'info');
       } else {
         const title = this.tabs.get(this.activeTabId)?.title || url;
-        await window.navegante.library.bookmarks('create', { parentId: '1', title, url });
+        await window.zeroBrowser.library.bookmarks('create', { parentId: '1', title, url });
         this.showToast('Adicionado à barra de favoritos.', 'success');
       }
     } catch (error) {
@@ -423,7 +470,7 @@ class NaveganteApp {
   }
 
   navigateTo(url) {
-    if (this.activeTabId) window.navegante.browser.navigate(this.activeTabId, url);
+    if (this.activeTabId) window.zeroBrowser.browser.navigate(this.activeTabId, url);
   }
 
   scheduleSuggestions() {
@@ -433,7 +480,7 @@ class NaveganteApp {
 
   async showSuggestions() {
     const text = this.elements.addressBar.value.trim();
-    const items = text ? await window.navegante.library.suggest(text).catch(() => []) : [];
+    const items = text ? await window.zeroBrowser.library.suggest(text).catch(() => []) : [];
     if (document.activeElement !== this.elements.addressBar || this.elements.addressBar.value.trim() !== text) return;
     if (!items.length) return this.closeSuggestions();
     this.suggestions = items;
@@ -469,8 +516,8 @@ class NaveganteApp {
     if (list.classList.contains('hidden')) {
       list.classList.remove('hidden');
       this.elements.addressBar.setAttribute('aria-expanded', 'true');
-      const frozen = await window.navegante.browser.freezePage(true).catch(() => null);
-      if (list.classList.contains('hidden')) return window.navegante.browser.freezePage(false);
+      const frozen = await window.zeroBrowser.browser.freezePage(true).catch(() => null);
+      if (list.classList.contains('hidden')) return window.zeroBrowser.browser.freezePage(false);
       if (frozen?.image) {
         const container = this.elements.browserContainer;
         container.style.backgroundImage = `url("${frozen.image}")`;
@@ -489,11 +536,7 @@ class NaveganteApp {
     list.replaceChildren();
     this.suggestions = [];
     this.elements.addressBar.setAttribute('aria-expanded', 'false');
-    window.navegante.browser.freezePage(false).finally(() => {
-      const container = this.elements.browserContainer;
-      container.classList.remove('frozen');
-      container.style.backgroundImage = '';
-    });
+    this.releasePageOverlay('suggestions');
   }
 
   highlightSuggestion(index) {
@@ -542,7 +585,7 @@ class NaveganteApp {
 
   async createTab(url = 'about:blank') {
     try {
-      const result = await window.navegante.browser.newTab(url);
+      const result = await window.zeroBrowser.browser.newTab(url);
       if (result && result.tabId) {
         this.addTabToUI(result.tabId, url);
         this.switchTab(result.tabId);
@@ -564,7 +607,7 @@ class NaveganteApp {
     tab.innerHTML = `
       <img class="tab-favicon" src="" alt="">
       <span class="tab-title">Carregando...</span>
-      <button class="tab-close" data-tab-id="${tabId}" aria-label="Fechar aba">×</button>
+      <button class="tab-close" data-tab-id="${tabId}" aria-label="Fechar aba"><svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><line x1="2" y1="2" x2="10" y2="10"/><line x1="10" y1="2" x2="2" y2="10"/></svg></button>
     `;
 
     tab.querySelector('.tab-close').addEventListener('click', (e) => {
@@ -584,7 +627,7 @@ class NaveganteApp {
     const tabEl = this.elements.tabsContainer.querySelector(`[data-tab-id="${tabId}"]`);
     if (tabEl) tabEl.classList.add('active');
 
-    window.navegante.browser.switchTab(tabId);
+    window.zeroBrowser.browser.switchTab(tabId);
     this.activeTabId = tabId;
     this.updateAddressBar();
   }
@@ -600,7 +643,8 @@ class NaveganteApp {
   }
 
   formatAddressBarUrl(value) {
-    if (!value || this.settings['browser.showFullUrl']) return value;
+    if (!value || value.includes('newtab.html') || value === 'zero://newtab' || value === 'navegante://newtab' || value === 'about:blank') return '';
+    if (this.settings['browser.showFullUrl']) return value;
     try {
       const url = new URL(value);
       if (!['http:', 'https:'].includes(url.protocol)) return value;
@@ -619,7 +663,7 @@ class NaveganteApp {
     }
 
     const wasActive = this.activeTabId === tabId;
-    window.navegante.browser.closeTab(tabId);
+    window.zeroBrowser.browser.closeTab(tabId);
     this.tabs.delete(tabId);
 
     const tabEl = this.elements.tabsContainer.querySelector(`[data-tab-id="${tabId}"]`);
@@ -642,6 +686,12 @@ class NaveganteApp {
     let finalUrl = url.trim();
     if (!finalUrl) return;
 
+    if (finalUrl === 'zero://newtab' || finalUrl === 'navegante://newtab') {
+      window.zeroBrowser.browser.navigate(this.activeTabId, finalUrl);
+      this.elements.addressBar.blur();
+      return;
+    }
+
     if (!finalUrl.match(/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//)) {
       if (finalUrl.includes('.') && !finalUrl.includes(' ')) {
         finalUrl = 'https://' + finalUrl;
@@ -650,25 +700,25 @@ class NaveganteApp {
       }
     }
 
-    window.navegante.browser.navigate(this.activeTabId, finalUrl);
+    window.zeroBrowser.browser.navigate(this.activeTabId, finalUrl);
     this.elements.addressBar.blur();
   }
 
   async navigateHome() {
-    const homepage = await window.navegante.store.get('browser.defaultHomepage') || 'https://www.google.com';
-    this.navigate(homepage);
+    const homepage = await window.zeroBrowser.store.get('browser.defaultHomepage');
+    this.navigate(homepage || 'zero://newtab');
   }
 
   goBack() {
-    if (this.activeTabId) window.navegante.browser.goBack(this.activeTabId);
+    if (this.activeTabId) window.zeroBrowser.browser.goBack(this.activeTabId);
   }
 
   goForward() {
-    if (this.activeTabId) window.navegante.browser.goForward(this.activeTabId);
+    if (this.activeTabId) window.zeroBrowser.browser.goForward(this.activeTabId);
   }
 
   reload() {
-    if (this.activeTabId) window.navegante.browser.reload(this.activeTabId);
+    if (this.activeTabId) window.zeroBrowser.browser.reload(this.activeTabId);
   }
 
   handleTabEvent(data) {
@@ -687,7 +737,7 @@ class NaveganteApp {
         break;
       case 'tab:switched':
         this.activeTabId = data.tabId;
-        window.navegante.flame.status().then(({ open }) => this.setFlamePressed(open)).catch(() => {});
+        window.zeroBrowser.flame.status().then(({ open }) => this.setFlamePressed(open)).catch(() => {});
         this.updateTabUI(data.tabId);
         this.updateAddressBar();
         break;
@@ -709,7 +759,22 @@ class NaveganteApp {
         else if (data.state === 'cancelled') this.showToast(`Download cancelado: ${data.filename}`, 'warning');
         else if (data.state === 'interrupted') this.showToast(`Download interrompido: ${data.filename}`, 'error');
         break;
+      case 'browser:open-ai':
+        this.toggleAiPanel(true);
+        break;
+      case 'browser:shortcut':
+        this.handleBrowserShortcut(data);
+        break;
     }
+  }
+
+  handleBrowserShortcut({ action, tabId }) {
+    if (action === 'new-tab') return this.createTab('zero://newtab');
+    if (action === 'close-tab') return this.closeTab(tabId);
+    if (action === 'history' || action === 'downloads') return this.openLibrary(action);
+    if (action === 'focus-address') return this.elements.addressBar.focus();
+    if (action === 'reload') return window.zeroBrowser.browser.reload(tabId);
+    if (action === 'bookmark') return this.toggleBookmark();
   }
 
   updateTabInfo(tabId, info) {
@@ -744,23 +809,51 @@ class NaveganteApp {
 
   async updateNavigationButtons() {
     if (!this.activeTabId) return;
-    const tab = await window.navegante.browser.getTab(this.activeTabId);
+    const tab = await window.zeroBrowser.browser.getTab(this.activeTabId);
     this.elements.btnBack.disabled = !tab?.canGoBack;
     this.elements.btnForward.disabled = !tab?.canGoForward;
   }
 
   async loadAiSettings() {
-    const config = await window.navegante.ai.getConfig();
+    const config = await window.zeroBrowser.ai.getConfig();
     this.elements.aiProvider.value = config.provider;
     this.elements.aiApiKey.value = '';
     this.resetAiKeyVisibility();
     await this.loadProviderConfig(config.provider, config);
     if (config.hasApiKey) await this.refreshAiModels({ quiet: true, preferredModel: config.model });
     if (config.hasApiKey && config.model) this.aiConnected = true;
+    this.syncQuickModel();
+    this.elements.aiReadyStatus.textContent = config.hasApiKey && config.model ? `Pronto · ${config.model}` : 'Configure provedor e modelo em Configurações para começar.';
+  }
+
+  syncQuickModel() {
+    const quick = this.elements.aiQuickModel;
+    quick.replaceChildren(...Array.from(this.elements.aiModel.options, (option) => option.cloneNode(true)));
+    quick.value = this.elements.aiModel.value;
+  }
+
+  async selectAiModel(model) {
+    this.elements.aiModel.value = model;
+    this.elements.aiQuickModel.value = model;
+    this.aiConnected = false;
+    const provider = this.elements.aiProvider.value;
+    const config = this.aiProviderConfigs.get(provider);
+    if (model && config?.hasApiKey) {
+      try {
+        const saved = await window.zeroBrowser.ai.saveConfig({ provider, model });
+        this.aiProviderConfigs.set(provider, saved);
+        this.aiConnected = true;
+        this.elements.aiReadyStatus.textContent = `Pronto · ${model}`;
+      } catch (error) {
+        this.elements.aiReadyStatus.textContent = `Não foi possível salvar o modelo: ${error.message}`;
+      }
+    } else {
+      this.elements.aiReadyStatus.textContent = 'Escolha um modelo válido em Configurações.';
+    }
   }
 
   async loadProviderConfig(provider, knownConfig) {
-    const config = knownConfig || await window.navegante.ai.getConfig(provider);
+    const config = knownConfig || await window.zeroBrowser.ai.getConfig(provider);
     this.aiProviderConfigs.set(provider, config);
     this.elements.aiApiKey.value = '';
     this.resetAiKeyVisibility();
@@ -792,7 +885,7 @@ class NaveganteApp {
 
     try {
       if (!this.elements.aiApiKey.value) {
-        this.elements.aiApiKey.value = await window.navegante.ai.revealKey(provider);
+        this.elements.aiApiKey.value = await window.zeroBrowser.ai.revealKey(provider);
         this.aiRevealedStoredKey = true;
       }
       this.aiKeyRevealed = true;
@@ -809,8 +902,8 @@ class NaveganteApp {
     const apiKey = this.elements.aiApiKey.value;
     this.elements.aiSaveKey.disabled = true;
     try {
-      const saved = await window.navegante.ai.saveKey(provider, apiKey);
-      const config = await window.navegante.ai.getConfig(provider);
+      const saved = await window.zeroBrowser.ai.saveKey(provider, apiKey);
+      const config = await window.zeroBrowser.ai.getConfig(provider);
       this.aiProviderConfigs.set(provider, config);
       this.elements.aiApiKey.value = '';
       this.resetAiKeyVisibility();
@@ -829,7 +922,7 @@ class NaveganteApp {
 
   async refreshAiModels({ quiet = false, preferredModel } = {}) {
     const provider = this.elements.aiProvider.value;
-    const config = this.aiProviderConfigs.get(provider) || await window.navegante.ai.getConfig(provider);
+    const config = this.aiProviderConfigs.get(provider) || await window.zeroBrowser.ai.getConfig(provider);
     const key = this.elements.aiApiKey.value.trim();
     if (!key && !config.hasApiKey) {
       this.elements.aiModelStatus.textContent = 'Digite a chave de API e clique em Atualizar.';
@@ -839,7 +932,7 @@ class NaveganteApp {
     this.elements.aiRefreshModels.disabled = true;
     this.elements.aiModelStatus.textContent = 'Sincronizando catálogo…';
     try {
-      const models = await window.navegante.ai.listModels(provider, key || undefined);
+      const models = await window.zeroBrowser.ai.listModels(provider, key || undefined);
       if (!models.length) throw new Error('O provedor não retornou modelos disponíveis.');
       this.aiModelCatalog = models;
       const select = this.elements.aiModel;
@@ -870,6 +963,7 @@ class NaveganteApp {
         select.appendChild(unavailable);
       }
       select.value = chosen?.id || (currentModel && !models.some((model) => model.id === currentModel) ? currentModel : '');
+      this.syncQuickModel();
       this.elements.aiModelStatus.textContent = `${models.length} modelos sincronizados; ${enabledCount} selecionáveis para o agente.`;
       if (!quiet) this.showToast(`Catálogo ${provider === 'deepseek' ? 'DeepSeek' : 'OpenRouter'} atualizado: ${models.length} modelos.`, 'success');
     } catch (error) {
@@ -881,7 +975,7 @@ class NaveganteApp {
   }
 
   async loadSettingsToUI() {
-    const settings = await window.navegante.store.getAll();
+    const settings = await window.zeroBrowser.store.getAll();
     document.getElementById('setting-show-full-url').checked = settings['browser.showFullUrl'] || false;
     document.getElementById('setting-clear-on-exit').checked = settings['privacy.clearOnExit'] || false;
     document.getElementById('setting-restore-session').checked = settings['browser.restoreSession'] !== false;
@@ -899,7 +993,7 @@ class NaveganteApp {
 
   async renderImportSources() {
     const container = document.getElementById('import-sources');
-    const sources = await window.navegante.library.importSources().catch(() => []);
+    const sources = await window.zeroBrowser.library.importSources().catch(() => []);
     container.replaceChildren();
     if (!sources.length) {
       const note = document.createElement('p');
@@ -924,7 +1018,7 @@ class NaveganteApp {
     if (button) button.disabled = true;
     status.textContent = 'Importando…';
     try {
-      const result = await window.navegante.library.importFrom(sourceId);
+      const result = await window.zeroBrowser.library.importFrom(sourceId);
       if (!result) {
         status.textContent = '';
         return;
@@ -944,42 +1038,301 @@ class NaveganteApp {
   async clearHistory() {
     if (!window.confirm('Apagar todo o histórico de navegação? Isso não pode ser desfeito.')) return;
     try {
-      await window.navegante.library.history('deleteAll');
+      await window.zeroBrowser.library.history('deleteAll');
       this.showToast('Histórico apagado.', 'success');
     } catch (error) {
       this.showToast(`Não foi possível apagar o histórico: ${error.message}`, 'error');
     }
   }
 
-  toggleAiPanel() {
-    const opening = this.elements.aiPanel.classList.contains('hidden');
+  async toggleAiPanel(forceOpen = false) {
+    const opening = forceOpen ? true : this.elements.aiPanel.classList.contains('hidden');
     this.elements.aiPanel.classList.toggle('hidden', !opening);
     this.elements.settingsPanel.classList.add('hidden');
-    window.navegante.browser.setSidePanelOpen(opening);
+    this.elements.libraryPanel.classList.add('hidden');
+    this.closeAppMenu();
+    window.zeroBrowser.browser.setSidePanelOpen(opening);
     if (opening) {
+      await this.releasePageOverlay('panel');
       this.elements.aiInput.focus();
       this.loadAiSettings();
-    }
+    } else await this.releasePageOverlay('panel');
   }
 
   closeAiPanel() {
     this.elements.aiPanel.classList.add('hidden');
-    if (this.elements.settingsPanel.classList.contains('hidden')) window.navegante.browser.setSidePanelOpen(false);
+    if (this.elements.settingsPanel.classList.contains('hidden')) window.zeroBrowser.browser.setSidePanelOpen(false);
+    if (this.elements.settingsPanel.classList.contains('hidden') && this.elements.libraryPanel.classList.contains('hidden')) this.releasePageOverlay('panel');
   }
 
   toggleSettingsPanel() {
     const opening = this.elements.settingsPanel.classList.contains('hidden');
     this.elements.settingsPanel.classList.toggle('hidden', !opening);
     this.elements.aiPanel.classList.add('hidden');
-    window.navegante.browser.setSidePanelOpen(opening);
+    this.elements.libraryPanel.classList.add('hidden');
+    this.closeAppMenu();
+    window.zeroBrowser.browser.setSidePanelOpen(opening);
     if (opening) {
+      this.freezePageForPanel();
       this.loadSettingsToUI();
-    }
+      this.loadAiSettings();
+    } else if (this.elements.aiPanel.classList.contains('hidden') && this.elements.libraryPanel.classList.contains('hidden')) this.releasePageOverlay('panel');
   }
 
   closeSettingsPanel() {
     this.elements.settingsPanel.classList.add('hidden');
-    if (this.elements.aiPanel.classList.contains('hidden')) window.navegante.browser.setSidePanelOpen(false);
+    if (this.elements.aiPanel.classList.contains('hidden')) window.zeroBrowser.browser.setSidePanelOpen(false);
+    if (this.elements.aiPanel.classList.contains('hidden') && this.elements.libraryPanel.classList.contains('hidden')) this.releasePageOverlay('panel');
+  }
+
+  async toggleAppMenu() {
+    const opening = this.elements.appMenu.classList.contains('hidden');
+    this.elements.appMenu.classList.toggle('hidden', !opening);
+    this.elements.btnAppMenu.setAttribute('aria-expanded', String(opening));
+    if (!opening) return this.releaseAppMenuFreeze();
+    const requestId = this.appMenuFreezeRequest = (this.appMenuFreezeRequest || 0) + 1;
+    const frozen = await window.zeroBrowser.browser.freezePage(true, 'menu').catch(() => null);
+    if (requestId !== this.appMenuFreezeRequest || this.elements.appMenu.classList.contains('hidden')) {
+      await window.zeroBrowser.browser.freezePage(false, 'menu').catch(() => {});
+      return;
+    }
+    if (frozen?.image) {
+      const container = this.elements.browserContainer;
+      container.style.backgroundImage = `url("${frozen.image}")`;
+      container.style.backgroundSize = `${frozen.bounds.width}px ${frozen.bounds.height}px`;
+      container.classList.add('frozen');
+    }
+    this.elements.appMenu.querySelector('[role="menuitem"]')?.focus();
+  }
+
+  closeAppMenu() {
+    const wasOpen = !this.elements.appMenu.classList.contains('hidden');
+    this.elements.appMenu.classList.add('hidden');
+    this.elements.btnAppMenu.setAttribute('aria-expanded', 'false');
+    if (wasOpen) {
+      this.appMenuFreezeRequest = (this.appMenuFreezeRequest || 0) + 1;
+      this.releaseAppMenuFreeze();
+    }
+  }
+
+  releaseAppMenuFreeze() {
+    return this.releasePageOverlay('menu');
+  }
+
+  runMenuAction(action) {
+    this.closeAppMenu();
+    if (action === 'new-tab') return this.createTab('zero://newtab');
+    if (action === 'history' || action === 'downloads' || action === 'bookmarks') return this.openLibrary(action);
+    if (action === 'settings') return this.toggleSettingsPanel();
+    if (action === 'extensions') return this.openExtensionsManager();
+  }
+
+  async openExtensionsManager() {
+    this.elements.settingsPanel.classList.remove('hidden');
+    this.elements.aiPanel.classList.add('hidden');
+    this.elements.libraryPanel.classList.add('hidden');
+    this.closeAppMenu();
+    window.zeroBrowser.browser.setSidePanelOpen(true);
+    await this.freezePageForPanel();
+    this.loadSettingsToUI();
+    this.loadAiSettings();
+    await this.renderExtensions();
+    document.getElementById('extensions-section').scrollIntoView({ block: 'nearest' });
+  }
+
+  async renderExtensions() {
+    const list = document.getElementById('extensions-list');
+    list.replaceChildren();
+    let extensions = [];
+    try {
+      extensions = await window.zeroBrowser.extensions.list();
+    } catch (error) {
+      list.appendChild(this.libraryEmpty(`Não foi possível carregar as extensões: ${error.message}`));
+      return;
+    }
+    if (!extensions.length) {
+      list.appendChild(this.libraryEmpty('Nenhuma extensão carregada.'));
+      return;
+    }
+    for (const extension of extensions) {
+      const row = document.createElement('div');
+      row.className = 'extension-item';
+      row.setAttribute('role', 'listitem');
+      const info = document.createElement('div');
+      info.className = 'extension-info';
+      const title = document.createElement('strong');
+      title.textContent = extension.name || 'Extensão sem nome';
+      const meta = document.createElement('span');
+      meta.className = 'setting-description';
+      meta.textContent = `Versão ${extension.version || '?'} · ${extension.managed ? 'Integrada ao Zero Browser' : extension.enabled ? 'Ativa' : 'Desativada'}`;
+      info.append(title, meta);
+      const permissions = document.createElement('span');
+      permissions.className = 'setting-description extension-permissions';
+      permissions.textContent = extension.permissions?.length ? `Permissões: ${extension.permissions.join(', ')}` : 'Sem permissões declaradas.';
+      info.appendChild(permissions);
+      if (extension.error) {
+        const error = document.createElement('span');
+        error.className = 'setting-description extension-error';
+        error.textContent = `Falha ao carregar: ${extension.error}`;
+        info.appendChild(error);
+      }
+      row.appendChild(info);
+      if (extension.managed) {
+        const badge = document.createElement('span');
+        badge.className = 'extension-managed';
+        badge.textContent = 'Protegida';
+        row.appendChild(badge);
+      } else {
+        const actions = document.createElement('div');
+        actions.className = 'extension-actions';
+        const label = document.createElement('label');
+        label.className = 'extension-toggle';
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = extension.enabled;
+        checkbox.setAttribute('aria-label', `${extension.enabled ? 'Desativar' : 'Ativar'} ${extension.name}`);
+        checkbox.addEventListener('change', async () => {
+          checkbox.disabled = true;
+          try { await window.zeroBrowser.extensions.setEnabled(extension.id, checkbox.checked); }
+          catch (error) { this.showToast(error.message, 'error'); }
+          await this.renderExtensions();
+        });
+        label.append(checkbox, document.createTextNode(' Ativa'));
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'btn-secondary';
+        remove.textContent = 'Remover';
+        remove.addEventListener('click', async () => {
+          remove.disabled = true;
+          try {
+            const result = await window.zeroBrowser.extensions.remove(extension.id);
+            if (result?.cancelled) remove.disabled = false;
+          } catch (error) { this.showToast(error.message, 'error'); }
+          await this.renderExtensions();
+        });
+        actions.append(label, remove);
+        row.appendChild(actions);
+      }
+      list.appendChild(row);
+    }
+  }
+
+  async addExtension() {
+    const button = document.getElementById('btn-add-extension');
+    button.disabled = true;
+    try {
+      const result = await window.zeroBrowser.extensions.chooseAndInstall();
+      if (result?.success) this.showToast(`Extensão adicionada: ${result.extension.name}`, 'success');
+      await this.renderExtensions();
+    } catch (error) {
+      this.showToast(error.message, 'error');
+    } finally {
+      button.disabled = false;
+    }
+  }
+
+  async freezePageForPanel() {
+    const frozen = await window.zeroBrowser.browser.freezePage(true, 'panel').catch(() => null);
+    if (!frozen?.image) return;
+    const container = this.elements.browserContainer;
+    container.style.backgroundImage = `url("${frozen.image}")`;
+    container.style.backgroundSize = `${frozen.bounds.width}px ${frozen.bounds.height}px`;
+    container.classList.add('frozen');
+  }
+
+  async releasePageOverlay(reason) {
+    await window.zeroBrowser.browser.freezePage(false, reason).catch(() => {});
+    const aiPanelOpen = !this.elements.aiPanel.classList.contains('hidden');
+    const overlayOpen = [this.elements.appMenu, this.elements.aiPanel, this.elements.settingsPanel, this.elements.libraryPanel, this.elements.urlSuggestions]
+      .some((element) => !element.classList.contains('hidden'));
+    if (overlayOpen && !aiPanelOpen) return;
+    const container = this.elements.browserContainer;
+    container.classList.remove('frozen');
+    container.style.backgroundImage = '';
+    container.style.backgroundSize = '';
+  }
+
+  async openLibrary(mode) {
+    this.elements.libraryPanel.classList.remove('hidden');
+    this.elements.aiPanel.classList.add('hidden');
+    this.elements.settingsPanel.classList.add('hidden');
+    this.closeAppMenu();
+    this.libraryMode = mode;
+    const labels = {
+      history: ['Histórico', 'Páginas visitadas neste perfil.'],
+      bookmarks: ['Favoritos', 'Endereços guardados neste perfil.'],
+      downloads: ['Downloads', 'Downloads recentes desta sessão do Zero Browser.']
+    };
+    [this.elements.libraryTitle.textContent, this.elements.librarySubtitle.textContent] = labels[mode];
+    this.elements.librarySearch.value = '';
+    window.zeroBrowser.browser.setSidePanelOpen(true);
+    await this.freezePageForPanel();
+    await this.renderLibrary();
+    this.elements.librarySearch.focus();
+  }
+
+  async closeLibrary() {
+    this.elements.libraryPanel.classList.add('hidden');
+    if (this.elements.aiPanel.classList.contains('hidden') && this.elements.settingsPanel.classList.contains('hidden')) window.zeroBrowser.browser.setSidePanelOpen(false);
+    if (this.elements.aiPanel.classList.contains('hidden') && this.elements.settingsPanel.classList.contains('hidden')) await this.releasePageOverlay('panel');
+  }
+
+  async renderLibrary() {
+    const mode = this.libraryMode;
+    if (!mode || this.elements.libraryPanel.classList.contains('hidden')) return;
+    const query = this.elements.librarySearch.value.trim();
+    let items = [];
+    try {
+      if (mode === 'history') items = await window.zeroBrowser.library.history('search', { text: query, maxResults: 100 });
+      else if (mode === 'bookmarks') items = query
+        ? await window.zeroBrowser.library.bookmarks('search', { query })
+        : await window.zeroBrowser.library.bookmarks('getRecent', 100);
+      else {
+        items = await window.zeroBrowser.browser.getDownloads();
+        if (query) items = items.filter((item) => `${item.filename} ${item.url}`.toLowerCase().includes(query.toLowerCase()));
+      }
+    } catch (error) {
+      this.elements.libraryList.replaceChildren(this.libraryEmpty(`Não foi possível carregar: ${error.message}`));
+      return;
+    }
+    const fragment = document.createDocumentFragment();
+    for (const item of items) {
+      const row = document.createElement('div');
+      row.className = 'library-row';
+      row.setAttribute('role', 'listitem');
+      const open = document.createElement('button');
+      open.type = 'button';
+      open.className = 'library-open';
+      const title = document.createElement('strong');
+      title.textContent = item.title || item.filename || item.url || 'Sem título';
+      const detail = document.createElement('span');
+      detail.textContent = mode === 'history' ? `${item.url} · ${new Date(item.lastVisitTime).toLocaleString()}` : mode === 'bookmarks' ? item.url || 'Pasta de favoritos' : `${item.state} · ${item.url || ''}`;
+      open.append(title, detail);
+      if (mode !== 'downloads') open.addEventListener('click', () => { this.navigateTo(item.url); this.closeLibrary(); });
+      else open.disabled = true;
+      row.appendChild(open);
+      if (mode === 'downloads' && item.hasFile) {
+        const reveal = document.createElement('button');
+        reveal.type = 'button';
+        reveal.className = 'btn-secondary library-reveal';
+        reveal.textContent = 'Mostrar na pasta';
+        reveal.addEventListener('click', async () => {
+          try { await window.zeroBrowser.browser.showDownload(item.id); }
+          catch (error) { this.showToast(error.message, 'error'); }
+        });
+        row.appendChild(reveal);
+      }
+      fragment.appendChild(row);
+    }
+    if (!items.length) fragment.appendChild(this.libraryEmpty(query ? 'Nenhum resultado para esta pesquisa.' : 'Ainda não há itens para mostrar.'));
+    this.elements.libraryList.replaceChildren(fragment);
+  }
+
+  libraryEmpty(message) {
+    const empty = document.createElement('p');
+    empty.className = 'library-empty';
+    empty.textContent = message;
+    return empty;
   }
 
   async connectAi() {
@@ -996,9 +1349,9 @@ class NaveganteApp {
     this.elements.btnAiConnect.textContent = 'Conectando...';
 
     try {
-      const saved = await window.navegante.ai.saveConfig({ provider, model, apiKey: apiKey || undefined });
+      const saved = await window.zeroBrowser.ai.saveConfig({ provider, model, apiKey: apiKey || undefined });
       if (!saved.hasApiKey) throw new Error(`Informe a chave API do ${provider === 'deepseek' ? 'DeepSeek' : 'OpenRouter'}`);
-      const result = await window.navegante.automation.runAgent(this.activeTabId, 'Use inspect_page exatamente uma vez para confirmar que as chamadas de ferramenta funcionam. Não clique, navegue ou altere nada.', true, true);
+      const result = await window.zeroBrowser.automation.runAgent(this.activeTabId, 'Use inspect_page exatamente uma vez para confirmar que as chamadas de ferramenta funcionam. Não clique, navegue ou altere nada.', true, true);
       if (!result.success) throw new Error(result.error);
       this.aiConnected = true;
       this.addAiMessage('assistant', `Conectado a ${provider === 'deepseek' ? 'DeepSeek' : 'OpenRouter'} com ${model}. Posso operar a aba ativa usando as ferramentas disponíveis.`);
@@ -1011,7 +1364,7 @@ class NaveganteApp {
       this.showToast('Erro ao conectar: ' + err.message, 'error');
     } finally {
       this.elements.btnAiConnect.disabled = false;
-      this.elements.btnAiConnect.textContent = 'Conectar';
+      this.elements.btnAiConnect.textContent = 'Testar conexão';
     }
   }
 
@@ -1021,7 +1374,7 @@ class NaveganteApp {
     const model = this.elements.aiModel.value;
     const config = this.aiProviderConfigs.get(provider);
     if (!config?.hasApiKey || !model) return false;
-    if (config.model !== model) this.aiProviderConfigs.set(provider, await window.navegante.ai.saveConfig({ provider, model }));
+    if (config.model !== model) this.aiProviderConfigs.set(provider, await window.zeroBrowser.ai.saveConfig({ provider, model }));
     this.aiConnected = true;
     return true;
   }
@@ -1041,8 +1394,14 @@ class NaveganteApp {
     if (!resumeId && !text) return;
 
     this.aiRunning = true;
-    this.elements.btnAiSend.disabled = true;
+    this.runningAgentTabId = this.activeTabId;
+    document.getElementById('app')?.classList.add('agent-active');
+    document.getElementById('browser-container')?.classList.add('agent-active');
+    this.elements.btnAiSend.disabled = false;
+    this.elements.btnAiSend.textContent = 'Parar';
+    this.elements.btnAiSend.setAttribute('aria-label', 'Parar tarefa');
     const previousContinue = this.aiContinueButton;
+    let workingBanner = null;
     try {
       if (!this.aiConnected && !(await this.useSavedAiConfig())) {
         this.showToast('Salve a chave e escolha um modelo primeiro', 'warning');
@@ -1051,7 +1410,30 @@ class NaveganteApp {
       if (previousContinue) previousContinue.disabled = true;
       this.addAiMessage('user', resumeId ? 'Continuar tarefa' : text);
       if (!resumeId) this.elements.aiInput.value = '';
-      const result = await window.navegante.automation.runAgent(this.activeTabId, resumeId ? '' : text, false, false, resumeId);
+
+      if (this.elements.aiChat) {
+        workingBanner = document.createElement('div');
+        workingBanner.className = 'ai-message assistant ai-working-banner';
+        workingBanner.innerHTML = `
+          <div class="ai-working-header">
+            <span class="ai-aurora-indicator"></span>
+            <div>
+              <strong>Chefe, assumi o controle do navegador!</strong>
+              <p class="ai-working-subtitle">Estamos fazendo seu trabalho na aba ativa. Acompanhe a moldura de aurora boreal na página ou aguarde o término.</p>
+            </div>
+          </div>
+          <div class="ai-working-status-pill">
+            <span class="ai-pulse-dot"></span>
+            <span class="ai-status-text">Executando tarefas e analisando elementos…</span>
+          </div>
+        `;
+        this.elements.aiChat.appendChild(workingBanner);
+        this.elements.aiChat.scrollTop = this.elements.aiChat.scrollHeight;
+      }
+
+      const result = await window.zeroBrowser.automation.runAgent(this.activeTabId, resumeId ? '' : text, false, false, resumeId);
+      if (workingBanner && workingBanner.parentNode) workingBanner.remove();
+
       if (result.success) {
         const message = this.addAiMessage('assistant', result.message);
         if (result.paused && result.resumeId) {
@@ -1070,11 +1452,18 @@ class NaveganteApp {
         if (resumeId && previousContinue) previousContinue.disabled = false;
       }
     } catch (err) {
+      if (workingBanner && workingBanner.parentNode) workingBanner.remove();
       this.addAiMessage('error', 'Erro: ' + err.message);
       if (resumeId && previousContinue) previousContinue.disabled = false;
     } finally {
+      if (workingBanner && workingBanner.parentNode) workingBanner.remove();
+      document.getElementById('app')?.classList.remove('agent-active');
+      document.getElementById('browser-container')?.classList.remove('agent-active');
       this.aiRunning = false;
+      this.runningAgentTabId = null;
       this.elements.btnAiSend.disabled = false;
+      this.elements.btnAiSend.textContent = 'Enviar';
+      this.elements.btnAiSend.setAttribute('aria-label', 'Enviar comando');
     }
   }
 
@@ -1092,5 +1481,5 @@ class NaveganteApp {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  window.app = new NaveganteApp();
+  window.app = new ZeroBrowserApp();
 });

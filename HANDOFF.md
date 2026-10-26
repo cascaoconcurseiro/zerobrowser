@@ -1,21 +1,21 @@
-# Handoff — Navegante
+# Handoff — Zero Browser
 
-## Última sessão
+## Estado em 2026-10-26
 
-**Data:** 2026-10-26
+- Foram revisadas mudanças do Antigravity e corrigidos quatro problemas: `zero://newtab` bloqueado pelo IPC, corrida após `capturePage()` que podia reocultar a aba, pop-ups aceitando esquemas internos arbitrários e permissões de extensões truncadas no diálogo. A versão do `package-lock.json` também foi alinhada com `package.json` em 0.1.3.
+- A suíte unitária passou 93/93, `npm audit --omit=dev` reportou zero vulnerabilidades, `npm run test:electron` terminou com exit code 0 e a integração empacotada passou em `C:\Users\Wesley\AppData\Local\Programs\zero-browser-release-validation-3\Zero Browser.exe`. Ela cobriu nova aba interna, rejeição de popup customizado não permitido, bridge ausente em páginas, recusa de URL `javascript:`, corrida freeze/unfreeze, AX, CUA, providers mockados, configurações, download e aprovação/cancelamento.
+- Build e produção usam `app.asar` SHA-256 `9DD022EAA3FA9C8AF80A371408C1ED47572FAFC8095497720D4A46C44E9320C2`. O executável de produção informa 0.1.3 e a instalação NSIS terminou com exit code 0.
+- Antes da troca, o app, o perfil e os dois atalhos foram copiados para `backups/2026-10-26-before-0.1.3`. A cópia contém 184 arquivos do app e 7.571 arquivos/762.275.248 bytes do perfil; os hashes do executável e `app.asar` batem com a instalação anterior. O perfil após a instalação mantém a mesma contagem/tamanho. Atalho da Área de Trabalho e menu Iniciar apontam novamente para `C:\Users\Wesley\AppData\Local\Programs\navegante\Zero Browser.exe`.
+- Ainda não há commit nem push desta revisão; o próximo passo após a auditoria final do diff é publicar em `origin/main`, sem force push.
+- A arquitetura continua Electron. Ganhos gerais de tokens/latência não são presumidos: o catálogo enviado mantém 6.764 bytes de schemas por chamada; `read_batch` ainda tem limites de abas/linhas e falha multitab 2/3; Google Planilhas autenticado e compras reais não foram testados.
 
-- O teste de hover falhava por competição entre o cursor físico do Windows e o mouse sintético em uma janela visível. A fixture agora roda oculta e prova o estado visual; a lógica de entrada do produto continuou em CDP.
-- Validações: `npm test` 81/81; `npm run test:electron`; `npm run test:bench-store`; `npm run test:agent-download`.
-- Release local Windows x64 0.1.1 compilado e instalado em `%LOCALAPPDATA%\Programs\navegante-cua-validation`. Smoke do candidato e da instalação final passou com provider loopback e perfil temporário. Atalho e registro confirmados. SHA-256 do `app.asar` instalado e do candidato: `32BBA2BF547E26BC9035CA19EAB9F917E23F3511B3C0B76F73D071A1BDB67ED5`.
-- Backup restaurável do 0.1.0 está em `backups/2026-10-26-before-0.1.1/`, com 183 arquivos do aplicativo, 6.430 do perfil e o instalador. Manifesto contém inventários e hashes conferidos; não inspecionei dados pessoais.
-- O instalador não tem assinatura digital. Os smokes usam providers mock; sites comerciais autenticados e serviços reais ainda não foram validados.
-- O projeto foi publicado no branch `main` de `https://github.com/cascaoconcurseiro/zerobrowser`. Commit remoto verificado por `git ls-remote` e API GitHub: `88edb2f7457d74832af0d2a90e2045df846ddce3`. O primeiro commit inclui 96 arquivos; `node_modules`, `dist`, `data`, backups, relatórios gerados e relatórios REA locais estão excluídos. Licença MIT acompanha a declaração do pacote.
-- `MASTER_BLUEPRINT.md` permaneceu igual; nenhuma decisão arquitetural foi feita nesta atualização.
+## Próximo passo concreto
 
-## Próximo passo concreto do motor
+- Publicar o estado aprovado de 0.1.3 no GitHub depois de revisar o diff final e confirmar que `origin/main` não avançou.
+- Em seguida, priorizar `src/automation/service/index.js`: tornar `read_batch` explícito sobre correspondências truncadas e abas não lidas; depois fazer A/B pareado de subconjuntos de ferramentas em `src/automation/tools/agent-tool-registry.js`, medindo tokens reais, acerto e latência antes de alterar o catálogo padrão.
 
-Implementar como experimento uma memória contextual local e seletiva para correções repetidas de preenchimento. Armazenar apenas metadados não sensíveis do site/controle e resultados de verificação; nunca valores digitados, credenciais ou texto da página. Fazer A/B pareado nas tarefas 02 e 33 e depois na suíte difícil completa, pelo menos cinco repetições por condição. Comparar acerto, reversões, tokens reais e latência; manter a memória desligada por padrão até comprovar acurácia igual ou maior sem custo desproporcional. Começar pelo fluxo de persistência/migração em `src/store/index.js` e pela construção do contexto em `src/automation/service/index.js`.
+## Limites e bloqueios
 
-## Limites pendentes
-
-As suítes locais e demos públicas não comprovam desempenho em Google Planilhas ou sites comerciais autenticados. A validação externa deve usar contas/dados de teste autorizados; compras, pagamentos, exclusões e publicações exigem aprovação explícita.
+- A chamada de cancelamento aborta o pedido ao provedor e bloqueia ferramentas seguintes; um comando CDP já despachado pode terminar.
+- A integração instalada usa fixtures HTTP locais e provider mock; ela não comprova acurácia em Planilhas autenticadas, Amazon com conta ou todos os sites complexos.
+- A memória entre tarefas continua ausente; não introduzir memória automática sem recuperação seletiva de fatos confirmados e medição de custo/acurácia.

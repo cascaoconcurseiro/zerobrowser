@@ -1,6 +1,6 @@
-# Plano — Navegante como navegador principal com IA
+# Plano — Zero Browser como navegador principal com IA
 
-Objetivo: usar o Navegante no dia a dia (no lugar do Brave/Chrome) com um agente que acerta mais, responde mais rápido e gasta menos tokens. Cada fase termina com teste automático e, quando mexe no agente, com rodada do benchmark (`npm run bench`) para provar que melhorou.
+Objetivo: usar o Zero Browser no dia a dia (no lugar do Brave/Chrome) com um agente que acerta mais, responde mais rápido e gasta menos tokens. Cada fase termina com teste automático e, quando mexe no agente, com rodada do benchmark (`npm run bench`) para provar que melhorou.
 
 ## Fase 1 — Usável como navegador do dia a dia
 - Favoritos: barra de favoritos, estrela na barra de endereço, gerenciador (pastas, busca, editar, excluir).

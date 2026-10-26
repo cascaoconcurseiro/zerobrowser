@@ -8,10 +8,16 @@ const { tarefasStress } = require('./tarefas-stress');
 
 const PAGINAS = path.join(__dirname, 'paginas');
 const IDS = new Set([...tarefas, ...tarefasDificeis, ...tarefasStress].map((t) => t.id));
+const TASKS_WITH_INITIAL_STATE = new Map(tarefasStress.filter((t) => t.estadoInicial).map((t) => [t.id, t]));
 const ARQUIVOS_COMUNS = { '/_comum.js': 'text/javascript', '/_comum.css': 'text/css' };
 
 function iniciarServidor({ porta = 0 } = {}) {
   const estados = new Map();
+  const estadoInicialPara = (id) => {
+    const tarefa = TASKS_WITH_INITIAL_STATE.get(id);
+    return tarefa ? { estadoInicial: structuredClone(tarefa.estadoInicial), estadoFinal: null } : {};
+  };
+  for (const id of TASKS_WITH_INITIAL_STATE.keys()) estados.set(id, estadoInicialPara(id));
   const servidor = http.createServer((req, res) => {
     const url = new URL(req.url, 'http://127.0.0.1');
     const responder = (status, tipo, corpo) => {
@@ -38,7 +44,7 @@ function iniciarServidor({ porta = 0 } = {}) {
       const id = api[1];
       if (req.method === 'GET') return responder(200, 'application/json', JSON.stringify(estados.get(id) || {}));
       if (req.method === 'DELETE') {
-        estados.delete(id);
+        estados.set(id, estadoInicialPara(id));
         return responder(200, 'application/json', '{}');
       }
       if (req.method === 'POST') {
@@ -51,7 +57,10 @@ function iniciarServidor({ porta = 0 } = {}) {
           try {
             const dados = JSON.parse(corpo || '{}');
             if (!dados || typeof dados !== 'object' || Array.isArray(dados)) throw new Error('objeto esperado');
-            estados.set(id, { ...(estados.get(id) || {}), ...dados });
+            const existente = estados.get(id) || estadoInicialPara(id);
+            const atualizado = { ...existente, ...dados };
+            if (TASKS_WITH_INITIAL_STATE.has(id)) atualizado.estadoInicial = structuredClone(TASKS_WITH_INITIAL_STATE.get(id).estadoInicial);
+            estados.set(id, atualizado);
             responder(200, 'application/json', '{}');
           } catch {
             responder(400, 'application/json', '{"erro":"JSON inválido"}');
@@ -70,8 +79,8 @@ function iniciarServidor({ porta = 0 } = {}) {
       resolve({
         base,
         urlDa: (id) => `${base}/t/${id}`,
-        estadoDe: (id) => estados.get(id) || {},
-        limpar: (id) => estados.delete(id),
+        estadoDe: (id) => estados.get(id) || estadoInicialPara(id),
+        limpar: (id) => estados.set(id, estadoInicialPara(id)),
         fechar: () => new Promise((fim) => servidor.close(fim))
       });
     });

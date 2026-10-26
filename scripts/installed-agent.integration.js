@@ -14,8 +14,16 @@ const userData = path.join(scratch, 'profile');
 const mock = http.createServer();
 const observedProviderRequests = [];
 const observedSiteRequests = [];
+const fixturePages = new Map();
 const siteServer = http.createServer((req, res) => {
   observedSiteRequests.push({ url: req.url, dnt: req.headers.dnt, cookie: req.headers.cookie || '' });
+  if (req.url.startsWith('/fixture/')) {
+    const id = new URL(req.url, 'http://127.0.0.1').pathname.slice('/fixture/'.length);
+    const html = fixturePages.get(id);
+    res.writeHead(html ? 200 : 404, { 'Content-Type': 'text/html; charset=utf-8' });
+    res.end(html || 'Fixture not found');
+    return;
+  }
   if (req.url.startsWith('/page')) {
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
     res.end('<!doctype html><title>Settings fixture</title><a id="download" href="/download">Download fixture</a>');
@@ -41,6 +49,7 @@ let appOutput = '';
 let uiAutomationOutput = '';
 let cdpPort = null;
 let currentStage = 'startup';
+let cuaDiagnostic = null;
 
 function allocatePort() {
   return new Promise((resolve, reject) => {
@@ -153,6 +162,15 @@ async function waitForFile(filePath) {
   throw new Error(`Download não apareceu em ${filePath}`);
 }
 
+async function waitForCondition(predicate, label, timeoutMs = 15000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (predicate()) return;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  throw new Error(`Tempo esgotado aguardando ${label}`);
+}
+
 async function waitForPageValue(target, expression, predicate, timeoutMs = 10000) {
   const deadline = Date.now() + timeoutMs;
   let value;
@@ -232,6 +250,11 @@ async function main() {
   siteServer.listen(0, '127.0.0.1');
   await new Promise((resolve) => siteServer.once('listening', resolve));
   const siteUrl = `http://127.0.0.1:${siteServer.address().port}`;
+  const registerFixture = (html) => {
+    const id = `fixture-${fixturePages.size + 1}`;
+    fixturePages.set(id, html);
+    return `${siteUrl}/fixture/${id}`;
+  };
   mock.listen(0, '127.0.0.1');
   await new Promise((resolve) => mock.once('listening', resolve));
   const mockUrl = `http://127.0.0.1:${mock.address().port}/v1/chat/completions`;
@@ -251,7 +274,7 @@ async function main() {
     NAVEGANTE_TEST_DEEPSEEK_MODELS_URL: new URL('/models', mockUrl).href
   };
   child = spawn(executable, appArgs, {
-    windowsHide: true,
+    windowsHide: false,
     env: childEnv
   });
   child.stdout?.on('data', (chunk) => { appOutput += chunk.toString(); });
@@ -272,6 +295,16 @@ async function main() {
 
   const providerValidation = {};
   await waitForPageValue(mainTarget, `({readyState: document.readyState, appType: typeof window.app, tabId: window.app?.activeTabId ?? null, apiType: typeof window.navegante, address: document.getElementById('address-bar')?.value || ''})`, (value) => value.appType === 'object' && Boolean(value.tabId) && value.apiType === 'object');
+  currentStage = 'newtab-route';
+  const internalNewTab = JSON.parse(await evaluate(mainTarget, `window.navegante.browser.newTab('zero://newtab').then(JSON.stringify)`));
+  assert.ok(internalNewTab.tabId, 'A página interna de nova aba passa pela validação segura do IPC');
+  const internalNewTabTarget = await waitForTarget(endpoint, (target) => target.type === 'page' && target.url.endsWith('/newtab.html'));
+  await waitForPageValue(internalNewTabTarget, `document.readyState === 'complete' && document.title === 'Novo Separador · Zero Browser'`, Boolean);
+  assert.equal(await evaluate(internalNewTabTarget, `document.title`), 'Novo Separador · Zero Browser');
+  assert.equal(await evaluate(internalNewTabTarget, `Boolean(document.getElementById('search-form') && document.getElementById('search-input'))`), true);
+  await evaluate(mainTarget, `window.navegante.browser.closeTab(${JSON.stringify(internalNewTab.tabId)})`);
+  const extensionList = await evaluate(mainTarget, `window.navegante.extensions.list()`);
+  assert.ok(Array.isArray(extensionList), 'O IPC do gerenciador de extensões responde no executável instalado');
   currentStage = 'openrouter-model-catalog-ui';
   await evaluate(mainTarget, `document.getElementById('btn-ai').click()`);
   await waitForPageValue(mainTarget, `({visible: !document.getElementById('ai-panel').classList.contains('hidden'), placeholder: document.getElementById('ai-api-key')?.placeholder || '', status: document.getElementById('ai-model-status')?.textContent || ''})`, (value) => value.visible && value.placeholder.includes('OpenRouter') && value.status.includes('Salvar chave'));
@@ -337,11 +370,17 @@ async function main() {
   requestCount = 0;
 
   const fixtureHtml = `<!doctype html><html><head><title>AX fixture</title></head><body><button id="target" onclick="document.body.dataset.clicked='yes'">Continuar</button></body></html>`;
-  const dataUrl = `data:text/html;charset=utf-8,${encodeURIComponent(fixtureHtml)}`;
-  const created = JSON.parse(await evaluate(mainTarget, `(async()=>{const tab=await window.navegante.browser.newTab(${JSON.stringify(dataUrl)});await window.navegante.browser.switchTab(tab.tabId);return JSON.stringify(tab)})()`));
+  const fixtureUrl = registerFixture(fixtureHtml);
+  const created = JSON.parse(await evaluate(mainTarget, `(async()=>{const tab=await window.navegante.browser.newTab(${JSON.stringify(fixtureUrl)});await window.navegante.browser.switchTab(tab.tabId);return JSON.stringify(tab)})()`));
   assert.ok(created.tabId, 'A aba fixture foi criada pelo processo principal');
 
-  const pageTarget = await waitForTarget(endpoint, (target) => target.type === 'page' && target.url.startsWith('data:text/html'));
+  const pageTarget = await waitForTarget(endpoint, (target) => target.type === 'page' && target.url === fixtureUrl);
+  const pageBridges = await evaluate(pageTarget, `({browser: typeof window.naveganteBrowser, accessibility: typeof window.naveganteAccessibility})`);
+  assert.deepEqual(pageBridges, { browser: 'undefined', accessibility: 'undefined' }, 'a site page must not receive the privileged automation preload');
+  const deniedInternalPopup = await evaluate(pageTarget, `window.open('zero://unrecognized-internal-page') === null`);
+  assert.equal(deniedInternalPopup, true, 'site pages cannot open arbitrary Zero Browser internal schemes');
+  const unsafeUrlError = await evaluate(mainTarget, `window.navegante.browser.newTab('javascript:document.body.dataset.injected="yes"').then(()=>null,error=>error.message)`);
+  assert.match(unsafeUrlError, /HTTP ou HTTPS/, 'renderer IPC must reject executable URL schemes');
   const result = JSON.parse(await evaluate(mainTarget, `window.navegante.automation.runAgent(${JSON.stringify(created.tabId)},'Clique em Continuar na fixture.',false).then(JSON.stringify)`));
   assert.equal(result.success, true, result.error || result.message);
   assert.match(result.message, /confirmada pela fixture instalada/);
@@ -354,11 +393,24 @@ async function main() {
   currentScenario = 'cua-click';
   requestCount = 0;
   const cuaHtml = `<!doctype html><html><head><title>CUA fixture</title><style>body{margin:0}button{position:absolute;left:40px;top:40px;width:120px;height:50px}</style></head><body><button id="visual" onclick="document.body.dataset.cuaClicked='trusted'">Visual fallback</button></body></html>`;
-  const cuaUrl = `data:text/html;charset=utf-8,${encodeURIComponent(cuaHtml)}`;
+  const cuaUrl = registerFixture(cuaHtml);
   const cuaTab = JSON.parse(await evaluate(mainTarget, `(async()=>{const tab=await window.navegante.browser.newTab(${JSON.stringify(cuaUrl)});await window.navegante.browser.switchTab(tab.tabId);return JSON.stringify(tab)})()`));
-  const cuaPage = await waitForTarget(endpoint, (target) => target.type === 'page' && target.url.startsWith('data:text/html') && target.url.includes(encodeURIComponent('Visual fallback')));
-  const cuaResult = JSON.parse(await evaluate(mainTarget, `window.navegante.automation.runAgent(${JSON.stringify(cuaTab.tabId)},'Use CUA para clicar no botão Visual fallback na fixture.',false).then(JSON.stringify)`));
-  assert.equal(cuaResult.success, true, cuaResult.error || cuaResult.message);
+  await evaluate(mainTarget, `(()=>{if(document.getElementById('ai-panel').classList.contains('hidden'))document.getElementById('btn-ai-toggle').click();return true})()`);
+  const cuaPage = await waitForTarget(endpoint, (target) => target.type === 'page' && target.url === cuaUrl);
+  await waitForPageValue(cuaPage, `document.readyState === 'complete' && Boolean(document.getElementById('visual'))`, Boolean);
+  const freezeRaceState = await evaluate(mainTarget, `(()=>{const freezing=window.navegante.browser.freezePage(true,'panel');const releasing=window.navegante.browser.freezePage(false,'panel');return Promise.all([freezing,releasing]).then(()=>window.navegante.browser.getSidePanelLayout())})()`);
+  assert.equal(freezeRaceState.frozen, false, `Fechar o painel durante a captura não pode deixar a aba congelada: ${JSON.stringify(freezeRaceState)}`);
+  assert.ok(freezeRaceState.bounds?.height > 0, `A view continua dimensionada depois da corrida de congelamento: ${JSON.stringify(freezeRaceState)}`);
+  await waitForPageValue(cuaPage, `innerWidth > 0 && innerHeight > 0 && document.elementFromPoint(100,65)?.id === 'visual'`, Boolean, 15000);
+  cuaDiagnostic = await evaluate(cuaPage, `(()=>{const e=document.getElementById('visual'),r=e.getBoundingClientRect(),h=document.elementFromPoint(100,65);return {readyState:document.readyState,innerWidth,innerHeight,rect:{x:r.x,y:r.y,width:r.width,height:r.height},hitId:h?.id||'',focused:document.hasFocus(),buttonText:e.innerText}})()`);
+  assert.ok(cuaDiagnostic.innerWidth > 0 && cuaDiagnostic.innerHeight > 0, `A página CUA precisa permanecer visível com o painel da IA aberto: ${JSON.stringify(cuaDiagnostic)}`);
+  assert.equal(cuaDiagnostic.hitId, 'visual', `As coordenadas CUA precisam atingir o botão da fixture: ${JSON.stringify(cuaDiagnostic)}`);
+  let cuaAgentResult;
+  await evaluate(mainTarget, `(()=>{window.__cuaRunResult=null;window.navegante.automation.runAgent(${JSON.stringify(cuaTab.tabId)},'Use CUA para clicar no botão Visual fallback na fixture.',false).then(result=>{window.__cuaRunResult=result});return true})()`);
+  await waitForCondition(() => requestCount >= 3, 'a resposta final do provedor depois do CUA');
+  await waitForPageValue(mainTarget, 'Boolean(window.__cuaRunResult)', Boolean);
+  cuaAgentResult = JSON.parse(await evaluate(mainTarget, 'JSON.stringify(window.__cuaRunResult)'));
+  assert.equal(cuaAgentResult.success, true, cuaAgentResult.error || cuaAgentResult.message);
   const cuaInput = await evaluate(cuaPage, `document.body.dataset.cuaClicked || ''`);
   assert.equal(cuaInput, 'trusted', 'O CDP Input dispatch executou o clique visual na página instalada');
   assert.equal(requestCount, 3, 'O agente inspecionou a página, usou CUA e recebeu confirmação final');
@@ -407,9 +459,9 @@ async function main() {
     currentScenario = scenario;
     requestCount = 0;
     const formHtml = `<!doctype html><html><head><title>Approval fixture ${scenario}</title></head><body><form onsubmit="event.preventDefault();document.body.dataset.submitted='yes'"><button type="submit">Place order</button></form></body></html>`;
-    const formUrl = `data:text/html;charset=utf-8,${encodeURIComponent(formHtml)}`;
+    const formUrl = registerFixture(formHtml);
     const formTab = JSON.parse(await evaluate(mainTarget, `(async()=>{const tab=await window.navegante.browser.newTab(${JSON.stringify(formUrl)});await window.navegante.browser.switchTab(tab.tabId);return JSON.stringify(tab)})()`));
-    const formTarget = await waitForTarget(endpoint, (target) => target.type === 'page' && target.url.startsWith('data:text/html') && target.url.includes(scenario));
+    const formTarget = await waitForTarget(endpoint, (target) => target.type === 'page' && target.url === formUrl);
     const resultPromise = evaluate(mainTarget, `window.navegante.automation.runAgent(${JSON.stringify(formTab.tabId)},'Clique em Place order na fixture.',false).then(JSON.stringify)`, 45000);
     await clickNativeApprovalButton(approvalButton);
     const result = JSON.parse(await resultPromise);
@@ -433,7 +485,7 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error(JSON.stringify({ status: 'FAIL', stage: currentStage, error: error.stack || error, appOutput, retainedScratch: scratch }, null, 2));
+  console.error(JSON.stringify({ status: 'FAIL', stage: currentStage, error: error.stack || error, providerCalls: requestCount, cuaDiagnostic, appOutput, retainedScratch: scratch }, null, 2));
   process.exitCode = 1;
 }).finally(async () => {
   await closeApp();

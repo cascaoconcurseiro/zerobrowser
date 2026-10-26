@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Planilha Horizonte — demonstração</title><link rel="stylesheet" href="/_comum.css"><script src="/_comum.js"></script>
+<style>
+  body{font:15px system-ui,sans-serif;margin:0;background:#f4f6f8;color:#20242a}header{position:sticky;top:0;z-index:2;background:#fff;border-bottom:1px solid #ccd3da;padding:12px 20px;display:flex;align-items:center;justify-content:space-between}h1{font-size:20px;margin:0}.wrap{padding:18px;min-width:920px}.hint{color:#4d5b67}.grid{border:1px solid #cbd2d9;background:#fff}.row{display:grid;grid-template-columns:110px 1fr 120px 130px 150px 150px;min-height:48px;align-items:center;border-bottom:1px solid #e2e6ea}.row.head{position:sticky;top:57px;z-index:1;background:#eaf0f5;font-weight:650}.cell{padding:7px 10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.cell input{box-sizing:border-box;width:100%;padding:6px;border:1px solid #c4ccd3;border-radius:4px;font:inherit}.cell input[readonly]{background:#f3f5f6;color:#43515c}.spacer{height:0}.save-status{min-width:150px;text-align:right;color:#526270}.save-status[data-state="saving"]{color:#925500}.save-status[data-state="saved"]{color:#187443}.scroll-root{height:calc(100vh - 58px);overflow-y:auto}.viewport{position:relative}.rows{position:absolute;left:0;right:0;top:0}
+</style></head>
+<body data-tarefa="48-spreadsheet-grid"><header><h1>Planilha Horizonte — projetos</h1><div id="save-status" class="save-status" role="status" aria-live="polite">Carregando planilha…</div></header><main class="scroll-root" id="scroll-root"><div class="wrap"><p class="hint">Demonstração local · 60 projetos · Total é calculado automaticamente</p><div class="grid"><div class="row head"><div class="cell">Código</div><div class="cell">Projeto</div><div class="cell">Equipe</div><div class="cell">Unidades</div><div class="cell">Valor unitário</div><div class="cell">Total calculado</div></div><div id="viewport" class="viewport"><div id="spacer" class="spacer"></div><div id="rows" class="rows"></div></div></div></div></main>
+<script>
+(() => {
+  const TASK='48-spreadsheet-grid', ROW_HEIGHT=48, WINDOW_ROWS=18;
+  const root=document.getElementById('scroll-root'), viewport=document.getElementById('viewport'), spacer=document.getElementById('spacer'), rowsEl=document.getElementById('rows'), statusEl=document.getElementById('save-status');
+  let initial=null, rows=[], order=[], saves=[], revision=0, busy=false, activeSave=0;
+  const esc=(value)=>String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const total=(row)=>row.unidades*row.valorUnitario;
+  const money=(value)=>Number(value).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const byId=()=>new Map(rows.map(row=>[row.id,row]));
+  const draw=()=>{
+    const map=byId(), offset=Math.max(0,root.scrollTop-90), start=Math.max(0,Math.floor(offset/ROW_HEIGHT)-3), end=Math.min(order.length,start+WINDOW_ROWS);
+    spacer.style.height=`${order.length*ROW_HEIGHT}px`; rowsEl.style.transform=`translateY(${start*ROW_HEIGHT}px)`;
+    rowsEl.innerHTML=order.slice(start,end).map(id=>{const row=map.get(id);return `<div class="row" data-row="${esc(id)}"><div class="cell">${esc(row.id)}</div><div class="cell">${esc(row.projeto)}</div><div class="cell">${esc(row.equipe)}</div><div class="cell"><input aria-label="${esc(row.id)} ${esc(row.projeto)} Unidades" data-id="${esc(row.id)}" data-field="unidades" type="number" min="0" value="${row.unidades}" ${busy?'disabled':''}></div><div class="cell"><input aria-label="${esc(row.id)} ${esc(row.projeto)} Valor unitário" data-id="${esc(row.id)}" data-field="valorUnitario" type="number" min="0" step="0.01" value="${row.valorUnitario}" ${busy?'disabled':''}></div><div class="cell"><input aria-label="${esc(row.id)} ${esc(row.projeto)} Total calculado" type="text" value="R$ ${money(total(row))}" readonly></div></div>`}).join('');
+  };
+  const persist=async(rowId,field,from,to)=>{
+    busy=true;activeSave++;const thisSave=activeSave;statusEl.dataset.state='saving';statusEl.textContent='Salvando alterações…';draw();
+    await new Promise(resolve=>setTimeout(resolve,650));
+    revision++;
+    const snapshot=Object.fromEntries(rows.map(row=>[row.id,{unidades:row.unidades,valorUnitario:row.valorUnitario,total:total(row)}]));
+    saves.push({revision,rowId,field,from,to,snapshot});
+    order=[...rows].sort((a,b)=>total(b)-total(a)||a.id.localeCompare(b.id)).map(row=>row.id);
+    const state={estadoFinal:{rows:rows.map(row=>({...row,total:total(row)})),order:[...order],saves:structuredClone(saves),saveCount:saves.length}};
+    await registrar(state);
+    if(thisSave!==activeSave)return;
+    busy=false;statusEl.dataset.state='saved';statusEl.textContent='Alterações salvas';draw();
+  };
+  rowsEl.addEventListener('change',event=>{
+    const input=event.target.closest('input[data-field]');if(!input||busy)return;
+    const row=rows.find(item=>item.id===input.dataset.id),field=input.dataset.field;if(!row)return;
+    const from=row[field],to=Number(input.value);if(!Number.isFinite(to)||to<0){draw();return;}if(from===to)return;
+    row[field]=to;persist(row.id,field,from,to);
+  });
+  root.addEventListener('scroll',draw,{passive:true});
+  fetch(`/api/estado/${TASK}`).then(response=>response.json()).then(state=>{
+    initial=state.estadoInicial;rows=structuredClone(initial.rows);order=rows.map(row=>row.id);draw();statusEl.textContent='Planilha carregada';
+  }).catch(()=>{statusEl.dataset.state='error';statusEl.textContent='Falha ao carregar planilha';});
+})();
+</script></body></html>

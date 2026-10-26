@@ -1,5 +1,5 @@
 // Roda uma tarefa no Flame pelo próprio painel dele, do mesmo jeito que uma pessoa digitaria. Usado pelo run_task
-// com engine "flame" para comparar o agente do Flame com o do Navegante no mesmo benchmark.
+// com engine "flame" para comparar o agente do Flame com o do Zero Browser no mesmo benchmark.
 
 const SETTINGS_KEY = 'flame_settings';
 const APPROVAL_KEY = 'flame_approval_mode';
@@ -25,7 +25,7 @@ function waitFor(predicate, timeoutMs, intervalMs = 500) {
   });
 }
 
-// Copia provedor, modelo e chave do Navegante para o Flame quando ele ainda não tem nenhum. A chave vai direto
+// Copia provedor, modelo e chave do Zero Browser para o Flame quando ele ainda não tem nenhum. A chave vai direto
 // para o armazenamento da extensão; nunca passa por log.
 async function seedFlameSettings(panel, agentConfig) {
   const { provider, model, apiKey } = agentConfig || {};
@@ -66,7 +66,7 @@ const READ_STATE = `(() => {
   };
 })()`;
 
-// Mesma regra do local-fixture do motor do Navegante: em página local aprova, mas senha, código e pagamento nunca.
+// Mesma regra do local-fixture do motor do Zero Browser: em página local aprova, mas senha, código e pagamento nunca.
 const NEVER_APPROVE = /senha|password|c[oó]digo|code|otp|pin\b|cart[aã]o|card|cvv|cvc|pagamento|payment/i;
 
 // O cartão de aprovação do Flame pede escolher a opção e depois "Confirmar seleção".
@@ -107,6 +107,7 @@ async function runFlameTask({ panel, prompt, timeoutMs = 300000, approvalMode = 
   const deniedApprovals = [];
   try {
     const before = await panel.executeJavaScript(READ_STATE);
+    console.log('[FlameRunner] before:', JSON.stringify(before));
     // O textarea é controlado pelo React: precisa do setter nativo e de um evento input para o estado mudar.
     await panel.executeJavaScript(`(() => {
       const area = document.querySelector('textarea');
@@ -134,6 +135,7 @@ async function runFlameTask({ panel, prompt, timeoutMs = 300000, approvalMode = 
         continue;
       }
       if (state.running) sawRunning = true;
+      console.log('[FlameRunner] tick running:', state.running, 'sawRunning:', sawRunning, 'FULL TEXT:\n', state.text);
       if (state.text !== lastText) {
         lastText = state.text;
         stableSince = Date.now();

@@ -2,18 +2,21 @@ const { app, BrowserWindow, WebContentsView } = require('electron');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const { AutomationService } = require('../src/automation/service');
+const { scrollSearchInPage } = require('../src/automation/scroll-search');
 const resultFile = 'C:/Users/Wesley/AppData/Local/Temp/navegante-ax-e2e.log';
 function trace(message) { fs.appendFileSync(resultFile, `${new Date().toISOString()} ${message}\n`); }
 
 app.whenReady().then(async () => {
   trace('electron-ready');
   let window;
+  let exitCode = 0;
   try {
     window = new BrowserWindow({ width: 800, height: 600, show: true });
     const view = new WebContentsView();
     window.contentView.addChildView(view);
     view.setBounds({ x: 0, y: 0, width: 800, height: 600 });
-    const html = `<!doctype html><html><head><style>.hover-row .destroy{display:none}.hover-row:hover .destroy{display:inline-block}</style></head><body style="height:2400px">
+    const html = `<!doctype html><html><head><style>.hover-row .destroy{display:none}.hover-row:hover .destroy{display:inline-block}#cua-probe{position:fixed;left:40px;top:40px;width:120px;height:50px;z-index:9999}</style></head><body style="height:2400px">
+      <div id="cua-probe" onclick="document.body.dataset.cuaClicked='yes'">CUA probe</div>
       <label for="query">Search</label><input id="query" aria-label="Search">
       <label for="controlled">Controlled</label><input id="controlled" value="anterior">
       <label for="remounted">Remounted</label><input id="remounted" value="antes">
@@ -371,14 +374,84 @@ app.whenReady().then(async () => {
     assert.match(afterClick.text, /estado apos clique/);
     assert.equal(await view.webContents.executeJavaScript(`document.querySelector('#result').value`), 'estado apos clique');
     trace('PASS: automatic observation reports the real page mutation without another model round');
+    const makeScrollFixture = (delay) => view.webContents.executeJavaScript(`(() => {
+      const area = document.createElement('div');
+      area.id = 'scroll-fixture-${delay}';
+      area.style.cssText = 'height:160px;width:360px;overflow-y:auto;border:1px solid black';
+      const content = document.createElement('div');
+      content.style.height = '1400px';
+      area.append(content);
+      setTimeout(() => { const target = document.createElement('p'); target.textContent = 'virtual target ${delay}'; content.append(target); }, ${delay} + 100);
+      document.body.append(area);
+      return area.id;
+    })()`);
+    await makeScrollFixture(220);
+    const fastScrollStarted = Date.now();
+    const fastScroll = await view.webContents.executeJavaScript(`(async () => { try { return await (${scrollSearchInPage.toString()})('down', 'virtual target 220', 4, 3000, 850); } catch (error) { return { thrown: error.message, stack: error.stack }; } })()`);
+    const fastScrollMs = Date.now() - fastScrollStarted;
+    assert.equal(fastScroll.found, true, JSON.stringify(fastScroll));
+    assert.equal(fastScroll.rounds, 1, JSON.stringify(fastScroll));
+    assert.ok(fastScrollMs < 700, 'DOM mutation should wake the search early; took ' + fastScrollMs + 'ms');
+    await makeScrollFixture(1000);
+    const slowScroll = await view.webContents.executeJavaScript(`(async () => { try { return await (${scrollSearchInPage.toString()})('down', 'virtual target 1000', 4, 3000, 850); } catch (error) { return { thrown: error.message, stack: error.stack }; } })()`);
+    assert.equal(slowScroll.found, true, JSON.stringify(slowScroll));
+    assert.equal(slowScroll.rounds, 2, JSON.stringify(slowScroll));
+    trace('PASS: scroll search wakes on fast DOM mutation (' + fastScrollMs + 'ms) and keeps slow-page fallback');
+    const approvalCheck = await service.confirmConsequentialAction('fixture', { kind: 'cua_click', x: 100, y: 65, readOnly: false });
+    assert.equal(approvalCheck.approved, true, JSON.stringify(approvalCheck));
+    assert.equal(approvalCheck.required, false, 'a benign, non-form fixture click should not open a confirmation dialog');
+    const cuaDebugger = view.webContents.debugger;
+    cuaDebugger.attach('1.3');
+    const fileChooserSetup = cuaDebugger.sendCommand('Page.enable')
+      .then(() => cuaDebugger.sendCommand('Page.setInterceptFileChooserDialog', { enabled: true }))
+      .catch(() => {});
+    let cuaResult;
+    try {
+      cuaResult = await service.performCuaAction('fixture', { kind: 'cua_click', x: 100, y: 65 });
+      await fileChooserSetup;
+    } finally {
+      if (cuaDebugger.isAttached()) cuaDebugger.detach();
+    }
+    assert.equal(cuaResult.success, true, cuaResult.error || cuaResult.message);
+    assert.equal(await view.webContents.executeJavaScript(`document.body.dataset.cuaClicked || ''`), 'yes', 'Electron CDP input should click the local fixture button');
+    trace('PASS: CUA dispatches a trusted mouse click through WebContents debugger');
+    await view.webContents.executeJavaScript(`delete document.body.dataset.cuaClicked`);
+    const originalFetchForCuaAgent = global.fetch;
+    let cuaModelCall = 0;
+    const cuaAgentTrace = { toolCalls: [] };
+    const cuaDiagnosticsFile = 'C:/Users/Wesley/AppData/Local/Temp/navegante-cua-runagent.log';
+    fs.writeFileSync(cuaDiagnosticsFile, '');
+    process.env.NAVEGANTE_AGENT_DIAGNOSTICS = cuaDiagnosticsFile;
+    service.taskApprovalPolicies.set('fixture', 'local-fixture');
+    service.setFetchImplementation(null);
+    global.fetch = async () => {
+      cuaModelCall += 1;
+      const message = cuaModelCall === 1
+        ? { role: 'assistant', tool_calls: [{ id: 'cua-agent-inspect', type: 'function', function: { name: 'inspect_page', arguments: '{}' } }] }
+        : cuaModelCall === 2
+          ? { role: 'assistant', tool_calls: [{ id: 'cua-agent-click', type: 'function', function: { name: 'cua_action', arguments: JSON.stringify({ action: 'click', x: 100, y: 65 }) } }] }
+          : { role: 'assistant', content: 'Clique visual confirmado.' };
+      return { ok: true, json: async () => ({ choices: [{ message }], usage: { prompt_tokens: 1, completion_tokens: 1 } }) };
+    };
+    try {
+      const agentCua = await service.runAgent('fixture', 'Use CUA para clicar na fixture.', 'fixture-key', 'fixture-model', true, 'openrouter', false, { maxSteps: 5, trace: cuaAgentTrace });
+      assert.equal(agentCua.success, true, agentCua.error || agentCua.message);
+      assert.equal(cuaModelCall, 3, 'the model should receive the CUA result and complete the task');
+      assert.equal(await view.webContents.executeJavaScript(`document.body.dataset.cuaClicked || ''`), 'yes', 'runAgent should route CUA to the real WebContents click');
+      trace('PASS: runAgent executes CUA and returns the verified fixture mutation');
+    } finally {
+      global.fetch = originalFetchForCuaAgent;
+      service.taskApprovalPolicies.delete('fixture');
+      delete process.env.NAVEGANTE_AGENT_DIAGNOSTICS;
+    }
     trace('PASS: locator fill selects a native option by its visible label and fires change');
     trace('PASS: snapshot, type, click, select, page mutation, screenshot');
   } catch (error) {
     trace(`FAIL: ${error.stack || error}`);
     console.error(error);
-    app.exit(1);
+    exitCode = 1;
   } finally {
-    if (window && !window.isDestroyed()) window.close();
-    app.quit();
+    if (window && !window.isDestroyed()) window.destroy();
+    app.exit(exitCode);
   }
 }).catch(error => { trace(`BOOT-FAIL: ${error.stack || error}`); app.exit(1); });

@@ -154,6 +154,30 @@ test('provider network failures report the host and cause without exposing API k
   }
 });
 
+test('cancelAgentRun aborts the provider request and prevents a later agent step', async () => {
+  let started;
+  const requestStarted = new Promise((resolve) => { started = resolve; });
+  let requestSignal;
+  const { AutomationService } = require('../src/automation/service');
+  const service = new AutomationService({ fetchImpl: async (_url, options) => {
+    requestSignal = options.signal;
+    started();
+    return new Promise((_resolve, reject) => {
+      options.signal.addEventListener('abort', () => reject(options.signal.reason || new DOMException('Aborted', 'AbortError')), { once: true });
+    });
+  } });
+  service.tabs.set('tab-cancel', { webContents: { isDestroyed: () => false, executeJavaScript: async () => ({ title: 'Fixture', text: 'Read only page' }) } });
+  const trace = { modelCalls: 0, inputTokens: 0, outputTokens: 0, usageAvailable: true, toolCalls: [], stopReason: null };
+  const run = service.runAgent('tab-cancel', 'Faça algo', 'test-key', 'test-model', true, 'openrouter', false, { trace });
+  await requestStarted;
+  assert.deepEqual(service.cancelAgentRun('tab-cancel'), { success: true });
+  const result = await run;
+  assert.equal(requestSignal.aborted, true);
+  assert.equal(result.cancelled, true);
+  assert.equal(trace.stopReason, 'user_cancelled');
+  assert.equal(service.activeAgentRuns.size, 0);
+});
+
 test('untrusted provider TLS certificates produce safe Windows trust-store guidance', () => {
   const { providerNetworkError } = require('../src/automation/model-catalog');
   const error = providerNetworkError(Object.assign(new Error('self signed certificate in certificate chain'), { code: 'SELF_SIGNED_CERT_IN_CHAIN' }), 'deepseek', 'https://api.deepseek.com/chat/completions');
@@ -402,7 +426,15 @@ test('automation service opens its Level database and accepts a WebSocket client
 
   await service.start();
   assert.equal(service.running, true);
-  client = new WebSocket(`ws://127.0.0.1:${service.wss.address().port}`);
+  const unauthorized = new WebSocket(`ws://127.0.0.1:${service.wss.address().port}`);
+  await new Promise((resolve) => unauthorized.once('error', resolve));
+  assert.equal(service.clients.size, 0, 'unauthenticated local WebSocket clients are rejected');
+  const browserOrigin = new WebSocket(`ws://127.0.0.1:${service.wss.address().port}`, {
+    headers: { Authorization: `Bearer ${service.wsToken}`, Origin: 'https://attacker.example' }
+  });
+  await new Promise((resolve) => browserOrigin.once('error', resolve));
+  assert.equal(service.clients.size, 0, 'browser-originated connections are rejected even with a token');
+  client = new WebSocket(`ws://127.0.0.1:${service.wss.address().port}`, { headers: { Authorization: `Bearer ${service.wsToken}` } });
   const connected = await new Promise((resolve, reject) => {
     client.once('message', (raw) => resolve(JSON.parse(raw.toString())));
     client.once('error', reject);
@@ -435,7 +467,7 @@ test('automation service opens its Level database and accepts a WebSocket client
       socket.once('connect', () => socket.write(`${JSON.stringify(request)}\n`));
     });
     const initialized = await requestMcp({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'test', version: '1' } } });
-    assert.equal(initialized.result.serverInfo.name, 'navegante-browser');
+    assert.equal(initialized.result.serverInfo.name, 'zero-browser');
     const mcpTools = await requestMcp({ jsonrpc: '2.0', id: 2, method: 'tools/list', params: {} });
     assert.ok(mcpTools.result.tools.some((tool) => tool.name === 'browser_cdp_send'));
   }

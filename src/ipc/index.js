@@ -110,6 +110,11 @@ function setupIpc() {
     return automationService.runAgent(tabId, prompt, apiKey, model, !testOnly, provider, Boolean(requireToolCall), { resumable: !testOnly, resumeId: testOnly ? null : resumeId });
   });
 
+  ipcMain.handle('automation:cancel-agent', async (_e, tabId) => {
+    if (!automationService) return { success: false, error: 'Serviço de automação indisponível' };
+    return automationService.cancelAgentRun(tabId);
+  });
+
   ipcMain.handle('automation:get-state', async (e, tabId) => {
     if (!automationService) return { success: false, error: 'Automation service not running' };
     return await automationService.getTabState(tabId);

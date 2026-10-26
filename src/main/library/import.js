@@ -101,7 +101,7 @@ function importTree(library, tree, label) {
     }
   };
   library.transaction(() => {
-    // A barra vai para a barra do Navegante só se ela estiver vazia; senão, para dentro da pasta importada.
+    // A barra vai para a barra do Zero Browser só se ela estiver vazia; senão, para dentro da pasta importada.
     const barEmpty = library.bookmarks.getChildren(BAR_ID).length === 0;
     const container = library.bookmarks.create({ parentId: OTHER_ID, title: `Importados de ${label}` });
     if (barEmpty) insert(tree.bar, BAR_ID);

@@ -4,6 +4,24 @@ const { norm } = require('./tarefas');
 
 const ok = (aprovado, motivo) => ({ aprovado: Boolean(aprovado), motivo });
 
+const PLANILHA_ID = '48-spreadsheet-grid';
+const PLANILHA_ALVO = { id: 'P-1021', projeto: 'Projeto 21 - Lago Azul', unidades: 3, valorUnitario: 125 };
+const planilhaInicial = {
+  schema: 1,
+  tarefa: PLANILHA_ID,
+  rows: Array.from({ length: 60 }, (_, index) => {
+    const numero = index + 1;
+    return {
+      id: `P-${String(1000 + numero).padStart(4, '0')}`,
+      projeto: `Projeto ${String(numero).padStart(2, '0')} - ${['Lago Azul', 'Ipê', 'Serra Clara', 'Vale Verde', 'Canto Norte'][index % 5]}`,
+      equipe: ['Norte', 'Sul', 'Leste', 'Oeste'][index % 4],
+      unidades: 1 + ((index * 7) % 4),
+      valorUnitario: 90 + ((index * 37) % 150)
+    };
+  })
+};
+planilhaInicial.rows[20] = { ...PLANILHA_ALVO, equipe: 'Norte' };
+
 const tarefasStress = [
   {
     id: '45-spa-recovery',
@@ -119,6 +137,64 @@ const tarefasStress = [
         },
         etapas: ['busca:aurora', 'filtro:audio-aurora-ate-800', 'variante:AUR-XP-BLK-53', 'carrinho:AUR-XP-BLK-53:2']
       }
+    }
+  },
+  {
+    id: PLANILHA_ID,
+    categoria: 'spa-planilha-virtualizada',
+    estadoInicial: planilhaInicial,
+    pedido: 'Esta é uma planilha local de demonstração, com dados sintéticos. Localize o projeto P-1021, Projeto 21 - Lago Azul. Altere Unidades de 3 para 8; aguarde o estado “Alterações salvas” porque a grade vai ordenar novamente. Depois localize o mesmo código e altere Valor unitário de 125 para 260. Aguarde o salvamento e confira que Total calculado mostra 2.080. Não edite outros projetos nem tente alterar a célula Total, que é fórmula calculada.',
+    verificar: (e) => {
+      const initial = e.estadoInicial;
+      const final = e.estadoFinal;
+      if (!initial || !final) return ok(false, 'estado independente inicial ou final ausente');
+      const initialMatches = JSON.stringify(initial) === JSON.stringify(planilhaInicial);
+      const initialById = new Map(initial.rows.map((row) => [row.id, row]));
+      const finalById = new Map((final.rows || []).map((row) => [row.id, row]));
+      const targetStart = initialById.get(PLANILHA_ALVO.id);
+      const target = finalById.get(PLANILHA_ALVO.id);
+      const exactRows = initial.rows.length === 60
+        && finalById.size === 60
+        && initial.rows.every((row) => {
+          const actual = finalById.get(row.id);
+          if (!actual) return false;
+          const expected = row.id === PLANILHA_ALVO.id
+            ? { ...row, unidades: 8, valorUnitario: 260 }
+            : row;
+          return actual.unidades === expected.unidades
+            && actual.valorUnitario === expected.valorUnitario
+            && actual.total === expected.unidades * expected.valorUnitario;
+        });
+      const saves = Array.isArray(final.saves) ? final.saves : [];
+      const unitSnapshotEsperado = Object.fromEntries(initial.rows.map((row) => [row.id, {
+        unidades: row.id === PLANILHA_ALVO.id ? 8 : row.unidades,
+        valorUnitario: row.valorUnitario,
+        total: row.id === PLANILHA_ALVO.id ? 1000 : row.unidades * row.valorUnitario
+      }]));
+      const priceSnapshotEsperado = Object.fromEntries(initial.rows.map((row) => [row.id, {
+        unidades: row.id === PLANILHA_ALVO.id ? 8 : row.unidades,
+        valorUnitario: row.id === PLANILHA_ALVO.id ? 260 : row.valorUnitario,
+        total: row.id === PLANILHA_ALVO.id ? 2080 : row.unidades * row.valorUnitario
+      }]));
+      const unitSave = saves.find((save) => save.rowId === PLANILHA_ALVO.id && save.field === 'unidades'
+        && save.from === 3 && save.to === 8 && save.snapshot?.[PLANILHA_ALVO.id]?.unidades === 8
+        && save.snapshot?.[PLANILHA_ALVO.id]?.valorUnitario === 125
+        && JSON.stringify(save.snapshot) === JSON.stringify(unitSnapshotEsperado));
+      const priceSave = saves.find((save) => save.rowId === PLANILHA_ALVO.id && save.field === 'valorUnitario'
+        && save.from === 125 && save.to === 260 && save.snapshot?.[PLANILHA_ALVO.id]?.unidades === 8
+        && save.snapshot?.[PLANILHA_ALVO.id]?.valorUnitario === 260
+        && save.snapshot?.[PLANILHA_ALVO.id]?.total === 2080
+        && JSON.stringify(save.snapshot) === JSON.stringify(priceSnapshotEsperado));
+      const distinctSaves = Boolean(unitSave && priceSave && unitSave.revision === 1 && priceSave.revision === 2);
+      const expectedOrder = [...finalById.values()].sort((a, b) => b.total - a.total || a.id.localeCompare(b.id)).map((row) => row.id);
+      const sorted = Array.isArray(final.order) && JSON.stringify(final.order) === JSON.stringify(expectedOrder)
+        && final.order[0] === PLANILHA_ALVO.id;
+      const passed = initialMatches && targetStart?.unidades === 3 && targetStart?.valorUnitario === 125
+        && target?.unidades === 8 && target?.valorUnitario === 260 && target?.total === 2080
+        && exactRows && distinctSaves && saves.length === 2 && final.saveCount === saves.length && sorted;
+      return ok(passed, passed
+        ? 'estado independente: seed intacto, somente P-1021 mudou, dois autosaves separados foram persistidos, fórmula totalizou 2.080 e a ordenação colocou a linha no topo'
+        : `planilha não confirmada: seed=${initialMatches}, linha=${target?.unidades}/${target?.valorUnitario}/${target?.total}, demaisLinhasIntactas=${exactRows}, savesSeparados=${distinctSaves}, saveCount=${final.saveCount}, ordem=${sorted}`);
     }
   }
 ];

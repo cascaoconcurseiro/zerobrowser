@@ -8,14 +8,16 @@ class AutomationClient {
     this.pending = new Map();
     this.reconnectTimer = null;
     this.url = null;
+    this.token = '';
     this.shouldReconnect = true;
   }
 
-  connect(url) {
+  connect(url, token = this.token) {
     this.url = url;
+    this.token = token;
     this.shouldReconnect = true;
     return new Promise((resolve, reject) => {
-      this.ws = new WebSocket(url);
+      this.ws = new WebSocket(url, { headers: { Authorization: `Bearer ${token}` } });
 
       this.ws.on('open', () => {
         this.connected = true;

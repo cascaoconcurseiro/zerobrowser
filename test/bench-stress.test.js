@@ -81,3 +81,61 @@ test('ecommerce SPA inline JavaScript parses without runtime dependencies', () =
   assert.equal(scripts.length, 1);
   assert.doesNotThrow(() => new vm.Script(scripts[0], { filename: '47-spa-loja-carrinho.html' }));
 });
+
+test('spreadsheet task 48 requires exact independent seed, isolated edits, two autosaves and sorted row', () => {
+  const task = tarefasStress.find((item) => item.id === '48-spreadsheet-grid');
+  const initial = structuredClone(task.estadoInicial);
+  const rows = initial.rows.map((row) => ({ ...row, ...(row.id === 'P-1021' ? { unidades: 8, valorUnitario: 260 } : {}), total: row.id === 'P-1021' ? 2080 : row.unidades * row.valorUnitario }));
+  const unitSnapshot = Object.fromEntries(initial.rows.map((row) => [row.id, { unidades: row.id === 'P-1021' ? 8 : row.unidades, valorUnitario: row.valorUnitario, total: row.id === 'P-1021' ? 1000 : row.unidades * row.valorUnitario }]));
+  const finalSnapshot = Object.fromEntries(rows.map((row) => [row.id, { unidades: row.unidades, valorUnitario: row.valorUnitario, total: row.total }]));
+  const final = {
+    estadoInicial: initial,
+    estadoFinal: {
+      rows,
+      order: [...rows].sort((a, b) => b.total - a.total || a.id.localeCompare(b.id)).map((row) => row.id),
+      saves: [
+        { revision: 1, rowId: 'P-1021', field: 'unidades', from: 3, to: 8, snapshot: unitSnapshot },
+        { revision: 2, rowId: 'P-1021', field: 'valorUnitario', from: 125, to: 260, snapshot: finalSnapshot }
+      ],
+      saveCount: 2
+    }
+  };
+  assert.equal(task.verificar(final).aprovado, true);
+  assert.equal(task.verificar({ ...final, estadoInicial: { ...initial, rows: [] } }).aprovado, false, 'seed is fixed independently');
+  const wrongField = structuredClone(final);
+  wrongField.estadoFinal.rows.find((row) => row.id === 'P-1021').unidades = 7;
+  assert.equal(task.verificar(wrongField).aprovado, false, 'target values must match');
+  const dirtyOtherRow = structuredClone(final);
+  dirtyOtherRow.estadoFinal.rows[0].unidades++;
+  assert.equal(task.verificar(dirtyOtherRow).aprovado, false, 'other projects must remain unchanged');
+  const missingSave = structuredClone(final);
+  missingSave.estadoFinal.saves.pop();
+  missingSave.estadoFinal.saveCount--;
+  assert.equal(task.verificar(missingSave).aprovado, false, 'each edit must be persisted separately');
+});
+
+test('spreadsheet server restores fixed seed and ignores attempts to replace it', async () => {
+  const server = await iniciarServidor();
+  const id = '48-spreadsheet-grid';
+  try {
+    const seeded = await (await fetch(`${server.base}/api/estado/${id}`)).json();
+    assert.deepEqual(seeded.estadoInicial, tarefasStress.find((task) => task.id === id).estadoInicial);
+    await fetch(`${server.base}/api/estado/${id}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ estadoInicial: { rows: [] }, estadoFinal: { saveCount: 1 } }) });
+    assert.equal(server.estadoDe(id).estadoInicial.rows.length, 60);
+    server.limpar(id);
+    assert.equal(server.estadoDe(id).estadoFinal, null);
+    assert.equal(server.estadoDe(id).estadoInicial.rows.length, 60);
+    const response = await fetch(server.urlDa(id));
+    assert.equal(response.status, 200);
+    const html = await response.text();
+    assert.match(html, /data-tarefa="48-spreadsheet-grid"/);
+    assert.match(html, /aria-label=/);
+    assert.match(html, /Total calculado/);
+    assert.match(html, /setTimeout\(resolve,650\)/, 'autosave has deterministic asynchronous latency');
+    const inline = [...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)].map((match) => match[1]).filter((source) => source.trim());
+    assert.equal(inline.length, 1);
+    assert.doesNotThrow(() => new vm.Script(inline[0], { filename: '48-spreadsheet-grid.html' }));
+  } finally {
+    await server.fechar();
+  }
+});

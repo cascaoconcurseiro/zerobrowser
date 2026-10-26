@@ -10,12 +10,16 @@ const { ExtensionHost } = require('./extensions/extension-host');
 const { runFlameTask, seedFlameSettings, waitFor } = require('./extensions/flame-runner');
 const { Library } = require('./library');
 const libraryImport = require('./library/import');
+const { browserShortcutForInput } = require('./browser-shortcuts');
 
-// Pasta de dados alternativa (testes lado a lado com o Navegante instalado). Precisa vir antes de qualquer getPath.
+// Keep the legacy internal name so a visible rebrand does not move the existing userData folder.
+app.setName('navegante');
+
+// Pasta de dados alternativa (testes lado a lado com o Zero Browser instalado). Precisa vir antes de qualquer getPath.
 if (process.env.NAVEGANTE_USER_DATA) app.setPath('userData', path.resolve(process.env.NAVEGANTE_USER_DATA));
 
 // No Windows, o Chromium trata a janela coberta por outras como escondida e para de desenhar: a aba do agente congela
-// (listas não carregam, capturas e cliques esperam segundos). O agente precisa trabalhar com o Navegante atrás de outras janelas.
+// (listas não carregam, capturas e cliques esperam segundos). O agente precisa trabalhar com o Zero Browser atrás de outras janelas.
 app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion');
 app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
 
@@ -54,7 +58,8 @@ const BOOKMARKS_BAR_HEIGHT = 32;
 let bookmarksBarVisible = false;
 let shuttingDown = false; // ao sair, as abas fecham uma a uma e não devem apagar a sessão salva
 let sessionSaveTimer = null;
-let pageFrozen = false; // a lista de sugestões da barra de endereço está aberta sobre a página
+let pageFrozen = false;
+const pageFreezeReasons = new Set();
 
 const gotTheLock = app.requestSingleInstanceLock();
 
@@ -67,6 +72,8 @@ app.on('second-instance', () => {
     if (mainWindow.isMinimized()) mainWindow.restore();
     mainWindow.focus();
     mainWindow.show();
+  } else {
+    createMainWindow();
   }
 });
 
@@ -87,7 +94,11 @@ async function initializeApp() {
   }));
   automationService.setAgentConfigProvider(getAgentConfig);
   process.env.NAVEGANTE_DATA_DIR = app.getPath('userData');
-  await automationService.start();
+  try {
+    await automationService.start();
+  } catch (err) {
+    logError(err);
+  }
   automationService.setBrowserControls({
     createTab: async (url) => {
       const created = createNewTab(url || store.getStore().get('browser.defaultHomepage') || 'about:blank');
@@ -100,8 +111,10 @@ async function initializeApp() {
     downloadDirectory: () => resolveDownloadDirectory(),
     runFlameTask: async ({ tabId, prompt, timeoutMs, allowLocalFixture }) => {
       const entry = browserViews.get(tabId);
-      if (!extensionHost || !entry) return { success: false, error: 'O Flame não está carregado no Navegante' };
+      if (!extensionHost?.primary || !entry) return { success: false, error: 'O Flame não está carregado no Zero Browser' };
       const panel = openFlamePanel(tabId, extensionHost.extensionUrl(`${extensionHost.globalPanel.path}?tabId=${entry.webContents.id}`));
+      const agentConfig = await getAgentConfig();
+      await seedFlameSettings(panel.webContents, agentConfig).catch(() => false);
       await waitFor(() => panel.webContents.executeJavaScript('Boolean(document.querySelector("textarea"))'), 30000).catch(() => null);
       return runFlameTask({ panel: panel.webContents, prompt, timeoutMs, allowLocalFixture });
     }
@@ -148,7 +161,11 @@ async function initializeApp() {
   } catch (error) {
     logError(error);
   }
-  await startExtensionHost();
+  try {
+    await startExtensionHost();
+  } catch (err) {
+    logError(err);
+  }
   createMainWindow();
 
   app.on('activate', () => {
@@ -164,6 +181,7 @@ function createMainWindow() {
     height: Math.min(900, height),
     minWidth: 800,
     minHeight: 600,
+    icon: path.join(__dirname, '../../assets/zero-browser-icon.png'),
     titleBarStyle: 'hidden',
     titleBarOverlay: {
       color: darkTheme ? '#1a1a2e' : '#f5f6f8',
@@ -189,15 +207,24 @@ function createMainWindow() {
   });
 
   mainWindow.once('ready-to-show', () => {
-    logError('ready-to-show fired');
     mainWindow.show();
   });
+
+  setTimeout(() => {
+    if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.isVisible()) {
+      logError('Fallback ready-to-show triggered');
+      mainWindow.show();
+    }
+  }, 2500);
 
   mainWindow.webContents.on('did-fail-load', (e, errorCode, errorDescription) => {
     logError(`did-fail-load: ${errorCode} ${errorDescription}`);
   });
 
-  mainWindow.on('close', () => { shuttingDown = true; });
+  mainWindow.on('close', () => {
+    saveSessionTabs({ force: true });
+    shuttingDown = true;
+  });
 
   mainWindow.on('closed', () => {
     browserViews.forEach(({ view }) => {
@@ -223,12 +250,11 @@ function createNewTab(url = 'about:blank', options = {}) {
   const ses = session.fromPartition(partition);
   configureSession(ses);
 
+  const popupWebContents = options.openerOptions?.webContents;
   const view = new WebContentsView({
-    ...(options.openerOptions || {}),
+    ...(popupWebContents ? { webContents: popupWebContents } : {}),
     webPreferences: {
-      ...(options.openerOptions?.webPreferences || {}),
       session: ses,
-      preload: path.join(__dirname, '../preload/browser-preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
@@ -237,12 +263,26 @@ function createNewTab(url = 'about:blank', options = {}) {
     }
   });
 
-  if (!options.openerOptions) view.webContents.loadURL(url);
+  const isNewTab = url === 'zero://newtab' || url === 'navegante://newtab';
+  if (!popupWebContents) {
+    if (isNewTab) {
+      view.webContents.loadFile(path.join(__dirname, '../renderer/newtab.html'));
+    } else {
+      view.webContents.loadURL(url);
+    }
+  }
+
+  view.webContents.on('before-input-event', (event, input) => {
+    const action = browserShortcutForInput(input);
+    if (!action) return;
+    event.preventDefault();
+    sendToRenderer('browser:shortcut', { action, tabId });
+  });
 
   // Pop-ups e links com target=_blank viram abas. O Electron cria a página com o vínculo window.opener, que
   // logins como "Entrar com Google" usam para devolver o resultado à aba de origem.
   view.webContents.setWindowOpenHandler(({ url: targetUrl, disposition }) => {
-    if (!/^(https?:|about:blank)/.test(targetUrl) && !isNaveganteUrl(targetUrl)) return { action: 'deny' };
+    if (!isAllowedRendererNavigation(targetUrl)) return { action: 'deny' };
     return {
       action: 'allow',
       createWindow: (openerOptions) => {
@@ -257,8 +297,12 @@ function createNewTab(url = 'about:blank', options = {}) {
     sendToRenderer('tab:navigated', { tabId, url: view.webContents.getURL(), title: view.webContents.getTitle() });
   });
 
-  view.webContents.on('did-start-navigation', (e, url) => {
-    sendToRenderer('tab:navigation-start', { tabId, url });
+  view.webContents.on('did-start-navigation', (e, targetUrl) => {
+    if (typeof targetUrl === 'string' && targetUrl.includes('#open-copilot')) {
+      sendToRenderer('browser:open-ai');
+      return;
+    }
+    sendToRenderer('tab:navigation-start', { tabId, url: targetUrl });
   });
 
   view.webContents.on('page-title-updated', (e, title) => {
@@ -488,13 +532,11 @@ ipcMain.handle('settings:choose-download-directory', async () => {
   return selected;
 });
 
-function isNaveganteUrl(url) {
-  try {
-    const u = new URL(url);
-    return u.protocol === 'navegante:';
-  } catch {
-    return false;
-  }
+function isAllowedRendererNavigation(url) {
+  return typeof url === 'string' && (
+    /^https?:\/\//i.test(url)
+    || ['about:blank', 'zero://newtab', 'navegante://newtab'].includes(url)
+  );
 }
 
 function updateBrowserViewBounds() {
@@ -577,8 +619,11 @@ ipcMain.handle('automation:intervention-reply', async (_e, { id, action } = {}) 
   return { success: true };
 });
 
-ipcMain.handle('browser:new-tab', async (e, url, options) => {
-  return createNewTab(url, options);
+ipcMain.handle('browser:new-tab', async (e, url) => {
+  if (!mainWindow || e.sender !== mainWindow.webContents) throw new Error('Somente a janela principal pode abrir abas.');
+  const target = typeof url === 'string' && url ? url : 'about:blank';
+  if (!isAllowedRendererNavigation(target)) throw new Error('A nova aba aceita apenas endereços HTTP ou HTTPS, about:blank ou a página interna de nova aba.');
+  return createNewTab(target);
 });
 
 ipcMain.handle('browser:close-tab', async (e, tabId) => {
@@ -592,11 +637,16 @@ ipcMain.handle('browser:switch-tab', async (e, tabId) => {
 });
 
 ipcMain.handle('browser:navigate', async (e, tabId, url) => {
+  if (!isAllowedRendererNavigation(url)) throw new Error('A navegação aceita apenas endereços HTTP ou HTTPS ou páginas internas permitidas.');
   const entry = browserViews.get(tabId);
   if (entry) {
     // Navegação vinda da barra de endereço conta como "digitada", o que pesa mais nas sugestões.
     entry.typedNavigation = true;
-    entry.view.webContents.loadURL(url);
+    if (url === 'zero://newtab' || url === 'navegante://newtab') {
+      entry.view.webContents.loadFile(path.join(__dirname, '../renderer/newtab.html'));
+    } else {
+      entry.view.webContents.loadURL(url);
+    }
     return { success: true };
   }
   return { success: false, error: 'Tab not found' };
@@ -659,7 +709,7 @@ ipcMain.handle('browser:get-side-panel-layout', (event) => {
   if (!mainWindow || event.sender !== mainWindow.webContents) {
     throw new Error('Somente a janela principal pode consultar o layout do navegador.');
   }
-  return { open: sidePanelOpen, bounds: browserViews.get(activeBrowserTabId)?.view.getBounds() || null };
+  return { open: sidePanelOpen, frozen: pageFrozen, bounds: browserViews.get(activeBrowserTabId)?.view.getBounds() || null };
 });
 
 ipcMain.handle('browser:get-tab', async (e, tabId) => {
@@ -780,20 +830,29 @@ ipcMain.handle('browser:set-bookmarks-bar', (event, visible) => {
 
 // As páginas ficam por cima da interface; enquanto a lista de sugestões está aberta, a página vira uma imagem
 // parada atrás dela para a lista aparecer sem esconder o site.
-ipcMain.handle('browser:freeze-page', async (event, frozen) => {
+ipcMain.handle('browser:freeze-page', async (event, frozen, reason = 'suggestions') => {
   if (!mainWindow || event.sender !== mainWindow.webContents) throw new Error('Somente a janela principal pode alterar o layout.');
   const entry = browserViews.get(activeBrowserTabId);
   if (!entry) return null;
+  const owner = ['suggestions', 'menu', 'panel'].includes(reason) ? reason : 'suggestions';
+  if (frozen) pageFreezeReasons.add(owner);
+  else pageFreezeReasons.delete(owner);
   if (frozen && !pageFrozen) {
+    const tabIdAtCapture = activeBrowserTabId;
+    const viewAtCapture = entry.view;
     const image = await entry.view.webContents.capturePage().catch(() => null);
+    // Uma sobreposição pode fechar enquanto capturePage() está pendente. Não esconda
+    // a página depois que o renderer já pediu para descongelá-la.
+    if (!pageFreezeReasons.size || activeBrowserTabId !== tabIdAtCapture
+      || browserViews.get(tabIdAtCapture)?.view !== viewAtCapture || pageFrozen) return null;
     pageFrozen = true;
-    entry.view.setVisible(false);
+    viewAtCapture.setVisible(false);
     for (const panel of flamePanels.values()) panel.setVisible(false);
-    return { image: image && !image.isEmpty() ? image.toDataURL() : null, bounds: entry.view.getBounds() };
+    return { image: image && !image.isEmpty() ? image.toDataURL() : null, bounds: viewAtCapture.getBounds() };
   }
-  if (!frozen && pageFrozen) {
+  if (!pageFreezeReasons.size && pageFrozen) {
     pageFrozen = false;
-    entry.view.setVisible(true);
+    browserViews.get(activeBrowserTabId)?.view.setVisible(true);
     for (const [id, panel] of flamePanels) panel.setVisible(id === activeBrowserTabId && !flamePanelHidden);
   }
   return null;
@@ -817,14 +876,29 @@ ipcMain.handle('browser:get-last-session', (event) => {
   return Array.isArray(urls) ? urls.filter((url) => typeof url === 'string' && /^https?:/i.test(url)).slice(0, 30) : [];
 });
 
+ipcMain.handle('browser:get-downloads', (event) => {
+  if (!mainWindow || event.sender !== mainWindow.webContents) throw new Error('Somente a janela principal pode listar downloads.');
+  return recentDownloads.map(({ id, filename, url, state, path: savedPath, receivedBytes, totalBytes, startedAt }) => ({
+    id, filename, url, state, hasFile: state === 'completed' && Boolean(savedPath && fs.existsSync(savedPath)), receivedBytes, totalBytes, startedAt
+  })).reverse();
+});
+
+ipcMain.handle('browser:show-download', (event, id) => {
+  if (!mainWindow || event.sender !== mainWindow.webContents) throw new Error('Somente a janela principal pode abrir a pasta de um download.');
+  const record = recentDownloads.find((item) => item.id === String(id));
+  if (!record || record.state !== 'completed' || !record.path || !fs.existsSync(record.path)) throw new Error('Este download ainda não está disponível.');
+  shell.showItemInFolder(record.path);
+  return true;
+});
+
 // Como o Chrome, grava as abas abertas a cada mudança (e não só ao sair), o que também cobre travamentos.
 function scheduleSessionSave() {
   clearTimeout(sessionSaveTimer);
   sessionSaveTimer = setTimeout(saveSessionTabs, 1000);
 }
 
-function saveSessionTabs() {
-  if (!browserViews.size || shuttingDown) return;
+function saveSessionTabs({ force = false } = {}) {
+  if (shuttingDown && !force) return;
   try {
     const urls = [...browserViews.values()].map((entry) => (entry.webContents.isDestroyed() ? '' : entry.webContents.getURL())).filter((url) => /^https?:/i.test(url));
     store.getStore().set('session.lastTabs', urls);
@@ -848,7 +922,18 @@ function flameExtensionPath() {
 
 async function startExtensionHost() {
   const flamePath = flameExtensionPath();
-  if (!flamePath || store.getStore().get('extensions.flameEnabled') === false) return;
+  const settings = store.getStore();
+  const userExtensions = settings.get('extensions.user', []);
+  const records = Array.isArray(userExtensions) ? userExtensions.filter((item) => item && typeof item.path === 'string') : [];
+  const extensionPaths = [];
+  if (flamePath && settings.get('extensions.flameEnabled') !== false) {
+    extensionPaths.push({ path: flamePath, primary: true, allowFileAccess: true });
+  }
+  for (const item of records) {
+    if (item.enabled === true && (!flamePath || path.resolve(item.path) !== path.resolve(flamePath))) {
+      extensionPaths.push({ path: item.path, primary: false, allowFileAccess: false });
+    }
+  }
   const ses = session.fromPartition(PROFILE_PARTITION);
   configureSession(ses);
   extensionHost = new ExtensionHost({
@@ -877,18 +962,153 @@ async function startExtensionHost() {
     }
   });
   library?.onChange((area, event, payload) => extensionHost?.emit(`${area}.${event}`, ...payload));
-  const loaded = await extensionHost.start([flamePath]);
-  for (const result of loaded) if (result.error) logError(new Error(`Extensão não carregou: ${result.error}`));
-  if (!extensionHost.primary) extensionHost = null;
+  const loaded = await extensionHost.start(extensionPaths);
+  for (const result of loaded) {
+    if (!result.error) continue;
+    logError(new Error(`Extensão não carregou: ${result.error}`));
+    const record = records.find((item) => path.resolve(item.path) === path.resolve(result.path));
+    if (record) record.error = result.error;
+  }
+  settings.set('extensions.user', records);
 }
+
+function extensionRecordForUI(record) {
+  return { id: record.id, name: record.name, version: record.version, permissions: record.permissions || [], enabled: record.enabled === true, error: record.error || '', managed: false };
+}
+
+function visibleExtensionRecords() {
+  const primary = extensionHost?.primary;
+  const base = primary ? [{ id: primary.id, name: primary.name, version: primary.version, permissions: primary.manifest.permissions || [], enabled: true, error: '', managed: true }] : [];
+  const records = store.getStore().get('extensions.user', []);
+  return [...base, ...(Array.isArray(records) ? records.map(extensionRecordForUI) : [])];
+}
+
+function requireMainWindowSender(event) {
+  if (!mainWindow || mainWindow.isDestroyed() || event.sender !== mainWindow.webContents) throw new Error('Somente a janela principal pode gerenciar extensões.');
+}
+
+ipcMain.handle('browser:extensions:list', (event) => {
+  requireMainWindowSender(event);
+  return visibleExtensionRecords();
+});
+
+ipcMain.handle('browser:extensions:add', async (event) => {
+  requireMainWindowSender(event);
+  const selected = await dialog.showOpenDialog(mainWindow, {
+    title: 'Selecionar pasta da extensão unpacked',
+    properties: ['openDirectory']
+  });
+  if (selected.canceled || !selected.filePaths[0]) return { cancelled: true };
+  const extensionPath = path.resolve(selected.filePaths[0]);
+  const manifestPath = path.join(extensionPath, 'manifest.json');
+  let manifest;
+  try {
+    if (!fs.statSync(extensionPath).isDirectory()) throw new Error('A seleção precisa ser uma pasta.');
+    manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+    if (![2, 3].includes(manifest.manifest_version) || typeof manifest.name !== 'string' || typeof manifest.version !== 'string') {
+      throw new Error('manifest.json precisa declarar manifest_version 2 ou 3, name e version.');
+    }
+  } catch (error) {
+    throw new Error(`Extensão inválida: ${error.message}`);
+  }
+  const settings = store.getStore();
+  const records = settings.get('extensions.user', []);
+  const existing = Array.isArray(records) ? records : [];
+  if (existing.some((item) => path.resolve(item.path) === extensionPath)) throw new Error('Esta pasta já foi adicionada.');
+  const basePath = flameExtensionPath();
+  if (basePath && path.resolve(basePath) === extensionPath) throw new Error('O Flame já é gerenciado pelo Zero Browser.');
+  const permissions = [...new Set([
+    ...(Array.isArray(manifest.permissions) ? manifest.permissions : []),
+    ...(Array.isArray(manifest.host_permissions) ? manifest.host_permissions : []),
+    ...(Array.isArray(manifest.optional_permissions) ? manifest.optional_permissions : []),
+    ...(Array.isArray(manifest.optional_host_permissions) ? manifest.optional_host_permissions : [])
+  ].map((value) => String(value)))];
+  const contentScriptSites = (Array.isArray(manifest.content_scripts) ? manifest.content_scripts : [])
+    .flatMap((entry) => Array.isArray(entry?.matches) ? entry.matches : [])
+    .map((value) => String(value));
+  const permissionSummary = [
+    ...permissions,
+    ...contentScriptSites.map((site) => `content script: ${site}`)
+  ].join('\n') || 'Nenhuma permissão declarada no manifesto.';
+  const confirmation = await dialog.showMessageBox(mainWindow, {
+    type: 'warning',
+    title: 'Permissões da extensão',
+    message: `Carregar “${manifest.name}” no Zero Browser?`,
+    detail: `Versão ${manifest.version}. Extensões executam código e podem ler páginas conforme as permissões declaradas.\n\n${permissionSummary}\n\nSomente pastas unpacked são aceitas; o suporte a APIs do Chrome é parcial.`,
+    buttons: ['Carregar extensão', 'Cancelar'],
+    defaultId: 1,
+    cancelId: 1,
+    noLink: true
+  });
+  if (confirmation.response !== 0) return { cancelled: true };
+  try {
+    const extension = await extensionHost.loadExtension({ path: extensionPath, primary: false, allowFileAccess: false });
+    const record = { id: extension.id, name: extension.name, version: extension.version, permissions, enabled: true, path: extensionPath, error: '' };
+    settings.set('extensions.user', [...existing, record]);
+    return { success: true, extension: extensionRecordForUI(record) };
+  } catch (error) {
+    throw new Error(`Não foi possível carregar a extensão: ${error.message}`);
+  }
+});
+
+ipcMain.handle('browser:extensions:set-enabled', async (event, extensionId, enabled) => {
+  requireMainWindowSender(event);
+  if (typeof extensionId !== 'string' || typeof enabled !== 'boolean') throw new Error('Estado de extensão inválido.');
+  const settings = store.getStore();
+  const records = settings.get('extensions.user', []);
+  const list = Array.isArray(records) ? records : [];
+  const record = list.find((item) => item.id === extensionId);
+  if (!record) throw new Error('Esta extensão não pode ser alterada ou não está instalada.');
+  if (record.enabled === enabled) return extensionRecordForUI(record);
+  if (enabled) {
+    try {
+      const extension = await extensionHost.loadExtension({ path: record.path, primary: false, allowFileAccess: false });
+      record.id = extension.id;
+      record.name = extension.name;
+      record.version = extension.version;
+      record.error = '';
+      record.enabled = true;
+    } catch (error) {
+      record.error = error.message;
+      settings.set('extensions.user', list);
+      throw new Error(`Não foi possível ativar a extensão: ${error.message}`);
+    }
+  } else {
+    extensionHost.unloadExtension(record.id);
+    record.enabled = false;
+    record.error = '';
+  }
+  settings.set('extensions.user', list);
+  return extensionRecordForUI(record);
+});
+
+ipcMain.handle('browser:extensions:remove', async (event, extensionId) => {
+  requireMainWindowSender(event);
+  if (typeof extensionId !== 'string') throw new Error('Identificador de extensão inválido.');
+  const settings = store.getStore();
+  const records = settings.get('extensions.user', []);
+  const list = Array.isArray(records) ? records : [];
+  const record = list.find((item) => item.id === extensionId);
+  if (!record) throw new Error('A extensão principal do Zero Browser não pode ser removida.');
+  const result = await dialog.showMessageBox(mainWindow, {
+    type: 'warning', title: 'Remover extensão', message: `Remover “${record.name}” do Zero Browser?`,
+    detail: 'A pasta e os arquivos da extensão serão mantidos no computador.',
+    buttons: ['Remover', 'Cancelar'], defaultId: 1, cancelId: 1, noLink: true
+  });
+  if (result.response !== 0) return { cancelled: true };
+  if (record.enabled) extensionHost.unloadExtension(record.id);
+  settings.set('extensions.user', list.filter((item) => item.id !== extensionId));
+  return { success: true };
+});
 
 function openFlamePanel(tabId, url) {
   let panel = flamePanels.get(tabId);
   if (!panel) {
     panel = new WebContentsView({ webPreferences: { session: session.fromPartition(PROFILE_PARTITION), sandbox: true, contextIsolation: true } });
+    panel.webContents.on("console-message", (_event, level, message) => console.log("[FlameConsole]", message));
     flamePanels.set(tabId, panel);
     mainWindow.contentView.addChildView(panel);
-    // Na primeira abertura, o Flame recebe o provedor e a chave já salvos no Navegante.
+    // Na primeira abertura, o Flame recebe o provedor e a chave já salvos no Zero Browser.
     panel.webContents.once('did-finish-load', async () => {
       const seeded = await seedFlameSettings(panel.webContents, await getAgentConfig()).catch(() => false);
       if (seeded && !panel.webContents.isDestroyed()) panel.webContents.reload();
@@ -914,7 +1134,7 @@ function closeFlamePanel(tabId) {
 
 ipcMain.handle('flame:toggle-panel', (event) => {
   if (!mainWindow || event.sender !== mainWindow.webContents) throw new Error('Somente a janela principal pode abrir o painel.');
-  if (!extensionHost) return { available: false };
+  if (!extensionHost?.primary) return { available: false };
   if (flamePanels.has(activeBrowserTabId) && !flamePanelHidden) {
     flamePanelHidden = true;
     for (const panel of flamePanels.values()) panel.setVisible(false);
@@ -928,7 +1148,7 @@ ipcMain.handle('flame:toggle-panel', (event) => {
   return { available: true, open: extensionHost.openPanelForActiveTab() };
 });
 
-ipcMain.handle('flame:status', () => ({ available: Boolean(extensionHost), open: flamePanels.has(activeBrowserTabId) && !flamePanelHidden }));
+ipcMain.handle('flame:status', () => ({ available: Boolean(extensionHost?.primary), open: flamePanels.has(activeBrowserTabId) && !flamePanelHidden }));
 
 app.whenReady().then(initializeApp);
 
@@ -963,7 +1183,7 @@ app.on('before-quit', (event) => {
   if (quitCleanupComplete) return;
   let clearOnExit = false;
   try { clearOnExit = store.getStore().get('privacy.clearOnExit') === true; } catch {}
-  if (!shuttingDown) saveSessionTabs();
+  if (!shuttingDown) saveSessionTabs({ force: true });
   shuttingDown = true;
   clearTimeout(sessionSaveTimer);
   if (clearOnExit && !quitCleanupStarted) {

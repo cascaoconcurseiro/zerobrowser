@@ -3,42 +3,53 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Navegante</title>
+  <title>Zero Browser</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <div id="app">
     <div id="titlebar">
       <div id="window-controls">
-        <button id="btn-minimize" class="window-btn" title="Minimizar">−</button>
-        <button id="btn-maximize" class="window-btn" title="Maximizar">□</button>
-        <button id="btn-close" class="window-btn" title="Fechar">×</button>
+        <button id="btn-minimize" class="window-btn" title="Minimizar"><svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="1" y1="6" x2="11" y2="6"/></svg></button>
+        <button id="btn-maximize" class="window-btn" title="Maximizar"><svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1.5" y="1.5" width="9" height="9" rx="1"/></svg></button>
+        <button id="btn-close" class="window-btn close" title="Fechar"><svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><line x1="2" y1="2" x2="10" y2="10"/><line x1="10" y1="2" x2="2" y2="10"/></svg></button>
       </div>
       <div id="tab-bar" class="tab-bar" role="tablist">
         <div id="tabs-container" class="tabs-container"></div>
-        <button id="btn-new-tab" class="tab-btn" title="Nova aba (Ctrl+T)">+</button>
+        <button id="btn-new-tab" class="tab-btn" title="Nova aba (Ctrl+T)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
       </div>
     </div>
 
     <div id="toolbar">
       <div class="toolbar-group">
-        <button id="btn-back" class="toolbar-btn" title="Voltar (Alt+←)" disabled>←</button>
-        <button id="btn-forward" class="toolbar-btn" title="Avançar (Alt+→)" disabled>→</button>
-        <button id="btn-reload" class="toolbar-btn" title="Recarregar (Ctrl+R)">↻</button>
-        <button id="btn-home" class="toolbar-btn" title="Início">⌂</button>
+        <button id="btn-back" class="toolbar-btn" title="Voltar (Alt+←)" disabled><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
+        <button id="btn-forward" class="toolbar-btn" title="Avançar (Alt+→)" disabled><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></button>
+        <button id="btn-reload" class="toolbar-btn" title="Recarregar (Ctrl+R)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M3 21v-5h5"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/></svg></button>
+        <button id="btn-home" class="toolbar-btn" title="Início"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></button>
       </div>
       <div class="toolbar-group address-bar-container">
         <input type="text" id="address-bar" class="address-bar" placeholder="Digite um URL ou termo de pesquisa" spellcheck="false"
           role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="url-suggestions" aria-label="Endereço ou pesquisa">
-        <button id="btn-bookmark" class="bookmark-star" type="button" aria-pressed="false" aria-label="Adicionar aos favoritos (Ctrl+D)" title="Adicionar aos favoritos (Ctrl+D)">☆</button>
+        <button id="btn-bookmark" class="bookmark-star" type="button" aria-pressed="false" aria-label="Adicionar aos favoritos (Ctrl+D)" title="Adicionar aos favoritos (Ctrl+D)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></button>
         <ul id="url-suggestions" class="url-suggestions hidden" role="listbox" aria-label="Sugestões"></ul>
       </div>
       <div class="toolbar-group">
-        <button id="btn-flame" class="toolbar-btn hidden" title="Flame (agente da extensão)" aria-label="Abrir o Flame" aria-pressed="false">🔥</button>
-        <button id="btn-extensions" class="toolbar-btn" title="Extensões">🧩</button>
-        <button id="btn-settings" class="toolbar-btn" title="Configurações">⚙</button>
-        <button id="btn-ai" class="toolbar-btn primary" title="Agente de IA (Ctrl+Shift+A)">🤖</button>
+        <button id="btn-flame" class="toolbar-btn hidden" title="Flame (agente da extensão)" aria-label="Abrir o Flame" aria-pressed="false"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg></button>
+        <button id="btn-extensions" class="toolbar-btn" title="Extensões"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11a2 2 0 0 1 2-2h2a2 2 0 1 0 4 0h2a2 2 0 0 1 2 2v2a2 2 0 1 0 0 4v2a2 2 0 0 1-2 2h-2a2 2 0 1 0-4 0H6a2 2 0 0 1-2-2v-2a2 2 0 1 0 0-4Z"/></svg></button>
+        <button id="btn-settings" class="toolbar-btn" title="Configurações"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
+        <button id="btn-ai" class="toolbar-btn ai-copilot-btn" title="Agente de IA (Ctrl+Shift+A)" aria-label="Abrir Agente de IA"><svg class="copilot-sparkle" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/><path d="M19 3v4"/><path d="M21 5h-4"/></svg><span class="ai-copilot-label">Copilot</span></button>
+        <button id="btn-app-menu" class="toolbar-btn" title="Menu do Zero Browser" aria-label="Menu do Zero Browser" aria-haspopup="menu" aria-expanded="false"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg></button>
       </div>
+    </div>
+
+    <div id="app-menu" class="app-menu hidden" role="menu" aria-label="Menu do Zero Browser">
+      <button type="button" role="menuitem" data-menu-action="new-tab"><span>Nova aba</span><kbd>Ctrl+T</kbd></button>
+      <button type="button" role="menuitem" data-menu-action="history"><span>Histórico</span><kbd>Ctrl+H</kbd></button>
+      <button type="button" role="menuitem" data-menu-action="downloads"><span>Downloads</span><kbd>Ctrl+J</kbd></button>
+      <button type="button" role="menuitem" data-menu-action="bookmarks"><span>Favoritos</span><kbd>Ctrl+D</kbd></button>
+      <div class="app-menu-divider"></div>
+      <button type="button" role="menuitem" data-menu-action="extensions">Extensões</button>
+      <button type="button" role="menuitem" data-menu-action="settings">Configurações</button>
     </div>
 
     <nav id="bookmarks-bar" class="bookmarks-bar hidden" aria-label="Barra de favoritos">
@@ -53,50 +64,45 @@
     <div id="ai-panel" class="panel hidden">
       <div class="panel-header">
         <div class="panel-heading">
-          <span class="panel-kicker">NAVEGANTE</span>
+          <span class="panel-kicker panel-brand"><img src="../../assets/icon.svg" alt="">ZERO BROWSER</span>
           <strong>Agente de IA</strong>
           <span class="panel-subtitle">Peça ao agente para trabalhar na aba atual.</span>
         </div>
-        <button id="btn-close-ai" class="panel-close" aria-label="Fechar agente">×</button>
+        <button id="btn-close-ai" class="panel-close" aria-label="Fechar agente"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
       </div>
-      <div class="ai-toolbar">
-        <label class="field-label" for="ai-provider">Provedor</label>
-        <select id="ai-provider" class="ai-select" aria-label="Provedor de IA">
-          <option value="openrouter">OpenRouter</option>
-          <option value="deepseek">DeepSeek direto</option>
-        </select>
-        <label class="field-label" for="ai-model">Modelo</label>
-        <div class="ai-model-row">
-          <select id="ai-model" class="ai-select" aria-label="Modelo de IA">
-            <option value="">Sincronize os modelos</option>
-          </select>
-          <button id="btn-ai-refresh-models" class="btn-secondary" title="Atualizar modelos">Atualizar</button>
-        </div>
-        <label class="field-label" for="ai-api-key">Chave API</label>
-        <div class="ai-key-input-row">
-          <input type="password" id="ai-api-key" class="ai-input" placeholder="Chave API do OpenRouter" autocomplete="new-password">
-          <button id="btn-ai-toggle-key" class="btn-secondary" type="button" aria-pressed="false">Mostrar</button>
-        </div>
-        <button id="btn-ai-save-key" class="btn-secondary">Salvar chave</button>
-        <span id="ai-model-status" class="ai-model-status" role="status"></span>
-        <button id="btn-ai-connect" class="btn-primary">Conectar</button>
-      </div>
-      <p id="ai-privacy-note" class="ai-privacy-note">O texto da página será enviado ao provedor selecionado para realizar a tarefa.</p>
+      <div id="ai-ready-status" class="ai-ready-status" role="status">Carregando configuração do agente…</div>
       <div id="ai-chat" class="ai-chat"></div>
       <div class="ai-input-area">
-        <textarea id="ai-input" class="ai-textarea" placeholder="Descreva a tarefa para o agente... (Enter para enviar, Shift+Enter para nova linha)"></textarea>
-        <button id="btn-ai-send" class="btn-primary">Enviar</button>
+        <textarea id="ai-input" class="ai-textarea" placeholder="Descreva a tarefa para o agente… (Enter envia · Shift+Enter quebra linha)" aria-label="Comando para o agente"></textarea>
+        <div class="ai-composer-footer">
+          <span id="ai-privacy-note" class="ai-privacy-note">Os dados necessários da página serão enviados ao provedor escolhido.</span>
+          <div class="ai-composer-actions">
+            <label class="sr-only" for="ai-quick-model">Modelo do agente</label>
+            <select id="ai-quick-model" class="ai-quick-model" aria-label="Modelo do agente"><option value="">Configure um modelo em Configurações</option></select>
+            <button id="btn-ai-send" class="btn-primary" aria-label="Enviar comando">Enviar</button>
+          </div>
+        </div>
       </div>
+    </div>
+
+    <div id="library-panel" class="panel hidden" aria-label="Biblioteca do navegador">
+      <div class="panel-header">
+        <div class="panel-heading"><span class="panel-kicker panel-brand"><img src="../../assets/icon.svg" alt="">ZERO BROWSER</span><strong id="library-title">Histórico</strong><span id="library-subtitle" class="panel-subtitle">Páginas visitadas recentemente.</span></div>
+        <button id="btn-close-library" class="panel-close" aria-label="Fechar biblioteca"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      </div>
+      <label class="library-search-label" for="library-search">Pesquisar</label>
+      <input id="library-search" class="library-search" type="search" placeholder="Pesquisar por título ou endereço">
+      <div id="library-list" class="library-list" role="list"></div>
     </div>
 
     <div id="settings-panel" class="panel hidden">
       <div class="panel-header">
         <div class="panel-heading">
-          <span class="panel-kicker">NAVEGANTE</span>
+          <span class="panel-kicker panel-brand"><img src="../../assets/icon.svg" alt="">ZERO BROWSER</span>
           <strong>Configurações</strong>
           <span class="panel-subtitle">Preferências do navegador e do agente.</span>
         </div>
-        <button id="btn-close-settings" class="panel-close" aria-label="Fechar configurações">×</button>
+        <button id="btn-close-settings" class="panel-close" aria-label="Fechar configurações"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
       </div>
       <div class="settings-content">
         <section class="settings-section">
@@ -136,6 +142,23 @@
         <section class="settings-section">
           <h3>Histórico</h3>
           <button id="btn-clear-history" class="btn-secondary" type="button">Apagar todo o histórico</button>
+        </section>
+        <section class="settings-section">
+          <h3>Agente de IA · modelo e provedor</h3>
+          <label class="setting-field" for="ai-provider"><span>Provedor</span>
+            <select id="ai-provider" class="ai-select" aria-label="Provedor de IA">
+              <option value="openrouter">OpenRouter</option><option value="deepseek">DeepSeek direto</option>
+            </select>
+          </label>
+          <label class="setting-field" for="ai-model"><span>Modelo</span>
+            <div class="ai-model-row"><select id="ai-model" class="ai-select" aria-label="Modelo de IA"><option value="">Sincronize os modelos</option></select><button id="btn-ai-refresh-models" class="btn-secondary" type="button">Atualizar</button></div>
+          </label>
+          <label class="setting-field" for="ai-api-key"><span>Chave de API</span>
+            <div class="ai-key-input-row"><input type="password" id="ai-api-key" class="ai-input" placeholder="Chave API do OpenRouter" autocomplete="new-password"><button id="btn-ai-toggle-key" class="btn-secondary" type="button" aria-pressed="false">Mostrar</button></div>
+          </label>
+          <div class="ai-settings-actions"><button id="btn-ai-save-key" class="btn-secondary" type="button">Salvar chave</button><button id="btn-ai-connect" class="btn-secondary" type="button">Testar conexão</button></div>
+          <span id="ai-model-status" class="ai-model-status" role="status"></span>
+          <p id="ai-privacy-note-settings" class="setting-description">O texto e os dados necessários da página ativa serão enviados ao provedor para realizar a tarefa.</p>
         </section>
         <section class="settings-section">
           <h3>Agente de IA · aprovações</h3>
@@ -183,6 +206,12 @@
             <input type="checkbox" id="setting-download-prompt" checked>
             <span>Perguntar onde salvar</span>
           </label>
+        </section>
+        <section class="settings-section" id="extensions-section">
+          <h3>Extensões</h3>
+          <p class="setting-description">Adicione uma pasta de extensão unpacked. Extensões podem ler e alterar páginas conforme as permissões exibidas antes do carregamento. APIs do Chrome são parcialmente compatíveis; arquivos .crx e instalação da Chrome Web Store não são suportados.</p>
+          <button id="btn-add-extension" class="btn-secondary" type="button">Adicionar extensão unpacked…</button>
+          <div id="extensions-list" class="extensions-list" role="list" aria-label="Extensões instaladas"></div>
         </section>
       </div>
     </div>

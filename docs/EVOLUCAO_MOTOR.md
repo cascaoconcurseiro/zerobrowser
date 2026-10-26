@@ -21,7 +21,7 @@ Todos os relatórios abaixo usam deepseek-flash/DeepSeek. Tempos variam com o pr
 
 ## Evidências de 2026-10-26
 
-Todos os pares abaixo usaram deepseek-flash no perfil dev, em sequência. `observeAfterActions` ficou opcional e desligado por padrão. São amostras pequenas; justificam ampliar a avaliação, não uma alegação de desempenho geral.
+Todos os pares abaixo usaram deepseek-flash no perfil dev, em sequência. Na época dessas rodadas, `observeAfterActions` estava desligado por padrão. São amostras pequenas; justificam ampliar a avaliação, não uma alegação de desempenho geral.
 
 | Rodada em `bench/resultados` | Acerto | Entrada | Passos médios | Tempo médio | Resultado |
 |---|---:|---:|---:|---:|---|
@@ -74,7 +74,7 @@ Na revisão de privacidade, uma senha sem rótulo não aparecia no campo `value`
 
 Também foi corrigido o direcionamento de `click`/`type_text` quando controles com rótulos idênticos mudam de ordem; a ação usa identidade do nó inspecionado e falha se o elemento foi substituído. Campos ocultos em iframe/shadow DOM classificam códigos e dados de pagamento por `type`, `autocomplete` e `name`; tarefas locais não podem preencher automaticamente esses campos. O snapshot agora omite valores sensíveis e mantém a identidade do alvo interna.
 
-As falhas passadas em `33-validacao-erros` estavam concentradas em execuções Flame/timeout; as execuções Navegante mais recentes e as 3 repetições atuais passaram com os valores exatos do gabarito. Memória de perfil não é correção para os problemas de `<select>`, campo duplicado ou timeout.
+As falhas passadas em `33-validacao-erros` estavam concentradas em execuções Flame/timeout; as execuções mais recentes do Zero Browser e as 3 repetições atuais passaram com os valores exatos do gabarito. Memória de perfil não é correção para os problemas de `<select>`, campo duplicado ou timeout.
 
 ### Regressões de locators, preenchimento e loja SPA 47
 
@@ -95,3 +95,27 @@ As oito tarefas de sites públicos atuais são smoke externo, com verificadores 
 Próximas provas precisam cobrir sites públicos com scripts, editores/planilhas, listas virtualizadas e resultado conferido independentemente do texto do agente. As tarefas públicas atuais são smoke simples e em geral verificam a resposta/URL, não uma alteração persistida num sistema complexo. Autenticação/CAPTCHA são condições distintas de falha do motor. Nenhuma compra ou publicação deve servir de teste.
 
 Ainda pendentes: pausa manual/takeover, recuperação de resultado incerto sem duplicar ações, aprovação por risco e aceitação do instalador atual. O objetivo amplo permanece aberto.
+
+### Busca direcional com despertar por mutação DOM
+
+O caminho `scroll` foi separado em `src/automation/scroll-search.js`. Depois de cada movimento, ele observa mutações na página e procura o alvo após um intervalo curto; se a página não o carregar, mantém o fallback de 850 ms por etapa, os limites de 12 etapas/12 s e a detecção de fim de lista. Não adiciona chamadas ao modelo nem texto ao prompt.
+
+Na integração Electron, uma fixture com resultado inserido depois de 320 ms encontrou em **480 ms**, na primeira etapa; o caso com resultado inserido depois de 1.100 ms passou pelo limite de espera e encontrou na etapa seguinte. `npm run test:electron` e `npm test` (85/85) passaram.
+
+O teste real do agente na tarefa 48, com DeepSeek Flash, passou **5/5**, média 12,4 passos, 28,13 s e 103.462 tokens de entrada. A amostra anterior registrada passou 3/3, média 12,3 passos, 26,5 s e 102.027 tokens. Portanto, não há ganho geral demonstrado: a rodada atual ficou 6,2% mais lenta e usou 1,4% mais tokens, dentro de uma amostra pequena sujeita à latência do provedor. A melhoria só reduz espera quando a página revela o alvo antes do teto; precisa de comparação pareada por cenário antes de ser promovida como ganho global.
+
+### Sites públicos reais e regressão difícil — 2026-10-26
+
+`public-sites-progressive__2026-10-26T17-58-06-182Z` passou **12/12** numa rodada com DeepSeek Flash: busca e leitura na Wikipédia, catálogo/paginação de livros, carregamento lento, nova janela, POST de demonstração, carrinho JS, TodoMVC React, tabela paginada e controle assíncrono. Média de 4,4 passos, 12,7 s e 484.987 tokens de entrada. Os casos que alteraram estado de demonstração confirmaram a limpeza externa. São sites públicos e demos sem conta; não cobrem Planilhas autenticadas nem compras.
+
+`hard-regression-current-scroll__2026-10-26T18-00-50-708Z` passou **27/28** em duas rodadas (736.833 tokens, 6,3 passos, 11,3 s). A falha não foi de rolagem: a tarefa 44 registrou corretamente a transferência, mas numa das duas execuções deixou de ler Centro. Repetida isoladamente três vezes, a tarefa 44 passou 3/3 e confirmou as seis filiais, em média 12 passos, 12,1 s e 115.945 tokens. A falha continua relevante porque prova variabilidade; a reprodução curta não substitui a repetição da suíte toda.
+
+O trace provou que o modelo abriu cinco filiais e confundiu a página inicial (um índice sem resultado) com a sexta fonte. `tabs.read_batch` agora devolve cobertura de páginas com/sem correspondências e o trace distingue páginas lidas de páginas com correspondências; testes unitários cobrem índice + cinco resultados e seis resultados. Uma instrução global mais estrita foi testada e revertida após 2/3, sem benefício demonstrado. O benchmark posterior também ficou 2/3 e, na falha, não chamou `read_batch`; portanto o novo resumo ainda precisa de validação real no modelo. Resultados: `stock-multitab-readbatch__2026-10-26T18-08-26-469Z.md` e `stock-multitab-coverage-hint__2026-10-26T18-12-17-329Z.md`.
+
+### Registry de ferramentas inspirado no Browsentic — 2026-10-26
+
+O catálogo estático enviado pelo agente foi extraído para `src/automation/tools/agent-tool-registry.js`, seguindo a ideia de registry único do Browsentic. A mudança mantém as 17 ferramentas, schemas e descrições sem alteração; o JSON serializado continua com 6.764 bytes por request. Teste de contrato fixa a lista, esse tamanho e o isolamento entre execuções. A extração facilita experimentar schemas compactos ou exposição sob demanda, mas por si só não economiza tokens.
+
+O registro MCP permanece separado: tem nomes, schemas Zod, handlers e gates de aprovação próprios. Fundi-lo mecanicamente com o catálogo do modelo poderia mudar validação e permissões. Próximo passo é A/B pareado de schemas compactos/exposição seletiva com catálogo completo como fallback, cobrindo formulários/SPA, rolagem/grades, visual, arquivos e múltiplas abas. Promover apenas se a taxa de acerto não cair e tokens reais/latência melhorarem de forma repetível.
+
+Browsentic `main` consultado declara Apache-2.0 no v0.9.0 e informa no README que versões até 0.7.15 eram MIT. Esta alteração não copia código e não muda a licença MIT do Zero. Se arquivos Apache forem portados no futuro, fixar o commit e manter avisos de copyright, licença e NOTICE aplicáveis, além de indicar os arquivos modificados.

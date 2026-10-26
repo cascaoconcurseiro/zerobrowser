@@ -1,4 +1,4 @@
-// Favoritos e histórico do Navegante num SQLite local (node:sqlite, embutido no Electron). O formato dos nós segue
+// Favoritos e histórico do Zero Browser num SQLite local (node:sqlite, embutido no Electron). O formato dos nós segue
 // o chrome.bookmarks / chrome.history, para servir tanto a interface quanto o Flame sem conversão.
 const { DatabaseSync } = require('node:sqlite');
 

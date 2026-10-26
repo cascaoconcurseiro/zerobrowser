@@ -1,10 +1,12 @@
-# Navegante — navegador com agente de IA
+# Zero Browser — navegador com agente de IA
+
+Marca visível: **Zero Browser**. O identificador interno `navegante` e o `appId` legado são mantidos durante a mudança para preservar o diretório de dados e a identidade de atualização do aplicativo.
 
 Navegador Electron para Windows com agente integrado à OpenRouter ou DeepSeek.
 
 ## Estado atual (2026-10-26)
 
-O release local 0.1.1 para Windows x64 foi instalado e passou pelo smoke test no executável instalado, usando perfil temporário e provedores HTTP simulados em loopback. A suíte local passou 81/81, e as integrações Electron de hover, SPA/carrinho e nova aba passaram. Isso não valida chamadas autenticadas a provedores externos, Google Planilhas, Amazon ou todos os sites reais difíceis; paridade geral e prontidão para distribuição pública ainda não foram demonstradas.
+O release 0.1.3 foi instalado em produção no Windows em 26/10/2026 após backup verificável e validação do executável empacotado. O `app.asar` instalado corresponde ao build por SHA-256. Testes com provider local e fixtures confirmam fluxos de integração, mas não comprovam desempenho ou acerto em Planilhas autenticadas, lojas com conta ou todos os sites complexos. O estado e os próximos passos do motor estão em `HANDOFF.md` e `docs/EVOLUCAO_MOTOR.md`.
 
 ### Fluxos ligados
 
@@ -19,7 +21,7 @@ O release local 0.1.1 para Windows x64 foi instalado e passou pelo smoke test no
 - O fluxo real com conta/modelo OpenRouter ou DeepSeek não foi validado nesta máquina.
 - No modo padrão “Permitir ações de baixo risco”, ações consequentes, execução JavaScript e comandos CDP mutáveis passam por confirmação no processo principal; uma recusa interrompe o ciclo do agente. Os quatro níveis são configuráveis em Configurações > Agente de IA · aprovações. Os modos foram testados unitariamente; no executável instalado, os diálogos confirmar/cancelar passaram antes desta implementação de níveis.
 - O agente ainda não oferece screenshot visual para o modelo, teclado completo, arrastar por coordenadas, seleção, execução multiaba, pausa/takeover ou retomada.
-- A integração do agente usa snapshot e ações AX básicas; passou por fixture em `WebContentsView` para snapshot, digitação, clique, mutação e screenshot. Faltam ações robustas e validação em sites reais; o preload AX legado continua sem receptor próprio.
+- A integração do agente usa snapshot e ações AX básicas; passou por fixture em `WebContentsView` para snapshot, digitação, clique, mutação e screenshot. O preload de automação das páginas foi removido; faltam benchmark real e validação em sites difíceis.
 - Tema, URL completa, DNT, pasta e fluxo de download sem prompt já foram verificados no instalador com uma fixture local. Limpeza ao sair, bloqueio real de cookies de terceiros, seleção interativa de pasta, downloads com diálogo e CDP ainda precisam de aceite instalado.
 - O painel pede a chave API do provedor selecionado e sincroniza seu catálogo. A chave cifrada permanece no processo principal. A chamada real de chat depende de uma chave válida e ainda não foi validada nesta máquina.
 
@@ -31,9 +33,8 @@ O plano e os critérios de conclusão estão em [CHECKLIST.md](CHECKLIST.md); de
 src/
 ├── main/           # Processo principal Electron
 │   └── main.js     # WebContentsView, sessões, CDP, partições
-├── preload/        # Scripts de preload (contextBridge)
-│   ├── preload.js      # API principal do renderer
-│   └── browser-preload.js  # API de acessibilidade injetada nas páginas
+├── preload/        # API isolada da interface principal (contextBridge)
+│   └── preload.js
 ├── renderer/       # Interface do usuário
 │   ├── index.html
 │   ├── styles.css
@@ -51,8 +52,8 @@ src/
 ## Funcionalidades
 
 - **In-app browser** com WebContentsView (Electron)
-- **Sessões isoladas** por aba: `persist:navegante-browser-<id>`
-- Serviço MCP experimental por pipe nomeado no Windows (JSON-RPC 2.0) e WebSocket vinculado a loopback
+- **Perfil persistente compartilhado entre abas**, preservando o nome interno legado `persist:navegante`
+- Serviço MCP experimental por pipe nomeado no Windows (JSON-RPC 2.0) e WebSocket local autenticado para clientes de processo
 - Agente instalado verificado em fixture local: inspecionou AX, executou clique e alterou o DOM usando provider simulado
 - `browser_wait` inclui `networkidle`; `browser_screenshot(fullPage)` usa CDP e tem teste unitário
 - **CDP bruto** para casos avançados, condicionado à opção de desenvolvedor
@@ -61,7 +62,7 @@ src/
 - `safeStorage` protege a chave AES; a chave de API é armazenada cifrada com AES-GCM
 - A chave fica cifrada no armazenamento local. O renderer só recebe uma dica mascarada; a chave completa só é revelada após clicar em **Mostrar** e é apagada do campo ao clicar em **Ocultar**.
 - Persistência/revelação e chamadas autenticadas simuladas foram testadas no executável instalado. Uma checagem real sem credenciais confirmou TLS/acesso aos dois hosts (DeepSeek respondeu HTTP 401 sem autenticação; catálogo público OpenRouter respondeu HTTP 200). Uma chamada autenticada real ainda não foi feita.
-- As chamadas aos provedores usam `net.fetch` do Electron/Chromium, mantendo validação TLS e usando a rede/proxy do sistema. Se aparecer `SELF_SIGNED_CERT_IN_CHAIN`, a autoridade certificadora (CA) do proxy/firewall precisa ser confiada pelo Windows; o Navegante não desativa a validação TLS.
+- As chamadas aos provedores usam `net.fetch` do Electron/Chromium, mantendo validação TLS e usando a rede/proxy do sistema. Se aparecer `SELF_SIGNED_CERT_IN_CHAIN`, a autoridade certificadora (CA) do proxy/firewall precisa ser confiada pelo Windows; o Zero Browser não desativa a validação TLS.
 
 ## Instalação
 
