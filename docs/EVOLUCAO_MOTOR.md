@@ -267,3 +267,41 @@ O que **não** foi feito: nenhum A/B, nenhuma medição de chamadas economizadas
 pós-condição falhar, o roteiro para e devolve o motivo; quem decide o próximo passo ainda é o modelo. A próxima
 evolução natural é o journal de efeitos: registrar a intenção consequente, verificar se ela já aconteceu e impedir
 envio duplicado após falha ou reinício.
+
+### Journal de efeitos e idempotência — 2026-10-27
+
+Segundo salto, também **opt-in** (`effectJournal` em `run_task`, `--journal` no benchmark). O problema: uma ação
+consequente (enviar, comprar, publicar, navegar) podia ser repetida depois de timeout, falha ou reinício, porque o
+agente não tinha como saber se o efeito já tinha acontecido.
+
+Como funciona:
+
+- antes de despachar uma ação consequente, o host grava `attempted` no journal (arquivo
+  `<dados>/automation/efeitos.json`, escrita atômica) — se o processo cair, a tentativa fica registrada;
+- sucesso confirma a entrada (`confirmed`): repetir a mesma ação devolve `alreadyDone` e **não** despacha;
+- falha de efeito desconhecido (timeout, erro do site) mantém `attempted`: a próxima repetição devolve
+  `needsVerification` e **não** despacha até o modelo reler a página;
+- leitura bem-sucedida (`inspect_page`, `see_page`, `wait_for`, `tabs` de leitura) marca as tentativas como
+  `retryable` — repetir passa a ser permitido, uma vez, com evidência nova;
+- erro claramente anterior ao efeito ("Element not found", índice inexistente, página mudou) descarta a tentativa;
+- entradas expiram em **30 minutos** e o arquivo guarda no máximo 300; reiniciar não herda confirmação antiga.
+
+Chave: `sha256(ferramenta + alvo + origem+caminho)`, sem texto digitado e sem query string. Alvo é `targetId` do
+snapshot, texto do `click_text`, nome do controle oculto, URL de navegação ou nome do arquivo.
+
+Arquivos: `src/automation/effect-journal.js` (journal, armazenamento, plano e liquidação), `service/index.js`
+(integração no laço de ferramentas + prompt) e `bench/avaliar.js` (`--journal`). Testes: `test/effect-journal.test.js`
+(8 casos, incluindo persistência entre instâncias, arquivo corrompido, expiração e um `run_task` completo com
+bloqueio → leitura → repetição → `alreadyDone`). `npm test` 141/141.
+
+Limites honestos:
+
+- `confirmed` também bloqueia uma repetição **legítima** da mesma ação em 30 min (adicionar o mesmo item duas vezes).
+  O resultado avisa para conferir a página; é o preço de não duplicar envio, e o recurso é opt-in.
+- `hidden_action` usa o nome do controle como alvo; dois controles homônimos na mesma página colidem.
+- A prova de efeito é a resposta da ferramenta, não a rede. Um POST que falha silenciosamente e devolve sucesso
+  ainda seria confirmado.
+- Sem benchmark: nenhuma medição de quantas duplicações evita ou de quanto custa.
+
+Próximo passo natural: usar a pós-condição do `run_steps` como prova de efeito para confirmar o journal — hoje são
+dois mecanismos separados.

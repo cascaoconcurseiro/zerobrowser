@@ -20,7 +20,7 @@ const RESULTADOS = path.join(__dirname, 'resultados');
 const TEMPO_POR_TAREFA_MS = 10 * 60 * 1000;
 
 function lerArgumentos(argv) {
-  const opcoes = { rotulo: 'execucao', conjunto: 'todos', tarefas: null, repeticoes: 1, maxPassos: 20, tempo: 0, dataDir: '', servidor: false, comparar: null, motor: 'navegante', observeAfterActions: true, preInspect: false, scripts: false, diff: false, cascade: '', stream: false };
+  const opcoes = { rotulo: 'execucao', conjunto: 'todos', tarefas: null, repeticoes: 1, maxPassos: 20, tempo: 0, dataDir: '', servidor: false, comparar: null, motor: 'navegante', observeAfterActions: true, preInspect: false, scripts: false, diff: false, cascade: '', stream: false, journal: false };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     const [chave, valor] = arg.split('=');
@@ -39,6 +39,7 @@ function lerArgumentos(argv) {
     else if (chave === '--diff') opcoes.diff = true;
     else if (chave === '--cascade') opcoes.cascade = valor || '';
     else if (chave === '--stream') opcoes.stream = true;
+    else if (chave === '--journal') opcoes.journal = true;
     else if (chave === '--comparar') { opcoes.comparar = [argv[i + 1], argv[i + 2]]; i += 2; }
     else if (!arg.startsWith('--')) opcoes.rotulo = arg.replace(/[^\w.-]/g, '_');
   }
@@ -282,7 +283,7 @@ async function principal() {
         try {
           const resposta = await mcp.chamar('tools/call', {
             name: 'run_task',
-            arguments: { startUrl: tarefa.startUrl || servidor.urlDa(tarefa.id), prompt: tarefa.pedido, maxSteps: opcoes.maxPassos, ...(tarefa.hosts ? { approvalPolicy: 'public-sites', allowedHosts: tarefa.hosts } : { approvalPolicy: 'local-fixture' }), ...(tarefa.id === '44-estoque-filiais' ? { captureReadEvidence: true } : {}), ...(tarefa.verificarPagina ? { keepTab: true } : {}), ...(tarefa.capturarTextoInicial ? { captureInitialText: true } : {}), ...(tarefa.captureInitialChecks ? { captureInitialChecks: tarefa.captureInitialChecks.map(({ esperado, ...check }) => check) } : {}), engine: opcoes.motor, observeAfterActions: opcoes.observeAfterActions, ...(opcoes.preInspect ? { preInspect: true } : {}), ...(opcoes.scripts ? { actionScripts: true } : {}), ...(opcoes.diff ? { diffSnapshots: true } : {}), ...(opcoes.cascade ? { cascadeModel: opcoes.cascade } : {}), ...(opcoes.stream ? { streaming: true } : {}), ...(opcoes.tempo ? { maxDurationSec: opcoes.tempo } : {}) }
+            arguments: { startUrl: tarefa.startUrl || servidor.urlDa(tarefa.id), prompt: tarefa.pedido, maxSteps: opcoes.maxPassos, ...(tarefa.hosts ? { approvalPolicy: 'public-sites', allowedHosts: tarefa.hosts } : { approvalPolicy: 'local-fixture' }), ...(tarefa.id === '44-estoque-filiais' ? { captureReadEvidence: true } : {}), ...(tarefa.verificarPagina ? { keepTab: true } : {}), ...(tarefa.capturarTextoInicial ? { captureInitialText: true } : {}), ...(tarefa.captureInitialChecks ? { captureInitialChecks: tarefa.captureInitialChecks.map(({ esperado, ...check }) => check) } : {}), engine: opcoes.motor, observeAfterActions: opcoes.observeAfterActions, ...(opcoes.preInspect ? { preInspect: true } : {}), ...(opcoes.scripts ? { actionScripts: true } : {}), ...(opcoes.diff ? { diffSnapshots: true } : {}), ...(opcoes.cascade ? { cascadeModel: opcoes.cascade } : {}), ...(opcoes.stream ? { streaming: true } : {}), ...(opcoes.journal ? { effectJournal: true } : {}), ...(opcoes.tempo ? { maxDurationSec: opcoes.tempo } : {}) }
           }, opcoes.tempo ? (opcoes.tempo + 60) * 1000 : TEMPO_POR_TAREFA_MS);
           resultado = resposta?.structuredContent || {};
         } catch (erro) {

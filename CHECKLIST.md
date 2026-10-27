@@ -470,3 +470,6 @@
 - [x] Ponto de restauração documentado em `docs/PONTOS_DE_RESTAURACAO.md` (tag `motor-pre-leaps-2026-10-27`).
 - [ ] A/B de `--scripts` com e sem `expect` na suíte difícil e na loja 47: chamadas por tarefa, acerto e taxa de pós-condição falha.
 - [ ] Journal de efeitos e idempotência (próximo salto): impedir envio duplicado após falha, timeout ou reinício.
+- [x] Journal de efeitos (`src/automation/effect-journal.js`): registra a ação consequente antes de despachar, bloqueia repetição sem verificação, confirma sucesso, expira em 30 min e persiste entre reinícios. Opt-in (`effectJournal` / `--journal`; 8 testes).
+- [ ] A/B de `--journal`: medir duplicações evitadas e custo em chamadas; validar que não bloqueia repetições legítimas nas tarefas 31/47.
+- [ ] Usar a pós-condição de `run_steps` como prova de efeito do journal (hoje são mecanismos separados).

@@ -31,9 +31,13 @@
   3 s, texto normalizado, parada quando a pós-condição não vem). Opt-in: só com `actionScripts`/`--scripts`.
   `npm test` 133/133; regra em `docs/EVOLUCAO_MOTOR.md`; restauração em `docs/PONTOS_DE_RESTAURACAO.md`
   (tag `motor-pre-leaps-2026-10-27`). Sem benchmark e AUSENTE do app instalado até um novo build.
+- **Motor, salto 2 (2026-10-27):** journal de efeitos (`effectJournal` / `--journal`). Ação consequente é registrada
+  antes de despachar; repetir depois de falha/timeout exige leitura da página; sucesso vira `alreadyDone`; entradas
+  expiram em 30 min e persistem entre reinícios. `npm test` 141/141; limites e desenho em `docs/EVOLUCAO_MOTOR.md`.
+  Opt-in, sem benchmark e ausente do app instalado.
 - Continua SEM verificação no app: perfis (menu ⋮), menu de contexto de abas, histórico persistente de downloads,
   atalhos com foco na página e todas as flags opt-in do motor (`--preinspect`, `--scripts`, `--diff`,
-  `--cascade=`, `--stream`).
+  `--cascade=`, `--stream`, `--journal`).
 - Os registros de 2026-10-27 abaixo foram escritos ANTES desta integração e dizem "não commitado / suíte não
   rodada"; o estado vigente é o desta seção.
 

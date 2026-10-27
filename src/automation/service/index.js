@@ -23,6 +23,7 @@ const { createModelCascade } = require('../model-cascade');
 const { readStreamedCompletion } = require('../stream-parser');
 const { RUN_STEPS_TOOL, runSteps } = require('../action-script');
 const { evaluateExpectation, needsPageText } = require('../expectation');
+const { isConsequential, effectKey, normalizeUrl, planEffect, settleEffect } = require('../effect-journal');
 
 const {
   taskPolicyAllows, isLoopbackUrl, HUMAN_CHECK_GUARDED_TOOLS, compactScreenshot, dropImages,
@@ -40,6 +41,7 @@ class AutomationService {
     this.tools = new Map();
     this.db = null;
     this.pipePath = null;
+    this.effectJournal = null; // journal de efeitos consequentes (opt-in por tarefa); criado em start()
     this.browserControls = {};
     this.approvalHandler = null;
     this.settingsProvider = null;
@@ -349,6 +351,15 @@ class AutomationService {
       await this.db.open();
     } catch {
       this.db = null;
+    }
+
+    try {
+      const { EffectJournal, createFileStore } = require('../effect-journal');
+      this.effectJournal = new EffectJournal({
+        store: createFileStore(path.join(zeroEnv('DATA_DIR') || process.cwd(), 'automation', 'efeitos.json'))
+      });
+    } catch {
+      this.effectJournal = null;
     }
 
     if (process.platform === 'win32') {
@@ -744,7 +755,7 @@ class AutomationService {
   }
 
   // `trace`, when given, is filled in place with model calls, token usage and every tool call (used by run_task).
-  async runAgent(tabId, prompt, apiKey, model, allowTools = true, provider = 'openrouter', requireToolCall = false, { maxSteps = 30, trace = null, maxDurationMs = 5 * 60 * 1000, resumable = false, resumeId = null, observeAfterActions = true, captureReadEvidence = false, preInspect = false, actionScripts = false, diffSnapshots = false, cascadeModel = null, streaming = false } = {}) {
+  async runAgent(tabId, prompt, apiKey, model, allowTools = true, provider = 'openrouter', requireToolCall = false, { maxSteps = 30, trace = null, maxDurationMs = 5 * 60 * 1000, resumable = false, resumeId = null, observeAfterActions = true, captureReadEvidence = false, preInspect = false, actionScripts = false, diffSnapshots = false, cascadeModel = null, streaming = false, effectJournal = false } = {}) {
     for (const [id, state] of this.pausedAgentRuns) {
       if (state.expiresAt <= Date.now()) this.pausedAgentRuns.delete(id);
     }
@@ -811,6 +822,7 @@ class AutomationService {
     const pendingImages = [];
     if (preInspect) messages[0].content += ' O host já leu a página inicial e entregou o resultado de inspect_page antes do seu primeiro turno: use esses índices e dados em vez de pedir inspect_page de novo.';
     if (actionScripts) messages[0].content += ' Para vários passos conhecidos na mesma página (preencher um formulário, marcar vários itens) prefira uma única chamada run_steps, com a ação que muda de página por último; cada passo pode declarar expect {url,text,absent} e o host só segue quando a pós-condição for verdadeira.';
+    if (effectJournal) messages[0].content += ' O journal de efeitos impede repetir uma ação consequente sem confirmação: se a resposta trouxer alreadyDone ou needsVerification, inspecione a página e confirme o estado em vez de repetir às cegas.';
     if (diffSnapshots) messages[0].content += ' Depois de uma ação, o snapshot pode vir como diferença (campo diff): os nodes listados substituem os de mesmo índice e os índices em diff.iguais continuam valendo como no snapshot anterior.';
     if (observeAfterActions) messages[0].content += ' A última ação de um lote pode devolver nodes e text atualizados (autoObserved): use esses índices e dados, sem pedir inspect_page de novo se já bastarem.';
     if (resumed) {
@@ -892,6 +904,19 @@ class AutomationService {
       return error;
     };
     const repeatGuard = createRepeatGuard();
+    // Journal de efeitos: só entra quando a tarefa pede; a chave mistura ferramenta, alvo e origem+caminho.
+    const journal = effectJournal ? this.effectJournal : null;
+    const effectDescriptor = (name, args) => {
+      if (!journal || !isConsequential(name, args)) return null;
+      let target = '';
+      if (name === 'navigate') target = normalizeUrl(args.url);
+      else if (name === 'click') target = lastNodes?.[args.index]?.targetId || `index:${args.index}`;
+      else if (name === 'click_text') target = `text:${String(args.text || '')}`;
+      else if (name === 'hidden_action') target = `hidden:${tab.hiddenNodes?.get(String(args.id))?.name || args.id}`;
+      else if (name === 'upload_file') target = `file:${String(args.file || '')}`;
+      else if (name === 'press_key') target = `key:${String(args.key || '')}`;
+      return { key: effectKey({ tool: name, args, url: tab?.webContents?.getURL?.() || '', target }), tool: name, target };
+    };
     const callTool = async (name, args) => {
       if (name === 'calculate') return calculate(args);
       if (name === 'run_steps') {
@@ -1523,9 +1548,27 @@ class AutomationService {
               output = { success: false, skipped: true, error: 'Ação não executada: havia verificação humana, já resolvida pelo usuário; inspecione de novo.' };
             } else {
               stage(`tool:${call.function.name}${call.function.name === 'tabs' ? ':' + args.action : ''}`, step);
-              await this.setAuroraActive(tab, true, `Chefe, executando: ${call.function.name}`);
-              output = await callTool(call.function.name, args);
-              stage(`tool-complete:${call.function.name}`, step);
+              const effect = effectDescriptor(call.function.name, args);
+              const decision = effect ? await planEffect(journal, effect) : { action: 'execute' };
+              if (decision.action === 'skip' || decision.action === 'block') {
+                output = decision.output;
+                if (trace) {
+                  if (decision.action === 'skip') trace.effectSkips = (trace.effectSkips || 0) + 1;
+                  else trace.effectBlocks = (trace.effectBlocks || 0) + 1;
+                }
+                stage(`tool-skipped:${call.function.name}`, step);
+              } else {
+                if (effect) await journal.markAttempted(effect.key, { tool: effect.tool, target: effect.target, url: tab?.webContents?.getURL?.() || '', tabId });
+                await this.setAuroraActive(tab, true, `Chefe, executando: ${call.function.name}`);
+                try {
+                  output = await callTool(call.function.name, args);
+                  if (effect) await settleEffect(journal, effect.key, output);
+                } catch (error) {
+                  if (effect) await settleEffect(journal, effect.key, { success: false, error: String(error?.message || error) });
+                  throw error;
+                }
+                stage(`tool-complete:${call.function.name}`, step);
+              }
               // Link com target=_blank ou pop-up abre outra aba: o agente fica sabendo e decide se troca para ela.
               const opened = [...this.tabs.keys()].filter((id) => !knownTabs.has(id));
               if (opened.length && output && typeof output === 'object') {
@@ -1565,6 +1608,10 @@ class AutomationService {
                   output = { ...output, observationError: error.message };
                 }
               }
+              // Leitura bem-sucedida é evidência nova: libera repetição de efeito que estava sem confirmação.
+              const readTool = ['inspect_page', 'see_page', 'wait_for'].includes(call.function.name)
+                || (call.function.name === 'tabs' && ['switch', 'read_batch', 'list'].includes(args.action));
+              if (journal && (readTool || output?.autoObserved) && output?.success !== false) await journal.markRetryable();
             }
           } catch (error) {
             if (error.code === 'USER_DENIED') {
@@ -1765,7 +1812,7 @@ class AutomationService {
     }
   }
 
-  async runTask({ startUrl, prompt, maxSteps = 20, approvalPolicy = 'ask', allowedHosts = [], keepTab = false, captureInitialText = false, captureInitialChecks = [], engine = 'navegante', maxDurationSec, observeAfterActions = true, captureReadEvidence = false, preInspect = false, actionScripts = false, diffSnapshots = false, cascadeModel = null, streaming = false }) {
+  async runTask({ startUrl, prompt, maxSteps = 20, approvalPolicy = 'ask', allowedHosts = [], keepTab = false, captureInitialText = false, captureInitialChecks = [], engine = 'navegante', maxDurationSec, observeAfterActions = true, captureReadEvidence = false, preInspect = false, actionScripts = false, diffSnapshots = false, cascadeModel = null, streaming = false, effectJournal = false }) {
     const maxDurationMs = maxDurationSec ? maxDurationSec * 1000 : undefined;
     if (approvalPolicy === 'public-sites' && engine === 'flame') return { success: false, error: 'A política public-sites ainda não vale para o Flame' };
     if (engine === 'flame') return this.runFlameTask({ startUrl, prompt, maxSteps, approvalPolicy, keepTab, maxDurationMs });
@@ -1804,7 +1851,7 @@ class AutomationService {
           error: result?.success === false ? String(result.error || 'Leitura inicial falhou') : ''
         });
       }
-      const result = await this.runAgent(tabId, prompt, apiKey, model, true, provider, false, { maxSteps, trace, maxDurationMs, observeAfterActions, captureReadEvidence, preInspect, actionScripts, diffSnapshots, cascadeModel, streaming });
+      const result = await this.runAgent(tabId, prompt, apiKey, model, true, provider, false, { maxSteps, trace, maxDurationMs, observeAfterActions, captureReadEvidence, preInspect, actionScripts, diffSnapshots, cascadeModel, streaming, effectJournal });
       const finalUrl = tab.webContents.isDestroyed() ? '' : tab.webContents.getURL();
       return { ...result, tabId, provider, model, finalUrl, ...(captureInitialText ? { initialPageText } : {}), ...(captureInitialChecks.length ? { initialLocatorChecks } : {}), durationMs: Date.now() - startedAt, trace };
     } finally {
@@ -2445,7 +2492,8 @@ class AutomationService {
           actionScripts: z.boolean().optional(),
           diffSnapshots: z.boolean().optional(),
           cascadeModel: z.string().min(1).max(200).optional(),
-          streaming: z.boolean().optional()
+          streaming: z.boolean().optional(),
+          effectJournal: z.boolean().optional()
         }),
         handler: async (input) => this.runTask(input)
       },

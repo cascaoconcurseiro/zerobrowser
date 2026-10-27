@@ -18,7 +18,7 @@ A instalação anterior (0.1.4) está preservada em `backups/2026-10-27-before-0
 - Histórico de downloads persistente no perfil, ignorando downloads de avaliação e respeitando "limpar ao sair".
 - Ferramenta `calculate` (aritmética exata, sem `eval`), nova tentativa em 429/5xx, aviso de repetição e `href` curto no snapshot.
 - Guardas: aviso de injeção de prompt vindo da página e aprovação extra para navegação a outro site com dados na URL.
-- Motor opt-in, desligado por padrão: `preInspect`, `run_steps`, snapshot por diferença, cascata de modelos e streaming. Só `preInspect` tem A/B registrado.
+- Motor opt-in, desligado por padrão: `preInspect`, `run_steps` (com pós-condições), journal de efeitos (idempotência), snapshot por diferença, cascata de modelos e streaming. Só `preInspect` tem A/B registrado.
 - `npm test` 127/127 nesta árvore e a integração do executável instalado passou (`status: PASS`). Faltam `test:electron`, `test:bench-store`, `test:agent-download` e benchmark com modelo real.
 
 ### Fluxos ligados
