@@ -147,6 +147,22 @@ class EffectJournal {
     await this.persist();
   }
 
+  // Prova global: a tarefa terminou com o contrato de verificação satisfeito, então tentativas sem confirmação
+  // passam a confirmadas. Sem prova, continuam `attempted` e bloqueiam repetição cega.
+  async confirmAttempted(meta = {}) {
+    await this.ensureLoaded();
+    let count = 0;
+    for (const [key, entry] of Object.entries(this.entries)) {
+      if (entry.state !== 'attempted' && entry.state !== 'retryable') continue;
+      this.entries[key] = {
+        ...entry, ...pickMeta(meta), state: 'confirmed', at: this.now(), proof: String(meta.proof || 'unknown').slice(0, 60)
+      };
+      count += 1;
+    }
+    if (count) await this.persist();
+    return count;
+  }
+
   // Depois de uma leitura bem-sucedida o modelo tem evidência nova: tentativas sem confirmação voltam a ser permitidas.
   async markRetryable() {
     await this.ensureLoaded();

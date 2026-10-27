@@ -1547,6 +1547,11 @@ class AutomationService {
               });
               continue;
             }
+            // Contrato satisfeito é prova de estado: confirma efeitos que estavam sem confirmação nesta tarefa.
+            if (verification.ok && journal) {
+              const proven = await journal.confirmAttempted({ proof: 'task-verification' });
+              if (trace && proven) trace.effectProofs = proven;
+            }
           }
           if (trace) trace.stopReason = 'final_answer';
           if (requireToolCall) return { success: false, error: `O modelo ${model} não confirmou suporte a chamadas de ferramenta` };
@@ -1901,6 +1906,10 @@ class AutomationService {
             ok: verification.ok === true,
             failed: (verification.results || []).filter((item) => !item.ok).map((item) => item.kind)
           };
+        }
+        if (verification.ok && effectJournal && this.effectJournal) {
+          const proven = await this.effectJournal.confirmAttempted({ proof: 'task-verification' });
+          if (trace && proven) trace.effectProofs = (trace.effectProofs || 0) + proven;
         }
         if (requireVerification && !verification.ok) {
           const failed = (verification.results || []).filter((item) => !item.ok).map((item) => item.detail).join('; ');

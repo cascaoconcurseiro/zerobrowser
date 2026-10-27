@@ -482,3 +482,6 @@
 - [x] Correção após verificação (`correctionRounds` 0–3): falha do contrato volta ao agente com o motivo (sem texto da página), gasta uma rodada de modelo e encerra recusando quando `requireVerification` está ligado. Corrigido também o caminho em que a recusa era pulada quando o laço já havia verificado. 7 testes; `npm test` 155/155.
 - [ ] Ferramenta para o agente consultar o contrato no meio da tarefa (hoje só descobre ao tentar concluir).
 - [ ] Medir em benchmark: falsos "concluído" evitados e custo em chamadas de uma rodada de correção.
+- [x] Verificação aprovada como prova de efeito: `confirmAttempted({proof:'task-verification'})` confirma tentativas pendentes ao fim da tarefa; contrato falho deixa `attempted`; `trace.effectProofs` conta. 10 testes em `test/effect-journal.test.js`; `npm test` 157/157.
+- [ ] Gate do journal dentro de `run_steps` (`beforeStep`/`afterStep`): hoje os passos internos do roteiro não passam por `planEffect` e podem duplicar envio.
+- [ ] Medir em benchmark quantas duplicações o conjunto journal + prova evita e o custo em leituras extras.

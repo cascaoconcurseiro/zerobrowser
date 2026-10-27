@@ -412,3 +412,27 @@ Limites honestos:
 - Cada rodada custa uma chamada inteira ao modelo; `correctionRounds` acima de 1 raramente compensa sem medir.
 - A mensagem de correção expõe o valor esperado da checagem (parte do contrato), não o conteúdo lido da página.
 - Sem benchmark: não há medição de quantos "concluído" falsos foram corrigidos nem do custo em tokens.
+
+### Verificação como prova de efeito — 2026-10-27
+
+Sexto salto: liga o journal ao contrato de verificação. Antes, uma ação que falhava no meio do caminho ficava
+`attempted` para sempre (até expirar), mesmo quando a tarefa terminava com o estado correto. Agora:
+
+- quando o contrato final **passa**, o host confirma todas as tentativas pendentes da tarefa
+  (`journal.confirmAttempted({proof:'task-verification'})`) — o estado final é a prova de que os efeitos
+  aconteceram;
+- quando o contrato **falha** (ou não existe), as tentativas continuam `attempted`: repetir exige leitura da página;
+- cada entrada confirmada por prova ganha `proof: 'task-verification'`; o trace registra `effectProofs` (contagem);
+- sem `effectJournal` nada muda.
+
+Também corrigido: a recusa por `requireVerification` valia só no caminho em que a verificação acontecia depois do
+laço; agora vale também quando o próprio laço verifica — os dois caminhos têm teste.
+
+Arquivos: `src/automation/effect-journal.js` (`confirmAttempted`), `service/index.js` (confirmação no fim do laço e
+no `runTask`). Testes: `test/effect-journal.test.js` (10 casos; o novo prova com contrato satisfeito e deixa
+`attempted` com contrato falho). `npm test` 157/157.
+
+Lacuna conhecida e registrada: **ações consequentes dentro de `run_steps` ainda não passam pelo journal** — o laço
+do agente journaliza a chamada `run_steps`, não cada passo interno. Enquanto os dois estiverem ligados, um envio
+duplicado dentro de um roteiro não é bloqueado. O próximo salto é injetar o gate por passo (`beforeStep`/`afterStep`
+no `runSteps`) reutilizando a mesma chave de efeito.

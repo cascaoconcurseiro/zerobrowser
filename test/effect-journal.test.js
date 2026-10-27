@@ -161,3 +161,82 @@ test('run_task skips a repeated consequential action and asks for verification a
     global.fetch = originalFetch;
   }
 });
+
+test('a satisfied task contract confirms every pending attempt as proven', async () => {
+  const journal = new EffectJournal({ store: createMemoryStore() });
+  await journal.markAttempted('a', { tool: 'click' });
+  await journal.markAttempted('b', { tool: 'navigate' });
+  await journal.confirm('c', {});
+  await journal.markRetryable();
+  await journal.markAttempted('d', {});
+  assert.equal(await journal.confirmAttempted({ proof: 'task-verification' }), 3);
+  for (const key of ['a', 'b', 'd']) {
+    assert.equal(journal.peek(key).state, 'confirmed');
+    assert.equal(journal.peek(key).proof, 'task-verification');
+  }
+  assert.equal(journal.peek('c').proof, undefined, 'confirmação anterior não ganha prova retroativa');
+});
+
+test('run_task confirms the journal only when the final contract holds', async () => {
+  const { AutomationService } = require('../src/automation/service');
+  const url = 'http://127.0.0.1:5000/t/pedido';
+
+  const build = (pageText) => {
+    const service = new AutomationService();
+    service.effectJournal = new EffectJournal({ store: createMemoryStore() });
+    service.tabs.set('tab-proof', {
+      state: { url },
+      webContents: {
+        isDestroyed: () => false, isLoading: () => false, getURL: () => url,
+        executeJavaScript: async (script) => (String(script).includes('innerText') ? pageText : null),
+        setBackgroundThrottling: () => {}
+      }
+    });
+    service.setBrowserControls({ createTab: async () => ({ tabId: 'tab-proof' }), closeTab: async () => {} });
+    service.setAgentConfigProvider(async () => ({ provider: 'openrouter', model: 'test-model', apiKey: 'test-key' }));
+    service.setApprovalHandler(async () => true);
+    service.getAccessibilityTree = async () => ({ success: true, tree: {
+      url, nodes: [{ index: 0, role: 'button', tag: 'button', name: 'Enviar', targetId: 'btn-send' }]
+    } });
+    return service;
+  };
+
+  const originalFetch = global.fetch;
+  const run = async (service) => {
+    let round = 0;
+    global.fetch = async () => {
+      round += 1;
+      const message = round === 1
+        ? { role: 'assistant', tool_calls: [{ id: 'look', type: 'function', function: { name: 'inspect_page', arguments: '{}' } }] }
+        : round === 2
+          ? { role: 'assistant', tool_calls: [{ id: 'send', type: 'function', function: { name: 'click', arguments: '{"index":0}' } }] }
+          : { role: 'assistant', content: 'Pedido enviado.' };
+      return { ok: true, json: async () => ({ choices: [{ message }], usage: { prompt_tokens: 1, completion_tokens: 1 } }) };
+    };
+    service.executeAXAction = async () => { throw new Error('timeout do site'); };
+    return service.runTask({
+      startUrl: url, prompt: 'Enviar o pedido', approvalPolicy: 'local-fixture',
+      effectJournal: true, verify: [{ kind: 'text', value: 'Pedido confirmado' }]
+    });
+  };
+
+  try {
+    const proven = build('Pedido confirmado');
+    const okResult = await run(proven);
+    assert.equal(okResult.success, true);
+    assert.equal(okResult.trace.effectProofs, 1);
+    const entries = Object.values(proven.effectJournal.snapshot());
+    assert.equal(entries.length, 1);
+    assert.equal(entries[0].state, 'confirmed');
+    assert.equal(entries[0].proof, 'task-verification');
+
+    const unproven = build('Erro ao processar');
+    const failedResult = await run(unproven);
+    assert.equal(failedResult.success, true, 'sem requireVerification a tarefa ainda conclui');
+    assert.equal(failedResult.trace.effectProofs, undefined);
+    const pending = Object.values(unproven.effectJournal.snapshot());
+    assert.equal(pending[0].state, 'attempted', 'sem contrato satisfeito a tentativa segue sem confirmação');
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
