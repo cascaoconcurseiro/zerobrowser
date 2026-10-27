@@ -11,159 +11,20 @@ const { automationPipePath } = require('../pipe-path');
 const { scrollSearchInPage } = require('../scroll-search');
 const { summarizeBatchCoverage } = require('../batch-coverage');
 const { getAgentTools } = require('../tools/agent-tool-registry');
+const { guardToolOutput } = require('../injection-guard');
+const { navigationLeakReason } = require('../exfiltration-guard');
+const { calculate } = require('../calculator');
+const { createRepeatGuard } = require('../repeat-guard');
+const { cachedInputTokens, compactHref } = require('../usage-metrics');
+const { diffNodes } = require('../snapshot-diff');
+const { createModelCascade } = require('../model-cascade');
+const { readStreamedCompletion } = require('../stream-parser');
+const { RUN_STEPS_TOOL, runSteps } = require('../action-script');
 
-// Política de uma tarefa de avaliação: 'local-fixture' só aceita páginas locais; { kind: 'public-sites', hosts } só HTTPS nesses sites (e subdomínios).
-function taskPolicyAllows(policy, value) {
-  if (policy === 'local-fixture') return isLoopbackUrl(value);
-  if (policy?.kind !== 'public-sites') return false;
-  try {
-    const { protocol, hostname } = new URL(value);
-    return protocol === 'https:' && policy.hosts.some((host) => hostname === host || hostname.endsWith(`.${host}`));
-  } catch {
-    return false;
-  }
-}
-
-function isLoopbackUrl(value) {
-  try {
-    const { protocol, hostname } = new URL(value);
-    return ['http:', 'https:'].includes(protocol) && ['127.0.0.1', 'localhost', '[::1]'].includes(hostname);
-  } catch {
-    return false;
-  }
-}
-
-// Typed text stays out of the trace (only its length), so a trace can be saved without the values the agent filled.
-const HUMAN_CHECK_GUARDED_TOOLS = new Set(['click', 'type_text', 'cua_action', 'locator_action', 'navigate', 'click_text', 'hidden_action']);
-
-// Captura menor para o modelo: JPEG com no máximo 1280 px de largura. Fora do Electron (testes) devolve a original.
-function compactScreenshot(dataUrl) {
-  try {
-    const { nativeImage } = require('electron');
-    let image = nativeImage.createFromDataURL(dataUrl);
-    if (image.getSize().width > 1280) image = image.resize({ width: 1280, quality: 'good' });
-    return `data:image/jpeg;base64,${image.toJPEG(70).toString('base64')}`;
-  } catch {
-    return dataUrl;
-  }
-}
-
-// Troca as imagens já enviadas por um texto curto; devolve se havia alguma.
-function dropImages(messages, note) {
-  let dropped = false;
-  for (const message of messages) {
-    if (!Array.isArray(message.content) || !message.content.some((part) => part.type === 'image_url')) continue;
-    message.content = `[Zero Browser] ${note}`;
-    dropped = true;
-  }
-  return dropped;
-}
-
-function traceToolCall(step, tool, args, output, startedAt) {
-  const safeArgs = Object.fromEntries(Object.entries(args || {}).map(([key, value]) =>
-    ['text', 'value'].includes(key) ? [key, `<${String(value ?? '').length} caracteres>`] : [key, value]));
-  return {
-    step,
-    tool,
-    args: safeArgs,
-    success: output?.success !== false && output?.outcomeVerified !== false,
-    ...(typeof output?.actionExecuted === 'boolean' ? { actionExecuted: output.actionExecuted } : {}),
-    ...(typeof output?.outcomeVerified === 'boolean' ? { outcomeVerified: output.outcomeVerified } : {}),
-    ...(tool === 'tabs' && args?.action === 'read_batch' && Array.isArray(output?.pages) ? {
-      batchPagesRead: output.coverage?.pagesRead ?? output.pages.filter((page) => !page.error).length,
-      ...(output.coverage ? {
-        batchComplete: output.coverage.complete,
-        batchPagesWithMatches: output.coverage.pagesWithMatches,
-        batchPagesWithoutMatches: output.coverage.pagesWithoutMatches,
-        batchPagesTruncated: output.coverage.pagesTruncated,
-        batchTabsOmitted: output.coverage.tabsOmitted,
-        ...(Number.isFinite(output.coverage.matchesFound) ? {
-          batchMatchesFound: output.coverage.matchesFound,
-          batchMatchesReturned: output.coverage.matchesReturned,
-          batchMatchesOmitted: output.coverage.matchesOmitted
-        } : {})
-      } : {})
-    } : {}),
-    ...(output?.error ? { error: String(output.error).slice(0, 300) } : {}),
-    ms: Date.now() - startedAt
-  };
-}
-
-function selectOptionScript(targetId, requestedOption) {
-  return `(async () => {
-    const selector='a[href],button,input:not([type=hidden]),textarea,select,[role],[tabindex]:not([tabindex="-1"])';
-    const visible=e=>{const s=getComputedStyle(e),r=e.getBoundingClientRect();return r.width>0&&r.height>0&&s.visibility!=='hidden'&&s.display!=='none'&&!e.closest('[aria-hidden="true"]')};
-    const registry=window.__naveganteTargetRegistry;
-    const targetId=${JSON.stringify(targetId)};
-    const nodes=[...document.querySelectorAll(selector)].filter(visible);
-    const matches=registry&&targetId?nodes.filter(e=>registry.ids.get(e)===targetId):[];
-    if(matches.length!==1)return {success:false,error:'A lista inspecionada foi substituída ou deixou de ser única; inspecione o formulário de novo'};
-    const node=matches[0];
-    if(node.tagName!=='SELECT')return {success:false,error:'O controle inspecionado não é mais uma lista <select>'};
-    const identity={id:node.id||'',name:node.getAttribute('name')||'',ariaLabel:node.getAttribute('aria-label')||'',placeholder:node.getAttribute('placeholder')||'',labels:[...(node.labels||[])].map(e=>String(e.innerText||e.textContent||'').replace(/\\s+/g,' ').trim()).filter(Boolean),formId:node.form?.id||'',formName:node.form?.getAttribute('name')||''};
-    const frameworkManaged=('_valueTracker' in node)||Object.keys(node).some(key=>key.startsWith('__reactProps$')||key.startsWith('__reactFiber$'));
-    const norm=t=>String(t||'').normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').replace(/\\s+/g,' ').trim().toLowerCase();
-    const want=norm(${JSON.stringify(String(requestedOption ?? ''))});
-    const all=[...node.options];
-    const option=all.find(o=>norm(o.text)===want||norm(o.value)===want)||all.find(o=>norm(o.text).includes(want));
-    if(!option)return {success:false,error:'Opção não encontrada',options:all.map(o=>o.text.trim()).slice(0,30)};
-    const expected=String(option.value),selected=option.text.trim();
-    node.focus();
-    const setter=Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value')?.set;
-    if(setter)setter.call(node,expected);else node.value=expected;
-    node.dispatchEvent(new Event('input',{bubbles:true}));node.dispatchEvent(new Event('change',{bubbles:true}));
-    await Promise.resolve();
-    await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
-    if(frameworkManaged)await new Promise(resolve=>setTimeout(resolve,160));
-    let target=node,targetRemounted=false;
-    if(!node.isConnected){
-      const normalize=s=>String(s||'').replace(/\\s+/g,' ').trim();
-      const replacements=nodes.filter(e=>e.isConnected&&e.tagName==='SELECT'
-        &&(!identity.id||e.id===identity.id)&&(!identity.name||e.getAttribute('name')===identity.name)
-        &&(!identity.ariaLabel||e.getAttribute('aria-label')===identity.ariaLabel)&&(!identity.placeholder||e.getAttribute('placeholder')===identity.placeholder)
-        &&(!identity.labels.length||identity.labels.every(label=>[...(e.labels||[])].some(x=>normalize(x.innerText||x.textContent)===normalize(label))))
-        &&(!identity.formId||e.form?.id===identity.formId)&&(!identity.formName||e.form?.getAttribute('name')===identity.formName));
-      if(replacements.length!==1)return {success:true,actionExecuted:true,outcomeVerified:false,fieldState:replacements.length>1?'ambiguous-remount':'target-removed',targetRemounted:false,selected,error:'A seleção foi executada, mas o controle foi removido ou o substituto é ambíguo.'};
-      target=replacements[0];targetRemounted=true;
-    }
-    const actual=String(target.value),outcomeVerified=actual===expected;
-    return {success:true,actionExecuted:true,outcomeVerified,fieldState:targetRemounted?(outcomeVerified?'remounted-value-retained':'remounted-value-mismatch'):(outcomeVerified?'value-retained':frameworkManaged?'changed-after-framework-update':'value-mismatch'),targetRemounted,selected:target.selectedOptions[0]?.textContent?.trim()||selected,value:actual,...(outcomeVerified?{}:{error:'A seleção foi executada, mas não permaneceu após a atualização.'})};
-  })()`;
-}
-
-const ActionSchema = z.object({
-  kind: z.enum(['click', 'dblclick', 'drag', 'perform_secondary_action', 'press_key', 'scroll', 'select_text', 'set_value', 'type_text', 'paste']),
-  elementIndex: z.number().nullable().optional(),
-  targetId: z.string().optional(),
-  modifiers: z.array(z.string()).optional(),
-  button: z.enum(['left', 'right', 'middle']).optional(),
-  force: z.boolean().optional(),
-  timeout: z.number().optional(),
-  key: z.string().optional(),
-  duration: z.number().optional(),
-  direction: z.enum(['up', 'down', 'left', 'right']).optional(),
-  pages: z.number().optional(),
-  target: z.union([z.number(), z.tuple([z.number(), z.number()])]).optional(),
-  fromIndex: z.number().optional(),
-  toIndex: z.number().optional(),
-  action: z.string().optional(),
-  prefix: z.string().optional(),
-  suffix: z.string().optional(),
-  selectionType: z.string().optional(),
-  value: z.string().optional(),
-  text: z.string().optional()
-});
-
-const ToolSchema = z.object({
-  name: z.string(),
-  description: z.string(),
-  inputSchema: z.any(),
-  annotations: z.object({
-    readOnly: z.boolean().optional(),
-    untrustedContent: z.boolean().optional(),
-    consequential: z.boolean().optional()
-  }).optional()
-});
+const {
+  taskPolicyAllows, isLoopbackUrl, HUMAN_CHECK_GUARDED_TOOLS, compactScreenshot, dropImages,
+  traceToolCall, selectOptionScript, ActionSchema, ToolSchema
+} = require('./helpers');
 
 class AutomationService {
   constructor({ fetchImpl = null } = {}) {
@@ -404,6 +265,8 @@ class AutomationService {
     let targetName = '';
     if (!reason && action.kind === 'upload_file') {
       reason = 'Enviar um arquivo do computador para o site';
+    } else if (!reason && action.kind === 'navigate' && !taskPolicy) {
+      reason = navigationLeakReason(tab?.webContents?.getURL?.(), action.url);
     } else if (!reason && action.kind === 'browser_evaluate') {
       reason = 'Executar script arbitrário na página';
     } else if (!reason && action.kind === 'browser_cdp_send' && !action.readOnly) {
@@ -878,7 +741,7 @@ class AutomationService {
   }
 
   // `trace`, when given, is filled in place with model calls, token usage and every tool call (used by run_task).
-  async runAgent(tabId, prompt, apiKey, model, allowTools = true, provider = 'openrouter', requireToolCall = false, { maxSteps = 30, trace = null, maxDurationMs = 5 * 60 * 1000, resumable = false, resumeId = null, observeAfterActions = true, captureReadEvidence = false } = {}) {
+  async runAgent(tabId, prompt, apiKey, model, allowTools = true, provider = 'openrouter', requireToolCall = false, { maxSteps = 30, trace = null, maxDurationMs = 5 * 60 * 1000, resumable = false, resumeId = null, observeAfterActions = true, captureReadEvidence = false, preInspect = false, actionScripts = false, diffSnapshots = false, cascadeModel = null, streaming = false } = {}) {
     for (const [id, state] of this.pausedAgentRuns) {
       if (state.expiresAt <= Date.now()) this.pausedAgentRuns.delete(id);
     }
@@ -935,7 +798,8 @@ class AutomationService {
       for (const [id, state] of this.pausedAgentRuns) if (state.rootTabId === rootTabId) this.pausedAgentRuns.delete(id);
     }
     const tools = getAgentTools();
-    const approvalMode = this.settingsProvider?.().automationApprovalMode || 'low-risk';
+    if (actionScripts) tools.push(structuredClone(RUN_STEPS_TOOL));
+    const approvalMode =this.settingsProvider?.().automationApprovalMode || 'low-risk';
     const approvalInstructions = approvalMode === 'allow-all'
       ? 'O usuário configurou autorização automática para todas as ações do agente; não espere uma confirmação da interface.'
       : approvalMode === 'always-ask'
@@ -948,6 +812,9 @@ class AutomationService {
       { role: 'user', content: prompt }
     ];
     const pendingImages = [];
+    if (preInspect) messages[0].content += ' O host já leu a página inicial e entregou o resultado de inspect_page antes do seu primeiro turno: use esses índices e dados em vez de pedir inspect_page de novo.';
+    if (actionScripts) messages[0].content += ' Para vários passos conhecidos na mesma página (preencher um formulário, marcar vários itens) prefira uma única chamada run_steps, com a ação que muda de página por último; o host executa em ordem e para no primeiro erro.';
+    if (diffSnapshots) messages[0].content += ' Depois de uma ação, o snapshot pode vir como diferença (campo diff): os nodes listados substituem os de mesmo índice e os índices em diff.iguais continuam valendo como no snapshot anterior.';
     if (observeAfterActions) messages[0].content += ' A última ação de um lote pode devolver nodes e text atualizados (autoObserved): use esses índices e dados, sem pedir inspect_page de novo se já bastarem.';
     if (resumed) {
       messages.splice(1, 1, ...resumed.messages.slice(1));
@@ -955,6 +822,15 @@ class AutomationService {
     }
     let lastSnapshotMessage = null;
     const compactedMessages = new WeakSet();
+    // Snapshot por diferença: a base fica inteira no histórico e até DIFF_CHAIN_MAX diffs a seguem; depois volta a um snapshot completo.
+    const DIFF_CHAIN_MAX = 3;
+    let previousSnapshot = null;
+    let diffChain = [];
+    const rememberSnapshot = (snapshot) => {
+      if (diffSnapshots && Array.isArray(snapshot?.nodes)) previousSnapshot = { url: snapshot.url, nodes: snapshot.nodes, text: snapshot.text };
+    };
+    const cascade = createModelCascade({ cheapModel: cascadeModel, strongModel: model });
+    if (trace && cascade.enabled) trace.cascade = cascade.stats;
     let lastNodes = null;
     let lastSnapshotUrl = null;
     let snapshotRequired = false;
@@ -1018,7 +894,22 @@ class AutomationService {
       if (approval.cancelled) error.code = 'USER_DENIED';
       return error;
     };
+    const repeatGuard = createRepeatGuard();
     const callTool = async (name, args) => {
+      if (name === 'calculate') return calculate(args);
+      if (name === 'run_steps') {
+        if (!actionScripts) throw new Error('run_steps não está ligado nesta tarefa');
+        const result = await runSteps(args.steps, callTool, {
+          shouldStop: () => {
+            if ([...this.tabs.keys()].some((id) => !knownTabs.has(id))) return 'uma aba nova foi aberta';
+            if (taskDownloads().some((item) => !knownDownloads.has(item.id))) return 'um download começou';
+            if (snapshotRequired) return 'a página mudou e os índices antigos não valem mais';
+            return null;
+          }
+        });
+        if (trace) trace.scriptSteps = (trace.scriptSteps || 0) + (result.completed || 0);
+        return result;
+      }
       if (name === 'tabs') {
         if (args.action === 'list') return { success: true, tabs: [...this.tabs.keys()].map(describeTab) };
         if (args.action === 'read_batch') {
@@ -1235,8 +1126,11 @@ class AutomationService {
           throw new Error('A página navegou durante a leitura. Inspecione novamente para obter controles atuais.');
         }
         // Para o modelo vão só os campos com informação: falsos, vazios e dados de formulário (usados pela aprovação) ficam de fora.
-        const nodes = snapshot.tree.nodes.map((node) => Object.fromEntries(Object.entries(node).filter(([key, value]) =>
-          value !== false && value !== null && value !== undefined && value !== '' && !['formAction', 'formMethod', 'inForm', 'targetId'].includes(key))));
+        const nodes = snapshot.tree.nodes.map((node) => ({
+          ...Object.fromEntries(Object.entries(node).filter(([key, value]) =>
+            value !== false && value !== null && value !== undefined && value !== '' && !['formAction', 'formMethod', 'inForm', 'targetId'].includes(key))),
+          ...(node.href ? compactHref(node.href) : {})
+        }));
         lastNodes = snapshot.tree.nodes;
         lastSnapshotUrl = tab.axCache?.url || snapshot.tree.url || null;
         snapshotRequired = false;
@@ -1437,6 +1331,29 @@ class AutomationService {
         messages.push({ role: 'assistant', content: null, reasoning_content: '', tool_calls: [{ id: callId, type: 'function', function: { name: 'inspect_page', arguments: '{}' } }] });
         lastSnapshotMessage = { role: 'tool', tool_call_id: callId, content: JSON.stringify(snapshot) };
         messages.push(lastSnapshotMessage);
+        rememberSnapshot(snapshot);
+      } else if (preInspect && allowTools && !captureReadEvidence && approvalMode !== 'always-ask'
+        && /^https?:/i.test(tab.webContents.getURL?.() || '')) {
+        // A primeira chamada ao modelo quase sempre é só "inspect_page". O host lê a página antes e entrega o snapshot
+        // pronto, no mesmo formato de uma chamada de ferramenta, economizando uma volta inteira ao modelo.
+        try {
+          if (tab.webContents.isLoading?.()) await this.waitForBrowserCondition(tab, 'load', 5000).catch(() => null);
+          const startedAt = Date.now();
+          const callId = `preinspect-${randomUUID()}`;
+          const snapshot = await callTool('inspect_page', {});
+          const guarded = guardToolOutput(snapshot);
+          messages.push({ role: 'assistant', content: null, reasoning_content: '', tool_calls: [{ id: callId, type: 'function', function: { name: 'inspect_page', arguments: '{}' } }] });
+          lastSnapshotMessage = { role: 'tool', tool_call_id: callId, content: JSON.stringify(guarded.output) };
+          messages.push(lastSnapshotMessage);
+          rememberSnapshot(snapshot);
+          if (trace) {
+            trace.preInspected = true;
+            if (guarded.hits) trace.injectionWarnings = (trace.injectionWarnings || 0) + 1;
+            trace.toolCalls.push(traceToolCall(0, 'inspect_page', {}, snapshot, startedAt));
+          }
+        } catch {
+          // Sem snapshot prévio o fluxo normal continua: o modelo pede a leitura sozinho.
+        }
       }
       const humanCheckStop = () => {
         if (trace) trace.stopReason = 'human_check';
@@ -1462,6 +1379,7 @@ class AutomationService {
         }
         let response;
         let data;
+        const requestModel = cascade.pick();
         // Uma chamada presa ao provedor não pode travar a tarefa: corta em 60 s e tenta mais uma vez.
         for (let attempt = 1; ; attempt++) {
           const requestStartedAt = Date.now();
@@ -1469,7 +1387,7 @@ class AutomationService {
           try {
             stage('provider-request', step);
             const isThinkingModel = provider === 'deepseek'
-              || (typeof model === 'string' && (model.toLowerCase().includes('deepseek') || model.toLowerCase().includes('r1') || model.toLowerCase().includes('reasoner')));
+              || (typeof requestModel === 'string' && (requestModel.toLowerCase().includes('deepseek') || requestModel.toLowerCase().includes('r1') || requestModel.toLowerCase().includes('reasoner')));
             const requestMessages = messages.map((m) => {
               if (m.role === 'assistant') {
                 const hasReasoning = m.reasoning_content !== undefined || m.reasoning !== undefined;
@@ -1485,12 +1403,13 @@ class AutomationService {
               }
               return m;
             });
-            const requestBody = JSON.stringify({ model, messages: requestMessages, tools, tool_choice: 'auto', temperature: 0.2 });
+            const requestBody = JSON.stringify({ model: requestModel, messages: requestMessages, tools, tool_choice: 'auto', temperature: 0.2, ...(streaming ? { stream: true, stream_options: { include_usage: true } } : {}) });
             if (trace) {
               trace.requestMetrics ||= [];
               requestMetric = {
                 step,
                 attempt,
+                model: requestModel,
                 requestBytes: Buffer.byteLength(requestBody),
                 messageBytes: Buffer.byteLength(JSON.stringify(requestMessages)),
                 toolSchemaBytes: Buffer.byteLength(JSON.stringify(tools)),
@@ -1503,7 +1422,7 @@ class AutomationService {
               method: 'POST',
               headers: requestHeaders,
               body: requestBody,
-              signal: AbortSignal.any([runController.signal, AbortSignal.timeout(60000)])
+              signal: AbortSignal.any([runController.signal, AbortSignal.timeout(streaming ? 180000 : 60000)])
             });
             if (requestMetric) {
               requestMetric.statusCode = Number(response.status) || undefined;
@@ -1520,19 +1439,36 @@ class AutomationService {
           if (runController.signal.aborted) throw Object.assign(new Error('Tarefa interrompida pelo usuário.'), { name: 'AbortError' });
           stage('provider-body', step);
           try {
-            data = await response.json();
+            data = streaming && response.ok && response.body?.getReader
+              ? await readStreamedCompletion(response.body)
+              : await response.json();
+            if (requestMetric && data.firstTokenMs != null) requestMetric.firstTokenMs = data.firstTokenMs;
           } catch (error) {
-            if (requestMetric) {
-              requestMetric.durationMs = Date.now() - requestStartedAt;
-              requestMetric.errorClass = 'body_parse';
+            // Erro de servidor costuma vir em HTML; o status basta para decidir se vale tentar de novo.
+            if (response.ok === false) data = {};
+            else {
+              if (requestMetric) {
+                requestMetric.durationMs = Date.now() - requestStartedAt;
+                requestMetric.errorClass = 'body_parse';
+              }
+              throw error;
             }
-            throw error;
           }
           if (requestMetric) {
             requestMetric.durationMs = Date.now() - requestStartedAt;
             requestMetric.success = response.ok === true;
             requestMetric.inputTokens = Number(data.usage?.prompt_tokens) || 0;
             requestMetric.outputTokens = Number(data.usage?.completion_tokens) || 0;
+            requestMetric.cachedInputTokens = cachedInputTokens(data.usage);
+          }
+          // Falha passageira do provedor (limite de taxa ou erro de servidor) não deve perder a tarefa: espera e tenta de novo.
+          if (!response.ok && attempt < 3 && [429, 500, 502, 503, 504].includes(Number(response.status))) {
+            const retryAfter = Number(response.headers?.get?.('retry-after'));
+            const waitMs = Number.isFinite(retryAfter) && retryAfter > 0 ? Math.min(retryAfter * 1000, 8000) : attempt * 1500;
+            if (requestMetric) requestMetric.errorClass = `http_${response.status}`;
+            await new Promise((resolve) => setTimeout(resolve, waitMs));
+            if (runController.signal.aborted) throw Object.assign(new Error('Tarefa interrompida pelo usuário.'), { name: 'AbortError' });
+            continue;
           }
           // Modelo sem visão recusa a captura: troca as imagens por um aviso e tenta de novo, uma vez.
           if (!response.ok && attempt < 2 && dropImages(messages, 'Este modelo não aceita imagens; siga só com texto e nodes.')) continue;
@@ -1544,6 +1480,7 @@ class AutomationService {
           if (data.usage) {
             trace.inputTokens += Number(data.usage.prompt_tokens) || 0;
             trace.outputTokens += Number(data.usage.completion_tokens) || 0;
+            trace.cachedInputTokens = (trace.cachedInputTokens || 0) + cachedInputTokens(data.usage);
           } else {
             trace.usageAvailable = false;
           }
@@ -1595,7 +1532,7 @@ class AutomationService {
               const observe = observeAfterActions && approvalMode !== 'always-ask'
                 && call === message.tool_calls.at(-1) && output?.success === true
                 && !output.newTabs?.length && !output.downloads?.length && !output.fileChooser
-                && (['click', 'click_text', 'select_option'].includes(call.function.name)
+                && (['click', 'click_text', 'select_option', 'run_steps'].includes(call.function.name)
                   || (call.function.name === 'hidden_action' && ['click', 'check', 'uncheck', 'select'].includes(args.action)));
               if (observe) {
                 try {
@@ -1650,29 +1587,57 @@ class AutomationService {
               }
             }
           }
+          const repeatNote = repeatGuard.record(call.function.name, args, output);
+          if (repeatNote && output && typeof output === 'object') output = { ...output, avisoRepeticao: repeatNote };
+          cascade.record({ success: output?.success !== false, repeated: Boolean(repeatNote) });
+          const guarded = guardToolOutput(output);
+          if (guarded.hits && trace) trace.injectionWarnings = (trace.injectionWarnings || 0) + 1;
           // Só o snapshot mais recente fica inteiro no histórico; os antigos custariam tokens a cada chamada.
           if ((call.function.name === 'inspect_page' || output?.autoObserved) && output?.success !== false) {
-            // Mantém o que foi lido em telas anteriores (dados para usar adiante); só os nodes antigos saem.
-            if (lastSnapshotMessage) {
-              const old = JSON.parse(lastSnapshotMessage.content);
-              const oldText = String(old.text || '').slice(0, 2500);
-              const currentText = String(output.text || '');
-              const textRepeated = oldText.length > 0 && currentText.includes(oldText);
-              lastSnapshotMessage.content = JSON.stringify({
-                omitido: 'nodes antigos; use os índices do snapshot mais recente', url: old.url, title: old.title,
-                ...(textRepeated ? { textoRepetidoNoSnapshot: call.id } : { text: oldText })
-              });
+            // Snapshot por diferença: manda só o que mudou em relação ao anterior da mesma página; sem ganho claro, vai inteiro.
+            const delta = diffSnapshots && lastSnapshotMessage && previousSnapshot && previousSnapshot.url === output.url
+              && diffChain.length < DIFF_CHAIN_MAX && Array.isArray(output.nodes)
+              ? diffNodes(previousSnapshot.nodes, output.nodes) : null;
+            const textSame = delta && previousSnapshot.text === output.text;
+            rememberSnapshot(output);
+            if (delta) {
+              const { nodes: _fullNodes, text: _fullText, ...rest } = guarded.output;
+              const diffMessage = {
+                role: 'tool', tool_call_id: call.id,
+                content: JSON.stringify({
+                  ...rest, nodes: delta.nodes, ...(textSame ? { textoIgual: true } : { text: output.text }),
+                  diff: { iguais: delta.iguais, total: delta.total, nota: 'Diferença do snapshot anterior: os nodes listados substituem os de mesmo índice; os índices em iguais continuam como antes.' }
+                })
+              };
+              diffChain.push(diffMessage);
+              if (trace) trace.diffSnapshots = (trace.diffSnapshots || 0) + 1;
+              messages.push(diffMessage);
+            } else {
+              // Mantém o que foi lido em telas anteriores (dados para usar adiante); só os nodes antigos saem.
+              const shrink = (message) => {
+                const old = JSON.parse(message.content);
+                const oldText = String(old.text || '').slice(0, 2500);
+                const currentText = String(output.text || '');
+                const textRepeated = oldText.length > 0 && currentText.includes(oldText);
+                message.content = JSON.stringify({
+                  omitido: 'nodes antigos; use os índices do snapshot mais recente', url: old.url, title: old.title,
+                  ...(textRepeated ? { textoRepetidoNoSnapshot: call.id } : { text: oldText })
+                });
+              };
+              if (lastSnapshotMessage) shrink(lastSnapshotMessage);
+              diffChain.forEach(shrink);
+              diffChain = [];
+              lastSnapshotMessage = { role: 'tool', tool_call_id: call.id, content: JSON.stringify(guarded.output) };
+              messages.push(lastSnapshotMessage);
             }
-            lastSnapshotMessage = { role: 'tool', tool_call_id: call.id, content: JSON.stringify(output) };
-            messages.push(lastSnapshotMessage);
           } else {
-            messages.push({ role: 'tool', tool_call_id: call.id, content: JSON.stringify(output) });
+            messages.push({ role: 'tool', tool_call_id: call.id, content: JSON.stringify(guarded.output) });
           }
         }
         // Tarefa longa: respostas grandes de 6 chamadas atrás viram um resumo; o snapshot atual fica inteiro (seus índices ainda valem).
         const toolMessages = messages.filter((m) => m.role === 'tool');
         for (const old of toolMessages.slice(0, -6)) {
-          if (old === lastSnapshotMessage || compactedMessages.has(old) || typeof old.content !== 'string' || old.content.length <= 3000) continue;
+          if (old === lastSnapshotMessage || diffChain.includes(old) || compactedMessages.has(old) || typeof old.content !== 'string' || old.content.length <= 3000) continue;
           old.content = JSON.stringify({ resumido: 'resposta antiga encurtada', inicio: old.content.slice(0, 1500) });
           compactedMessages.add(old);
         }
@@ -1788,7 +1753,7 @@ class AutomationService {
     }
   }
 
-  async runTask({ startUrl, prompt, maxSteps = 20, approvalPolicy = 'ask', allowedHosts = [], keepTab = false, captureInitialText = false, captureInitialChecks = [], engine = 'navegante', maxDurationSec, observeAfterActions = true, captureReadEvidence = false }) {
+  async runTask({ startUrl, prompt, maxSteps = 20, approvalPolicy = 'ask', allowedHosts = [], keepTab = false, captureInitialText = false, captureInitialChecks = [], engine = 'navegante', maxDurationSec, observeAfterActions = true, captureReadEvidence = false, preInspect = false, actionScripts = false, diffSnapshots = false, cascadeModel = null, streaming = false }) {
     const maxDurationMs = maxDurationSec ? maxDurationSec * 1000 : undefined;
     if (approvalPolicy === 'public-sites' && engine === 'flame') return { success: false, error: 'A política public-sites ainda não vale para o Flame' };
     if (engine === 'flame') return this.runFlameTask({ startUrl, prompt, maxSteps, approvalPolicy, keepTab, maxDurationMs });
@@ -1827,7 +1792,7 @@ class AutomationService {
           error: result?.success === false ? String(result.error || 'Leitura inicial falhou') : ''
         });
       }
-      const result = await this.runAgent(tabId, prompt, apiKey, model, true, provider, false, { maxSteps, trace, maxDurationMs, observeAfterActions, captureReadEvidence });
+      const result = await this.runAgent(tabId, prompt, apiKey, model, true, provider, false, { maxSteps, trace, maxDurationMs, observeAfterActions, captureReadEvidence, preInspect, actionScripts, diffSnapshots, cascadeModel, streaming });
       const finalUrl = tab.webContents.isDestroyed() ? '' : tab.webContents.getURL();
       return { ...result, tabId, provider, model, finalUrl, ...(captureInitialText ? { initialPageText } : {}), ...(captureInitialChecks.length ? { initialLocatorChecks } : {}), durationMs: Date.now() - startedAt, trace };
     } finally {
@@ -2463,7 +2428,12 @@ class AutomationService {
           })).max(8).optional(),
           engine: z.enum(['navegante', 'flame']).optional(),
           maxDurationSec: z.number().int().min(10).max(1800).optional(),
-          observeAfterActions: z.boolean().optional()
+          observeAfterActions: z.boolean().optional(),
+          preInspect: z.boolean().optional(),
+          actionScripts: z.boolean().optional(),
+          diffSnapshots: z.boolean().optional(),
+          cascadeModel: z.string().min(1).max(200).optional(),
+          streaming: z.boolean().optional()
         }),
         handler: async (input) => this.runTask(input)
       },

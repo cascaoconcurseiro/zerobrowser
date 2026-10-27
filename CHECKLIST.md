@@ -125,6 +125,25 @@
 - [x] Validar no executável instalado o diálogo nativo de confirmação em formulário fixture: permitir envia uma vez; cancelar não envia e interrompe o agente.
 - [ ] Ampliar classificação e testes de falsos positivos/negativos em diversos controles e padrões de página.
 - [ ] Adicionar defesas testáveis contra prompt injection, exfiltração e instruções conflitantes da página.
+  - [x] Primeira camada: `src/automation/injection-guard.js` sinaliza texto de página que dá ordens ao agente (aviso no resultado da ferramenta + contador `injectionWarnings` no trace); coberta por `test/injection-guard.test.js`. Falta bloquear exfiltração (envio de dados para outro site) e validar contra páginas de ataque reais.
+  - [x] Bloqueio de exfiltração por navegação: `src/automation/exfiltration-guard.js` exige aprovação quando o agente abre OUTRO site com usuário/senha, consulta longa ou valor longo na URL (ou dados sem HTTPS); ligado em `confirmConsequentialAction`. Não vale com `allow-all` nem em tarefas de benchmark com política própria. Não cobre envio por formulário ou script. Teste: `test/exfiltration-guard.test.js` (precisa de `npm install`).
+- [x] Atalhos com o foco dentro da página: Ctrl+Shift+T reabre aba fechada (antes abria aba nova), Ctrl+Tab / Ctrl+Shift+Tab, Ctrl+1..9, F5. Também no foco da interface. Falta validar no app rodando.
+- [x] Motor: retry em 429/5xx, ferramenta `calculate`, `repeat-guard`, href curto no snapshot e métrica `cachedInputTokens` (hipóteses; ver `docs/EVOLUCAO_MOTOR.md`). Falta medir cada uma com o comparador.
+- [x] Motor: opção `preInspect` / `--preinspect` (snapshot entregue antes da 1ª chamada ao modelo), desligada por padrão. Falta A/B para promover.
+- [x] Benchmark: `bench/comparador.js` e `--comparar` pareado com intervalo de confiança e tokens não cacheados (`test/comparador.test.js`).
+- [x] Rodar A/B: base x `--preinspect`, mesmo modelo, conjunto difícil com 3 repetições, ordem A B B A; registrado em `docs/EVOLUCAO_MOTOR.md` (acerto 99% → 100%; chamadas −18%, tempo −21%, tokens não cacheados −14%).
+- [x] Implementar (opt-in, sem medição): `run_steps` (`--scripts`), snapshot por diferença (`--diff`), cascata de modelos (`--cascade=`), leitor de streaming (`--stream`). Módulos em `src/automation/`, testes em `test/engine-evolution.test.js`; `npm test` 121/121.
+- [x] Histórico de downloads persistente (`src/main/download-history.js`, arquivo `downloads-historico.json` no perfil; ignora downloads de avaliação e respeita "limpar ao sair"). Testado só nos módulos; falta conferir no app.
+- [x] Menu de contexto das abas (`src/main/tab-menu.js`, IPC `browser:tab-menu`) e fechar aba com clique do meio. Testado só o modelo do menu; falta conferir no app.
+- [x] Plano de migração do nome interno e de perfis em `docs/PLANO_NOME_E_PERFIS.md` (não implementado, por mexer em dados do usuário).
+- [ ] Perfis e migração do nome: implementar Fase A do plano e validar numa cópia do perfil.
+- [ ] Dividir `AutomationService` (~2.400 linhas): não feito; precisa de testes de integração do loop antes, para não arriscar o motor.
+- [ ] A/B de `--scripts`, `--diff`, `--cascade=` e `--stream` contra a base (difícil, 3 rep, A B B A); streaming ainda sem execução antecipada de ferramentas.
+- [ ] Repetir `--preinspect` no conjunto básico, em `reais` e com outro modelo antes de ligar por padrão.
+- [ ] Rodar A/B de `calculate`, `repeat-guard`, href curto e retry contra 0.1.4 (cada mudança isolada ou em conjunto, dizendo qual).
+- [ ] Prototipar roteiro de várias ações verificado pelo host, cascata de modelos e snapshot por diferenças (roteiro em `docs/EVOLUCAO_MOTOR.md`).
+- [x] Permissão automática de localização só para Google em HTTPS, usando a origem de quem pediu (`details.requestingUrl`). `setPermissionCheckHandler` não foi adicionado: negar verificações pode quebrar câmera/microfone já concedidos.
+- [x] Funções de apoio e schemas de `service/index.js` movidos para `service/helpers.js` (2.494 para 2.349 linhas). A classe `AutomationService` segue em um arquivo só; dividir sem testes rodando seria arriscado.
 - [ ] Testar em página fixture controlada e em sites reais apropriados, verificando a alteração resultante na página.
 
 ### Configurações e funções do navegador

@@ -11,6 +11,8 @@ const { runFlameTask, seedFlameSettings, waitFor } = require('./extensions/flame
 const { Library } = require('./library');
 const libraryImport = require('./library/import');
 const { browserShortcutForInput } = require('./browser-shortcuts');
+const { loadDownloadHistory, saveDownloadHistory, nextDownloadSequence, DEFAULT_LIMIT: DOWNLOAD_HISTORY_LIMIT } = require('./download-history');
+const { buildTabMenuTemplate } = require('./tab-menu');
 
 // Keep the legacy internal name so a visible rebrand does not move the existing userData folder.
 app.setName('navegante');
@@ -364,8 +366,9 @@ function configureSession(ses) {
     'clipboard-sanitized-write': 'escrita na área de transferência'
   };
 
-  ses.setPermissionRequestHandler((webContents, permission, callback) => {
-    if (shouldAutoGrantGooglePermission(permission, webContents.getURL())) {
+  ses.setPermissionRequestHandler((webContents, permission, callback, details) => {
+    const requestingUrl = details?.requestingUrl || webContents.getURL();
+    if (shouldAutoGrantGooglePermission(permission, requestingUrl)) {
       callback(true);
       return;
     }
@@ -378,7 +381,7 @@ function configureSession(ses) {
 
     let origin = 'site desconhecido';
     try {
-      origin = new URL(webContents.getURL()).origin;
+      origin = new URL(requestingUrl).origin;
     } catch {}
 
     dialog.showMessageBox(mainWindow, {
@@ -447,9 +450,38 @@ function resolveDownloadDirectory() {
 // Downloads recentes, para o motor saber o que uma ação baixou.
 const recentDownloads = [];
 let downloadSequence = 0;
+let downloadHistoryLoaded = false;
+
+// O histórico de downloads do usuário sobrevive ao fechamento do app (arquivo no perfil); "limpar ao sair" não grava nada.
+function downloadHistoryFile() {
+  return path.join(app.getPath('userData'), 'downloads-historico.json');
+}
+
+function ensureDownloadHistory() {
+  if (downloadHistoryLoaded) return;
+  downloadHistoryLoaded = true;
+  try {
+    if (store.getStore().get('privacy.clearOnExit') === true) return;
+    const saved = loadDownloadHistory(downloadHistoryFile(), DOWNLOAD_HISTORY_LIMIT);
+    recentDownloads.unshift(...saved);
+    downloadSequence = Math.max(downloadSequence, nextDownloadSequence(saved));
+  } catch (error) {
+    logError(error);
+  }
+}
+
+function persistDownloadHistory() {
+  try {
+    if (store.getStore().get('privacy.clearOnExit') === true) return;
+    saveDownloadHistory(downloadHistoryFile(), recentDownloads, DOWNLOAD_HISTORY_LIMIT);
+  } catch (error) {
+    logError(error);
+  }
+}
 
 function configureSessionDownloads(ses) {
   ses.on('will-download', (_event, item, source) => {
+    ensureDownloadHistory();
     const tabId = source ? tabIdOfWebContents(source) : null;
     // Tarefas de avaliação (run_task) baixam numa pasta do perfil, longe dos downloads do usuário.
     const evaluation = Boolean(tabId && automationService?.taskApprovalPolicies?.has(tabId));
@@ -460,9 +492,9 @@ function configureSessionDownloads(ses) {
     // Download pedido pelo agente vai direto para a pasta de downloads: a janela "Salvar" travaria a tarefa.
     const byAgent = Boolean(tabId && automationService?.agentTabs?.has(tabId));
     const promptForLocation = !byAgent && store.getStore().get('downloads.prompt') !== false;
-    const record = { id: `d${++downloadSequence}`, tabId, filename, url: item.getURL(), state: 'progressing', path: '', receivedBytes: 0, totalBytes: item.getTotalBytes(), startedAt: Date.now() };
+    const record = { id: `d${++downloadSequence}`, tabId, filename, url: item.getURL(), state: 'progressing', path: '', receivedBytes: 0, totalBytes: item.getTotalBytes(), startedAt: Date.now(), evaluation };
     recentDownloads.push(record);
-    if (recentDownloads.length > 30) recentDownloads.shift();
+    if (recentDownloads.length > DOWNLOAD_HISTORY_LIMIT) recentDownloads.shift();
 
     item.on('updated', (_updateEvent, state) => {
       record.state = state;
@@ -473,6 +505,7 @@ function configureSessionDownloads(ses) {
       let savedPath = '';
       try { savedPath = item.getSavePath(); } catch {}
       Object.assign(record, { state, path: savedPath, filename: savedPath ? path.basename(savedPath) : filename, receivedBytes: item.getReceivedBytes() });
+      persistDownloadHistory();
       sendToRenderer('download:event', { filename, state, path: savedPath });
     });
 
@@ -858,6 +891,28 @@ ipcMain.handle('browser:freeze-page', async (event, frozen, reason = 'suggestion
   return null;
 });
 
+ipcMain.handle('browser:tab-menu', (event, tabId, order, x, y) => {
+  if (!mainWindow || event.sender !== mainWindow.webContents) throw new Error('Somente a janela principal pode abrir o menu de abas.');
+  if (!browserViews.has(tabId)) return false;
+  const ids = (Array.isArray(order) ? order : [...browserViews.keys()]).filter((id) => browserViews.has(id));
+  const openAndShow = (url) => { const created = createNewTab(url); switchTab(created.tabId); };
+  const template = buildTabMenuTemplate({
+    tabId,
+    order: ids,
+    canReopen: closedTabs.length > 0,
+    actions: {
+      newTab: () => openAndShow('zero://newtab'),
+      reload: (id) => browserViews.get(id)?.view.webContents.reload(),
+      duplicate: (id) => { const url = browserViews.get(id)?.view.webContents.getURL(); if (url) openAndShow(url); },
+      close: (id) => closeTab(id),
+      closeMany: (list, keepId) => { switchTab(keepId); list.forEach((id) => closeTab(id)); },
+      reopen: () => { const url = closedTabs.pop(); if (url) openAndShow(url); }
+    }
+  });
+  Menu.buildFromTemplate(template).popup({ window: mainWindow, x: Math.round(Number(x) || 0), y: Math.round(Number(y) || 0) });
+  return true;
+});
+
 ipcMain.handle('browser:reopen-closed-tab', (event) => {
   if (!mainWindow || event.sender !== mainWindow.webContents) throw new Error('Somente a janela principal pode reabrir abas.');
   const url = closedTabs.pop();
@@ -878,7 +933,8 @@ ipcMain.handle('browser:get-last-session', (event) => {
 
 ipcMain.handle('browser:get-downloads', (event) => {
   if (!mainWindow || event.sender !== mainWindow.webContents) throw new Error('Somente a janela principal pode listar downloads.');
-  return recentDownloads.map(({ id, filename, url, state, path: savedPath, receivedBytes, totalBytes, startedAt }) => ({
+  ensureDownloadHistory();
+  return recentDownloads.filter((record) => !record.evaluation).map(({ id, filename, url, state, path: savedPath, receivedBytes, totalBytes, startedAt }) => ({
     id, filename, url, state, hasFile: state === 'completed' && Boolean(savedPath && fs.existsSync(savedPath)), receivedBytes, totalBytes, startedAt
   })).reverse();
 });
@@ -1187,7 +1243,7 @@ app.on('before-quit', (event) => {
   shuttingDown = true;
   clearTimeout(sessionSaveTimer);
   if (clearOnExit && !quitCleanupStarted) {
-    try { store.getStore().set('session.lastTabs', []); library?.history.deleteAll(); } catch (error) { logError(error); }
+    try { store.getStore().set('session.lastTabs', []); library?.history.deleteAll(); fs.rmSync(downloadHistoryFile(), { force: true }); } catch (error) { logError(error); }
   }
   if (!clearOnExit) {
     closeAllBrowserTabs();

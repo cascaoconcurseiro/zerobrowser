@@ -65,6 +65,7 @@ test('Google geolocation is automatic and other permissions or origins are not',
   assert.equal(shouldAutoGrantGooglePermission('media', 'https://www.google.com/'), false);
   assert.equal(shouldAutoGrantGooglePermission('geolocation', 'https://google.com.example.org/'), false);
   assert.equal(shouldAutoGrantGooglePermission('geolocation', 'https://googleusercontent.com/'), false);
+  assert.equal(shouldAutoGrantGooglePermission('geolocation', 'http://www.google.com/'), false);
   assert.equal(shouldAutoGrantGooglePermission('geolocation', 'not a URL'), false);
 });
 

@@ -15,11 +15,12 @@ const CONJUNTOS = { basico: basicas, dificeis: tarefasDificeis, stress: tarefasS
 const { iniciarServidor } = require('./servidor');
 const { automationPipePath, defaultDataDir } = require('../src/automation/pipe-path');
 
+const { compararRelatorios, comparacaoMarkdown } = require('./comparador');
 const RESULTADOS = path.join(__dirname, 'resultados');
 const TEMPO_POR_TAREFA_MS = 10 * 60 * 1000;
 
 function lerArgumentos(argv) {
-  const opcoes = { rotulo: 'execucao', conjunto: 'todos', tarefas: null, repeticoes: 1, maxPassos: 20, tempo: 0, dataDir: '', servidor: false, comparar: null, motor: 'navegante', observeAfterActions: true };
+  const opcoes = { rotulo: 'execucao', conjunto: 'todos', tarefas: null, repeticoes: 1, maxPassos: 20, tempo: 0, dataDir: '', servidor: false, comparar: null, motor: 'navegante', observeAfterActions: true, preInspect: false, scripts: false, diff: false, cascade: '', stream: false };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     const [chave, valor] = arg.split('=');
@@ -33,6 +34,11 @@ function lerArgumentos(argv) {
     else if (chave === '--servidor') opcoes.servidor = true;
     else if (chave === '--observe') opcoes.observeAfterActions = true;
     else if (chave === '--no-observe') opcoes.observeAfterActions = false;
+    else if (chave === '--preinspect') opcoes.preInspect = true;
+    else if (chave === '--scripts') opcoes.scripts = true;
+    else if (chave === '--diff') opcoes.diff = true;
+    else if (chave === '--cascade') opcoes.cascade = valor || '';
+    else if (chave === '--stream') opcoes.stream = true;
     else if (chave === '--comparar') { opcoes.comparar = [argv[i + 1], argv[i + 2]]; i += 2; }
     else if (!arg.startsWith('--')) opcoes.rotulo = arg.replace(/[^\w.-]/g, '_');
   }
@@ -227,6 +233,7 @@ function comparar(arquivoA, arquivoB) {
   const [a, b] = [arquivoA, arquivoB].map((f) => JSON.parse(fs.readFileSync(f, 'utf8')));
   const taxa = (rel) => pct(rel.resumo.aprovadas, rel.resumo.total);
   console.log(`${a.rotulo}: ${taxa(a)}  →  ${b.rotulo}: ${taxa(b)}`);
+  console.log(`\n${comparacaoMarkdown(compararRelatorios(a, b))}`);
   const ids = [...new Set([...a.execucoes, ...b.execucoes].map((e) => e.id))];
   for (const id of ids) {
     const estado = (rel) => {
@@ -264,7 +271,7 @@ async function principal() {
     await servidor.fechar();
     throw new Error('O Zero Browser aberto é uma versão antiga, sem a ferramenta run_task. Feche-o e abra a versão nova com "npm start".');
   }
-  const relatorio = { rotulo: opcoes.rotulo, motor: opcoes.motor, observeAfterActions: opcoes.observeAfterActions, inicio: new Date().toISOString(), maxPassos: opcoes.maxPassos, provedor: null, modelo: null, execucoes: [] };
+  const relatorio = { rotulo: opcoes.rotulo, motor: opcoes.motor, observeAfterActions: opcoes.observeAfterActions, preInspect: opcoes.preInspect, scripts: opcoes.scripts, diff: opcoes.diff, cascade: opcoes.cascade || null, stream: opcoes.stream, inicio: new Date().toISOString(), maxPassos: opcoes.maxPassos, provedor: null, modelo: null, execucoes: [] };
   try {
     for (let rodada = 1; rodada <= opcoes.repeticoes; rodada += 1) {
       for (const tarefa of selecionadas) {
@@ -275,7 +282,7 @@ async function principal() {
         try {
           const resposta = await mcp.chamar('tools/call', {
             name: 'run_task',
-            arguments: { startUrl: tarefa.startUrl || servidor.urlDa(tarefa.id), prompt: tarefa.pedido, maxSteps: opcoes.maxPassos, ...(tarefa.hosts ? { approvalPolicy: 'public-sites', allowedHosts: tarefa.hosts } : { approvalPolicy: 'local-fixture' }), ...(tarefa.id === '44-estoque-filiais' ? { captureReadEvidence: true } : {}), ...(tarefa.verificarPagina ? { keepTab: true } : {}), ...(tarefa.capturarTextoInicial ? { captureInitialText: true } : {}), ...(tarefa.captureInitialChecks ? { captureInitialChecks: tarefa.captureInitialChecks.map(({ esperado, ...check }) => check) } : {}), engine: opcoes.motor, observeAfterActions: opcoes.observeAfterActions, ...(opcoes.tempo ? { maxDurationSec: opcoes.tempo } : {}) }
+            arguments: { startUrl: tarefa.startUrl || servidor.urlDa(tarefa.id), prompt: tarefa.pedido, maxSteps: opcoes.maxPassos, ...(tarefa.hosts ? { approvalPolicy: 'public-sites', allowedHosts: tarefa.hosts } : { approvalPolicy: 'local-fixture' }), ...(tarefa.id === '44-estoque-filiais' ? { captureReadEvidence: true } : {}), ...(tarefa.verificarPagina ? { keepTab: true } : {}), ...(tarefa.capturarTextoInicial ? { captureInitialText: true } : {}), ...(tarefa.captureInitialChecks ? { captureInitialChecks: tarefa.captureInitialChecks.map(({ esperado, ...check }) => check) } : {}), engine: opcoes.motor, observeAfterActions: opcoes.observeAfterActions, ...(opcoes.preInspect ? { preInspect: true } : {}), ...(opcoes.scripts ? { actionScripts: true } : {}), ...(opcoes.diff ? { diffSnapshots: true } : {}), ...(opcoes.cascade ? { cascadeModel: opcoes.cascade } : {}), ...(opcoes.stream ? { streaming: true } : {}), ...(opcoes.tempo ? { maxDurationSec: opcoes.tempo } : {}) }
           }, opcoes.tempo ? (opcoes.tempo + 60) * 1000 : TEMPO_POR_TAREFA_MS);
           resultado = resposta?.structuredContent || {};
         } catch (erro) {

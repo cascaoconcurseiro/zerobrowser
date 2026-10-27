@@ -54,6 +54,88 @@ Depois da última ação de um lote, uma leitura pode devolver `nodes` e `text` 
 
 Critério: comparar por tarefa, provedor e conjunto, conferindo acerto, chamadas de modelo, tokens e tempo. A amostra atual (28 difíceis, 8 públicas e 3 da loja SPA por modo) passou de 37/39 para 39/39, com redução agregada de 21,0% nos tokens de entrada, 19,5% nos passos e 18,1% no tempo. O ganho é promissor, mas ainda precisa de repetição no conjunto básico e em outros modelos.
 
+## Revisão do motor em 2026-10-26 (leitura de código, sem benchmark novo)
+
+Mudanças feitas, todas SEM medição pareada; tratar como hipóteses até rodar o benchmark:
+
+- Nova tentativa em 429/500/502/503/504 (até 3 chamadas, espera de `Retry-After` ou 1,5 s × tentativa). Antes, um erro passageiro do provedor encerrava a tarefa. Corpo HTML de erro não quebra mais a leitura. Ganho esperado: acerto em horários de limite de taxa; nenhum em condições normais.
+- Ferramenta `calculate` (`src/automation/calculator.js`): aritmética exata com BigInt, sem `eval`, para somas e totais. Alvo: o erro de soma 659,95 vs 660,00 da rodada difícil. Custo: +401 bytes de schema por chamada (6.747 para 7.148). Se o benchmark não mostrar ganho de acerto, remover.
+- `src/automation/repeat-guard.js`: na 2ª falha idêntica (mesma ferramenta e argumentos) o resultado leva `avisoRepeticao`. Alvo: laços de tentativa repetida que consomem passos.
+- `href` acima de 160 caracteres vai para o modelo só com origem+caminho (`hrefTruncated`). Alvo: páginas de loja com links de rastreamento. Os nodes completos continuam no host, então aprovações não mudam. Risco: o modelo precisar de um parâmetro de consulta do link.
+- Métrica nova `cachedInputTokens` (trace e `requestMetrics`), lida de `prompt_cache_hit_tokens`, `prompt_tokens_details.cached_tokens` ou `cache_read_input_tokens`.
+
+Achados sem mudança de código:
+
+- Os tokens de entrada contam o prompt inteiro a cada passo. Sistema + 17 schemas somam ~2,3 mil tokens fixos por passo, mais da metade de uma tarefa curta. Eles formam o prefixo estável e, com cache de prefixo no provedor, custam uma fração. Por isso a "seleção contextual de schemas" do próximo passo do HANDOFF pode PIORAR custo e latência: trocar o conjunto de ferramentas muda o prefixo e invalida o cache. Só promover se `cachedInputTokens` mostrar que o provedor usado não faz cache.
+- Medir antes: comparar `inputTokens - cachedInputTokens` (e não só `inputTokens`) nas rodadas de benchmark. A tabela acima usa tokens brutos e pode subestimar ganhos de cache e superestimar ganhos de compactação.
+- O tempo é dominado pelas chamadas ao modelo (~3 a 10 s cada). Esperas fixas de 150 a 250 ms após ações somam ~1 s por tarefa (cerca de 8%). Trocar por espera de estabilidade do DOM é possível, mas arrisca flakiness em SPA; só com a fixture 45/46 rodando.
+- Cada ação protegida executa `detectHumanCheck` (um `executeJavaScript`) e `setAuroraActive` (outro). São milissegundos, irrelevantes frente ao modelo.
+- `rect` de cada nó (4 números × até 250 nós) segue indo ao modelo; só ajuda `cua_action`. Rodada anterior com colunas compactadas piorou, então não mexi. Candidato a teste A/B: enviar `rect` só quando a tarefa usar coordenadas.
+
+## Snapshot inicial e comparador pareado (2026-10-26)
+
+Feito, ainda sem benchmark:
+
+- `preInspect` (opção de `runAgent` e de `run_task`; `--preinspect` no benchmark). Antes da primeira chamada ao modelo o host executa `inspect_page` e entrega o resultado como se o modelo tivesse pedido, no mesmo formato da retomada de tarefa pausada. Hipótese: poupa 1 de cada 4 a 8 chamadas ao modelo (~20% de tempo e de tokens em tarefas curtas). Desligado por padrão (os testes atuais e o fluxo do painel ficam como estão) até haver A/B.
+  - Só roda com página http(s) já aberta, `allowTools` verdadeiro, fora de `always-ask` (a leitura geraria diálogo) e sem `captureReadEvidence` (a tarefa 44 conta leituras do modelo). Se a leitura falhar, o fluxo normal segue.
+  - Passa pelo mesmo detector de prompt injection; entra no trace como `preInspected: true` e como uma chamada `inspect_page` no passo 0.
+  - Risco: perde pouco quando o modelo precisaria navegar antes (página inicial irrelevante). Nesses casos o snapshot extra custa tokens sem poupar chamada. Medir a taxa de tarefas que começam com `navigate`.
+  - Para promover a padrão: A/B com `--preinspect` contra a base, mesmo modelo, 3 repetições do conjunto difícil, acerto sem piora e "chamadas ao modelo" com leitura "B menor".
+- `bench/comparador.js` + `--comparar`: comparação pareada com intervalo de confiança, incluindo tokens não cacheados. Testes em `test/comparador.test.js`. Uso e leitura em `bench/README.md`.
+
+### Roteiro das próximas evoluções (ordem por retorno esperado)
+
+Nenhuma implementada. Cada uma só vira padrão após A/B com o comparador.
+
+1. Roteiro de várias ações verificado pelo host. O modelo devolve uma lista de ações com pós-condições (texto esperado, valor do campo); o host executa tudo e só volta ao modelo se alguma falhar. Ganho esperado: 2x a 3x menos chamadas em formulários e fluxos repetitivos. Riscos: ações dependentes de índices que mudam; SPA que recria controles (usar seletores por texto/rótulo, não índice); aprovações `confirmConsequentialAction` continuam por ação. Validar com as fixtures 45 a 47.
+2. Cascata de modelos: modelo barato e rápido por padrão; escala para o melhor quando `repeat-guard` dispara, houver falha de verificação ou ambiguidade. Medir custo e acerto por tarefa antes.
+3. Snapshot só com diferenças e índices estáveis (item aberto do CHECKLIST). Diferente da deduplicação de texto que não ajudou: aqui o alvo são os nodes, o maior bloco do snapshot. Exige id estável por elemento entre leituras.
+4. Executar ferramentas enquanto o modelo ainda gera (streaming). Ganho menor, depende do provedor.
+5. Não priorizar: memória de receitas por site (o teste de notas aumentou tokens e tempo sem ganho de acerto); só reconsiderar para sequências já verificadas e repetidas.
+
+Pré-requisito comum: rodadas A/B repetidas, em mais de um modelo, com ordem alternada. Sem isso as decisões acima seguem sendo hipóteses.
+
+## A/B `--preinspect` (2026-10-26)
+
+Base (A) contra `--preinspect` (B), conjunto difícil (14 tarefas), 3 repetições por rodada, ordem A1, B1, B2, A2, modelo `deepseek-flash`, app iniciado do worktree com o perfil padrão. Relatórios em `bench/resultados/` (A1-base, B1-preinspect, B2-preinspect, A2-base). A1+A2 e B1+B2 foram juntadas (6 repetições por tarefa) e comparadas com `--comparar`.
+
+Acerto: A 83/84 (99%), B 84/84 (100%). Nenhuma tarefa piorou; a 36-menu-hover foi de 5/6 para 6/6 (uma falha isolada na A1, provavelmente variação do modelo, não efeito do preinspect). Em B, o snapshot foi entregue em 39 de 42 execuções por rodada (a tarefa 44 não usa, por capturar evidência de leitura).
+
+| Métrica (média por tarefa) | A | B | Variação | IC 95% (B−A) | Leitura |
+|---|---:|---:|---:|---|---|
+| Passos | 6,86 | 6,51 | −5,0% | −0,87 a 0,18 | inconclusivo |
+| Tempo (s) | 12,04 | 9,46 | −21,4% | −4,06 a −1,09 | B menor |
+| Chamadas ao modelo | 6,77 | 5,55 | −18,1% | −1,74 a −0,72 | B menor |
+| Tokens de entrada brutos | 29.864 | 24.790 | −17,0% | −8.143 a −2.006 | B menor |
+| Tokens de entrada não cacheados | 5.221 | 4.490 | −14,0% | −1.289 a −173 | B menor |
+| Tokens de saída | 688 | 523 | −24,0% | −283 a −48 | B menor |
+
+Consistência entre rodadas: tempo médio por execução A1 12,6 s e A2 11,4 s; B1 9,4 s e B2 9,5 s. A ordem A B B A não mostrou deriva grande, e as duas rodadas B ficaram praticamente iguais entre si.
+
+Leitura honesta: o ganho de uma volta ao modelo (a que só pediria `inspect_page`) apareceu em chamadas, tempo e tokens, com acerto igual ou melhor. Ressalvas: 14 tarefas pareadas, intervalo por aproximação normal (otimista), um único modelo e provedor, só páginas locais; o ganho de tokens não cacheados (−14%) é menor que o dos brutos porque parte da economia já era cache. Passos ficou inconclusivo, como esperado (a ação inicial é do host, não do modelo). Não foi testado em sites públicos (`--conjunto=reais`) nem no conjunto básico.
+
+Decisão: candidato forte a ligar por padrão, mas ainda não promovido. Falta repetir no conjunto básico e em `reais` e com outro modelo. Antes de promover, revisar o risco de página que muda após o carregamento (o snapshot pode ficar velho) e o custo quando a página inicial é grande.
+
+## Próximos níveis implementados, sem medição (2026-10-27)
+
+Quatro mecanismos, todos opt-in e desligados por padrão (o caminho padrão não muda). Cada um tem flag no benchmark e campo em `run_task`. Verificação até aqui: `node --check`, `test/engine-evolution.test.js` (7 testes dos módulos puros) e `npm test` 121/121. NÃO houve benchmark: ganho de acerto, tokens ou tempo de qualquer um deles é hipótese.
+
+| Mecanismo | Flag do bench / campo | Módulo | O que faz |
+|---|---|---|---|
+| Script de ações | `--scripts` / `actionScripts` | `src/automation/action-script.js` | Ferramenta `run_steps`: até 12 passos (click, type_text, select_option, click_text, hidden_action, hover, wait_for) numa chamada. O host executa em ordem, cada passo passa pela aprovação normal, e para na primeira falha, aba nova, download ou página que mudou os índices. Depois a observação automática traz o snapshot. |
+| Snapshot por diferença | `--diff` / `diffSnapshots` | `src/automation/snapshot-diff.js` | Após uma ação, manda só os nodes que mudaram (comparação por índice) e as faixas iguais. Se mudou mais de 40% dos nodes, houve deslocamento de índices ou a lista é pequena (<12), manda o snapshot inteiro. Base inteira fica no histórico e no máximo 3 diffs a seguem. |
+| Cascata de modelos | `--cascade=MODELO_BARATO` / `cascadeModel` | `src/automation/model-cascade.js` | Modelo barato conduz; sobe para o modelo escolhido após 2 falhas seguidas ou 1 repetição detectada; volta ao barato após 3 acertos. Mesmo provedor e histórico. `trace.cascade` e `requestMetrics[].model` mostram o uso. |
+| Streaming | `--stream` / `streaming` | `src/automation/stream-parser.js` | Lê a resposta em SSE e remonta o mesmo formato da não-streaming; registra `firstTokenMs` e usa limite de 45 s sem dados em vez de cortar tudo em 60 s. |
+
+Limites honestos:
+- Streaming: a execução antecipada das ferramentas (começar a agir enquanto o modelo ainda escreve) NÃO foi implementada. O leitor já avisa quando cada chamada fecha (`onToolCall`), mas o corpo do loop precisa ser extraído para uma função antes de usar isso, e o ganho só existe em turnos com várias chamadas. Hoje o streaming só dá `firstTokenMs` e tolerância a gerações lentas, não velocidade.
+- Diff: o modelo precisa juntar base e diffs de cabeça; é o ponto de risco de acerto. O fallback para snapshot inteiro e o limite de 3 diffs reduzem, não eliminam. Só vale se o A/B mostrar acerto igual.
+- Cascata: depende de o modelo barato falhar de forma visível (erro de ferramenta ou repetição). Erro silencioso (agir errado com sucesso) não escala. Medir acerto antes de confiar.
+- `run_steps`: índices dentro do lote valem como no último snapshot; passos após um clique que muda a DOM sem navegar podem agir em alvo errado (a checagem por nome/identidade AX de `click`/`type_text` ainda protege cada passo).
+- Testes novos cobrem só os módulos puros; os caminhos dentro de `runAgent` (diff, cascata, `run_steps`, streaming) exigem o app e ainda não foram exercitados.
+
+Plano de medição (cada um contra a base, conjunto difícil, 3 repetições, A B B A, `--comparar`): `--scripts`, `--diff`, `--cascade=<modelo barato>`, `--stream`; depois combinações com `--preinspect`.
+
 ## Cobertura ainda necessária
 
 ### Memória e preenchimento repetido

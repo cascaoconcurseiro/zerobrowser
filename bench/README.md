@@ -26,7 +26,24 @@ Opções:
 - `--max-passos=20`: limite de ações por tarefa (máximo 40).
 - `--data-dir=PASTA`: use quando o Zero Browser roda com outra pasta de dados.
 - `--servidor`: só sobe as páginas e mostra os endereços, para abrir à mão.
-- `--comparar A.json B.json`: mostra o que mudou entre duas rodadas.
+- `--preinspect`: o host lê a página inicial e a entrega pronta antes da primeira chamada ao modelo, poupando a volta que só pediria `inspect_page`. Desligado por padrão; não vale quando a tarefa captura evidência de leitura (tarefa 44). Marcado no relatório (`preInspect`) e no trace (`preInspected`).
+- `--comparar A.json B.json`: compara duas rodadas de forma pareada por tarefa (ver abaixo).
+
+## Comparação pareada (`--comparar`)
+
+```bash
+node bench/avaliar.js --comparar bench/resultados/base__....json bench/resultados/novo__....json
+```
+
+A = referência, B = candidato. Mostra acerto (e quais tarefas pioraram ou melhoraram) e, para cada métrica, média de A e B, variação percentual e intervalo de 95% da diferença B−A. Métricas: passos, tempo, chamadas ao modelo, tokens de entrada brutos, **tokens de entrada não cacheados** (entrada menos `cachedInputTokens`), tokens de saída. Cada tarefa vira a média das suas repetições e a diferença é tirada tarefa a tarefa.
+
+Como ler:
+
+- "inconclusivo" quer dizer intervalo que inclui zero ou menos de 5 tarefas pareadas. Não é empate nem melhora. Use mais tarefas (`--conjunto=dificeis`) e `--repeticoes=3` ou mais.
+- Rode A e B com o MESMO modelo e provedor; o relatório avisa quando diferem. Alterne a ordem das rodadas (A, B, B, A) para não confundir com variação de horário do provedor.
+- Só promova uma mudança a padrão se o acerto não piorar em nenhuma tarefa e a métrica alvo tiver leitura "B menor" nas rodadas repetidas.
+- Tarefas sem tokens informados pelo provedor ficam fora das métricas de tokens.
+- O intervalo usa aproximação normal; com 5 a 10 tarefas ele é otimista. Trate como indício, não prova.
 
 ## Segurança durante o benchmark
 

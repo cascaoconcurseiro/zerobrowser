@@ -192,6 +192,14 @@ class ZeroBrowserApp {
     this.elements.btnMaximize.addEventListener('click', () => window.zeroBrowser.browser.maximize());
 
     document.addEventListener('keydown', (e) => {
+      if (e.ctrlKey && !e.altKey && e.key === 'Tab') {
+        e.preventDefault();
+        this.handleBrowserShortcut({ action: e.shiftKey ? 'previous-tab' : 'next-tab' });
+      }
+      if (e.ctrlKey && !e.altKey && !e.shiftKey && /^[1-9]$/.test(e.key)) {
+        e.preventDefault();
+        this.handleBrowserShortcut({ action: `select-tab-${e.key}` });
+      }
       if (e.ctrlKey && e.key === 't') {
         e.preventDefault();
         this.createTab();
@@ -616,6 +624,12 @@ class ZeroBrowserApp {
     });
 
     tab.addEventListener('click', () => this.switchTab(tabId));
+    tab.addEventListener('auxclick', (e) => { if (e.button === 1) { e.preventDefault(); this.closeTab(tabId); } });
+    tab.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      const order = [...this.elements.tabsContainer.querySelectorAll('.tab')].map((el) => el.dataset.tabId);
+      window.zeroBrowser.browser.openTabMenu(tabId, order, e.clientX, e.clientY).catch(() => {});
+    });
     this.elements.tabsContainer.appendChild(tab);
     this.tabs.set(tabId, { element: tab, url, title: 'Carregando...' });
   }
@@ -775,6 +789,19 @@ class ZeroBrowserApp {
     if (action === 'focus-address') return this.elements.addressBar.focus();
     if (action === 'reload') return window.zeroBrowser.browser.reload(tabId);
     if (action === 'bookmark') return this.toggleBookmark();
+    if (action === 'reopen-tab') return window.zeroBrowser.browser.reopenClosedTab();
+    const ids = [...this.tabs.keys()];
+    if (!ids.length) return;
+    if (action === 'next-tab' || action === 'previous-tab') {
+      const step = action === 'next-tab' ? 1 : -1;
+      const current = Math.max(0, ids.indexOf(this.activeTabId));
+      return this.switchTab(ids[(current + step + ids.length) % ids.length]);
+    }
+    const match = /^select-tab-([1-9])$/.exec(action);
+    if (match) {
+      const n = Number(match[1]);
+      return this.switchTab(n === 9 ? ids[ids.length - 1] : ids[n - 1] ?? ids[ids.length - 1]);
+    }
   }
 
   updateTabInfo(tabId, info) {
