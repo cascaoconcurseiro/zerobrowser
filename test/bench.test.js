@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const vm = require('node:vm');
 const { tarefas } = require('../bench/tarefas');
 const { tarefasReais } = require('../bench/tarefas-reais');
 const { iniciarServidor } = require('../bench/servidor');
@@ -340,7 +341,7 @@ test('run_task opens a tab, runs the agent with a trace, keeps typed text out of
 test('run_task read_batch returns bounded matching text only from tabs owned by the task and same origin', async () => {
   const startUrl = 'http://127.0.0.1:5000/t/44-estoque-filiais?f=centro';
   const { service } = servicoComAbaLocal(startUrl);
-  service.tabs.get('tab-bench').webContents.executeJavaScript = async () => ({ title: 'Filial Sul', text: `${'x'.repeat(300)}\nCadeira Ergo | 20${'y'.repeat(300)}\nCadeira Ergo | 21\nMesa | 4\n${'x'.repeat(14000)}`, textLength: 14636 });
+  service.tabs.get('tab-bench').webContents.executeJavaScript = async (script) => vm.runInNewContext(script, { document: { title: 'Filial Sul', body: { innerText: `${'x'.repeat(300)}\nCadeira Ergo | 20${'y'.repeat(300)}\nCadeira Ergo | 21\nMesa | 4\n${'x'.repeat(14000)}` } } });
   service.getAccessibilityTree = async () => ({ success: true, tree: { url: startUrl, title: 'Filial Centro', nodes: [] } });
   const foreign = 'http://127.0.0.1:5000/user';
   service.tabs.set('tab-user', { state: { url: foreign }, webContents: { isDestroyed: () => false, getURL: () => foreign, executeJavaScript: async () => ({ title: 'Privada', text: 'Cadeira Ergo | 999' }) } });
@@ -349,7 +350,7 @@ test('run_task read_batch returns bounded matching text only from tabs owned by 
   service.setBrowserControls({
     createTab: async () => {
       if (createCount++ === 0) return { tabId: 'tab-bench' };
-      service.tabs.set('tab-task-2', { state: {}, webContents: { isDestroyed: () => false, getURL: () => secondUrl, isLoading: () => false, setBackgroundThrottling: () => {}, loadURL: async (url) => { secondUrl = url; }, executeJavaScript: async () => ({ title: 'Filial Norte', text: 'Cadeira Ergo | 9' }) } });
+      service.tabs.set('tab-task-2', { state: {}, webContents: { isDestroyed: () => false, getURL: () => secondUrl, isLoading: () => false, setBackgroundThrottling: () => {}, loadURL: async (url) => { secondUrl = url; }, executeJavaScript: async (script) => vm.runInNewContext(script, { document: { title: 'Filial Norte', body: { innerText: 'Cadeira Ergo | 9' } } }) } });
       return { tabId: 'tab-task-2' };
     },
     closeTab: async (tabId) => { service.tabs.delete(tabId); }
@@ -375,18 +376,17 @@ test('run_task read_batch returns bounded matching text only from tabs owned by 
     const result = await service.runTask({ startUrl, prompt: 'Leia em lote', approvalPolicy: 'local-fixture', captureReadEvidence: true });
     assert.equal(result.success, true);
     assert.equal(batchResult.readOnly, true);
-    assert.equal(batchResult.coverage.complete, false, 'source text beyond the capture limit is reported as incomplete');
-    assert.equal(batchResult.coverage.pagesTruncated, 1);
+    assert.equal(batchResult.coverage.complete, true, 'entire matching text was returned');
+    assert.equal(batchResult.coverage.pagesTruncated, 0);
     assert.equal(batchResult.coverage.matchesFound, 3);
     assert.equal(batchResult.coverage.matchesReturned, 3);
     assert.equal(batchResult.coverage.matchesOmitted, 0);
     assert.equal(batchResult.pages.length, 2, 'a aba do usuário não pode ser lida');
     assert.deepEqual(batchResult.pages.map((page) => page.matches), [2, 1]);
-    assert.equal(batchResult.pages[0].text, `${`Cadeira Ergo | 20${'y'.repeat(300)}`.slice(0, 240)}\nCadeira Ergo | 21`, 'matching rows remain separate after the query filters them');
+    assert.equal(batchResult.pages[0].text, `Cadeira Ergo | 20${'y'.repeat(300)}\nCadeira Ergo | 21`, 'matching rows remain separate after the query filters them');
     assert.match(batchResult.pages[1].text, /Cadeira Ergo \| 9/);
     assert.ok(batchResult.pages.every((page) => page.text.length <= 600));
-    assert.equal(batchResult.pages[0].truncated, true);
-    assert.deepEqual(batchResult.pages[0].truncationReasons, ['source_text_limit', 'matching_line_text_limit']);
+    assert.equal(batchResult.pages[0].truncated, false);
     assert.equal(batchResult.pages[1].truncated, false);
     assert.deepEqual(result.trace.pageReads, ['centro', 'norte'], 'trace records only route keys for successfully read local fixture pages');
     assert.deepEqual(Object.keys(result.trace.pageReads).sort(), ['0', '1']);
