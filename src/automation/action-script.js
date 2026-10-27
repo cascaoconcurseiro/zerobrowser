@@ -76,7 +76,11 @@ async function waitForExpectation(expect, verifyExpectation, { timeoutMs, pollMs
 
 // callTool(name, args) executa uma ferramenta; shouldStop() é consultado após cada passo (aba nova, download, etc.).
 // verifyExpectation(expect) devolve {ok, detail}; sem ele, passos com expect são recusados antes de qualquer ação.
-async function runSteps(steps, callTool, { shouldStop = () => null, verifyExpectation = null, expectationTimeoutMs = 3000, expectationPollMs = 120 } = {}) {
+// beforeStep/afterStep são o gate do journal de efeitos: antesStep devolve {skip|block|handle} e afterStep recebe o handle.
+async function runSteps(steps, callTool, {
+  shouldStop = () => null, verifyExpectation = null, expectationTimeoutMs = 3000, expectationPollMs = 120,
+  beforeStep = null, afterStep = null
+} = {}) {
   const invalid = validateSteps(steps);
   if (invalid) return { success: false, error: invalid, completed: 0, total: Array.isArray(steps) ? steps.length : 0, results: [] };
   if (steps.some((step) => step.expect) && typeof verifyExpectation !== 'function') {
@@ -84,14 +88,28 @@ async function runSteps(steps, callTool, { shouldStop = () => null, verifyExpect
   }
   const results = [];
   for (const [i, step] of steps.entries()) {
+    const gate = typeof beforeStep === 'function' ? await beforeStep(step, i) : null;
+    if (gate?.block) {
+      results.push({ step: i + 1, tool: step.tool, ok: false, needsVerification: true, error: String(gate.block.error || 'efeito desconhecido') });
+      return {
+        success: false, failedAt: i + 1, completed: i, total: steps.length, results, blockedEffect: true,
+        error: `O passo ${i + 1} (${step.tool}) não foi executado: ${gate.block.error || 'o efeito anterior é desconhecido'}. Os seguintes não foram executados.`
+      };
+    }
+    if (gate?.skip) {
+      results.push({ step: i + 1, tool: step.tool, ok: true, alreadyDone: true, note: gate.skip.note });
+      continue;
+    }
     let output;
     try {
       output = await callTool(step.tool, step.args);
     } catch (error) {
+      if (typeof afterStep === 'function') await afterStep(gate?.handle, step, { success: false, error: String(error?.message || error) });
       if (error?.code === 'USER_DENIED') throw error;
       results.push({ step: i + 1, tool: step.tool, ok: false, error: String(error.message || error).slice(0, 240) });
       return { success: false, failedAt: i + 1, completed: i, total: steps.length, results, error: `O passo ${i + 1} (${step.tool}) falhou; os seguintes não foram executados.` };
     }
+    if (typeof afterStep === 'function') await afterStep(gate?.handle, step, output);
     if (output?.success === false) {
       results.push({ step: i + 1, tool: step.tool, ok: false, error: String(output.error || 'falhou').slice(0, 240) });
       return { success: false, failedAt: i + 1, completed: i, total: steps.length, results, error: `O passo ${i + 1} (${step.tool}) falhou; os seguintes não foram executados.` };

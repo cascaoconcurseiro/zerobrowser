@@ -240,3 +240,56 @@ test('run_task confirms the journal only when the final contract holds', async (
     global.fetch = originalFetch;
   }
 });
+
+test('consequential steps inside run_steps pass through the journal gate', async () => {
+  const { AutomationService } = require('../src/automation/service');
+  const service = new AutomationService();
+  const url = 'http://127.0.0.1:5000/t/lote';
+  let dispatched = 0;
+  service.effectJournal = new EffectJournal({ store: createMemoryStore() });
+  service.setApprovalHandler(async () => true);
+  service.tabs.set('tab-batch', {
+    state: { url },
+    webContents: {
+      isDestroyed: () => false, isLoading: () => false, getURL: () => url,
+      executeJavaScript: async () => '', setBackgroundThrottling: () => {}
+    }
+  });
+  service.setBrowserControls({ createTab: async () => ({ tabId: 'tab-batch' }), closeTab: async () => {} });
+  service.setAgentConfigProvider(async () => ({ provider: 'openrouter', model: 'test-model', apiKey: 'test-key' }));
+  service.getAccessibilityTree = async () => ({ success: true, tree: {
+    url, nodes: [{ index: 0, role: 'button', tag: 'button', name: 'Enviar', targetId: 'btn-send' }]
+  } });
+  service.executeAXAction = async () => { dispatched += 1; return { success: true, actionExecuted: true, outcomeVerified: true }; };
+
+  const originalFetch = global.fetch;
+  let round = 0;
+  let batchOutput;
+  global.fetch = async (_url, options) => {
+    const messages = JSON.parse(options.body).messages;
+    const toolMessage = messages.find((message) => message.tool_call_id === 'batch');
+    if (toolMessage) batchOutput = JSON.parse(toolMessage.content);
+    round += 1;
+    const call = (id, name, args) => ({ id, type: 'function', function: { name, arguments: JSON.stringify(args) } });
+    const message = round === 1 ? { role: 'assistant', tool_calls: [call('look', 'inspect_page', {})] }
+      : round === 2 ? { role: 'assistant', tool_calls: [call('batch', 'run_steps', { steps: [
+        { tool: 'click', args: { index: 0 } },
+        { tool: 'click', args: { index: 0 } }
+      ] })] }
+        : { role: 'assistant', content: 'Enviado.' };
+    return { ok: true, json: async () => ({ choices: [{ message }], usage: { prompt_tokens: 1, completion_tokens: 1 } }) };
+  };
+  try {
+    const result = await service.runTask({
+      startUrl: url, prompt: 'Enviar uma vez', approvalPolicy: 'local-fixture', actionScripts: true, effectJournal: true
+    });
+    assert.equal(result.success, true);
+    assert.equal(dispatched, 1, 'o segundo clique idêntico não pode ser despachado');
+    assert.equal(batchOutput.success, true);
+    assert.equal(batchOutput.results[0].ok, true);
+    assert.equal(batchOutput.results[1].alreadyDone, true);
+    assert.equal(result.trace.scriptEffectSkips, 1);
+  } finally {
+    global.fetch = originalFetch;
+  }
+});

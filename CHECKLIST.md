@@ -485,3 +485,6 @@
 - [x] Verificação aprovada como prova de efeito: `confirmAttempted({proof:'task-verification'})` confirma tentativas pendentes ao fim da tarefa; contrato falho deixa `attempted`; `trace.effectProofs` conta. 10 testes em `test/effect-journal.test.js`; `npm test` 157/157.
 - [ ] Gate do journal dentro de `run_steps` (`beforeStep`/`afterStep`): hoje os passos internos do roteiro não passam por `planEffect` e podem duplicar envio.
 - [ ] Medir em benchmark quantas duplicações o conjunto journal + prova evita e o custo em leituras extras.
+- [x] Gate do journal em `run_steps` (`beforeStep`/`afterStep`): passo já confirmado é pulado, efeito desconhecido bloqueia o lote sem despachar nada, e falha/exceção liquidam a tentativa. 4 testes; `npm test` 161/161.
+- [ ] A/B de `--journal` + `--scripts` em lote real (tarefa 31/47): duplicações evitadas, leituras extras e custo.
+- [ ] Prova de efeito por rede (resposta observada) para o journal; hoje a prova é o contrato de estado.

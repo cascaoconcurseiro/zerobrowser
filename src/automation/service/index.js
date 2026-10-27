@@ -935,6 +935,19 @@ class AutomationService {
         };
         const result = await runSteps(args.steps, callTool, {
           verifyExpectation,
+          // Gate por passo: cada ação consequente do roteiro passa pelo mesmo journal do laço principal.
+          beforeStep: journal ? async (step) => {
+            const effect = effectDescriptor(step.tool, step.args);
+            if (!effect) return null;
+            const decision = await planEffect(journal, effect);
+            if (decision.action === 'skip') return { skip: decision.output };
+            if (decision.action === 'block') return { block: decision.output };
+            await journal.markAttempted(effect.key, { tool: effect.tool, target: effect.target, url: tab?.webContents?.getURL?.() || '', tabId });
+            return { handle: effect };
+          } : null,
+          afterStep: journal ? async (handle, step, output) => {
+            if (handle) await settleEffect(journal, handle.key, output);
+          } : null,
           shouldStop: () => {
             if ([...this.tabs.keys()].some((id) => !knownTabs.has(id))) return 'uma aba nova foi aberta';
             if (taskDownloads().some((item) => !knownDownloads.has(item.id))) return 'um download começou';
@@ -945,6 +958,9 @@ class AutomationService {
         if (trace) {
           trace.scriptSteps = (trace.scriptSteps || 0) + (result.completed || 0);
           if (result.failedExpectation) trace.scriptExpectationFailures = (trace.scriptExpectationFailures || 0) + 1;
+          if (result.blockedEffect) trace.scriptEffectBlocks = (trace.scriptEffectBlocks || 0) + 1;
+          const skips = (result.results || []).filter((item) => item.alreadyDone).length;
+          if (skips) trace.scriptEffectSkips = (trace.scriptEffectSkips || 0) + skips;
         }
         return result;
       }

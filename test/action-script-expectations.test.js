@@ -71,3 +71,51 @@ test('expectations without a host verifier are refused before any action', async
   assert.match(result.error, /verificação do host/);
   assert.equal(called, false);
 });
+
+test('the per-step gate can skip an already-done action and continue the script', async () => {
+  const executed = [];
+  const result = await runSteps(
+    [{ tool: 'click', args: { index: 1 } }, { tool: 'type_text', args: { index: 2, text: 'x' } }],
+    async (name, args) => { executed.push(args.index); return { success: true }; },
+    { beforeStep: async (step) => (step.tool === 'click' ? { skip: { note: 'já executado' } } : { handle: 'h2' }) }
+  );
+  assert.equal(result.success, true);
+  assert.deepEqual(executed, [2], 'o passo pulado não é executado');
+  assert.equal(result.results[0].alreadyDone, true);
+  assert.equal(result.results[1].ok, true);
+});
+
+test('the per-step gate can block an unknown effect before dispatching anything', async () => {
+  let called = 0;
+  const result = await runSteps(
+    [{ tool: 'click', args: { index: 1 } }, { tool: 'click', args: { index: 2 } }],
+    async () => { called += 1; return { success: true }; },
+    { beforeStep: async () => ({ block: { error: 'efeito desconhecido' } }) }
+  );
+  assert.equal(result.success, false);
+  assert.equal(result.blockedEffect, true);
+  assert.equal(result.failedAt, 1);
+  assert.match(result.error, /não foi executado/);
+  assert.equal(called, 0, 'nada é despachado quando o gate bloqueia');
+});
+
+test('the gate settles both returned failures and thrown errors', async () => {
+  const settled = [];
+  const outputFailure = await runSteps(
+    [{ tool: 'click', args: { index: 1 } }],
+    async () => ({ success: false, error: 'falhou' }),
+    { beforeStep: async () => ({ handle: 'h1' }), afterStep: async (handle, step, output) => settled.push([handle, output.success]) }
+  );
+  assert.equal(outputFailure.success, false);
+  assert.deepEqual(settled, [['h1', false]]);
+
+  settled.length = 0;
+  await assert.rejects(
+    runSteps([{ tool: 'click', args: { index: 1 } }], async () => { const error = new Error('estourou'); error.code = 'USER_DENIED'; throw error; }, {
+      beforeStep: async () => ({ handle: 'h2' }),
+      afterStep: async (handle, step, output) => settled.push([handle, output.success])
+    }),
+    /estourou/
+  );
+  assert.deepEqual(settled, [['h2', false]]);
+});

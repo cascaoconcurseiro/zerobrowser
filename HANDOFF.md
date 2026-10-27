@@ -46,8 +46,10 @@
   motivo (sem texto da página) e gasta uma rodada; `requireVerification` agora recusa também quando o laço já
   verificou. `npm test` 155/155; sem benchmark e ausente do app instalado.
 - **Motor, salto 6 (2026-10-27):** a verificação aprovada vira prova de efeito: confirma tentativas pendentes do
-  journal (`proof: task-verification`); contrato falho mantém `attempted`. `npm test` 157/157. Lacuna registrada:
-  passos consequentes dentro de `run_steps` ainda não passam pelo journal.
+  journal (`proof: task-verification`); contrato falho mantém `attempted`. `npm test` 157/157.
+- **Motor, salto 7 (2026-10-27):** gate do journal dentro de `run_steps` (`beforeStep`/`afterStep`): passo já
+  confirmado é pulado, efeito desconhecido bloqueia o lote sem despachar, e falha/exceção liquidam a tentativa.
+  `npm test` 161/161. Lacuna do salto 6 fechada.
 - Continua SEM verificação no app: perfis (menu ⋮), menu de contexto de abas, histórico persistente de downloads,
   atalhos com foco na página e todas as flags opt-in do motor (`--preinspect`, `--scripts`, `--diff`,
   `--cascade=`, `--stream`, `--journal`).

@@ -436,3 +436,29 @@ Lacuna conhecida e registrada: **ações consequentes dentro de `run_steps` aind
 do agente journaliza a chamada `run_steps`, não cada passo interno. Enquanto os dois estiverem ligados, um envio
 duplicado dentro de um roteiro não é bloqueado. O próximo salto é injetar o gate por passo (`beforeStep`/`afterStep`
 no `runSteps`) reutilizando a mesma chave de efeito.
+
+### Gate do journal dentro de `run_steps` — 2026-10-27
+
+Sétimo salto e fechamento da lacuna registrada no salto 6: ações consequentes dentro de um roteiro `run_steps` não
+passavam pelo journal, então um envio duplicado em lote não era bloqueado. Agora cada passo consulta o mesmo gate.
+
+- `runSteps` aceita `beforeStep(step, i)` e `afterStep(handle, step, output)`;
+- `beforeStep` devolve `{skip}` (ação já confirmada), `{block}` (efeito desconhecido) ou `{handle}` para o journal;
+- `skip` mantém o roteiro andando e o resultado do passo vem `alreadyDone: true`;
+- `block` **não despacha nada** e interrompe o roteiro com `blockedEffect: true` e o motivo;
+- `afterStep` recebe o handle e o resultado — inclusive falha devolvida e exceção (inclusive `USER_DENIED`);
+- o serviço usa a mesma chave de efeito do laço principal (ferramenta + alvo + origem/caminho) e registra
+  `scriptEffectSkips` / `scriptEffectBlocks` no trace.
+
+Arquivos: `src/automation/action-script.js` (hooks e semântica), `src/automation/service/index.js` (ligação com
+`planEffect`/`settleEffect`). Testes: 3 novos em `test/action-script-expectations.test.js` (skip, block, settle de
+falha/erro) e 1 de integração em `test/effect-journal.test.js` (dois cliques idênticos no lote → um despacho e um
+`alreadyDone`). `npm test` 161/161.
+
+Limites honestos:
+
+- `skip` conta como passo concluído para o roteiro; se o efeito já confirmado era o último passo, a tarefa segue.
+- O `block` interrompe o lote inteiro, mesmo que os passos seguintes fossem independentes — é conservador de
+  propósito, para não executar nada depois de um efeito incerto.
+- `hidden_action` continua identificado pelo nome do controle (homônimos colidem).
+- Sem benchmark: nenhuma medição de duplicações evitadas em lote real.
