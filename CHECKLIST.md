@@ -503,3 +503,7 @@
 - [ ] Teste manual do roteiro em `docs/COMO_TESTAR_0.1.5.md` (perfis, menu de abas, downloads, atalhos).
 - [ ] Benchmark pareado 0.1.4 × checkpoint com provedor real e as flags `--journal`, `--scripts`, `--preinspect`.
 - [ ] Push para `origin` (20 commits à frente) só quando o teste manual e o benchmark fecharem.
+- [x] Canal alternativo para canvas: `clipboard` (read/write, 200k, write com aprovação) e `key_sequence` (repetição de setas/Tab/F2/Ctrl, 50 passos, Enter/espaço com aprovação); fluxo TSV documentado em `docs/PLANILHAS_E_SITES_DIFICEIS.md`. 4 testes; `npm test` 181/181.
+- [ ] Medir leitura A1:C20 e escrita de 10 linhas numa planilha de teste (meta ≤4–5 ações, 3 repetições) e comparar com clique por coordenada.
+- [ ] Testar o modo de acessibilidade da planilha (leitura de células no snapshot) e, se funcionar, usá-lo antes do clipboard.
+- [ ] Conector de API (Sheets) com OAuth explícito — decisão de produto, fora do motor de UI.

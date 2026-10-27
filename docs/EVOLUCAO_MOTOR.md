@@ -582,3 +582,32 @@ Limites honestos:
 - Os passos da receita **não passam pelo journal de efeitos**; um clique repetido numa receita não é bloqueado.
 - Sem versão nem expiração: a receita quebra quando o site muda e falha na pós-condição, sem reparo automático.
 - Sem benchmark de tempo/tokens economizados.
+
+### Canal alternativo: clipboard e teclado — 2026-10-27
+
+Décimo segundo salto, atacando a classe de sites que o snapshot não enxerga (canvas). Duas ferramentas novas:
+
+- **`clipboard`** (`read`/`write`): lê e grava texto no clipboard do sistema; `write` exige aprovação, `read` é
+  limitado a 200 mil caracteres e volta marcado como conteúdo não confiável. Implementação injetada pelo processo
+  principal (`electron.clipboard`); sem ela, a ferramenta recusa.
+- **`key_sequence`**: combinações com repetição (setas ×N, Tab, Ctrl+seta, F2, Enter), até 50 passos/200 combinações,
+  via CDP, com keydown/keyup e modificadores corretos. Enter/espaço passam pelo gate de aprovação; navegação não.
+
+Opt-in por tarefa (`advancedInput`, padrão **ligado**). Quando ligado, o catálogo cresce de 7.815 para 8.835 bytes
+(~+250 tokens por chamada) — o custo fixo é o preço de resolver planilha sem 60 cliques; pode ser desligado em
+`run_task`/`runAgent`.
+
+O prompt ganhou a instrução de fluxo: caixa de nome → intervalo → `clipboard write` TSV → `key_sequence Ctrl+V`;
+leitura por seleção + `Ctrl+C` + `clipboard read`.
+
+Arquivos: `src/automation/clipboard.js`, `src/automation/key-sequence.js`, `cua-input.js` (`performKeySequence`),
+`service/index.js` e `main.js` (injeção do clipboard). Testes: `test/clipboard-keysequence.test.js` (4 casos,
+incluindo um `run_task` que grava TSV, lê de volta e executa 3 combinações). `npm test` 181/181.
+
+Limites honestos:
+
+- Clipboard é texto: fórmulas, formatação e comentários não sobrevivem.
+- Células mescladas podem desalinhar o TSV; conferir depois de colar.
+- A caixa de nome é localizada por texto/label; idioma da interface muda o alvo.
+- Ler o clipboard pode trazer segredo copiado antes — é dado sensível, não instrução.
+- Sem benchmark: o ganho de 10–50× em ações é estimativa até medir numa planilha de teste.

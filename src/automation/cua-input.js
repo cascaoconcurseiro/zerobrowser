@@ -43,6 +43,73 @@ function mouseButton(button) {
   return value;
 }
 
+// Uma combinação: modificadores primeiro, tecla principal, texto e keyUp. Usado pelo keypress e pela sequência.
+async function dispatchChord(send, rawKeys) {
+  const keys = (rawKeys || []).map(normalizeKey);
+  if (!keys.length || keys.length > 4) throw new Error('Informe de 1 a 4 teclas para pressionar.');
+  const modifiers = keys.filter((key) => MODIFIER_FLAGS[key]);
+  const mainKeys = keys.filter((key) => !MODIFIER_FLAGS[key]);
+  if (mainKeys.length > 1) throw new Error('Informe apenas uma tecla principal por combinação.');
+  const key = mainKeys[0] || modifiers.pop();
+  if (!key) throw new Error('Combinação de teclas vazia.');
+  const keyInfo = KEY_CODES[key] || (key.length === 1 ? [key.toUpperCase(), key.toUpperCase().charCodeAt(0)] : null);
+  if (!keyInfo) throw new Error(`Tecla não suportada: ${key}`);
+  let currentFlags = modifierFlags(modifiers);
+  const pressedModifiers = [];
+  try {
+    for (const modifier of modifiers) {
+      const [code, windowsVirtualKeyCode] = KEY_CODES[modifier];
+      await send('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: modifier, code, windowsVirtualKeyCode, nativeVirtualKeyCode: windowsVirtualKeyCode, modifiers: currentFlags });
+      pressedModifiers.push({ modifier, code, windowsVirtualKeyCode });
+    }
+    const [code, windowsVirtualKeyCode] = keyInfo;
+    const text = key.length === 1 && !modifiers.length ? key : undefined;
+    await send('Input.dispatchKeyEvent', { type: 'rawKeyDown', key, code, windowsVirtualKeyCode, nativeVirtualKeyCode: windowsVirtualKeyCode, modifiers: currentFlags });
+    if (text && !/^[\u0000-\u001f\u007f]$/.test(text)) {
+      await send('Input.dispatchKeyEvent', { type: 'char', key, code, text, unmodifiedText: text, windowsVirtualKeyCode, nativeVirtualKeyCode: windowsVirtualKeyCode, modifiers: currentFlags });
+    }
+    await send('Input.dispatchKeyEvent', { type: 'keyUp', key, code, windowsVirtualKeyCode, nativeVirtualKeyCode: windowsVirtualKeyCode, modifiers: currentFlags });
+    return keys;
+  } finally {
+    for (const { modifier, code, windowsVirtualKeyCode } of pressedModifiers.reverse()) {
+      currentFlags &= ~MODIFIER_FLAGS[modifier];
+      await send('Input.dispatchKeyEvent', { type: 'keyUp', key: modifier, code, windowsVirtualKeyCode, nativeVirtualKeyCode: windowsVirtualKeyCode, modifiers: currentFlags }).catch(() => {});
+    }
+  }
+}
+
+// Sequência com repetição (setas ×N, Tab, Ctrl+seta), como uma pessoa navegando numa grade.
+async function performKeySequence(webContents, steps, { delayMs = 25 } = {}) {
+  if (!webContents || webContents.isDestroyed()) throw new Error('Aba indisponível');
+  if (!Array.isArray(steps) || !steps.length) throw new Error('Informe ao menos uma combinação.');
+  const plan = steps.map((step) => {
+    if (!step || !Array.isArray(step.keys) || !step.keys.length || step.keys.length > 4) throw new Error('Cada passo precisa de 1 a 4 teclas.');
+    const repeat = step.repeat === undefined ? 1 : step.repeat;
+    if (!Number.isInteger(repeat) || repeat < 1 || repeat > 50) throw new Error('repeat deve ser inteiro entre 1 e 50.');
+    return { keys: step.keys, repeat };
+  });
+  if (plan.reduce((sum, step) => sum + step.repeat, 0) > 200) throw new Error('Sequência acima de 200 combinações.');
+  const debuggerApi = webContents.debugger;
+  const attachedHere = !debuggerApi.isAttached();
+  if (attachedHere) debuggerApi.attach('1.3');
+  const send = (method, params) => debuggerApi.sendCommand(method, params);
+  let chords = 0;
+  try {
+    for (const step of plan) {
+      for (let i = 0; i < step.repeat; i += 1) {
+        await dispatchChord(send, step.keys);
+        chords += 1;
+        if (delayMs) await new Promise((resolve) => setTimeout(resolve, delayMs));
+      }
+    }
+    return { success: true, chords };
+  } finally {
+    if (attachedHere && debuggerApi.isAttached()) {
+      try { debuggerApi.detach(); } catch {}
+    }
+  }
+}
+
 async function performCuaInput(webContents, action) {
   if (!webContents || webContents.isDestroyed()) throw new Error('Aba indisponível');
   const kind = String(action.kind || '').replace(/^cua_/, '');
@@ -100,36 +167,7 @@ async function performCuaInput(webContents, action) {
         return { success: true, kind: action.kind, points: path.length, button };
       }
       case 'keypress': {
-        const keys = (action.keys || []).map(normalizeKey);
-        if (!keys.length || keys.length > 4) throw new Error('Informe de 1 a 4 teclas para pressionar.');
-        const modifiers = keys.filter((key) => MODIFIER_FLAGS[key]);
-        const mainKeys = keys.filter((key) => !MODIFIER_FLAGS[key]);
-        if (mainKeys.length > 1) throw new Error('Informe apenas uma tecla principal por combinação.');
-        const key = mainKeys[0] || modifiers.pop();
-        if (!key) throw new Error('Combinação de teclas vazia.');
-        const keyInfo = KEY_CODES[key] || (key.length === 1 ? [key.toUpperCase(), key.toUpperCase().charCodeAt(0)] : null);
-        if (!keyInfo) throw new Error(`Tecla não suportada: ${key}`);
-        let currentFlags = modifierFlags(modifiers);
-        const pressedModifiers = [];
-        try {
-          for (const modifier of modifiers) {
-            const [code, windowsVirtualKeyCode] = KEY_CODES[modifier];
-            await send('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: modifier, code, windowsVirtualKeyCode, nativeVirtualKeyCode: windowsVirtualKeyCode, modifiers: currentFlags });
-            pressedModifiers.push({ modifier, code, windowsVirtualKeyCode });
-          }
-          const [code, windowsVirtualKeyCode] = keyInfo;
-          const text = key.length === 1 && !modifiers.length ? key : undefined;
-          await send('Input.dispatchKeyEvent', { type: 'rawKeyDown', key, code, windowsVirtualKeyCode, nativeVirtualKeyCode: windowsVirtualKeyCode, modifiers: currentFlags });
-          if (text && !/^[\u0000-\u001f\u007f]$/.test(text)) {
-            await send('Input.dispatchKeyEvent', { type: 'char', key, code, text, unmodifiedText: text, windowsVirtualKeyCode, nativeVirtualKeyCode: windowsVirtualKeyCode, modifiers: currentFlags });
-          }
-          await send('Input.dispatchKeyEvent', { type: 'keyUp', key, code, windowsVirtualKeyCode, nativeVirtualKeyCode: windowsVirtualKeyCode, modifiers: currentFlags });
-        } finally {
-          for (const { modifier, code, windowsVirtualKeyCode } of pressedModifiers.reverse()) {
-            currentFlags &= ~MODIFIER_FLAGS[modifier];
-            await send('Input.dispatchKeyEvent', { type: 'keyUp', key: modifier, code, windowsVirtualKeyCode, nativeVirtualKeyCode: windowsVirtualKeyCode, modifiers: currentFlags }).catch(() => {});
-          }
-        }
+        const keys = await dispatchChord(send, action.keys || []);
         return { success: true, kind: action.kind, keys };
       }
       case 'type': {
@@ -146,4 +184,4 @@ async function performCuaInput(webContents, action) {
   }
 }
 
-module.exports = { performCuaInput, normalizeKey, modifierFlags, assertPoint };
+module.exports = { performCuaInput, performKeySequence, dispatchChord, normalizeKey, modifierFlags, assertPoint };

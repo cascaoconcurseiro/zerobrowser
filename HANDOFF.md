@@ -59,6 +59,13 @@
 - **Motor, salto 11 (2026-10-27):** receitas por site (`recipe`, opt-in): passos estáveis com `expect` obrigatório,
   armazenamento por origem e execução sem modelo. `npm test` 177/177. Sem captura automática e sem journal nos
   passos da receita.
+- **Motor, salto 12 (2026-10-27):** canal alternativo para canvas: `clipboard` (read/write TSV, write com aprovação)
+  e `key_sequence` (setas/Tab/F2/Ctrl com repetição; Enter/espaço com aprovação). `advancedInput` ligado por padrão,
+  +1.020 bytes de catálogo. `npm test` 181/181; fluxo em `docs/PLANILHAS_E_SITES_DIFICEIS.md`.
+- **Checkpoint 2 instalado (2026-10-27):** `dist\Zero Browser Setup 0.1.5-dev.exe` (124.443.992 bytes,
+  SHA-256 `e57c20cc…580632`), `app.asar` `2658b925…06088b` igual em build/produção, integração do instalado
+  `status: PASS`. Backup do checkpoint anterior em `backups/2026-10-27-before-clipboard/` (`ae7a6564…0ae96a`).
+  `npm test` 181/181. Perfil intacto.
 - **Checkpoint instalado (2026-10-27):** build com os 11 saltos, `dist\Zero Browser Setup 0.1.5-dev.exe`
   (124.441.875 bytes, SHA-256 `9df4ed8b…a8545f`), instalado sobre o build anterior após `win-unpacked` passar.
   `app.asar` build/instalado: `ae7a6564…0ae96a`; integração do instalado `status: PASS`; `npm test` 177/177 na

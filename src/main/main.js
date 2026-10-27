@@ -1,4 +1,4 @@
-const { app, BrowserWindow, WebContentsView, Menu, session, ipcMain, dialog, shell, screen, webContents, nativeTheme, net } = require('electron');
+const { app, BrowserWindow, WebContentsView, Menu, session, ipcMain, dialog, shell, screen, webContents, nativeTheme, net, clipboard } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const store = require('../store');
@@ -93,6 +93,7 @@ async function initializeApp() {
   });
   automationService = new AutomationService();
   automationService.setFetchImplementation(providerFetch);
+  automationService.setClipboard({ readText: () => clipboard.readText(), writeText: (text) => clipboard.writeText(String(text)) });
   automationService.setSettingsProvider(() => ({
     developerCdpEnabled: store.getStore().get('developer.cdpEnabled') === true,
     automationApprovalMode: store.getStore().get('automation.approvalMode') || 'low-risk'

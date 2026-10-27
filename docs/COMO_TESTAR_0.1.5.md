@@ -3,8 +3,8 @@
 Checklist manual para a versão instalada em 27/10/2026. O que depende de modelo/provedor está separado do que já
 pode ser conferido sem chave.
 
-**Build instalado:** `0.1.5-dev`, `app.asar` `ae7a6564…0ae96a`; backup do estado anterior em
-`backups/2026-10-27-before-motor-leaps/`.
+**Build instalado:** `0.1.5-dev`, `app.asar` `2658b925…06088b`; backup do estado anterior em
+`backups/2026-10-27-before-clipboard/`.
 
 ## 1. Casca do navegador (não depende de provedor)
 
@@ -56,6 +56,17 @@ node bench/avaliar.js x1 --conjunto=basico --tarefas=01 --repeticoes=1   # struc
 - [ ] Contrato de verificação: rodar via MCP `run_task` com `verify: [{kind:'text', value:'...'}]` e
       `requireVerification: true` numa fixture; sem o texto, deve retornar `success:false`.
 - [ ] Receitas: `recipe save` e `recipe run` numa fixture; a segunda execução não deve chamar o modelo.
+
+### 3.1 Planilhas e canvas (clipboard + teclado)
+
+Numa planilha de teste (sem dados reais):
+
+- [ ] "Escreva uma tabela de 3 colunas e 5 linhas em A1". Esperado: caixa de nome → `A1` → Enter →
+      `clipboard write` (com aprovação) → Ctrl+V. Conferir que entrou de uma vez, sem clique em célula.
+- [ ] "Copie A1:C5 e diga os valores". Esperado: seleção pela caixa de nome → Ctrl+C → `clipboard read`.
+- [ ] "Vá até a última linha preenchida e acrescente X". Esperado: `key_sequence` com Ctrl+seta/ArrowDown.
+- [ ] No trace: `clipboardWrites`, `clipboardReads` e `keyChords` presentes; passos ≤ 6 por operação.
+- [ ] Comparar com o comportamento antigo (clique por coordenada) em passos e acerto.
 
 ## 4. O que ainda NÃO está pronto para "release"
 
