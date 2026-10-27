@@ -5,7 +5,8 @@
 - Árvore única: `main` com a integração commitada (`68e51f7` → `be7677f` → registro deste build). A paginação do
   `read_batch` (que estava sem commit) foi commitada, a branch `claude/analise-projeto-atual-bf8fc8` foi rebaseada
   sobre o `main` — 2 conflitos resolvidos — e aplicada por fast-forward. Histórico linear, sem merge commit e sem push.
-- Verificação desta integração: `npm test` **127/127**; `node --check` em todo `src/`, `scripts/`, `bench/`, `test/`;
+- Verificação desta integração: `npm test` **127/127** na integração; **133/133** após o salto 1 do motor.
+  `node --check` em todo `src/`, `scripts/`, `bench/`, `test/`;
   `git diff --check` limpo; `npm audit --omit=dev` zero. NÃO rodados ainda: `test:electron`, `test:bench-store`,
   `test:agent-download` e benchmark com modelo real.
 - **Build e instalação (2026-10-27):** `dist\Zero Browser Setup 0.1.5-dev.exe` (124.430.162 bytes,
@@ -26,6 +27,10 @@
   omitidas. Regra em `src/automation/batch-coverage.js`; detalhe, conflitos e reversão em
   `docs/REGISTRO_INTEGRACAO_0.1.5.md`.
 - Versão: `package.json` e `package-lock.json` em 0.1.5-dev (o lock estava em 0.1.4).
+- **Motor, salto 1 (2026-10-27):** `run_steps` aceita `expect {url,text,absent}` conferido pelo host (espera de até
+  3 s, texto normalizado, parada quando a pós-condição não vem). Opt-in: só com `actionScripts`/`--scripts`.
+  `npm test` 133/133; regra em `docs/EVOLUCAO_MOTOR.md`; restauração em `docs/PONTOS_DE_RESTAURACAO.md`
+  (tag `motor-pre-leaps-2026-10-27`). Sem benchmark e AUSENTE do app instalado até um novo build.
 - Continua SEM verificação no app: perfis (menu ⋮), menu de contexto de abas, histórico persistente de downloads,
   atalhos com foco na página e todas as flags opt-in do motor (`--preinspect`, `--scripts`, `--diff`,
   `--cascade=`, `--stream`).

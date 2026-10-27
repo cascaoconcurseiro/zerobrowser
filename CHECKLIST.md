@@ -463,3 +463,10 @@
 - [x] Build Windows 0.1.5-dev com backup restaurável (`backups/2026-10-27-before-0.1.5-dev`, app + perfil + atalhos + instalador 0.1.4) e instalação validada: `app.asar` idêntico entre build e produção (`3658148c…f606401`) e `status: PASS` na integração do executável instalado. Pedido explícito do usuário.
 - [ ] Push/publicação: o `main` está 7 commits à frente de `origin/main`; nada foi enviado.
 - [ ] Rodar `test:electron`, `test:bench-store` e `test:agent-download`, e o benchmark pareado 0.1.4 vs 0.1.5-dev. O build instalado é `-dev`, não um release.
+
+## Saltos do motor — 2026-10-27
+
+- [x] `run_steps` com pós-condições `{url,text,absent}` verificadas pelo host, espera de até 3 s, falha que interrompe o roteiro e contador `scriptExpectationFailures` no trace (`src/automation/expectation.js`, `action-script.js`, `service/index.js`; 6 testes novos).
+- [x] Ponto de restauração documentado em `docs/PONTOS_DE_RESTAURACAO.md` (tag `motor-pre-leaps-2026-10-27`).
+- [ ] A/B de `--scripts` com e sem `expect` na suíte difícil e na loja 47: chamadas por tarefa, acerto e taxa de pós-condição falha.
+- [ ] Journal de efeitos e idempotência (próximo salto): impedir envio duplicado após falha, timeout ou reinício.

@@ -231,3 +231,39 @@ pareado, registrando passos, chamadas e tokens — pendente porque depende do ap
 
 Relação com o histórico acima: as rodadas de 0.1.4 registraram cobertura incompleta como sinal de "leia o resto",
 o que era correto na intenção e falso na prática. O trace continua guardando só contadores, sem texto de página.
+
+### Pós-condições em `run_steps` — 2026-10-27
+
+Primeiro salto do motor depois da integração 0.1.5-dev, ainda **opt-in** (`actionScripts` / `--scripts`). Antes,
+`run_steps` considerava um passo bem-sucedido quando a ferramenta respondia sem erro: clicar num botão desabilitado
+ou num controle que re-renderiza sem efeito passava como sucesso. Agora o modelo pode declarar o **efeito esperado**
+e o host confirma antes de seguir.
+
+Formato do passo:
+
+```json
+{ "tool": "click", "args": { "index": 12 },
+  "expect": { "text": "Pedido salvo", "absent": "Salvando…" } }
+```
+
+- `url`: prefixo que a URL deve ter depois do passo (cobre navegação e redirect).
+- `text`: texto que deve aparecer no texto visível, comparado sem acento, sem caixa e com espaços normalizados.
+- `absent`: texto que não pode mais estar na página.
+
+Semântica:
+
+- a verificação é feita **pelo host**, lendo a aba atual, a cada 120 ms por até 3 s;
+- se a pós-condição não vier, a resposta marca `actionExecuted: true` e `outcomeVerified: false`, registra
+  `failedExpectation` com o motivo e **não executa os passos seguintes**;
+- passo com `expect` e sem verificador disponível é recusado **antes** de qualquer ação;
+- o trace ganha `scriptExpectationFailures` (contador), sem guardar texto da página.
+
+Arquivos: `src/automation/expectation.js` (avaliação pura), `src/automation/action-script.js` (espera e parada),
+`src/automation/service/index.js` (verificador na aba atual + prompt). Testes: `test/action-script-expectations.test.js`
+(6 casos: normalização, prefixo de URL, texto ausente, validação, polling até passar e falha que interrompe).
+`npm test` 133/133.
+
+O que **não** foi feito: nenhum A/B, nenhuma medição de chamadas economizadas, e nenhum reparo automático. Se a
+pós-condição falhar, o roteiro para e devolve o motivo; quem decide o próximo passo ainda é o modelo. A próxima
+evolução natural é o journal de efeitos: registrar a intenção consequente, verificar se ela já aconteceu e impedir
+envio duplicado após falha ou reinício.

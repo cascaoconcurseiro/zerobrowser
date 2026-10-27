@@ -22,6 +22,7 @@ const { diffNodes } = require('../snapshot-diff');
 const { createModelCascade } = require('../model-cascade');
 const { readStreamedCompletion } = require('../stream-parser');
 const { RUN_STEPS_TOOL, runSteps } = require('../action-script');
+const { evaluateExpectation, needsPageText } = require('../expectation');
 
 const {
   taskPolicyAllows, isLoopbackUrl, HUMAN_CHECK_GUARDED_TOOLS, compactScreenshot, dropImages,
@@ -809,7 +810,7 @@ class AutomationService {
     ];
     const pendingImages = [];
     if (preInspect) messages[0].content += ' O host já leu a página inicial e entregou o resultado de inspect_page antes do seu primeiro turno: use esses índices e dados em vez de pedir inspect_page de novo.';
-    if (actionScripts) messages[0].content += ' Para vários passos conhecidos na mesma página (preencher um formulário, marcar vários itens) prefira uma única chamada run_steps, com a ação que muda de página por último; o host executa em ordem e para no primeiro erro.';
+    if (actionScripts) messages[0].content += ' Para vários passos conhecidos na mesma página (preencher um formulário, marcar vários itens) prefira uma única chamada run_steps, com a ação que muda de página por último; cada passo pode declarar expect {url,text,absent} e o host só segue quando a pós-condição for verdadeira.';
     if (diffSnapshots) messages[0].content += ' Depois de uma ação, o snapshot pode vir como diferença (campo diff): os nodes listados substituem os de mesmo índice e os índices em diff.iguais continuam valendo como no snapshot anterior.';
     if (observeAfterActions) messages[0].content += ' A última ação de um lote pode devolver nodes e text atualizados (autoObserved): use esses índices e dados, sem pedir inspect_page de novo se já bastarem.';
     if (resumed) {
@@ -895,7 +896,19 @@ class AutomationService {
       if (name === 'calculate') return calculate(args);
       if (name === 'run_steps') {
         if (!actionScripts) throw new Error('run_steps não está ligado nesta tarefa');
+        // A pós-condição é conferida no host, na aba atual: o modelo declara o efeito, não a evidência.
+        const verifyExpectation = async (expect) => {
+          const target = tab?.webContents;
+          if (!target || target.isDestroyed?.()) return { ok: false, detail: 'aba indisponível' };
+          let url = '';
+          try { url = String(target.getURL?.() || ''); } catch {}
+          const text = needsPageText(expect)
+            ? await target.executeJavaScript(`(document.body?.innerText||'').slice(0,20000)`).catch(() => '')
+            : '';
+          return evaluateExpectation(expect, { url, text: String(text || '') });
+        };
         const result = await runSteps(args.steps, callTool, {
+          verifyExpectation,
           shouldStop: () => {
             if ([...this.tabs.keys()].some((id) => !knownTabs.has(id))) return 'uma aba nova foi aberta';
             if (taskDownloads().some((item) => !knownDownloads.has(item.id))) return 'um download começou';
@@ -903,7 +916,10 @@ class AutomationService {
             return null;
           }
         });
-        if (trace) trace.scriptSteps = (trace.scriptSteps || 0) + (result.completed || 0);
+        if (trace) {
+          trace.scriptSteps = (trace.scriptSteps || 0) + (result.completed || 0);
+          if (result.failedExpectation) trace.scriptExpectationFailures = (trace.scriptExpectationFailures || 0) + 1;
+        }
         return result;
       }
       if (name === 'tabs') {
