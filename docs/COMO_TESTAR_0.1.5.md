@@ -61,10 +61,11 @@ node bench/avaliar.js x1 --conjunto=basico --tarefas=01 --repeticoes=1   # struc
 
 Estes itens não são bug do build; são gates que faltam:
 
+- [x] Integrações Electron na árvore instalada (27/10): `test:electron` exit 0, `test:bench-store` PASS,
+      `test:agent-download` PASS.
 - Benchmark pareado 0.1.4 × 0.1.5-dev em suíte difícil + básica, com dois modelos.
-- `test:bench-store` e `test:agent-download` não foram rodados nesta árvore.
 - Grounding visual (clicar por elemento visto) não foi implementado; depende de modelo com visão.
-- Nada foi enviado ao `origin`; o `main` está 11 commits à frente.
+- Nada foi enviado ao `origin`; o `main` está 13 commits à frente.
 
 ## 5. Se algo der errado
 

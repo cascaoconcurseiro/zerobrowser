@@ -456,7 +456,7 @@
 - [x] Alinhar `package-lock.json` com `package.json` em 0.1.5-dev (o lock estava em 0.1.4).
 - [x] Verificar após a integração: `npm test` **127/127**; `node --check` em `src/`, `scripts/`, `bench/`, `test/`; `git diff --check` limpo; `npm audit --omit=dev` zero.
 - [x] Documentar a sessão em `docs/REGISTRO_INTEGRACAO_0.1.5.md` (fluxos, conflitos, evidências, o que falta e como reverter).
-- [ ] Rodar `npm run test:electron`, `test:bench-store`, `test:agent-download` e `test:installed` na árvore integrada (exigem GUI/build).
+- [x] Rodar `npm run test:electron` (exit 0), `test:bench-store` (PASS: busca, facetas, variante, carrinho), `test:agent-download` (PASS: anexo herda posse antes de navegar) e `test:installed` (PASS) na árvore integrada e no build instalado.
 - [ ] Conferir no app rodando: perfis (abrir/criar/excluir), menu de contexto de abas, histórico persistente de downloads e atalhos com foco na página.
 - [ ] Confirmar no modelo que a tarefa 44 para de paginar quando o último trecho vem `complete`, e medir 0.1.4 vs 0.1.5-dev com `bench/comparador.js`.
 - [ ] A/B isolado de `--scripts` e `--diff`; repetir `--preinspect` em `reais` antes de ligá-lo por padrão.
