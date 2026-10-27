@@ -73,3 +73,23 @@ test('batch coverage exposes omitted tabs, matches, and truncated page text', ()
     matchesOmitted: 7
   });
 });
+
+test('the last chunk of a paginated read is complete even though earlier chunks held matches', () => {
+  const coverage = summarizeBatchCoverage([
+    { matches: 10, matchesReturned: 3, matchesRemaining: 0 }
+  ], 'item');
+  assert.equal(coverage.complete, true, 'nada falta depois deste trecho');
+  assert.equal(coverage.matchesFound, 10);
+  assert.equal(coverage.matchesReturned, 3);
+  assert.equal(coverage.matchesOmitted, 0, 'trechos anteriores já entregues não contam como omissão');
+  assert.equal(coverage.pagesTruncated, 0);
+});
+
+test('a chunk with matches still ahead is incomplete and counts only what remains', () => {
+  const coverage = summarizeBatchCoverage([
+    { matches: 10, matchesReturned: 3, matchesRemaining: 5, truncated: true }
+  ], 'item');
+  assert.equal(coverage.complete, false);
+  assert.equal(coverage.matchesOmitted, 5);
+  assert.equal(coverage.pagesTruncated, 1);
+});

@@ -44,6 +44,7 @@ test('read_batch can continue through task tabs and text after 12k without readi
   let firstBatch;
   let secondBatch;
   const chunks = [];
+  const contentBatches = [];
   let changedPage;
   let staleTabs;
   let outside;
@@ -75,6 +76,7 @@ test('read_batch can continue through task tabs and text after 12k without readi
     } else if (round >= 4 && round < 12) {
       const previous = output(`content-${round - 4}`);
       const page = previous.pages[0];
+      contentBatches.push(previous);
       chunks.push(page);
       if (page.nextContentOffset !== undefined && page.nextContentOffset !== null) {
         toolCalls = [makeCall(`content-${round - 3}`, { action: 'read_batch', query: 'produto', tabId: 'task-7', contentOffset: page.nextContentOffset, contentVersion: page.contentVersion })];
@@ -96,6 +98,10 @@ test('read_batch can continue through task tabs and text after 12k without readi
     assert.ok(chunks.length > 1, 'resultado longo exige continuação');
     assert.ok(chunks.every((p) => p.text.length <= 600));
     assert.equal(chunks.map((p) => p.text).join(''), matchingLines.join('\n'));
+    assert.equal(contentBatches[0].coverage.tabsOmitted, 0, 'leitura por tabId não conta as outras abas como omitidas');
+    assert.equal(contentBatches.at(-1).coverage.complete, true, 'o último trecho encerra a leitura em vez de pedir mais');
+    assert.ok(contentBatches.at(-1).pages[0].nextContentOffset === undefined, 'sem próximo offset no último trecho');
+    assert.ok(contentBatches.slice(0, -1).every((batch) => batch.coverage.complete === false), 'trechos intermediários continuam parciais');
     assert.equal(changedPage.coverage.complete, false);
     assert.match(changedPage.pages[0].error, /mudou|versão/i);
     assert.equal(staleTabs.success, false);

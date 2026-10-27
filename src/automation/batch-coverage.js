@@ -9,7 +9,13 @@ function summarizeBatchCoverage(pages, query, { tabsOmitted = 0 } = {}) {
   const hasQuery = Boolean(String(query || '').trim());
   const matchesFound = hasQuery ? available.reduce((sum, page) => sum + (Number(page?.matches) || 0), 0) : 0;
   const matchesReturned = hasQuery ? available.reduce((sum, page) => sum + (Number(page?.matchesReturned) || 0), 0) : 0;
-  const matchesOmitted = hasQuery ? Math.max(0, matchesFound - matchesReturned) : 0;
+  // `matchesOmitted` é o que ainda falta depois deste trecho, não o que ficou em trechos anteriores: uma continuação
+  // que chega ao fim da página pode ser completa. Páginas sem `matchesRemaining` mantêm o cálculo antigo.
+  const matchesOmitted = hasQuery
+    ? available.reduce((sum, page) => sum + (Number.isFinite(page?.matchesRemaining)
+      ? Number(page.matchesRemaining)
+      : Math.max(0, (Number(page?.matches) || 0) - (Number(page?.matchesReturned) || 0))), 0)
+    : 0;
   const coverage = {
     complete: failed === 0 && pagesTruncated === 0 && tabsOmitted === 0 && matchesOmitted === 0,
     pagesConsidered: considered.length,
