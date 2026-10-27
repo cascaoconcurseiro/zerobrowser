@@ -87,7 +87,27 @@ Os testes extras em relação à branch (124 → 127) são os 3 novos de cobertu
   não foram rodados nesta sessão (exigem GUI/build).
 - **Benchmark com modelo real**: nenhum A/B novo. O efeito da correção de cobertura no comportamento do agente
   (parar de paginar no fim) é **esperado, não medido**.
-- **Build/instalação/publicação**: nada foi compilado, instalado ou enviado a `origin`. A produção segue 0.1.4.
+- **Publicação**: nada foi enviado a `origin`. Build e instalação foram feitos depois da integração — ver abaixo.
+
+## Build e instalação (mesma data)
+
+Pedido explícito do usuário: gerar o executável e instalar a atualização.
+
+| Etapa | Resultado |
+|---|---|
+| `npm run build` | concluído em ~76 s; electron-builder 26.15.7, Electron 45.0.0, NSIS one-click x64 |
+| Instalador | `dist\Zero Browser Setup 0.1.5-dev.exe`, 124.430.162 bytes, SHA-256 `4769f4eb2905f7710a4cd426fd1d9121d49603a821596e289ab8bdc5ce82bcc4` |
+| Validação do `win-unpacked` | `scripts/installed-agent.integration.js` com perfil temporário: provedores mock, AX, CUA, configurações, download, aprovação e cancelamento |
+| Backup | `backups/2026-10-27-before-0.1.5-dev/`: app 0.1.4 (184 arquivos, 374 MB), perfil (7.776 arquivos, 763 MB), atalhos e instalador 0.1.4, com `LEIA-ME.md` |
+| Instalação | NSIS `/S` sobre `%LOCALAPPDATA%\Programs\navegante`; `FileVersion 0.1.5-dev`, `ProductVersion 0.1.5.0` |
+| Hash build vs instalado | idênticos: `3658148c12a1335a1ebf6988ae5f557c8d9ac3d3d226ebe182105acd4f606401` |
+| Aceitação pós-instalação | `scripts/installed-agent.integration.js` contra o executável instalado: `status: PASS` |
+| Atalhos | Desktop e Menu Iniciar continuam apontando para o executável de produção |
+
+Ressalvas: é um build `-dev` com funcionalidades ainda não exercitadas no app (perfis, menu de abas, downloads
+persistentes, flags opt-in do motor). O backup do perfil foi feito com o navegador fechado; depois da instalação o
+NSIS abriu o app, o que fez o perfil crescer por cache — o backup continua representando o estado anterior. Para
+voltar ao 0.1.4, seguir o `LEIA-ME.md` do backup.
 
 ## Riscos e pendências herdados da branch
 

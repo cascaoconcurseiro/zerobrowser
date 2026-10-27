@@ -460,4 +460,6 @@
 - [ ] Conferir no app rodando: perfis (abrir/criar/excluir), menu de contexto de abas, histórico persistente de downloads e atalhos com foco na página.
 - [ ] Confirmar no modelo que a tarefa 44 para de paginar quando o último trecho vem `complete`, e medir 0.1.4 vs 0.1.5-dev com `bench/comparador.js`.
 - [ ] A/B isolado de `--scripts` e `--diff`; repetir `--preinspect` em `reais` antes de ligá-lo por padrão.
-- [ ] Build e instalador isolado com backup restaurável; push/publicação só com pedido explícito.
+- [x] Build Windows 0.1.5-dev com backup restaurável (`backups/2026-10-27-before-0.1.5-dev`, app + perfil + atalhos + instalador 0.1.4) e instalação validada: `app.asar` idêntico entre build e produção (`3658148c…f606401`) e `status: PASS` na integração do executável instalado. Pedido explícito do usuário.
+- [ ] Push/publicação: o `main` está 7 commits à frente de `origin/main`; nada foi enviado.
+- [ ] Rodar `test:electron`, `test:bench-store` e `test:agent-download`, e o benchmark pareado 0.1.4 vs 0.1.5-dev. O build instalado é `-dev`, não um release.

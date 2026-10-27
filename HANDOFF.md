@@ -2,13 +2,25 @@
 
 ## Estado em 2026-10-27 (integração 0.1.5-dev)
 
-- Árvore única: `main` em `12681cf`. A paginação do `read_batch` (que estava sem commit) foi commitada, a branch
-  `claude/analise-projeto-atual-bf8fc8` foi rebaseada sobre o `main` — 2 conflitos resolvidos — e aplicada por
-  fast-forward. Histórico linear, sem merge commit e sem push.
+- Árvore única: `main` com a integração commitada (`68e51f7` → `be7677f` → registro deste build). A paginação do
+  `read_batch` (que estava sem commit) foi commitada, a branch `claude/analise-projeto-atual-bf8fc8` foi rebaseada
+  sobre o `main` — 2 conflitos resolvidos — e aplicada por fast-forward. Histórico linear, sem merge commit e sem push.
 - Verificação desta integração: `npm test` **127/127**; `node --check` em todo `src/`, `scripts/`, `bench/`, `test/`;
-  `git diff --check` limpo; `npm audit --omit=dev` zero. NÃO rodados: `test:electron`, `test:bench-store`,
-  `test:agent-download`, `test:installed`, app aberto, benchmark com modelo real, build/instalação e push.
-  A produção continua em 0.1.4.
+  `git diff --check` limpo; `npm audit --omit=dev` zero. NÃO rodados ainda: `test:electron`, `test:bench-store`,
+  `test:agent-download` e benchmark com modelo real.
+- **Build e instalação (2026-10-27):** `dist\Zero Browser Setup 0.1.5-dev.exe` (124.430.162 bytes,
+  SHA-256 `4769f4eb2905f7710a4cd426fd1d9121d49603a821596e289ab8bdc5ce82bcc4`) foi instalado em
+  `%LOCALAPPDATA%\Programs\navegante` após validação do `win-unpacked` em perfil isolado. O `app.asar` do build e
+  da instalação coincidem: `3658148c12a1335a1ebf6988ae5f557c8d9ac3d3d226ebe182105acd4f606401`. O executável
+  instalado informa `FileVersion 0.1.5-dev` (`ProductVersion 0.1.5.0`) e passou `scripts/installed-agent.integration.js`
+  com `status: PASS` (AX, CUA, configurações, downloads, provedores mockados, aprovação/cancelamento, segunda instância).
+  A instalação ANTERIOR (0.1.4, `app.asar` `b14007...`) está preservada em `backups/2026-10-27-before-0.1.5-dev/`
+  (app 184 arquivos/374 MB, perfil 7.776 arquivos/763 MB, atalhos e instalador 0.1.4), com instruções de restauração
+  em `LEIA-ME.md` da mesma pasta.
+- **Produção agora roda um build `-dev`.** Ele não passou pelos gates de release (integrações Electron restantes,
+  benchmark pareado, inspeção visual). Reverter é instalar o 0.1.4 do backup; o perfil não foi migrado.
+- O instalador NSIS abre o app ao terminar: há processos `Zero Browser.exe` do perfil real desde 15:01. Isso não
+  afeta o hash nem o backup (feito com o app fechado).
 - Correção aplicada: `coverage.complete` voltou a significar "não falta mais nada". O último trecho de uma leitura
   paginada agora é `complete` (antes era sempre falso), e uma leitura por `tabId` não conta as outras abas como
   omitidas. Regra em `src/automation/batch-coverage.js`; detalhe, conflitos e reversão em

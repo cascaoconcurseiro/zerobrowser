@@ -6,9 +6,9 @@ Navegador Electron para Windows com agente integrado à OpenRouter ou DeepSeek.
 
 ## Estado atual (2026-10-27)
 
-O release **0.1.4** é o que está instalado em produção no Windows (instalado em 26/10/2026 após backup verificável e validação do executável empacotado). O `app.asar` instalado corresponde ao build por SHA-256. Testes com provider local e fixtures confirmam fluxos de integração, mas não comprovam desempenho ou acerto em Planilhas autenticadas, lojas com conta ou todos os sites complexos. O estado e os próximos passos do motor estão em `HANDOFF.md`, `docs/EVOLUCAO_MOTOR.md` e `docs/REGISTRO_INTEGRACAO_0.1.5.md`.
+O **0.1.5-dev** é o que está instalado em produção no Windows desde 27/10/2026, instalado por cima do 0.1.4 após backup verificável e validação do executável empacotado. O `app.asar` do build e da instalação coincide (`3658148c…f606401`), e a integração do executável instalado passou. É um build `-dev`: não passou pelos gates de release (integrações Electron restantes, benchmark pareado e inspeção visual), então trate como candidato. Testes com provider local e fixtures confirmam fluxos de integração, mas não comprovam desempenho ou acerto em Planilhas autenticadas, lojas com conta ou todos os sites complexos. O estado e os próximos passos estão em `HANDOFF.md`, `docs/EVOLUCAO_MOTOR.md` e `docs/REGISTRO_INTEGRACAO_0.1.5.md`.
 
-A árvore de trabalho está em **0.1.5-dev**: traz a paginação do `read_batch`, a correção de `coverage.complete`, perfis, aliases `ZERO_*`, guardas de injeção/exfiltração e quatro mecanismos opt-in do motor. Nada disso foi compilado ou instalado; a produção não mudou.
+A instalação anterior (0.1.4) está preservada em `backups/2026-10-27-before-0.1.5-dev/` — app, perfil, atalhos e instalador — com instruções de restauração no `LEIA-ME.md` da pasta.
 
 ### Em desenvolvimento (0.1.5-dev)
 
@@ -19,7 +19,7 @@ A árvore de trabalho está em **0.1.5-dev**: traz a paginação do `read_batch`
 - Ferramenta `calculate` (aritmética exata, sem `eval`), nova tentativa em 429/5xx, aviso de repetição e `href` curto no snapshot.
 - Guardas: aviso de injeção de prompt vindo da página e aprovação extra para navegação a outro site com dados na URL.
 - Motor opt-in, desligado por padrão: `preInspect`, `run_steps`, snapshot por diferença, cascata de modelos e streaming. Só `preInspect` tem A/B registrado.
-- `npm test` 127/127 nesta árvore; app, integrações Electron e benchmark com modelo real não foram rodados após a integração.
+- `npm test` 127/127 nesta árvore e a integração do executável instalado passou (`status: PASS`). Faltam `test:electron`, `test:bench-store`, `test:agent-download` e benchmark com modelo real.
 
 ### Fluxos ligados
 

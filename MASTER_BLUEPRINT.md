@@ -43,6 +43,7 @@ Navegador desktop próprio, pensado para navegação humana e controle amplo e s
 | 2026-10-27 | Integrar a branch 0.1.5-dev por rebase + fast-forward, com 0.1.4 ainda em produção | Elimina os três fluxos paralelos e mantém histórico linear; release só depois de app, integrações Electron e benchmark |
 | 2026-10-27 | Perfis como processos separados via `ZERO_USER_DATA`, sem renomear nem migrar o perfil atual | Isola dados sem tocar no perfil existente; renomear partição, pasta e `appId` exige migração e backup (Fase B) |
 | 2026-10-27 | Aceitar `ZERO_*` ao lado de `NAVEGANTE_*` durante a mudança de nome | Scripts, testes e atalhos antigos continuam válidos; a identidade interna só muda com plano de migração |
+| 2026-10-27 | Instalar 0.1.5-dev em produção após validar `win-unpacked`, conferir hash e criar backup restaurável | Pedido explícito do usuário; produção passa a rodar um candidato até fechar integrações Electron e benchmark, com reversão documentada |
 
 ## Migração arquitetural planejada
 - Plano completo: `docs/PLANO_ZERO_CHROMIUM_AI.md`.
