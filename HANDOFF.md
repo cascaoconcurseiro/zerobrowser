@@ -57,9 +57,12 @@
 - **Motor, salto 10 (2026-10-27):** ETL paralelo entre abas: `read_batch` com `extract` devolve linhas estruturadas
   por aba, com proveniência, `missingColumns`/`truncationReasons` e agregados; catálogo em 7.815 bytes.
   `npm test` 173/173.
+- **Motor, salto 11 (2026-10-27):** receitas por site (`recipe`, opt-in): passos estáveis com `expect` obrigatório,
+  armazenamento por origem e execução sem modelo. `npm test` 177/177. Sem captura automática e sem journal nos
+  passos da receita.
 - Continua SEM verificação no app: perfis (menu ⋮), menu de contexto de abas, histórico persistente de downloads,
   atalhos com foco na página e todas as flags opt-in do motor (`--preinspect`, `--scripts`, `--diff`,
-  `--cascade=`, `--stream`, `--journal`, `structuredExtraction`).
+  `--cascade=`, `--stream`, `--journal`, `structuredExtraction`, `recipes`).
 - Os registros de 2026-10-27 abaixo foram escritos ANTES desta integração e dizem "não commitado / suíte não
   rodada"; o estado vigente é o desta seção.
 

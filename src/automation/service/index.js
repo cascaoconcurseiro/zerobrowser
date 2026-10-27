@@ -27,6 +27,7 @@ const { isConsequential, effectKey, normalizeUrl, planEffect, settleEffect } = r
 const { classifyRisk, approvalReasonForMode } = require('../risk');
 const { validateChecks, evaluateChecks, CHECK_TASK_TOOL } = require('../task-verifier');
 const { EXTRACT_TABLE_TOOL, validateRequest: validateTableRequest, shapeRows, buildTableScript } = require('../table-extractor');
+const { RecipeStore, RECIPE_TOOL, validateRecipe, normalizeOrigin } = require('../recipe-store');
 
 const {
   taskPolicyAllows, isLoopbackUrl, HUMAN_CHECK_GUARDED_TOOLS, compactScreenshot, dropImages,
@@ -45,6 +46,7 @@ class AutomationService {
     this.db = null;
     this.pipePath = null;
     this.effectJournal = null; // journal de efeitos consequentes (opt-in por tarefa); criado em start()
+    this.recipeStore = null; // receitas determinísticas por origem (opt-in por tarefa); criado em start()
     this.browserControls = {};
     this.approvalHandler = null;
     this.settingsProvider = null;
@@ -357,6 +359,14 @@ class AutomationService {
       });
     } catch {
       this.effectJournal = null;
+    }
+
+    try {
+      this.recipeStore = new RecipeStore({
+        filePath: path.join(zeroEnv('DATA_DIR') || process.cwd(), 'automation', 'receitas.json')
+      });
+    } catch {
+      this.recipeStore = null;
     }
 
     if (process.platform === 'win32') {
@@ -752,7 +762,7 @@ class AutomationService {
   }
 
   // `trace`, when given, is filled in place with model calls, token usage and every tool call (used by run_task).
-  async runAgent(tabId, prompt, apiKey, model, allowTools = true, provider = 'openrouter', requireToolCall = false, { maxSteps = 30, trace = null, maxDurationMs = 5 * 60 * 1000, resumable = false, resumeId = null, observeAfterActions = true, captureReadEvidence = false, preInspect = false, actionScripts = false, diffSnapshots = false, cascadeModel = null, streaming = false, effectJournal = false, verify = null, correctionRounds = 0, structuredExtraction = false } = {}) {
+  async runAgent(tabId, prompt, apiKey, model, allowTools = true, provider = 'openrouter', requireToolCall = false, { maxSteps = 30, trace = null, maxDurationMs = 5 * 60 * 1000, resumable = false, resumeId = null, observeAfterActions = true, captureReadEvidence = false, preInspect = false, actionScripts = false, diffSnapshots = false, cascadeModel = null, streaming = false, effectJournal = false, verify = null, correctionRounds = 0, structuredExtraction = false, recipes = false } = {}) {
     for (const [id, state] of this.pausedAgentRuns) {
       if (state.expiresAt <= Date.now()) this.pausedAgentRuns.delete(id);
     }
@@ -816,6 +826,7 @@ class AutomationService {
     if (actionScripts) tools.push(structuredClone(RUN_STEPS_TOOL));
     if (structuredExtraction) tools.push(structuredClone(EXTRACT_TABLE_TOOL));
     if (verificationChecks.length) tools.push(structuredClone(CHECK_TASK_TOOL));
+    if (recipes && this.recipeStore) tools.push(structuredClone(RECIPE_TOOL));
     const approvalMode =this.settingsProvider?.().automationApprovalMode || 'low-risk';
     const approvalInstructions = approvalInstructionsFor(approvalMode);
     const messages = [
@@ -828,6 +839,7 @@ class AutomationService {
     if (effectJournal) messages[0].content += ' O journal de efeitos impede repetir uma ação consequente sem confirmação: se a resposta trouxer alreadyDone ou needsVerification, inspecione a página e confirme o estado em vez de repetir às cegas.';
     if (verificationChecks.length) messages[0].content += ' O host confere o resultado final contra um contrato; chame check_task para conferir o estado antes de concluir e, se o host recusar, corrija a página antes de encerrar.';
     if (structuredExtraction) messages[0].content += ' Para tabelas, use extract_table com as colunas do cabeçalho em vez de copiar texto; confira missingColumns, totalRows e truncated antes de concluir.';
+    if (recipes && this.recipeStore) messages[0].content += ' Receitas: recipe list mostra as da origem; recipe save grava passos estáveis (navigate, click_text, wait_for) com expect obrigatório; recipe run repete sem modelo e para na primeira pós-condição que falhar. Só grave depois de a tarefa ter sido verificada.';
     if (diffSnapshots) messages[0].content += ' Depois de uma ação, o snapshot pode vir como diferença (campo diff): os nodes listados substituem os de mesmo índice e os índices em diff.iguais continuam valendo como no snapshot anterior.';
     if (observeAfterActions) messages[0].content += ' A última ação de um lote pode devolver nodes e text atualizados (autoObserved): use esses índices e dados, sem pedir inspect_page de novo se já bastarem.';
     if (resumed) {
@@ -929,6 +941,26 @@ class AutomationService {
         const verdict = await this.verifyTask(tab, verificationChecks, taskStartedAt);
         if (trace) trace.verifyChecks = (trace.verifyChecks || 0) + 1;
         return { success: true, readOnly: true, ok: verdict.ok === true, results: verdict.results || [], ...(verdict.error ? { error: verdict.error } : {}) };
+      }
+      if (name === 'recipe') {
+        if (!recipes || !this.recipeStore) throw new Error('Receitas não estão ligadas nesta tarefa');
+        const origin = normalizeOrigin(tab?.webContents?.getURL?.() || '');
+        if (!origin) throw new Error('Receitas exigem uma página HTTP/HTTPS');
+        if (args.action === 'list') return { success: true, readOnly: true, origin, recipes: await this.recipeStore.list(origin) };
+        if (args.action === 'save') {
+          const invalid = validateRecipe({ name: args.name, steps: args.steps });
+          if (invalid) throw new Error(invalid);
+          const saved = await this.recipeStore.save(origin, args.name, args.steps);
+          return { success: true, origin, name: saved.name, steps: saved.steps.length, note: 'Receita gravada; ela só repete passos estáveis e verifica cada pós-condição.' };
+        }
+        if (args.action === 'run') {
+          const recipe = await this.recipeStore.get(origin, args.name);
+          if (!recipe) throw new Error(`Receita "${args.name}" não existe para ${origin}`);
+          const result = await this.runRecipe(tabId, tab, recipe.steps, trace);
+          if (trace) trace.recipeRuns = (trace.recipeRuns || 0) + 1;
+          return { ...result, name: recipe.name, origin };
+        }
+        throw new Error('Ação de receita inválida');
       }
       if (name === 'run_steps') {
         if (!actionScripts) throw new Error('run_steps não está ligado nesta tarefa');
@@ -1952,7 +1984,102 @@ class AutomationService {
     return evaluateChecks(checks, { url, text: String(text || ''), downloads });
   }
 
-  async runTask({ startUrl, prompt, maxSteps = 20, approvalPolicy = 'ask', allowedHosts = [], keepTab = false, captureInitialText = false, captureInitialChecks = [], engine = 'navegante', maxDurationSec, observeAfterActions = true, captureReadEvidence = false, preInspect = false, actionScripts = false, diffSnapshots = false, cascadeModel = null, streaming = false, effectJournal = false, verify = null, requireVerification = false, correctionRounds = 0, structuredExtraction = false }) {
+  // Pós-condição de uma receita: lê a aba e espera até o limite, como no run_steps.
+  async expectationOnTab(tab, expect, timeoutMs = 3000) {
+    const deadline = Date.now() + Math.max(0, timeoutMs);
+    let last = { ok: false, detail: 'sem leitura' };
+    for (;;) {
+      const wc = tab?.webContents;
+      let url = '';
+      let text = '';
+      if (wc && !wc.isDestroyed?.()) {
+        try { url = String(wc.getURL?.() || ''); } catch {}
+        if (needsPageText(expect)) text = await wc.executeJavaScript(`(document.body?.innerText||'').slice(0,20000)`).catch(() => '');
+      }
+      last = evaluateExpectation(expect, { url, text: String(text || '') });
+      if (last.ok || Date.now() >= deadline) return last;
+      await new Promise((resolve) => setTimeout(resolve, 120));
+    }
+  }
+
+  // Receita: passos estáveis, sem modelo. Cada passo passa por aprovação e tem pós-condição obrigatória.
+  async runRecipe(tabId, tab, steps, trace = null) {
+    const results = [];
+    for (const [i, step] of steps.entries()) {
+      let output;
+      try {
+        if (step.tool === 'navigate') {
+          const approval = await this.confirmConsequentialAction(tabId, { kind: 'navigate', readOnly: false, url: step.args.url });
+          if (!approval.approved) {
+            const error = new Error(approval.error || 'Navegação cancelada pela receita');
+            if (approval.cancelled) error.code = 'USER_DENIED';
+            throw error;
+          }
+          await tab.webContents.loadURL(step.args.url);
+          output = { success: true, url: String(tab.webContents.getURL?.() || step.args.url) };
+        } else if (step.tool === 'wait_for') {
+          const want = String(step.args.text).toLowerCase();
+          const deadline = Date.now() + 10000;
+          let found = false;
+          while (Date.now() <= deadline) {
+            found = await tab.webContents.executeJavaScript(`(document.body?.innerText||'').toLowerCase().includes(${JSON.stringify(want)})`).catch(() => false);
+            if (found) break;
+            await new Promise((resolve) => setTimeout(resolve, 250));
+          }
+          output = { success: found, found, error: found ? undefined : `O texto "${step.args.text}" não apareceu em 10 s` };
+        } else if (step.tool === 'click_text') {
+          const approval = await this.confirmConsequentialAction(tabId, { kind: 'click_text', readOnly: false, targetName: step.args.text });
+          if (!approval.approved) {
+            const error = new Error(approval.error || 'Clique cancelado pela receita');
+            if (approval.cancelled) error.code = 'USER_DENIED';
+            throw error;
+          }
+          const target = await tab.webContents.executeJavaScript(`(() => {
+            const norm=t=>String(t||'').normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').replace(/\\s+/g,' ').trim().toLowerCase();
+            const want=norm(${JSON.stringify(String(step.args.text))});
+            for(const e of document.body.querySelectorAll('*')){
+              const r=e.getBoundingClientRect();
+              if(r.width<=0||r.height<=0)continue;
+              const s=getComputedStyle(e);
+              if(s.visibility==='hidden'||s.display==='none')continue;
+              const own=norm([...e.childNodes].filter(n=>n.nodeType===3).map(n=>n.nodeValue).join(' '));
+              if(own===want)return {x:Math.round(r.x+r.width/2),y:Math.round(r.y+r.height/2),label:(e.innerText||'').trim().slice(0,80)};
+            }
+            return null;
+          })()`);
+          if (!target) output = { success: false, error: `Texto "${step.args.text}" não encontrado` };
+          else output = { ...(await performCuaInput(tab.webContents, { kind: 'cua_click', x: target.x, y: target.y })), target: target.label };
+        } else {
+          output = { success: false, error: `Ferramenta não suportada em receita: ${step.tool}` };
+        }
+      } catch (error) {
+        if (error.code === 'USER_DENIED') {
+          if (trace) trace.recipeCancelled = true;
+          return { success: false, cancelled: true, error: 'A receita foi cancelada pelo usuário.' };
+        }
+        output = { success: false, error: String(error.message || error) };
+      }
+      if (output?.success !== false && step.expect) {
+        const verdict = await this.expectationOnTab(tab, step.expect);
+        if (!verdict.ok) {
+          results.push({ step: i + 1, tool: step.tool, ok: false, actionExecuted: true, error: `pós-condição não confirmada: ${verdict.detail}` });
+          if (trace) trace.recipeFailures = (trace.recipeFailures || 0) + 1;
+          return {
+            success: false, failedAt: i + 1, completed: i, total: steps.length, results,
+            error: `O passo ${i + 1} (${step.tool}) executou, mas a pós-condição falhou: ${verdict.detail}.`
+          };
+        }
+      }
+      results.push({ step: i + 1, tool: step.tool, ok: output?.success !== false, ...(output?.error ? { error: String(output.error).slice(0, 200) } : {}) });
+      if (output?.success === false) {
+        return { success: false, failedAt: i + 1, completed: i, total: steps.length, results, error: `O passo ${i + 1} (${step.tool}) falhou: ${output.error || 'sem detalhe'}.` };
+      }
+    }
+    if (trace) trace.recipeSteps = (trace.recipeSteps || 0) + steps.length;
+    return { success: true, completed: steps.length, total: steps.length, results };
+  }
+
+  async runTask({ startUrl, prompt, maxSteps = 20, approvalPolicy = 'ask', allowedHosts = [], keepTab = false, captureInitialText = false, captureInitialChecks = [], engine = 'navegante', maxDurationSec, observeAfterActions = true, captureReadEvidence = false, preInspect = false, actionScripts = false, diffSnapshots = false, cascadeModel = null, streaming = false, effectJournal = false, verify = null, requireVerification = false, correctionRounds = 0, structuredExtraction = false, recipes = false }) {
     const maxDurationMs = maxDurationSec ? maxDurationSec * 1000 : undefined;
     if (approvalPolicy === 'public-sites' && engine === 'flame') return { success: false, error: 'A política public-sites ainda não vale para o Flame' };
     if (engine === 'flame') return this.runFlameTask({ startUrl, prompt, maxSteps, approvalPolicy, keepTab, maxDurationMs });
@@ -1991,7 +2118,7 @@ class AutomationService {
           error: result?.success === false ? String(result.error || 'Leitura inicial falhou') : ''
         });
       }
-      const result = await this.runAgent(tabId, prompt, apiKey, model, true, provider, false, { maxSteps, trace, maxDurationMs, observeAfterActions, captureReadEvidence, preInspect, actionScripts, diffSnapshots, cascadeModel, streaming, effectJournal, verify, correctionRounds, structuredExtraction });
+      const result = await this.runAgent(tabId, prompt, apiKey, model, true, provider, false, { maxSteps, trace, maxDurationMs, observeAfterActions, captureReadEvidence, preInspect, actionScripts, diffSnapshots, cascadeModel, streaming, effectJournal, verify, correctionRounds, structuredExtraction, recipes });
       const finalUrl = tab.webContents.isDestroyed() ? '' : tab.webContents.getURL();
       let verification = result.verification || null;
       if (!verification && Array.isArray(verify) && verify.length) {
@@ -2669,7 +2796,8 @@ class AutomationService {
           })).max(20).optional(),
           requireVerification: z.boolean().optional(),
           correctionRounds: z.number().int().min(0).max(3).optional(),
-          structuredExtraction: z.boolean().optional()
+          structuredExtraction: z.boolean().optional(),
+          recipes: z.boolean().optional()
         }),
         handler: async (input) => this.runTask(input)
       },

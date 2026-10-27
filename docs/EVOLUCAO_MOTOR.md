@@ -545,3 +545,40 @@ Limites honestos:
 - Só tabelas `<table>` e só abas da mesma origem já adotadas pela tarefa; listas de cards ficam de fora.
 - Sem deduplicação entre abas: a mesma linha em duas filiais aparece duas vezes, com `tabId`/`url` diferentes.
 - Sem benchmark de acerto/custo; o catálogo maior custa bytes em toda chamada mesmo quando ninguém extrai tabela.
+
+### Receitas verificadas por site — 2026-10-27
+
+Décimo primeiro salto, último item de código da fila do motor: uma sequência estável pode ser gravada e repetida
+**sem modelo**, com pós-condição obrigatória em cada passo.
+
+Ferramenta `recipe` (opt-in `recipes`; só aparece com a flag):
+
+```json
+{ "action": "save", "name": "finalizar-pedido", "steps": [
+  { "tool": "navigate",   "args": { "url": "https://loja.test/carrinho" },
+    "expect": { "url": "https://loja.test/carrinho" } },
+  { "tool": "click_text", "args": { "text": "Finalizar compra" },
+    "expect": { "text": "Pedido confirmado" } }
+] }
+```
+
+- `list` mostra as receitas da origem atual; `save` valida e grava; `run` executa na aba atual.
+- Só passos **estáveis**: `navigate`, `click_text`, `wait_for` — nada de índice de snapshot, que muda a cada leitura.
+- `expect` é obrigatório em todo passo; a execução para no primeiro que não confirmar e informa qual.
+- Cada passo passa por `confirmConsequentialAction` (navegação e clique) e nada é gravado sem origem HTTP/HTTPS.
+- Armazenamento atômico em `<dados>/automation/receitas.json`, por origem, no máximo 50 por origem e 200 no total.
+- `trace.recipeSteps` conta passos executados; `recipeFailures`/`recipeRuns` registram falha e uso.
+
+Arquivos: `src/automation/recipe-store.js` (validação, armazenamento e schema), `service/index.js`
+(`runRecipe`, ferramenta condicional e prompt). Testes: `test/recipe-store.test.js` (4 casos: validação, persistência,
+origem e execução com falha de pós-condição). `npm test` 177/177.
+
+Limites honestos:
+
+- Não há captura automática: quem grava é o modelo (ou o chamador), então uma receita ruim pode ser salva se a
+  tarefa não tiver sido verificada antes.
+- Sem preenchimento de campo (digitação exige índice/identidade de snapshot); receitas cobrem navegação, clique por
+  texto e espera.
+- Os passos da receita **não passam pelo journal de efeitos**; um clique repetido numa receita não é bloqueado.
+- Sem versão nem expiração: a receita quebra quando o site muda e falha na pós-condição, sem reparo automático.
+- Sem benchmark de tempo/tokens economizados.

@@ -496,3 +496,6 @@
 - [x] ETL paralelo entre abas: `read_batch` aceita `extract` (colunas/selector/tableIndex/maxRows), devolve linhas por aba com proveniência, `missingColumns`/`truncationReasons`, agregados `rowsReturned`/`rowsTotal` e trace `batchTables`/`batchRows`. 3 testes; `npm test` 173/173; catálogo em 7.815 bytes.
 - [ ] Deduplicação entre abas por chave escolhida e extração de listas de cards/grade virtualizada.
 - [ ] A/B de `read_batch` com `extract` contra leitura em lote + extração por texto.
+- [x] Receitas por site (`recipe`, opt-in): `list`/`save`/`run` de passos estáveis (navigate, click_text, wait_for) com `expect` obrigatório, armazenamento atômico por origem e parada na primeira pós-condição falha. 4 testes; `npm test` 177/177.
+- [ ] Passos de receita passarem pelo journal e por preenchimento de campo (hoje só navegação/clique/espera).
+- [ ] Captura automática de receita apenas em tarefa verificada e versionamento por mudança de site.
