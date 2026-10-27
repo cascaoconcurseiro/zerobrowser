@@ -515,3 +515,33 @@ Limites honestos:
   grandes isso tem custo.
 - O contrato continua sendo o do chamador; o modelo não pode inventar critérios novos em tempo de execução.
 - A prova segue textual/estrutural, não de rede.
+
+### Extração estruturada em paralelo entre abas — 2026-10-27
+
+Décimo salto. `tabs read_batch` passou a aceitar `extract` e vira ETL paralelo: uma chamada lê a mesma tabela nas
+abas da tarefa (mesma origem), com uma linha por aba e proveniência.
+
+```json
+{ "action": "read_batch",
+  "extract": { "columns": ["produto", "estoque"], "maxRows": 100 } }
+```
+
+- por aba: tabela escolhida por `selector`/`tableIndex`, colunas casadas por cabeçalho, células aparadas, linhas
+  vazias/duplicadas descartadas (`duplicatesSkipped`);
+- resposta por aba: `{tabId, url, columns, rows, returned, totalRows, duplicatesSkipped, missingColumns, truncated}`;
+- agregados da chamada: `rowsReturned`, `rowsTotal`; `coverage.complete` já considera aba omitida e `truncated`;
+- motivos de truncamento por aba: `remaining_rows` (limite de linhas) e `missing_columns` (coluna pedida ausente);
+- trace ganha `batchTables` e `batchRows` (contagens, sem célula);
+- continua valendo o limite de 6 abas por chamada, com `nextTabOffset`/`tabVersion` para as demais;
+- `contentOffset` é recusado no modo estruturado (não há texto para paginar).
+
+Arquivos: `src/automation/service/index.js` (modo `extract` dentro de `read_batch`), catálogo em
+`src/automation/tools/agent-tool-registry.js` (schema `extract`; JSON passou de 7.329 para 7.815 bytes) e prompt.
+Testes: `test/batch-extract.test.js` (3 casos: duas abas, coluna ausente e argumento de texto recusado).
+`npm test` 173/173.
+
+Limites honestos:
+
+- Só tabelas `<table>` e só abas da mesma origem já adotadas pela tarefa; listas de cards ficam de fora.
+- Sem deduplicação entre abas: a mesma linha em duas filiais aparece duas vezes, com `tabId`/`url` diferentes.
+- Sem benchmark de acerto/custo; o catálogo maior custa bytes em toda chamada mesmo quando ninguém extrai tabela.

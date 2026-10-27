@@ -493,3 +493,6 @@
 - [ ] Paginação automática por `totalRows`/`truncated` e comparação de acerto com extração por texto no benchmark.
 - [x] `check_task`: o agente consulta o contrato de verificação no meio da tarefa (somente leitura, `ok:false` como resultado normal, catálogo só com contrato, `trace.verifyChecks`). 2 testes; `npm test` 170/170.
 - [ ] A/B do impacto de `check_task` em acerto e chamadas (o modelo pode consultar demais).
+- [x] ETL paralelo entre abas: `read_batch` aceita `extract` (colunas/selector/tableIndex/maxRows), devolve linhas por aba com proveniência, `missingColumns`/`truncationReasons`, agregados `rowsReturned`/`rowsTotal` e trace `batchTables`/`batchRows`. 3 testes; `npm test` 173/173; catálogo em 7.815 bytes.
+- [ ] Deduplicação entre abas por chave escolhida e extração de listas de cards/grade virtualizada.
+- [ ] A/B de `read_batch` com `extract` contra leitura em lote + extração por texto.

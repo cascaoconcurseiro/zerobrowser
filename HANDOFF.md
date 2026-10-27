@@ -54,6 +54,9 @@
   colunas por cabeçalho, deduplicação, limite e proveniência; trace só com contagens. `npm test` 168/168.
 - **Motor, salto 9 (2026-10-27):** `check_task` consulta o contrato no meio da tarefa (somente leitura, `ok:false`
   como resultado normal, catálogo só com contrato). `npm test` 170/170.
+- **Motor, salto 10 (2026-10-27):** ETL paralelo entre abas: `read_batch` com `extract` devolve linhas estruturadas
+  por aba, com proveniência, `missingColumns`/`truncationReasons` e agregados; catálogo em 7.815 bytes.
+  `npm test` 173/173.
 - Continua SEM verificação no app: perfis (menu ⋮), menu de contexto de abas, histórico persistente de downloads,
   atalhos com foco na página e todas as flags opt-in do motor (`--preinspect`, `--scripts`, `--diff`,
   `--cascade=`, `--stream`, `--journal`, `structuredExtraction`).

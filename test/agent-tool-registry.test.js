@@ -9,7 +9,7 @@ test('agent tool registry preserves the full Zero Browser capability catalog', (
     'click_text', 'hidden_action', 'see_page', 'scroll', 'cua_action', 'tabs',
     'downloads', 'upload_file', 'go_back', 'wait_for', 'calculate', 'locator_action'
   ]);
-  assert.equal(Buffer.byteLength(JSON.stringify(tools)), 7329);
+  assert.equal(Buffer.byteLength(JSON.stringify(tools)), 7815);
   assert.ok(tools.every((tool) => tool.type === 'function' && tool.function.parameters));
 });
 
