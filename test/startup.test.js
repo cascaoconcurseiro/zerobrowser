@@ -280,7 +280,7 @@ test('consequential AX actions stop before dispatch when the main-process confir
   assert.equal(result.cancelled, true);
   assert.equal(dispatched, 0, 'O processo principal bloqueou o despacho antes do clique');
   assert.equal(approvalRequest.origin, 'https://shop.test');
-  assert.equal(approvalRequest.reason, 'Ação consequente identificada pelo controle da página');
+  assert.equal(approvalRequest.reason, 'Ação de compromisso: place order');
   assert.equal(approvalRequest.targetName, 'Place order');
 });
 

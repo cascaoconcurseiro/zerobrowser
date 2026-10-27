@@ -473,3 +473,6 @@
 - [x] Journal de efeitos (`src/automation/effect-journal.js`): registra a ação consequente antes de despachar, bloqueia repetição sem verificação, confirma sucesso, expira em 30 min e persiste entre reinícios. Opt-in (`effectJournal` / `--journal`; 8 testes).
 - [ ] A/B de `--journal`: medir duplicações evitadas e custo em chamadas; validar que não bloqueia repetições legítimas nas tarefas 31/47.
 - [ ] Usar a pós-condição de `run_steps` como prova de efeito do journal (hoje são mecanismos separados).
+- [x] Classificação de risco por capacidade (`src/automation/risk.js`): níveis credential/destructive/commitment/write/none, precedência, motivos específicos no diálogo e menos falso positivo ("conta"/"pedido" sozinhos deixaram de pedir aprovação). `npm test` 148/148.
+- [ ] Matriz de ~50 controles reais (botões "Prosseguir", "Aplicar", "OK", links de menu) para medir falso positivo/negativo da classificação lexical.
+- [ ] Usar o nível na política: no modo "Permitir leitura", liberar `write` reversível sem diálogo e manter `commitment`/`destructive`/`credential` com confirmação.

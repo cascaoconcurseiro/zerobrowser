@@ -35,6 +35,10 @@
   antes de despachar; repetir depois de falha/timeout exige leitura da página; sucesso vira `alreadyDone`; entradas
   expiram em 30 min e persistem entre reinícios. `npm test` 141/141; limites e desenho em `docs/EVOLUCAO_MOTOR.md`.
   Opt-in, sem benchmark e ausente do app instalado.
+- **Motor, salto 3 (2026-10-27):** risco por capacidade (`src/automation/risk.js`) substitui a regex única de
+  aprovação. Níveis credential/destructive/commitment/write/none, precedência e motivo específico no diálogo;
+  "Minha conta" e "Meus pedidos" deixaram de pedir aprovação. `npm test` 148/148; `--journal` e demais flags seguem
+  opt-in e ausentes do app instalado.
 - Continua SEM verificação no app: perfis (menu ⋮), menu de contexto de abas, histórico persistente de downloads,
   atalhos com foco na página e todas as flags opt-in do motor (`--preinspect`, `--scripts`, `--diff`,
   `--cascade=`, `--stream`, `--journal`).

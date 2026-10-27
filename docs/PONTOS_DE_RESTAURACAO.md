@@ -32,6 +32,7 @@ O `LEIA-ME.md` da pasta traz os hashes esperados e como restaurar o perfil.
 |---|---|---|---:|---|
 | 2026-10-27 | Pós-condições verificadas em `run_steps` (`expect: {url,text,absent}`), com espera de até 3 s e falha que interrompe o roteiro | `git log --oneline --grep="postconditions"` | 133/133 | `git revert <commit>` ou reset para a tag acima |
 | 2026-10-27 | Journal de efeitos com idempotência (`effectJournal`/`--journal`): bloqueia repetição sem verificação, `alreadyDone` após sucesso, TTL de 30 min e persistência entre reinícios | `git log --oneline --grep="effect journal"` | 141/141 | `git revert <commit>` ou reset para a tag acima |
+| 2026-10-27 | Risco por capacidade (`src/automation/risk.js`): níveis credential/destructive/commitment/write, precedência e motivos específicos; remove falso positivo de "conta"/"pedido" isolados | `git log --oneline --grep="risk"` | 148/148 | `git revert <commit>` ou reset para a tag acima |
 
 Ao adicionar um salto, acrescente a linha aqui **no mesmo commit** da mudança.
 

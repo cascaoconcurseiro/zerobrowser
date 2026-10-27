@@ -24,6 +24,7 @@ const { readStreamedCompletion } = require('../stream-parser');
 const { RUN_STEPS_TOOL, runSteps } = require('../action-script');
 const { evaluateExpectation, needsPageText } = require('../expectation');
 const { isConsequential, effectKey, normalizeUrl, planEffect, settleEffect } = require('../effect-journal');
+const { classifyRisk, approvalReasonForMode } = require('../risk');
 
 const {
   taskPolicyAllows, isLoopbackUrl, HUMAN_CHECK_GUARDED_TOOLS, compactScreenshot, dropImages,
@@ -253,20 +254,12 @@ class AutomationService {
     let sensitive = false;
     if ((!tab?.webContents || (typeof tab.webContents.isDestroyed === 'function' && tab.webContents.isDestroyed())) && action.kind !== 'browser_new_tab') return { approved: false, error: 'Aba indisponível' };
     const kind = action.kind || action.operation || 'ação';
-    const requiresApprovalFor = (context, node) => {
-      const normalized = String(context || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-      const consequentialTerms = /\b(delete|remove|purchase|buy|pay|checkout|submit|send|publish|post|transfer|confirm|subscribe|unsubscribe|save changes|save|update account|update|place order|cancel order|log out|sign out|excluir|apagar|remover|comprar|pagar|pagamento|finalizar compra|enviar|publicar|transferir|confirmar|assinar|cancelar|salvar|atualizar|pedido|pedido|conta)\b/;
-      if (consequentialTerms.test(normalized)) return 'Ação consequente identificada pelo controle da página';
-      if (node?.isSubmitControl || node?.formMethod?.toLowerCase() === 'post') return 'Envio de formulário';
-      if (node?.sensitiveInput) return 'Campo de senha, código de verificação ou pagamento';
-      return null;
-    };
+    // Risco por capacidade: credencial > destrutivo > compromisso > escrita > nenhum.
+    const riskOf = (context, node) => classifyRisk({ node, context });
 
     if (approvalMode === 'allow-all') return { approved: true, required: false };
 
-    let reason = null;
-    if (approvalMode === 'always-ask') reason = 'O modo “Sempre perguntar” está ativo';
-    else if (approvalMode === 'allow-read' && !action.readOnly) reason = 'O modo “Permitir leitura” exige confirmação antes de alterar a página';
+    let reason = approvalReasonForMode(approvalMode, { readOnly: action.readOnly === true });
     let targetName = '';
     if (!reason && action.kind === 'upload_file') {
       reason = 'Enviar um arquivo do computador para o site';
@@ -291,8 +284,9 @@ class AutomationService {
           return {name:(el.getAttribute('aria-label')||el.labels?.[0]?.innerText||el.alt||el.title||el.placeholder||el.innerText||(!sensitiveInput?el.value:'')||el.tagName).trim().slice(0,160),role:el.getAttribute('role')||el.tagName.toLowerCase(),href:el.closest('a[href]')?.href||'',formAction,formMethod:el.form?.method||'',inForm:!!el.form,isSubmitControl:!!(el.form&&el.matches('input[type=submit],input[type=image],button:not([type]),button[type=submit]')),sensitiveInput};
         })()`);
         targetName = String(node?.name || '').slice(0,160);
-        sensitive = Boolean(node?.sensitiveInput);
-        reason = requiresApprovalFor([node?.name,node?.href,node?.formAction,node?.role].filter(Boolean).join(' '),node);
+        const cuaRisk = riskOf([node?.name,node?.href,node?.formAction,node?.role].filter(Boolean).join(' '), node);
+        sensitive = cuaRisk.level === 'credential';
+        reason = cuaRisk.reason;
         if (!reason && ['cua_click','cua_double_click','cua_drag'].includes(action.kind) && !node) reason = 'Não foi possível verificar o controle no ponto informado';
         if (!reason && action.kind === 'cua_drag') reason = 'Arrastar pode alterar ou reorganizar conteúdo';
         if (!reason && action.kind === 'cua_keypress' && (action.keys||[]).some((key)=>['enter','return','space'].includes(String(key).toLowerCase())) && (!node||node.inForm||node.isSubmitControl)) reason = 'A tecla pode enviar um formulário ou ativar um controle';
@@ -310,9 +304,10 @@ class AutomationService {
           ? snapshot.tree.nodes.find((item) => item.targetId === action.targetId)
           : index === null ? snapshot.tree.nodes.find((item) => item.focused) : snapshot.tree.nodes[index];
         targetName = String(node?.name || '').slice(0, 160);
-        sensitive = Boolean(node?.sensitiveInput);
         const context = [node?.name, node?.href, node?.formAction, node?.role, action.action].filter(Boolean).join(' ');
-        reason = requiresApprovalFor(context, node);
+        const axRisk = riskOf(context, node);
+        sensitive = axRisk.level === 'credential';
+        reason = axRisk.reason;
         if (!reason && ['click', 'dblclick', 'perform_secondary_action'].includes(action.kind) && !node) reason = 'Não foi possível verificar o controle que será acionado';
         if (!reason && action.kind === 'drag') reason = 'Arrastar pode alterar ou reorganizar conteúdo';
         if (!reason && action.kind === 'press_key' && (action.key === 'Enter' && (!node || (node.inForm && node.tag !== 'textarea')) || action.key === ' ' && (!node || node.isSubmitControl))) reason = 'A tecla pode enviar um formulário ou ativar um controle';

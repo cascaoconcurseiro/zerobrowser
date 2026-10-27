@@ -305,3 +305,38 @@ Limites honestos:
 
 Próximo passo natural: usar a pós-condição do `run_steps` como prova de efeito para confirmar o journal — hoje são
 dois mecanismos separados.
+
+### Risco por capacidade — 2026-10-27
+
+Terceiro salto. A decisão de pedir aprovação saiu de uma regex única no serviço e virou classificação em módulo
+(`src/automation/risk.js`), com nível e motivo:
+
+| Nível | Exemplos | Efeito |
+|---|---|---|
+| `credential` | `type=password`, `autocomplete=cc-number`, `name=otp`, rótulo "Senha" | sempre pede aprovação; nunca é aprovado por política de tarefa |
+| `destructive` | excluir, apagar, remover, cancelar, revogar, sair | pede aprovação |
+| `commitment` | comprar, pagar, finalizar compra, enviar, publicar, assinar | pede aprovação |
+| `write` | salvar, atualizar, confirmar, cadastrar | pede aprovação |
+| `none` | "Ver detalhes", "Voltar", "Meus pedidos", "Minha conta" | segue o modo do usuário |
+
+Precedência: credencial > destrutivo > compromisso > escrita. `isSubmitControl` e `formMethod=post` viram
+`commitment` com o motivo "Envio de formulário" quando nenhum termo casa.
+
+Mudanças de comportamento deliberadas:
+
+- **menos falso positivo**: "conta" e "pedido" sozinhos deixaram de pedir aprovação (antes "Minha conta" e
+  "Meus pedidos" pediam); "cancelar" continua destrutivo, porque cancelar pedido/assinatura é irreversível;
+- **motivo mais útil no diálogo**: "Ação destrutiva: excluir", "Ação de compromisso: finalizar compra",
+  "Alteração de dados: salvar" em vez do genérico "Ação consequente identificada pelo controle da página";
+- limites de palavra passaram a valer ("ExcluirItem" não casa com "excluir");
+- o motivo do modo ("Sempre perguntar", "Permitir leitura") saiu para `approvalReasonForMode`.
+
+Arquivos: `src/automation/risk.js`, uso em `src/automation/service/index.js` (CUA, AX e teclado).
+Testes: `test/risk-classification.test.js` (7 casos) e o contrato de aprovação em `test/startup.test.js` atualizado.
+`npm test` 148/148.
+
+Limites honestos: continua sendo classificação **lexical** de nome/href/action, não semântica; um botão "Prosseguir"
+num checkout não é reconhecido, e "Atualizar" num filtro ainda pede aprovação. Não há medição de falso
+positivo/negativo em matriz de controles reais, e o nível ainda não muda a política além de exigir ou não aprovação
+— o próximo uso natural do nível é permitir, no modo "Permitir leitura", leituras e escritas reversíveis sem abrir
+diálogo.
