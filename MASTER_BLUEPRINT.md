@@ -15,10 +15,10 @@ Navegador desktop próprio, pensado para navegação humana e controle amplo e s
 ## Estrutura de diretórios
 ```
 /
-├── src/main/          processo principal, janela, abas, políticas
+├── src/main/          processo principal, janela, abas, políticas, perfis, downloads
 ├── src/main/extensions/  host de extensões (shim chrome.*, painel lateral, executor do Flame)
 ├── src/main/library/  favoritos, histórico, sugestões e importação de outros navegadores
-├── src/automation/    serviço de automação (agente, AX, MCP no pipe), catálogo de modelos
+├── src/automation/    serviço de automação (agente, AX, MCP no pipe), helpers/prompt, guardas, cascata
 ├── src/ipc/           ponte renderer ↔ main (chaves, config do agente)
 ├── src/preload/       API exposta à interface
 ├── src/renderer/      interface (painel do agente)
@@ -40,6 +40,9 @@ Navegador desktop próprio, pensado para navegação humana e controle amplo e s
 | 2026-10-25 | Favoritos/histórico em SQLite no formato do `chrome.bookmarks`/`chrome.history`; sessão salva a cada mudança | Serve a interface e o Flame sem conversão; abas voltam mesmo após travamento |
 | 2026-10-25 | Menus de pastas de favoritos nativos e página "congelada" em imagem enquanto as sugestões estão abertas | As páginas (WebContentsView) ficam por cima do HTML da interface |
 | 2026-10-26 | Direção de produto: Zero será um navegador próprio baseado em Chromium, unindo navegação diária completa com agente nativo; Electron permanece durante a transição | A meta de compatibilidade ampla com extensões e integração profunda de IA pede controle de navegador que o shim parcial de Electron não garante; aprovar a migração só após paridade do motor, segurança e dados |
+| 2026-10-27 | Integrar a branch 0.1.5-dev por rebase + fast-forward, com 0.1.4 ainda em produção | Elimina os três fluxos paralelos e mantém histórico linear; release só depois de app, integrações Electron e benchmark |
+| 2026-10-27 | Perfis como processos separados via `ZERO_USER_DATA`, sem renomear nem migrar o perfil atual | Isola dados sem tocar no perfil existente; renomear partição, pasta e `appId` exige migração e backup (Fase B) |
+| 2026-10-27 | Aceitar `ZERO_*` ao lado de `NAVEGANTE_*` durante a mudança de nome | Scripts, testes e atalhos antigos continuam válidos; a identidade interna só muda com plano de migração |
 
 ## Migração arquitetural planejada
 - Plano completo: `docs/PLANO_ZERO_CHROMIUM_AI.md`.

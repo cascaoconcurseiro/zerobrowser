@@ -4,9 +4,22 @@ Marca visível: **Zero Browser**. O identificador interno `navegante` e o `appId
 
 Navegador Electron para Windows com agente integrado à OpenRouter ou DeepSeek.
 
-## Estado atual (2026-10-26)
+## Estado atual (2026-10-27)
 
-O release 0.1.3 foi instalado em produção no Windows em 26/10/2026 após backup verificável e validação do executável empacotado. O `app.asar` instalado corresponde ao build por SHA-256. Testes com provider local e fixtures confirmam fluxos de integração, mas não comprovam desempenho ou acerto em Planilhas autenticadas, lojas com conta ou todos os sites complexos. O estado e os próximos passos do motor estão em `HANDOFF.md` e `docs/EVOLUCAO_MOTOR.md`.
+O release **0.1.4** é o que está instalado em produção no Windows (instalado em 26/10/2026 após backup verificável e validação do executável empacotado). O `app.asar` instalado corresponde ao build por SHA-256. Testes com provider local e fixtures confirmam fluxos de integração, mas não comprovam desempenho ou acerto em Planilhas autenticadas, lojas com conta ou todos os sites complexos. O estado e os próximos passos do motor estão em `HANDOFF.md`, `docs/EVOLUCAO_MOTOR.md` e `docs/REGISTRO_INTEGRACAO_0.1.5.md`.
+
+A árvore de trabalho está em **0.1.5-dev**: traz a paginação do `read_batch`, a correção de `coverage.complete`, perfis, aliases `ZERO_*`, guardas de injeção/exfiltração e quatro mecanismos opt-in do motor. Nada disso foi compilado ou instalado; a produção não mudou.
+
+### Em desenvolvimento (0.1.5-dev)
+
+- `tabs read_batch` pagina abas (`tabOffset`/`tabVersion`) e texto (`contentOffset`/`contentVersion`), reiniciando a leitura quando a página muda; `coverage.complete` agora fica `true` no último trecho.
+- Perfis locais pelo menu ⋮ (abrir, criar, excluir), cada um como processo próprio via `ZERO_USER_DATA`; sem renomear e sem migrar o perfil atual.
+- Atalhos com o foco dentro da página (Ctrl+Shift+T, Ctrl+Tab, Ctrl+1..9, F5) e menu de contexto das abas.
+- Histórico de downloads persistente no perfil, ignorando downloads de avaliação e respeitando "limpar ao sair".
+- Ferramenta `calculate` (aritmética exata, sem `eval`), nova tentativa em 429/5xx, aviso de repetição e `href` curto no snapshot.
+- Guardas: aviso de injeção de prompt vindo da página e aprovação extra para navegação a outro site com dados na URL.
+- Motor opt-in, desligado por padrão: `preInspect`, `run_steps`, snapshot por diferença, cascata de modelos e streaming. Só `preInspect` tem A/B registrado.
+- `npm test` 127/127 nesta árvore; app, integrações Electron e benchmark com modelo real não foram rodados após a integração.
 
 ### Fluxos ligados
 

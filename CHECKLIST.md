@@ -140,7 +140,7 @@
 - [x] Perfis (menu ⋮ > Perfis): abrir, criar ("Perfil N") e excluir com confirmação, cada um como processo próprio via `ZERO_USER_DATA` (`src/main/profiles.js`, `browser:profile-menu` em `main.js`). Sem renomear perfil. NÃO conferido no app.
 - [ ] Conferir perfis no app rodando (abrir 2 ao mesmo tempo, criar, excluir, bench com `--data-dir`) e validar a Fase A numa cópia do perfil.
 - [ ] Fase B do nome (copiar pasta de dados, renomear partição, trocar `appId`/pipe): não feita; exige backup e teste numa cópia.
-- [~] Dividir `AutomationService`: só o texto do prompt de sistema saiu para `service/prompt.js` (index.js ~2.386 linhas). O resto da classe (loop, snapshot, aprovação) segue junto; dividir exige testes de integração do loop antes. `node --check` passou; suíte NÃO rodada após a extração.
+- [~] Dividir `AutomationService`: só o texto do prompt de sistema saiu para `service/prompt.js` (index.js ~2.386 linhas). O resto da classe (loop, snapshot, aprovação) segue junto; dividir exige testes de integração do loop antes. `node --check` passou; após a integração de 2026-10-27, `npm test` 127/127 com a extração já na árvore.
 - [ ] A/B de `--scripts`, `--diff`, `--cascade=` e `--stream` contra a base (difícil, 3 rep, A B B A); streaming ainda sem execução antecipada de ferramentas.
 - [ ] Repetir `--preinspect` no conjunto básico, em `reais` e com outro modelo antes de ligar por padrão.
 - [ ] Rodar A/B de `calculate`, `repeat-guard`, href curto e retry contra 0.1.4 (cada mudança isolada ou em conjunto, dizendo qual).
@@ -446,3 +446,18 @@
 - [ ] Inspecionar visualmente BrowserOS neo instalado quando o MCP BrowserOS neo estiver conectado; pesquisa desta sessão é apenas pública.
 - [ ] Fase 0: criar baseline pareado reproduzível do agente atual, com custo de provedor aprovado antes de chamadas pagas.
 - [ ] Fase 1: corrigir a experiência diária de abas/atalhos na versão atual antes de iniciar o protótipo Chromium.
+
+## Integração 0.1.5-dev e correção de cobertura — 2026-10-27
+
+- [x] Commitar a paginação do `tabs.read_batch` que estava na árvore de trabalho (`68e51f7`): `tabOffset`/`tabVersion` e `contentOffset`/`contentVersion`, com reinício da leitura quando o conteúdo muda.
+- [x] Corrigir `coverage.complete`: continuação deixou de ser tratada como truncamento e leitura por `tabId` deixou de contar as outras abas como omitidas; o último trecho agora vem `complete` (`e72b991`, `test/batch-coverage.test.js`, `test/batch-pagination.test.js`).
+- [x] Rebasear `claude/analise-projeto-atual-bf8fc8` sobre o `main` e aplicar por fast-forward; histórico linear, sem merge commit e sem push.
+- [x] Resolver os 2 conflitos do rebase: catálogo recalculado em **7329 bytes** (paginação 6928 + `calculate` 401) e prompt de sistema mantido em `service/prompt.js` com o texto de offsets/`complete` trazido do `main`.
+- [x] Alinhar `package-lock.json` com `package.json` em 0.1.5-dev (o lock estava em 0.1.4).
+- [x] Verificar após a integração: `npm test` **127/127**; `node --check` em `src/`, `scripts/`, `bench/`, `test/`; `git diff --check` limpo; `npm audit --omit=dev` zero.
+- [x] Documentar a sessão em `docs/REGISTRO_INTEGRACAO_0.1.5.md` (fluxos, conflitos, evidências, o que falta e como reverter).
+- [ ] Rodar `npm run test:electron`, `test:bench-store`, `test:agent-download` e `test:installed` na árvore integrada (exigem GUI/build).
+- [ ] Conferir no app rodando: perfis (abrir/criar/excluir), menu de contexto de abas, histórico persistente de downloads e atalhos com foco na página.
+- [ ] Confirmar no modelo que a tarefa 44 para de paginar quando o último trecho vem `complete`, e medir 0.1.4 vs 0.1.5-dev com `bench/comparador.js`.
+- [ ] A/B isolado de `--scripts` e `--diff`; repetir `--preinspect` em `reais` antes de ligá-lo por padrão.
+- [ ] Build e instalador isolado com backup restaurável; push/publicação só com pedido explícito.

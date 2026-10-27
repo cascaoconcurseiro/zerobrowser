@@ -203,3 +203,31 @@ O catálogo estático enviado pelo agente foi extraído para `src/automation/too
 O registro MCP permanece separado: tem nomes, schemas Zod, handlers e gates de aprovação próprios. Fundi-lo mecanicamente com o catálogo do modelo poderia mudar validação e permissões. Próximo passo é A/B pareado de schemas compactos/exposição seletiva com catálogo completo como fallback, cobrindo formulários/SPA, rolagem/grades, visual, arquivos e múltiplas abas. Promover apenas se a taxa de acerto não cair e tokens reais/latência melhorarem de forma repetível.
 
 Browsentic `main` consultado declara Apache-2.0 no v0.9.0 e informa no README que versões até 0.7.15 eram MIT. Esta alteração não copia código e não muda a licença MIT do Zero. Se arquivos Apache forem portados no futuro, fixar o commit e manter avisos de copyright, licença e NOTICE aplicáveis, além de indicar os arquivos modificados.
+
+### Cobertura de leitura em lote: correção de semântica — 2026-10-27
+
+Contexto: a paginação do `read_batch` (offsets para abas e para texto) entrou com um defeito de sinal. Toda
+continuação era marcada como truncada porque começava num offset maior que zero, e uma leitura pedida por `tabId`
+contava as outras abas da tarefa como omitidas. Com isso `coverage.complete` era sempre falso, inclusive no último
+trecho — o prompt mandava continuar e a resposta nunca confirmava o fim.
+
+Regra adotada:
+
+- `truncated` (por página) descreve **o que ainda falta**: texto depois da janela de 600 caracteres ou
+  correspondências ainda não alcançadas;
+- `matchesOmitted` soma apenas o que resta **depois** da janela atual, não o que já foi entregue em trechos
+  anteriores;
+- `tabsOmitted` existe só no modo lista; `tabId` não omite as outras abas;
+- `complete` mantém a definição estrita (sem falha, sem página truncada, sem aba omitida, sem correspondência
+  omitida) e agora fica `true` no fim de uma paginação bem-sucedida.
+
+Evidência desta sessão: 3 testes novos em `test/batch-coverage.test.js` e 4 asserções em
+`test/batch-pagination.test.js` (último trecho `complete`, `nextContentOffset` ausente, intermediários incompletos,
+`tabsOmitted` zero). `npm test` 127/127 após a integração.
+
+O que isso NÃO prova: que o modelo para de paginar quando recebe `complete: true`, ou que o número de chamadas
+cai. É uma correção de sinal, não um ganho medido. A confirmação exige a tarefa 44 (seis filiais) com o comparador
+pareado, registrando passos, chamadas e tokens — pendente porque depende do app aberto e de chave de provedor.
+
+Relação com o histórico acima: as rodadas de 0.1.4 registraram cobertura incompleta como sinal de "leia o resto",
+o que era correto na intenção e falso na prática. O trace continua guardando só contadores, sem texto de página.
