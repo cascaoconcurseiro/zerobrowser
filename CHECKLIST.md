@@ -488,3 +488,6 @@
 - [x] Gate do journal em `run_steps` (`beforeStep`/`afterStep`): passo já confirmado é pulado, efeito desconhecido bloqueia o lote sem despachar nada, e falha/exceção liquidam a tentativa. 4 testes; `npm test` 161/161.
 - [ ] A/B de `--journal` + `--scripts` em lote real (tarefa 31/47): duplicações evitadas, leituras extras e custo.
 - [ ] Prova de efeito por rede (resposta observada) para o journal; hoje a prova é o contrato de estado.
+- [x] Extração estruturada (`extract_table`, opt-in): tabela por selector/índice, colunas por cabeçalho normalizado, deduplicação, limite de linhas e proveniência (`url`, `totalRows`, `missingColumns`, `truncated`); trace só com contagens. 7 testes; `npm test` 168/168.
+- [ ] Extração de listas de cards e grades virtualizadas (hoje só `<table>`).
+- [ ] Paginação automática por `totalRows`/`truncated` e comparação de acerto com extração por texto no benchmark.

@@ -50,9 +50,11 @@
 - **Motor, salto 7 (2026-10-27):** gate do journal dentro de `run_steps` (`beforeStep`/`afterStep`): passo já
   confirmado é pulado, efeito desconhecido bloqueia o lote sem despachar, e falha/exceção liquidam a tentativa.
   `npm test` 161/161. Lacuna do salto 6 fechada.
+- **Motor, salto 8 (2026-10-27):** extração estruturada (`extract_table`, opt-in): tabela por selector/índice,
+  colunas por cabeçalho, deduplicação, limite e proveniência; trace só com contagens. `npm test` 168/168.
 - Continua SEM verificação no app: perfis (menu ⋮), menu de contexto de abas, histórico persistente de downloads,
   atalhos com foco na página e todas as flags opt-in do motor (`--preinspect`, `--scripts`, `--diff`,
-  `--cascade=`, `--stream`, `--journal`).
+  `--cascade=`, `--stream`, `--journal`, `structuredExtraction`).
 - Os registros de 2026-10-27 abaixo foram escritos ANTES desta integração e dizem "não commitado / suíte não
   rodada"; o estado vigente é o desta seção.
 

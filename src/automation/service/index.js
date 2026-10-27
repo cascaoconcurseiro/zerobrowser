@@ -26,6 +26,7 @@ const { evaluateExpectation, needsPageText } = require('../expectation');
 const { isConsequential, effectKey, normalizeUrl, planEffect, settleEffect } = require('../effect-journal');
 const { classifyRisk, approvalReasonForMode } = require('../risk');
 const { validateChecks, evaluateChecks } = require('../task-verifier');
+const { EXTRACT_TABLE_TOOL, validateRequest: validateTableRequest, shapeRows, buildTableScript } = require('../table-extractor');
 
 const {
   taskPolicyAllows, isLoopbackUrl, HUMAN_CHECK_GUARDED_TOOLS, compactScreenshot, dropImages,
@@ -751,7 +752,7 @@ class AutomationService {
   }
 
   // `trace`, when given, is filled in place with model calls, token usage and every tool call (used by run_task).
-  async runAgent(tabId, prompt, apiKey, model, allowTools = true, provider = 'openrouter', requireToolCall = false, { maxSteps = 30, trace = null, maxDurationMs = 5 * 60 * 1000, resumable = false, resumeId = null, observeAfterActions = true, captureReadEvidence = false, preInspect = false, actionScripts = false, diffSnapshots = false, cascadeModel = null, streaming = false, effectJournal = false, verify = null, correctionRounds = 0 } = {}) {
+  async runAgent(tabId, prompt, apiKey, model, allowTools = true, provider = 'openrouter', requireToolCall = false, { maxSteps = 30, trace = null, maxDurationMs = 5 * 60 * 1000, resumable = false, resumeId = null, observeAfterActions = true, captureReadEvidence = false, preInspect = false, actionScripts = false, diffSnapshots = false, cascadeModel = null, streaming = false, effectJournal = false, verify = null, correctionRounds = 0, structuredExtraction = false } = {}) {
     for (const [id, state] of this.pausedAgentRuns) {
       if (state.expiresAt <= Date.now()) this.pausedAgentRuns.delete(id);
     }
@@ -813,6 +814,7 @@ class AutomationService {
     }
     const tools = getAgentTools();
     if (actionScripts) tools.push(structuredClone(RUN_STEPS_TOOL));
+    if (structuredExtraction) tools.push(structuredClone(EXTRACT_TABLE_TOOL));
     const approvalMode =this.settingsProvider?.().automationApprovalMode || 'low-risk';
     const approvalInstructions = approvalInstructionsFor(approvalMode);
     const messages = [
@@ -824,6 +826,7 @@ class AutomationService {
     if (actionScripts) messages[0].content += ' Para vários passos conhecidos na mesma página (preencher um formulário, marcar vários itens) prefira uma única chamada run_steps, com a ação que muda de página por último; cada passo pode declarar expect {url,text,absent} e o host só segue quando a pós-condição for verdadeira.';
     if (effectJournal) messages[0].content += ' O journal de efeitos impede repetir uma ação consequente sem confirmação: se a resposta trouxer alreadyDone ou needsVerification, inspecione a página e confirme o estado em vez de repetir às cegas.';
     if (verificationChecks.length) messages[0].content += ' O host confere o resultado final contra um contrato; se ele falhar, você receberá o motivo e deverá corrigir a página antes de encerrar.';
+    if (structuredExtraction) messages[0].content += ' Para tabelas, use extract_table com as colunas do cabeçalho em vez de copiar texto; confira missingColumns, totalRows e truncated antes de concluir.';
     if (diffSnapshots) messages[0].content += ' Depois de uma ação, o snapshot pode vir como diferença (campo diff): os nodes listados substituem os de mesmo índice e os índices em diff.iguais continuam valendo como no snapshot anterior.';
     if (observeAfterActions) messages[0].content += ' A última ação de um lote pode devolver nodes e text atualizados (autoObserved): use esses índices e dados, sem pedir inspect_page de novo se já bastarem.';
     if (resumed) {
@@ -963,6 +966,35 @@ class AutomationService {
           if (skips) trace.scriptEffectSkips = (trace.scriptEffectSkips || 0) + skips;
         }
         return result;
+      }
+      if (name === 'extract_table') {
+        if (!structuredExtraction) throw new Error('extract_table não está ligado nesta tarefa');
+        const request = { selector: args.selector, tableIndex: args.tableIndex, columns: args.columns, maxRows: args.maxRows };
+        const invalid = validateTableRequest(request);
+        if (invalid) throw new Error(invalid);
+        const approval = await this.confirmConsequentialAction(tabId, { kind: 'extract_table', readOnly: true });
+        if (!approval.approved) throw denied(approval, 'A extração foi cancelada');
+        const raw = await tab.webContents.executeJavaScript(buildTableScript(request)).catch((error) => {
+          throw new Error(`Falha ao ler a tabela: ${String(error?.message || error).slice(0, 160)}`);
+        });
+        if (!raw?.found) {
+          return { success: false, readOnly: true, tableCount: Number(raw?.tableCount) || 0, error: 'Nenhuma tabela com linhas encontrada; informe selector ou tableIndex.' };
+        }
+        const shaped = shapeRows(raw.rows, { headers: raw.headers, columns: request.columns, maxRows: request.maxRows });
+        if (trace) {
+          trace.tableCalls = (trace.tableCalls || 0) + 1;
+          trace.tableRows = (trace.tableRows || 0) + shaped.returned;
+        }
+        let pageUrl = '';
+        try { pageUrl = String(tab.webContents.getURL?.() || ''); } catch {}
+        return {
+          success: true, readOnly: true, url: pageUrl,
+          tableCount: Number(raw.tableCount) || 0, totalRows: Number(raw.totalRows) || 0,
+          ...shaped,
+          note: shaped.truncated
+            ? 'A tabela tem mais linhas do que as devolvidas; refine com maxRows ou outra tabela.'
+            : 'Linhas extraídas pelo host; confira colunas ausentes antes de concluir.'
+        };
       }
       if (name === 'tabs') {
         if (args.action === 'list') return { success: true, tabs: [...this.tabs.keys()].map(describeTab) };
@@ -1871,7 +1903,7 @@ class AutomationService {
     return evaluateChecks(checks, { url, text: String(text || ''), downloads });
   }
 
-  async runTask({ startUrl, prompt, maxSteps = 20, approvalPolicy = 'ask', allowedHosts = [], keepTab = false, captureInitialText = false, captureInitialChecks = [], engine = 'navegante', maxDurationSec, observeAfterActions = true, captureReadEvidence = false, preInspect = false, actionScripts = false, diffSnapshots = false, cascadeModel = null, streaming = false, effectJournal = false, verify = null, requireVerification = false, correctionRounds = 0 }) {
+  async runTask({ startUrl, prompt, maxSteps = 20, approvalPolicy = 'ask', allowedHosts = [], keepTab = false, captureInitialText = false, captureInitialChecks = [], engine = 'navegante', maxDurationSec, observeAfterActions = true, captureReadEvidence = false, preInspect = false, actionScripts = false, diffSnapshots = false, cascadeModel = null, streaming = false, effectJournal = false, verify = null, requireVerification = false, correctionRounds = 0, structuredExtraction = false }) {
     const maxDurationMs = maxDurationSec ? maxDurationSec * 1000 : undefined;
     if (approvalPolicy === 'public-sites' && engine === 'flame') return { success: false, error: 'A política public-sites ainda não vale para o Flame' };
     if (engine === 'flame') return this.runFlameTask({ startUrl, prompt, maxSteps, approvalPolicy, keepTab, maxDurationMs });
@@ -1910,7 +1942,7 @@ class AutomationService {
           error: result?.success === false ? String(result.error || 'Leitura inicial falhou') : ''
         });
       }
-      const result = await this.runAgent(tabId, prompt, apiKey, model, true, provider, false, { maxSteps, trace, maxDurationMs, observeAfterActions, captureReadEvidence, preInspect, actionScripts, diffSnapshots, cascadeModel, streaming, effectJournal, verify, correctionRounds });
+      const result = await this.runAgent(tabId, prompt, apiKey, model, true, provider, false, { maxSteps, trace, maxDurationMs, observeAfterActions, captureReadEvidence, preInspect, actionScripts, diffSnapshots, cascadeModel, streaming, effectJournal, verify, correctionRounds, structuredExtraction });
       const finalUrl = tab.webContents.isDestroyed() ? '' : tab.webContents.getURL();
       let verification = result.verification || null;
       if (!verification && Array.isArray(verify) && verify.length) {
@@ -2587,7 +2619,8 @@ class AutomationService {
             max: z.number().int().min(0).optional()
           })).max(20).optional(),
           requireVerification: z.boolean().optional(),
-          correctionRounds: z.number().int().min(0).max(3).optional()
+          correctionRounds: z.number().int().min(0).max(3).optional(),
+          structuredExtraction: z.boolean().optional()
         }),
         handler: async (input) => this.runTask(input)
       },

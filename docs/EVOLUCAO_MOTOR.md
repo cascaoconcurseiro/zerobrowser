@@ -462,3 +462,34 @@ Limites honestos:
   propósito, para não executar nada depois de um efeito incerto.
 - `hidden_action` continua identificado pelo nome do controle (homônimos colidem).
 - Sem benchmark: nenhuma medição de duplicações evitadas em lote real.
+
+### Extração estruturada (agente como ETL) — 2026-10-27
+
+Oitavo salto e a primeira capacidade de **produto** além de automação: em vez de copiar texto da tabela para o
+modelo reformatar (e errar), o host extrai a grade e o modelo só declara o schema.
+
+Ferramenta `extract_table` (opt-in, `structuredExtraction`; só aparece no catálogo quando ligada):
+
+```json
+{ "selector": "#estoque", "tableIndex": 0, "columns": ["produto", "estoque"], "maxRows": 100 }
+```
+
+- escolhe a tabela por `selector` ou `tableIndex` (padrão 0, entre as `<table>` com linhas);
+- cabeçalho vem de `thead` ou da primeira linha; `columns` é casado por nome normalizado (sem acento/caixa);
+  coluna pedida e ausente vira campo vazio e entra em `missingColumns` — sem deslocar as outras;
+- células são aparadas, linhas vazias e duplicadas são descartadas (`duplicatesSkipped`);
+- devolve `{url, columns, rows, returned, totalRows, duplicatesSkipped, missingColumns, truncated, tableCount}` — a
+  URL é a proveniência; `totalRows`/`truncated` dizem se falta ler mais;
+- o trace guarda só `tableCalls` e `tableRows` (contagem), nunca célula.
+
+Arquivos: `src/automation/table-extractor.js` (validação, mapeamento, formatação e script), uso em
+`service/index.js` (ferramenta condicional + prompt). Testes: `test/table-extractor.test.js` (7 casos, incluindo a
+ferramenta desligada recusando e um `run_task` que extrai duas linhas reais). `npm test` 168/168.
+
+Limites honestos:
+
+- Uma tabela por chamada e **sem paginação automática**: quem decide ler a próxima página é o modelo, com
+  `totalRows`/`truncated` em mãos.
+- `rowspan`/`colspan` não são resolvidos; a grade é lida célula a célula.
+- Só `<table>`: listas de cards, grades virtualizadas e `div` com `role=table` ainda exigem `read_batch`/texto.
+- Sem benchmark: nenhuma medição de acerto linha a linha contra extração por texto.
