@@ -2,6 +2,8 @@
 
 ## Estado em 2026-10-26
 
+- 2026-10-27 (não commitado, SEM testes a pedido): perfis (menu ⋮ > Perfis: abrir/criar/excluir; processo separado por `ZERO_USER_DATA`; sem renomear), aliases `ZERO_*` (`src/env.js`) e prompt de sistema extraído para `src/automation/service/prompt.js`. Só `node --check` e conferência do texto do prompt foram feitos; `npm test`, `test:electron` e o app NÃO foram rodados. Fase B do nome, `appId`, pipe e o resto da divisão do `AutomationService` seguem pendentes. PRÓXIMO: `npm install` (se faltar) + `npm test`; abrir 2 perfis no app e conferir; depois os A/B das flags.
+
 - 2026-10-27 (commit): histórico de downloads persistente, menu de contexto das abas, clique do meio fecha aba, plano de nome/perfis (`docs/PLANO_NOME_E_PERFIS.md`). Verificação: `npm test` 124/124 (3 execuções seguidas, sem repetir a falha 84/86 antiga), `test:electron` exit 0, `npm audit --omit=dev` zero. NÃO conferido no app: menu de aba, histórico de downloads após reiniciar. NÃO feito: perfis, migração do nome, divisão do `AutomationService`, A/B das flags novas.
 
 - 2026-10-27: implementados opt-in e SEM benchmark: `run_steps` (`--scripts`), snapshot por diferença (`--diff`), cascata (`--cascade=modelo`), streaming (`--stream`, sem execução antecipada). Detalhes e riscos em `docs/EVOLUCAO_MOTOR.md` ("Próximos níveis implementados"). `npm test` 121/121. PRÓXIMO: A/B de cada flag contra a base (difícil, 3 rep, A B B A, `--comparar`); os caminhos dentro de `runAgent` ainda não rodaram no app.

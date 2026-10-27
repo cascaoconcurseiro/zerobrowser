@@ -13,12 +13,15 @@ const libraryImport = require('./library/import');
 const { browserShortcutForInput } = require('./browser-shortcuts');
 const { loadDownloadHistory, saveDownloadHistory, nextDownloadSequence, DEFAULT_LIMIT: DOWNLOAD_HISTORY_LIMIT } = require('./download-history');
 const { buildTabMenuTemplate } = require('./tab-menu');
+const profiles = require('./profiles');
+const { zeroEnv } = require('../env');
+const { spawn } = require('child_process');
 
 // Keep the legacy internal name so a visible rebrand does not move the existing userData folder.
 app.setName('navegante');
 
 // Pasta de dados alternativa (testes lado a lado com o Zero Browser instalado). Precisa vir antes de qualquer getPath.
-if (process.env.NAVEGANTE_USER_DATA) app.setPath('userData', path.resolve(process.env.NAVEGANTE_USER_DATA));
+if (zeroEnv('USER_DATA')) app.setPath('userData', path.resolve(zeroEnv('USER_DATA')));
 
 // No Windows, o Chromium trata a janela coberta por outras como escondida e para de desenhar: a aba do agente congela
 // (listas não carregam, capturas e cliques esperam segundos). O agente precisa trabalhar com o Zero Browser atrás de outras janelas.
@@ -96,6 +99,7 @@ async function initializeApp() {
   }));
   automationService.setAgentConfigProvider(getAgentConfig);
   process.env.NAVEGANTE_DATA_DIR = app.getPath('userData');
+  process.env.ZERO_DATA_DIR = process.env.NAVEGANTE_DATA_DIR;
   try {
     await automationService.start();
   } catch (err) {
@@ -911,6 +915,44 @@ ipcMain.handle('browser:tab-menu', (event, tabId, order, x, y) => {
   });
   Menu.buildFromTemplate(template).popup({ window: mainWindow, x: Math.round(Number(x) || 0), y: Math.round(Number(y) || 0) });
   return true;
+});
+
+// Perfis: cada um é uma pasta de dados própria e roda como um processo separado do app (logins, histórico e chaves não se misturam).
+const profilesRoot = () => path.join(app.getPath('appData'), 'zero-browser-perfis');
+
+function launchProfile(profile) {
+  const env = { ...process.env };
+  for (const key of ['ZERO_USER_DATA', 'NAVEGANTE_USER_DATA', 'ZERO_DATA_DIR', 'NAVEGANTE_DATA_DIR']) delete env[key];
+  if (profile.id !== profiles.MAIN_PROFILE.id) env.ZERO_USER_DATA = profiles.profileDir(profilesRoot(), profile.id);
+  const args = app.isPackaged ? [] : [app.getAppPath()];
+  spawn(process.execPath, args, { detached: true, stdio: 'ignore', env }).unref();
+}
+
+ipcMain.handle('browser:profile-menu', (event, x, y) => {
+  if (!mainWindow || event.sender !== mainWindow.webContents) throw new Error('Somente a janela principal pode abrir o menu de perfis.');
+  const root = profilesRoot();
+  const current = profiles.currentProfile(root, app.getPath('userData'));
+  const template = profiles.buildProfileMenuTemplate({
+    current,
+    profiles: profiles.listProfiles(root),
+    actions: {
+      open: (profile) => launchProfile(profile),
+      create: () => {
+        try { launchProfile(profiles.createProfile(root)); } catch (error) { logError(error); dialog.showErrorBox('Novo perfil', error.message); }
+      },
+      remove: async (profile) => {
+        const { response } = await dialog.showMessageBox(mainWindow, {
+          type: 'warning', buttons: ['Cancelar', 'Excluir'], defaultId: 0, cancelId: 0,
+          title: 'Excluir perfil', message: `Excluir o perfil "${profile.name}"?`,
+          detail: 'Logins, histórico, favoritos, downloads e chaves desse perfil serão apagados e não podem ser recuperados. Feche a janela dele antes.'
+        });
+        if (response !== 1) return;
+        try { profiles.deleteProfile(root, profile.id, app.getPath('userData')); } catch (error) { logError(error); dialog.showErrorBox('Excluir perfil', error.message); }
+      }
+    }
+  });
+  Menu.buildFromTemplate(template).popup({ window: mainWindow, x: Math.round(Number(x) || 0), y: Math.round(Number(y) || 0) });
+  return { current };
 });
 
 ipcMain.handle('browser:reopen-closed-tab', (event) => {

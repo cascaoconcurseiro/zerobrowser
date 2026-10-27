@@ -136,8 +136,11 @@
 - [x] Histórico de downloads persistente (`src/main/download-history.js`, arquivo `downloads-historico.json` no perfil; ignora downloads de avaliação e respeita "limpar ao sair"). Testado só nos módulos; falta conferir no app.
 - [x] Menu de contexto das abas (`src/main/tab-menu.js`, IPC `browser:tab-menu`) e fechar aba com clique do meio. Testado só o modelo do menu; falta conferir no app.
 - [x] Plano de migração do nome interno e de perfis em `docs/PLANO_NOME_E_PERFIS.md` (não implementado, por mexer em dados do usuário).
-- [ ] Perfis e migração do nome: implementar Fase A do plano e validar numa cópia do perfil.
-- [ ] Dividir `AutomationService` (~2.400 linhas): não feito; precisa de testes de integração do loop antes, para não arriscar o motor.
+- [x] Fase A do nome: `ZERO_*` aceito ao lado de `NAVEGANTE_*` (`src/env.js`, `zeroEnv`); pasta de dados, partição, pipe e `appId` continuam `navegante` de propósito.
+- [x] Perfis (menu ⋮ > Perfis): abrir, criar ("Perfil N") e excluir com confirmação, cada um como processo próprio via `ZERO_USER_DATA` (`src/main/profiles.js`, `browser:profile-menu` em `main.js`). Sem renomear perfil. NÃO conferido no app.
+- [ ] Conferir perfis no app rodando (abrir 2 ao mesmo tempo, criar, excluir, bench com `--data-dir`) e validar a Fase A numa cópia do perfil.
+- [ ] Fase B do nome (copiar pasta de dados, renomear partição, trocar `appId`/pipe): não feita; exige backup e teste numa cópia.
+- [~] Dividir `AutomationService`: só o texto do prompt de sistema saiu para `service/prompt.js` (index.js ~2.386 linhas). O resto da classe (loop, snapshot, aprovação) segue junto; dividir exige testes de integração do loop antes. `node --check` passou; suíte NÃO rodada após a extração.
 - [ ] A/B de `--scripts`, `--diff`, `--cascade=` e `--stream` contra a base (difícil, 3 rep, A B B A); streaming ainda sem execução antecipada de ferramentas.
 - [ ] Repetir `--preinspect` no conjunto básico, em `reais` e com outro modelo antes de ligar por padrão.
 - [ ] Rodar A/B de `calculate`, `repeat-guard`, href curto e retry contra 0.1.4 (cada mudança isolada ou em conjunto, dizendo qual).

@@ -33,6 +33,12 @@ Antes da Fase B: fazer backup completo do perfil (padrão de `backups/2026-10-26
 
 Critérios de aceite: depois de atualizar, o usuário continua logado nos sites, com favoritos, histórico, downloads, chaves e configurações; MCP e benchmark continuam achando o app; atualização automática continua funcionando.
 
+## Status de implementação (2026-10-27, sem testes ainda)
+
+- Feito, só com `node --check`: `ZERO_*` aceito antes de `NAVEGANTE_*` (`src/env.js`, usado em `main.js`, `pipe-path.js` e `service/index.js`); o main define `ZERO_DATA_DIR` e `NAVEGANTE_DATA_DIR`.
+- Feito, não conferido no app: perfis (menu ⋮ > Perfis) em `src/main/profiles.js` + `browser:profile-menu` (abrir, criar "Perfil N", excluir com confirmação). Pasta dos perfis: `%APPDATA%zero-browser-perfis`, lista em `perfis.json`. O Principal usa a pasta de dados atual. Sem renomear (precisa de campo de texto) e sem indicador de cor/nome na janela.
+- Decidido não fazer agora: pipe segue `navegante-automation-<hash>` (renomear quebraria `scripts/mcp-stdio.js` e o benchmark sem ganho); gravar só `zero://` (item 2 da Fase A, não conferido); Fase B inteira e troca de `appId`.
+
 ## 3. Perfis (como o Chrome)
 
 Hoje há um único perfil. O app já aceita `NAVEGANTE_USER_DATA`, e o Electron trava instância única por pasta de dados, então dois perfis podem rodar ao mesmo tempo como processos separados.

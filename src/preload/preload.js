@@ -17,6 +17,7 @@ const browserApi = {
     freezePage: (frozen, reason) => ipcRenderer.invoke('browser:freeze-page', frozen, reason),
     reopenClosedTab: () => ipcRenderer.invoke('browser:reopen-closed-tab'),
     openTabMenu: (tabId, order, x, y) => ipcRenderer.invoke('browser:tab-menu', tabId, order, x, y),
+    openProfileMenu: (x, y) => ipcRenderer.invoke('browser:profile-menu', x, y),
     getLastSession: () => ipcRenderer.invoke('browser:get-last-session'),
     getDownloads: () => ipcRenderer.invoke('browser:get-downloads'),
     showDownload: (id) => ipcRenderer.invoke('browser:show-download', id),

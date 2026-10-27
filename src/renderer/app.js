@@ -1152,6 +1152,7 @@ class ZeroBrowserApp {
     if (action === 'history' || action === 'downloads' || action === 'bookmarks') return this.openLibrary(action);
     if (action === 'settings') return this.toggleSettingsPanel();
     if (action === 'extensions') return this.openExtensionsManager();
+    if (action === 'profiles') return window.zeroBrowser.browser.openProfileMenu(Math.max(0, window.innerWidth - 240), 90).catch(() => {});
   }
 
   async openExtensionsManager() {
