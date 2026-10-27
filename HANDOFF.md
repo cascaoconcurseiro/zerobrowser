@@ -2,20 +2,21 @@
 
 ## Estado em 2026-10-26
 
-- Foram revisadas mudanças do Antigravity e corrigidos quatro problemas: `zero://newtab` bloqueado pelo IPC, corrida após `capturePage()` que podia reocultar a aba, pop-ups aceitando esquemas internos arbitrários e permissões de extensões truncadas no diálogo. A versão do `package-lock.json` também foi alinhada com `package.json` em 0.1.3.
-- A suíte unitária passou 93/93, `npm audit --omit=dev` reportou zero vulnerabilidades, `npm run test:electron` terminou com exit code 0 e a integração empacotada passou em `C:\Users\Wesley\AppData\Local\Programs\zero-browser-release-validation-3\Zero Browser.exe`. Ela cobriu nova aba interna, rejeição de popup customizado não permitido, bridge ausente em páginas, recusa de URL `javascript:`, corrida freeze/unfreeze, AX, CUA, providers mockados, configurações, download e aprovação/cancelamento.
-- Build e produção usam `app.asar` SHA-256 `9DD022EAA3FA9C8AF80A371408C1ED47572FAFC8095497720D4A46C44E9320C2`. O executável de produção informa 0.1.3 e a instalação NSIS terminou com exit code 0.
-- Antes da troca, o app, o perfil e os dois atalhos foram copiados para `backups/2026-10-26-before-0.1.3`. A cópia contém 184 arquivos do app e 7.571 arquivos/762.275.248 bytes do perfil; os hashes do executável e `app.asar` batem com a instalação anterior. O perfil após a instalação mantém a mesma contagem/tamanho. Atalho da Área de Trabalho e menu Iniciar apontam novamente para `C:\Users\Wesley\AppData\Local\Programs\navegante\Zero Browser.exe`.
-- O estado aprovado foi commitado como `90cbcd4` e enviado para `origin/main` sem force push. A instalação de produção e o commit remoto apontam para a mesma fonte 0.1.3.
-- A arquitetura continua Electron. Ganhos gerais de tokens/latência não são presumidos: o catálogo enviado mantém 6.764 bytes de schemas por chamada; `read_batch` ainda tem limites de abas/linhas e falha multitab 2/3; Google Planilhas autenticado e compras reais não foram testados.
+- Revisadas mudanças Antigravity e corrigidos bloqueio de `zero://newtab`, corrida de freeze/unfreeze, allowlist de pop-ups e permissões de extensão truncadas; release 0.1.3 foi publicado anteriormente.
+- Para avançar o motor, `tabs.read_batch` agora relata páginas truncadas, falhas, abas omitidas e correspondências encontradas/devolvidas/omitidas. O trace inclui apenas contadores; nenhuma leitura textual foi adicionada às métricas. O prompt orienta o agente a continuar se `coverage.complete` for falso.
+- Verificação 0.1.4: `npm test` 94/94; `npm audit --omit=dev` zero vulnerabilidades; `npm run test:electron` exit code 0; build Windows concluído; integração final do executável de produção passou (AX, CUA, configurações, downloads, aprovação/cancelamento e providers mockados).
+- Instalação de produção em `%LOCALAPPDATA%\Programs\navegante` informa 0.1.4. SHA-256 final de `app.asar` no build e produção: `B14007B409DFC0ACB2F88F5873C9A9828F3970A264B0DAA8AE249F9464B6ACB9`. Desktop e menu Iniciar apontam para o executável de produção.
+- Backup `backups/2026-10-26-before-0.1.4` preserva o executável anterior 0.1.3, atalhos, instalador 0.1.4 e perfil. Perfil e cópia: 7.571 arquivos e 762.275.248 bytes.
+- O instalador temporário de validação, por compartilhar o `appId`, substituiu/removeu a instalação anterior; o caminho original foi restaurado instalando o 0.1.4 já validado. Evitar novas instalações isoladas do NSIS antes de planejar esse efeito colateral.
+- A alteração do catálogo reduziu o JSON serializado de 6.764 para 6.747 bytes; não equivale a tokens reais e não prova ganho útil. Não há nova medição A/B de acerto, tokens ou latência nesta sessão.
 
 ## Próximo passo concreto
 
-- Em `src/automation/service/index.js`, tornar `read_batch` explícito sobre correspondências truncadas e abas não lidas, com testes que diferenciem resultados parciais de cobertura completa.
-- Depois fazer A/B pareado de subconjuntos de ferramentas em `src/automation/tools/agent-tool-registry.js`, medindo tokens reais, acerto e latência antes de alterar o catálogo padrão.
+- Rodar benchmark pareado da tarefa 44 e da suíte difícil duas vezes, comparando 0.1.3 vs 0.1.4 no mesmo provedor/modelo; incluir uma variante com mais de seis abas ou mais de oito correspondências para verificar se o agente reage corretamente a `coverage.complete=false`. Registrar acerto, tokens reportados pelo provedor, passos, latência e trace em `docs/EVOLUCAO_MOTOR.md`.
+- Depois experimentar seleção contextual de schemas em `src/automation/tools/agent-tool-registry.js`, com fallback completo, e só promover se uma comparação pareada mantiver acerto e reduzir tokens/latência de forma repetível.
 
 ## Limites e bloqueios
 
-- A chamada de cancelamento aborta o pedido ao provedor e bloqueia ferramentas seguintes; um comando CDP já despachado pode terminar.
-- A integração instalada usa fixtures HTTP locais e provider mock; ela não comprova acurácia em Planilhas autenticadas, Amazon com conta ou todos os sites complexos.
-- A memória entre tarefas continua ausente; não introduzir memória automática sem recuperação seletiva de fatos confirmados e medição de custo/acurácia.
+- A integração empacotada usa fixtures locais e provider mock; não valida Google Planilhas autenticado, Amazon com conta ou todos os sites complexos.
+- Memória persistente entre tarefas continua sem evidência de benefício; o teste de notas anterior aumentou tokens e tempo sem elevar acerto.
+- O objetivo de navegador próprio, maior cobertura real e desempenho comprovado segue aberto. Não declarar paridade geral com base em fixtures ou no catálogo compacto.

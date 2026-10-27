@@ -404,7 +404,13 @@
 - [x] Rodar `npm test`: 92/92 passaram.
 - [ ] Obter encerramento limpo/exit code do `npm run test:electron` e validar pop-up/OAuth, restauração de sessão e parada no runtime Electron.
 - [ ] Avaliar CDP AX, poda, cache e batching por benchmark pareado antes de substituir o snapshot ou fluxo atual; números do relatório Gemini não foram comprovados.
-- [ ] Não instalar, publicar ou alterar perfil de produção sem novo pedido e validação completa.
+- [x] Corrigir cobertura incompleta em `tabs.read_batch`: informar truncamento de fonte/linhas, abas omitidas, correspondências retornadas e falhas; orientar o agente a não concluir com `coverage.complete=false`.
+- [x] `npm test`: 94/94; `npm audit --omit=dev`: zero vulnerabilidades; `npm run test:electron`: exit code 0; integração do instalador 0.1.4 passou em perfil isolado.
+- [x] Instalar 0.1.4 no caminho de produção após validação; hash do `app.asar` coincide com o build e os atalhos Desktop/Iniciar apontam para a instalação de produção.
+- [x] Criar backup pré-release em `backups/2026-10-26-before-0.1.4`; perfil verificado: 7.571 arquivos e 762.275.248 bytes tanto na origem quanto no backup.
+- [ ] Não declarar ganho geral de tokens, latência ou acerto com base apenas nos testes funcionais; medir tarefa 44 e suítes difíceis com modelo real.
+- [x] Reinstalar o pacote final depois do ajuste de limite por linha; integração contra o executável de produção passou e SHA-256 do build/instalado coincide (`B25A738F2438E9B41296575CE74ED5D89B6E40CBAB251BD1B2A615F03AFF7FD2`).
+- [ ] Fazer push do release 0.1.4 após revisão final do diff.
 - [ ] Fazer smoke visual da extensão e conferir backup restaurável antes de promover a instalação.
 
 ## Plano Zero próprio sobre Chromium — 2026-10-26
