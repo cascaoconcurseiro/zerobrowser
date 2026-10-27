@@ -30,6 +30,8 @@ const { EXTRACT_TABLE_TOOL, validateRequest: validateTableRequest, shapeRows, bu
 const { RecipeStore, RECIPE_TOOL, validateRecipe, normalizeOrigin } = require('../recipe-store');
 const { CLIPBOARD_TOOL, validateClipboardRequest, shapeClipboardRead } = require('../clipboard');
 const { KEY_SEQUENCE_TOOL, validateSequence, flattenKeys, needsFormApproval } = require('../key-sequence');
+const { VISUAL_CLICK_TOOL, validateVisualClick, pointFromNormalized } = require('../visual-click');
+const { SHEETS_ACCESSIBILITY_TOOL, isSheetsUrl, toggleSteps } = require('../sheets');
 const {
   taskPolicyAllows, isLoopbackUrl, HUMAN_CHECK_GUARDED_TOOLS, compactScreenshot, dropImages,
   traceToolCall, selectOptionScript, ActionSchema, ToolSchema
@@ -836,7 +838,7 @@ class AutomationService {
     if (structuredExtraction) tools.push(structuredClone(EXTRACT_TABLE_TOOL));
     if (verificationChecks.length) tools.push(structuredClone(CHECK_TASK_TOOL));
     if (recipes && this.recipeStore) tools.push(structuredClone(RECIPE_TOOL));
-    if (advancedInput) tools.push(structuredClone(CLIPBOARD_TOOL), structuredClone(KEY_SEQUENCE_TOOL));
+    if (advancedInput) tools.push(structuredClone(CLIPBOARD_TOOL), structuredClone(KEY_SEQUENCE_TOOL), structuredClone(VISUAL_CLICK_TOOL), structuredClone(SHEETS_ACCESSIBILITY_TOOL));
     const approvalMode =this.settingsProvider?.().automationApprovalMode || 'low-risk';
     const approvalInstructions = approvalInstructionsFor(approvalMode);
     const messages = [
@@ -850,7 +852,7 @@ class AutomationService {
     if (verificationChecks.length) messages[0].content += ' O host confere o resultado final contra um contrato; chame check_task para conferir o estado antes de concluir e, se o host recusar, corrija a página antes de encerrar.';
     if (structuredExtraction) messages[0].content += ' Para tabelas, use extract_table com as colunas do cabeçalho em vez de copiar texto; confira missingColumns, totalRows e truncated antes de concluir.';
     if (recipes && this.recipeStore) messages[0].content += ' Receitas: recipe list mostra as da origem; recipe save grava passos estáveis (navigate, click_text, wait_for) com expect obrigatório; recipe run repete sem modelo e para na primeira pós-condição que falhar. Só grave depois de a tarefa ter sido verificada.';
-    if (advancedInput) messages[0].content += ' Em planilhas e editores em canvas: selecione o intervalo pela caixa de nome, use clipboard write com TSV e cole com key_sequence [{keys:["Control","v"]}]; para ler, copie a seleção e use clipboard read. Navegue com key_sequence (setas, Tab) em vez de clicar em células.';
+    if (advancedInput) messages[0].content += ' Em planilhas e editores em canvas: tente sheets_accessibility e inspecione; selecione o intervalo pela caixa de nome, use clipboard write com TSV e cole com key_sequence [{keys:["Control","v"]}]; para ler, copie a seleção e use clipboard read. Navegue com key_sequence (setas, Tab) em vez de clicar em células. Se um controle aparecer na see_page mas não nos nodes, use visual_click com x,y de 0 a 1000 do viewport.';
     if (diffSnapshots) messages[0].content += ' Depois de uma ação, o snapshot pode vir como diferença (campo diff): os nodes listados substituem os de mesmo índice e os índices em diff.iguais continuam valendo como no snapshot anterior.';
     if (observeAfterActions) messages[0].content += ' A última ação de um lote pode devolver nodes e text atualizados (autoObserved): use esses índices e dados, sem pedir inspect_page de novo se já bastarem.';
     if (resumed) {
@@ -981,6 +983,36 @@ class AutomationService {
         tab.axCache = null;
         if (trace) trace.keyChords = (trace.keyChords || 0) + (result.chords || 0);
         return result;
+      }
+      if (name === 'visual_click') {
+        const invalid = validateVisualClick(args);
+        if (invalid) throw new Error(invalid);
+        const viewport = await tab.webContents.executeJavaScript('({width: innerWidth, height: innerHeight})').catch(() => null);
+        if (!viewport || !viewport.width) throw new Error('Viewport indisponível para clique visual');
+        const point = pointFromNormalized(args, viewport);
+        const approval = await this.confirmConsequentialAction(tabId, { kind: 'cua_click', readOnly: false, x: point.x, y: point.y });
+        if (!approval.approved) throw denied(approval, 'O clique visual foi cancelado');
+        const result = await performCuaInput(tab.webContents, { kind: 'cua_click', x: point.x, y: point.y, button: args.button });
+        tab.axCache = null;
+        let verdict = null;
+        if (args.expect) {
+          verdict = await this.expectationOnTab(tab, args.expect);
+          if (trace && !verdict.ok) trace.visualExpectationFailures = (trace.visualExpectationFailures || 0) + 1;
+        }
+        if (trace) trace.visualClicks = (trace.visualClicks || 0) + 1;
+        return {
+          ...result, point, viewport,
+          ...(verdict ? { outcomeVerified: verdict.ok, expectation: verdict } : {}),
+          ...(verdict && !verdict.ok ? { error: `Clique executado, mas a pós-condição falhou: ${verdict.detail}` } : {})
+        };
+      }
+      if (name === 'sheets_accessibility') {
+        const pageUrl = tab?.webContents?.getURL?.() || '';
+        if (!isSheetsUrl(pageUrl)) throw new Error('Modo de acessibilidade disponível apenas em docs.google.com/spreadsheets');
+        const result = await performKeySequence(tab.webContents, toggleSteps(), { delayMs: 0 });
+        tab.axCache = null;
+        if (trace) trace.sheetsAccessibility = (trace.sheetsAccessibility || 0) + 1;
+        return { success: true, ...result, note: 'Modo alternado. Inspecione a página: se as células aparecerem nos nodes, use-as; senão volte ao clipboard.' };
       }
       if (name === 'recipe') {
         if (!recipes || !this.recipeStore) throw new Error('Receitas não estão ligadas nesta tarefa');
