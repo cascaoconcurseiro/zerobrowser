@@ -507,3 +507,8 @@
 - [ ] Medir leitura A1:C20 e escrita de 10 linhas numa planilha de teste (meta ≤4–5 ações, 3 repetições) e comparar com clique por coordenada.
 - [ ] Testar o modo de acessibilidade da planilha (leitura de células no snapshot) e, se funcionar, usá-lo antes do clipboard.
 - [ ] Conector de API (Sheets) com OAuth explícito — decisão de produto, fora do motor de UI.
+- [x] `visual_click`: clique por coordenadas normalizadas 0–1000 do viewport, com `expect` opcional e aprovação; fecha o canal de canvas sem API. 4 testes em `test/visual-sheets.test.js`; `npm test` 185/185.
+- [x] `sheets_accessibility`: alterna o modo de acessibilidade do Planilhas (Ctrl+Alt+Z) só em docs.google.com/spreadsheets e manda inspecionar. Hipótese não validada em conta real.
+- [ ] Validar `sheets_accessibility` numa planilha real (células aparecem no snapshot?) e ajustar o fluxo conforme o resultado.
+- [ ] Benchmark pareado com provedor real (tarefa 44 e 33) usando `--journal`, `--scripts` e `--preinspect`.
+- [x] Primeiras execuções reais pós-saltos (deepseek-flash, 1 por condição): 44 padrão 1/1; 44 `--journal` 1/1 mas 18 passos/2,2× tempo; 33 padrão 1/1; 33 `--scripts` 1/1 com −58% passos e −37% tokens. Evidência em `bench/resultados/`; journal precisa de 5 repetições antes de promover.

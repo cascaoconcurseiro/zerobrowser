@@ -66,6 +66,12 @@
   SHA-256 `e57c20cc…580632`), `app.asar` `2658b925…06088b` igual em build/produção, integração do instalado
   `status: PASS`. Backup do checkpoint anterior em `backups/2026-10-27-before-clipboard/` (`ae7a6564…0ae96a`).
   `npm test` 181/181. Perfil intacto.
+- **Checkpoint 3 instalado (2026-10-27):** build com `visual_click` e `sheets_accessibility`
+  (instalador `a2339c55…ad151c`, `app.asar` `39cb96e1…7494f8`, integração `status: PASS`); backup em
+  `backups/2026-10-27-before-visual/`. `npm test` 185/185.
+- **Primeiras execuções reais (deepseek-flash, 1 por condição):** tarefa 44 padrão 13 passos/13,0 s/47.456 tokens;
+  44 `--journal` 18/28,5 s/117.753 (piorou — não promover sem 5 repetições); 33 padrão 12/13,7 s/52.871;
+  33 `--scripts` 5/10,3 s/33.065. Todas 1/1. Detalhe e ressalvas em `docs/EVOLUCAO_MOTOR.md`.
 - **Checkpoint instalado (2026-10-27):** build com os 11 saltos, `dist\Zero Browser Setup 0.1.5-dev.exe`
   (124.441.875 bytes, SHA-256 `9df4ed8b…a8545f`), instalado sobre o build anterior após `win-unpacked` passar.
   `app.asar` build/instalado: `ae7a6564…0ae96a`; integração do instalado `status: PASS`; `npm test` 177/177 na

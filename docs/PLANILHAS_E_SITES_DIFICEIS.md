@@ -54,6 +54,16 @@ executadas.
   pode conter senha copiada antes — trate como dado sensível).
 - A planilha precisa estar em foco; `key_sequence` envia eventos ao viewport ativo.
 
+## Se a grade não aparecer no snapshot
+
+1. Chame `sheets_accessibility` (Ctrl+Alt+Z) e **inspecione de novo**. Se as células aparecerem nos nodes, use-as.
+2. Se não aparecerem, volte ao clipboard/teclado.
+3. Para um controle que só existe na imagem (ícone, botão de canvas), use `see_page` e depois
+   `visual_click` com `x,y` de 0 a 1000 do viewport, com `expect` para conferir o efeito. O clique pede aprovação.
+4. Para conferir o resultado de um clique visual, `expect {text:'...'}` ou uma leitura por clipboard.
+
+O modo de acessibilidade **não foi validado numa conta real**; trate o passo 1 como hipótese, não como garantia.
+
 ## Outros sites difíceis e o canal que funciona
 
 | Classe | Estratégia |

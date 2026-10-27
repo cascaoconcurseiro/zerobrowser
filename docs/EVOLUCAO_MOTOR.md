@@ -611,3 +611,58 @@ Limites honestos:
 - A caixa de nome é localizada por texto/label; idioma da interface muda o alvo.
 - Ler o clipboard pode trazer segredo copiado antes — é dado sensível, não instrução.
 - Sem benchmark: o ganho de 10–50× em ações é estimativa até medir numa planilha de teste.
+
+### Grounding visual e acessibilidade da planilha — 2026-10-27
+
+Décimo terceiro salto, fechando o que faltava do canal para canvas sem depender de API.
+
+- **`visual_click`**: clica em coordenadas **normalizadas 0–1000** do viewport, estimadas pelo modelo a partir da
+  última `see_page`. O host converte para pixels com o tamanho atual do viewport (imune a DPR), executa o clique real
+  e pode conferir `expect {url,text,absent}` com espera de até 3 s. Pede aprovação (é clique cego por definição) e
+  registra `visualClicks`/`visualExpectationFailures` no trace.
+- **`sheets_accessibility`**: alterna o modo de acessibilidade do Planilhas (Ctrl+Alt+Z) para tentar expor células
+  no snapshot; só funciona em `docs.google.com/spreadsheets` e devolve instrução para inspecionar depois. Se não
+  expuser, o fluxo cai para clipboard/teclado.
+
+Ambos entram com `advancedInput` (padrão ligado) e o prompt explica quando usar.
+
+Arquivos: `src/automation/visual-click.js`, `src/automation/sheets.js`, `service/index.js`. Testes:
+`test/visual-sheets.test.js` (4 casos: validação/mapa, restrição de domínio, clique convertido e verificado,
+teclas do Planilhas). `npm test` 185/185.
+
+Limites honestos:
+
+- `visual_click` depende de o modelo **enxergar** a captura; sem visão, ele chuta. A precisão é a da estimativa, não
+  há detecção automática de elemento na imagem.
+- O modo de acessibilidade do Planilhas **não foi verificado numa conta real**: pode não expor a grade, depender de
+  versão/idioma ou alterar o layout. Por isso ele só sugere, nunca assume.
+- Coordenadas são do viewport visível; elemento fora da tela exige rolar antes.
+
+### Primeiras execuções reais depois dos saltos — 2026-10-27
+
+Primeira vez que a árvore com todos os saltos rodou com modelo real (deepseek-flash, provedor configurado pelo
+usuário) no benchmark local. **Uma execução por condição**, sem pareamento nem repetição: serve para detectar
+regressão grosseira, não para concluir ganho.
+
+| Execução | Acerto | Passos | Tempo | Tokens entrada | Chamadas |
+|---|---:|---:|---:|---:|---:|
+| 44-estoque-filiais, padrão | 1/1 | 13 | 13,0 s | 47.456 | 7 |
+| 44-estoque-filiais, `--journal` | 1/1 | 18 | 28,5 s | 117.753 | 18 |
+| 33-validacao-erros, padrão | 1/1 | 12 | 13,7 s | 52.871 | 10 |
+| 33-validacao-erros, `--scripts` | 1/1 | 5 | 10,3 s | 33.065 | 6 |
+
+Leitura:
+
+- **`--scripts` (run_steps + pós-condições) mostrou o maior sinal**: −58% passos, −37% tokens de entrada,
+  −40% chamadas e −25% tempo na tarefa de formulário, mantendo 1/1. É exatamente o mecanismo esperado (uma chamada
+  executa vários campos e cada passo é conferido).
+- **`--journal` piorou nesta execução**: +5 passos, +2,2× tempo e +2,5× tokens na tarefa 44, ainda passando. Hipótese
+  principal: o bloqueio por efeito desconhecido forçou releitura/retentativa; hipótese alternativa: variação do
+  modelo (a tarefa 44 já alternou entre 12 e 16 passos em rodadas anteriores). **Não promover o journal como padrão**
+  antes de 5 repetições pareadas; se o custo se repetir, restringir o journal a ações de envio/compra e não a
+  qualquer clique.
+- O clique visual e o modo de acessibilidade não foram exercitados nestas execuções (não há tarefa de planilha no
+  corpus local); continuam sem validação real.
+
+Arquivos de evidência em `bench/resultados/`: `visual-check__*`, `journal-check__*`, `scripts-base__*`,
+`scripts-check__*`.

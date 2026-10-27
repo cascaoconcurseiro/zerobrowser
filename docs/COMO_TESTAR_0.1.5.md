@@ -3,8 +3,8 @@
 Checklist manual para a versão instalada em 27/10/2026. O que depende de modelo/provedor está separado do que já
 pode ser conferido sem chave.
 
-**Build instalado:** `0.1.5-dev`, `app.asar` `2658b925…06088b`; backup do estado anterior em
-`backups/2026-10-27-before-clipboard/`.
+**Build instalado:** `0.1.5-dev`, `app.asar` `39cb96e1…7494f8`; backup do estado anterior em
+`backups/2026-10-27-before-visual/`.
 
 ## 1. Casca do navegador (não depende de provedor)
 
