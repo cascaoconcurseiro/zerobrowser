@@ -340,3 +340,43 @@ num checkout não é reconhecido, e "Atualizar" num filtro ainda pede aprovaçã
 positivo/negativo em matriz de controles reais, e o nível ainda não muda a política além de exigir ou não aprovação
 — o próximo uso natural do nível é permitir, no modo "Permitir leitura", leituras e escritas reversíveis sem abrir
 diálogo.
+
+### Verificação final por contrato — 2026-10-27
+
+Quarto salto. Até aqui, "concluído" era o que o modelo dizia (ou o verificador do benchmark, fora do app). Agora o
+chamador declara o que deve ser verdade ao terminar e o **host** confere:
+
+```json
+"verify": [
+  { "kind": "url",       "value": "https://loja.test/pedido/ok" },
+  { "kind": "text",      "value": "Pedido confirmado" },
+  { "kind": "absent",    "value": "Erro" },
+  { "kind": "textCount", "value": "Filial", "min": 6, "max": 6 },
+  { "kind": "download",  "value": "relatorio.csv" }
+],
+"requireVerification": true
+```
+
+- `url` compara por prefixo; `text`/`absent` e `textCount` usam texto visível normalizado (sem acento/caixa);
+  `textCount` aceita `min`/`max`; `download` exige arquivo concluído **da própria tarefa**, por nome base.
+- O resultado ganha `verification: {ok, results[]}` com o motivo de cada checagem — sem texto de página no trace,
+  só `trace.verification = {ok, failed:[kinds]}`.
+- Com `requireVerification: true`, contrato não satisfeito devolve `success: false` com o motivo. Sem a flag, a
+  verificação só informa e o resultado do agente continua valendo.
+- Contrato inválido é recusado antes de ler a página.
+
+Arquivos: `src/automation/task-verifier.js` (avaliação pura), `service/index.js` (`verifyTask` + opções do
+`run_task`) e schema do MCP. Testes: `test/task-verifier.test.js` (5 casos, incluindo um `run_task` que aprova,
+recusa e apenas informa). `npm test` 153/153.
+
+Limites honestos:
+
+- A verificação roda **no fim** da tarefa; o modelo não tem ferramenta para consultá-la durante a execução e não
+  recebe a falha para corrigir sozinho — quem decide repetir é o chamador.
+- Prova é textual/estrutural: um "Pedido confirmado" na tela não prova que o servidor persistiu. Prova de rede
+  (resposta observada) continua fora.
+- `textCount` depende do texto renderizado; listas virtualizadas contam só o que está no DOM.
+- Sem benchmark: nenhuma medição de acerto ou de falsos "concluído" evitados.
+
+Próximo passo natural: devolver a falha ao agente com direito a uma rodada de correção, e usar o mesmo contrato
+para confirmar efeitos do journal (hoje a prova de efeito é só a resposta da ferramenta).

@@ -25,6 +25,7 @@ const { RUN_STEPS_TOOL, runSteps } = require('../action-script');
 const { evaluateExpectation, needsPageText } = require('../expectation');
 const { isConsequential, effectKey, normalizeUrl, planEffect, settleEffect } = require('../effect-journal');
 const { classifyRisk, approvalReasonForMode } = require('../risk');
+const { validateChecks, evaluateChecks } = require('../task-verifier');
 
 const {
   taskPolicyAllows, isLoopbackUrl, HUMAN_CHECK_GUARDED_TOOLS, compactScreenshot, dropImages,
@@ -1807,7 +1808,24 @@ class AutomationService {
     }
   }
 
-  async runTask({ startUrl, prompt, maxSteps = 20, approvalPolicy = 'ask', allowedHosts = [], keepTab = false, captureInitialText = false, captureInitialChecks = [], engine = 'navegante', maxDurationSec, observeAfterActions = true, captureReadEvidence = false, preInspect = false, actionScripts = false, diffSnapshots = false, cascadeModel = null, streaming = false, effectJournal = false }) {
+  // Verificação final declarada pelo chamador: lê URL, texto visível e downloads da própria tarefa. Nada é alterado.
+  async verifyTask(tab, checks, since = 0) {
+    const invalid = validateChecks(checks);
+    if (invalid) return { ok: false, error: invalid, results: [] };
+    const wc = tab?.webContents;
+    let url = '';
+    let text = '';
+    if (wc && !wc.isDestroyed?.()) {
+      try { url = String(wc.getURL?.() || ''); } catch {}
+      if (checks.some((check) => check.kind !== 'download')) {
+        text = await wc.executeJavaScript(`(document.body?.innerText||'').slice(0,30000)`).catch(() => '');
+      }
+    }
+    const downloads = (this.browserControls.listDownloads?.() || []).filter((item) => (item.startedAt || 0) >= since);
+    return evaluateChecks(checks, { url, text: String(text || ''), downloads });
+  }
+
+  async runTask({ startUrl, prompt, maxSteps = 20, approvalPolicy = 'ask', allowedHosts = [], keepTab = false, captureInitialText = false, captureInitialChecks = [], engine = 'navegante', maxDurationSec, observeAfterActions = true, captureReadEvidence = false, preInspect = false, actionScripts = false, diffSnapshots = false, cascadeModel = null, streaming = false, effectJournal = false, verify = null, requireVerification = false }) {
     const maxDurationMs = maxDurationSec ? maxDurationSec * 1000 : undefined;
     if (approvalPolicy === 'public-sites' && engine === 'flame') return { success: false, error: 'A política public-sites ainda não vale para o Flame' };
     if (engine === 'flame') return this.runFlameTask({ startUrl, prompt, maxSteps, approvalPolicy, keepTab, maxDurationMs });
@@ -1848,7 +1866,28 @@ class AutomationService {
       }
       const result = await this.runAgent(tabId, prompt, apiKey, model, true, provider, false, { maxSteps, trace, maxDurationMs, observeAfterActions, captureReadEvidence, preInspect, actionScripts, diffSnapshots, cascadeModel, streaming, effectJournal });
       const finalUrl = tab.webContents.isDestroyed() ? '' : tab.webContents.getURL();
-      return { ...result, tabId, provider, model, finalUrl, ...(captureInitialText ? { initialPageText } : {}), ...(captureInitialChecks.length ? { initialLocatorChecks } : {}), durationMs: Date.now() - startedAt, trace };
+      let verification = null;
+      if (Array.isArray(verify) && verify.length) {
+        verification = await this.verifyTask(tab, verify, startedAt);
+        if (trace) {
+          trace.verification = {
+            ok: verification.ok === true,
+            failed: verification.results.filter((item) => !item.ok).map((item) => item.kind)
+          };
+        }
+        if (requireVerification && !verification.ok) {
+          const failed = verification.results.filter((item) => !item.ok).map((item) => item.detail).join('; ');
+          return {
+            ...result, success: false,
+            error: `A verificação final não confirmou a tarefa: ${failed || verification.error || 'contrato inválido'}`,
+            verification, tabId, provider, model, finalUrl,
+            ...(captureInitialText ? { initialPageText } : {}),
+            ...(captureInitialChecks.length ? { initialLocatorChecks } : {}),
+            durationMs: Date.now() - startedAt, trace
+          };
+        }
+      }
+      return { ...result, tabId, provider, model, finalUrl, ...(verification ? { verification } : {}), ...(captureInitialText ? { initialPageText } : {}), ...(captureInitialChecks.length ? { initialLocatorChecks } : {}), durationMs: Date.now() - startedAt, trace };
     } finally {
       this.taskApprovalPolicies.delete(tabId);
       if (!keepTab && this.browserControls.closeTab) {
@@ -2488,7 +2527,14 @@ class AutomationService {
           diffSnapshots: z.boolean().optional(),
           cascadeModel: z.string().min(1).max(200).optional(),
           streaming: z.boolean().optional(),
-          effectJournal: z.boolean().optional()
+          effectJournal: z.boolean().optional(),
+          verify: z.array(z.object({
+            kind: z.enum(['url', 'text', 'absent', 'textCount', 'download']),
+            value: z.string().max(500).optional(),
+            min: z.number().int().min(0).optional(),
+            max: z.number().int().min(0).optional()
+          })).max(20).optional(),
+          requireVerification: z.boolean().optional()
         }),
         handler: async (input) => this.runTask(input)
       },

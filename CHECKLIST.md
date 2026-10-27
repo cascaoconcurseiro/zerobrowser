@@ -476,3 +476,6 @@
 - [x] Classificação de risco por capacidade (`src/automation/risk.js`): níveis credential/destructive/commitment/write/none, precedência, motivos específicos no diálogo e menos falso positivo ("conta"/"pedido" sozinhos deixaram de pedir aprovação). `npm test` 148/148.
 - [ ] Matriz de ~50 controles reais (botões "Prosseguir", "Aplicar", "OK", links de menu) para medir falso positivo/negativo da classificação lexical.
 - [ ] Usar o nível na política: no modo "Permitir leitura", liberar `write` reversível sem diálogo e manter `commitment`/`destructive`/`credential` com confirmação.
+- [x] Verificação final por contrato (`src/automation/task-verifier.js`): `verify` no `run_task` com url/text/absent/textCount/download, `requireVerification` recusa o "concluído" sem prova e `trace.verification` registra só booleanos. 5 testes; `npm test` 153/153.
+- [ ] Devolver falha de verificação ao agente com uma rodada de correção (hoje o chamador decide repetir).
+- [ ] Usar o contrato de verificação como prova de efeito do journal, em vez da resposta da ferramenta.

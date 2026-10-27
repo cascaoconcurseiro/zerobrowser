@@ -39,6 +39,9 @@
   aprovação. Níveis credential/destructive/commitment/write/none, precedência e motivo específico no diálogo;
   "Minha conta" e "Meus pedidos" deixaram de pedir aprovação. `npm test` 148/148; `--journal` e demais flags seguem
   opt-in e ausentes do app instalado.
+- **Motor, salto 4 (2026-10-27):** verificação final por contrato (`verify` no `run_task`): url/text/absent/
+  textCount/download conferidos pelo host, `requireVerification` recusa "concluído" sem prova e o trace guarda só
+  booleanos. `npm test` 153/153; detalhe e limites em `docs/EVOLUCAO_MOTOR.md`. Não está no app instalado.
 - Continua SEM verificação no app: perfis (menu ⋮), menu de contexto de abas, histórico persistente de downloads,
   atalhos com foco na página e todas as flags opt-in do motor (`--preinspect`, `--scripts`, `--diff`,
   `--cascade=`, `--stream`, `--journal`).
