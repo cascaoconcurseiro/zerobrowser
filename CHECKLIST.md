@@ -461,7 +461,7 @@
 - [ ] Confirmar no modelo que a tarefa 44 para de paginar quando o último trecho vem `complete`, e medir 0.1.4 vs 0.1.5-dev com `bench/comparador.js`.
 - [ ] A/B isolado de `--scripts` e `--diff`; repetir `--preinspect` em `reais` antes de ligá-lo por padrão.
 - [x] Build Windows 0.1.5-dev com backup restaurável (`backups/2026-10-27-before-0.1.5-dev`, app + perfil + atalhos + instalador 0.1.4) e instalação validada: `app.asar` idêntico entre build e produção (`3658148c…f606401`) e `status: PASS` na integração do executável instalado. Pedido explícito do usuário.
-- [ ] Push/publicação: o `main` está 7 commits à frente de `origin/main`; nada foi enviado.
+- [ ] Push/publicação: o `main` está 20 commits à frente de `origin/main`; nada foi enviado.
 - [ ] Rodar `test:electron`, `test:bench-store` e `test:agent-download`, e o benchmark pareado 0.1.4 vs 0.1.5-dev. O build instalado é `-dev`, não um release.
 
 ## Saltos do motor — 2026-10-27
@@ -502,4 +502,4 @@
 - [x] Checkpoint com os 11 saltos compilado e instalado: `dist/Zero Browser Setup 0.1.5-dev.exe` (SHA-256 `9df4ed8b…a8545f`), `app.asar` `ae7a6564…0ae96a` idêntico em build e produção, integração do instalado `status: PASS`, `npm test` 177/177; backup do estado anterior em `backups/2026-10-27-before-motor-leaps/`.
 - [ ] Teste manual do roteiro em `docs/COMO_TESTAR_0.1.5.md` (perfis, menu de abas, downloads, atalhos).
 - [ ] Benchmark pareado 0.1.4 × checkpoint com provedor real e as flags `--journal`, `--scripts`, `--preinspect`.
-- [ ] Push para `origin` (11+ commits à frente) só quando o teste manual e o benchmark fecharem.
+- [ ] Push para `origin` (20 commits à frente) só quando o teste manual e o benchmark fecharem.
