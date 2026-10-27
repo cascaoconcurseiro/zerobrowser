@@ -410,7 +410,7 @@
 - [x] Criar backup pré-release em `backups/2026-10-26-before-0.1.4`; perfil verificado: 7.571 arquivos e 762.275.248 bytes tanto na origem quanto no backup.
 - [ ] Não declarar ganho geral de tokens, latência ou acerto com base apenas nos testes funcionais; medir tarefa 44 e suítes difíceis com modelo real.
 - [x] Reinstalar o pacote final depois do ajuste de limite por linha; integração contra o executável de produção passou e SHA-256 do build/instalado coincide (`B25A738F2438E9B41296575CE74ED5D89B6E40CBAB251BD1B2A615F03AFF7FD2`).
-- [ ] Fazer push do release 0.1.4 após revisão final do diff.
+- [x] Commitar e enviar o release 0.1.4 para `origin/main` (`e500667`).
 - [ ] Fazer smoke visual da extensão e conferir backup restaurável antes de promover a instalação.
 
 ## Plano Zero próprio sobre Chromium — 2026-10-26
