@@ -499,3 +499,7 @@
 - [x] Receitas por site (`recipe`, opt-in): `list`/`save`/`run` de passos estáveis (navigate, click_text, wait_for) com `expect` obrigatório, armazenamento atômico por origem e parada na primeira pós-condição falha. 4 testes; `npm test` 177/177.
 - [ ] Passos de receita passarem pelo journal e por preenchimento de campo (hoje só navegação/clique/espera).
 - [ ] Captura automática de receita apenas em tarefa verificada e versionamento por mudança de site.
+- [x] Checkpoint com os 11 saltos compilado e instalado: `dist/Zero Browser Setup 0.1.5-dev.exe` (SHA-256 `9df4ed8b…a8545f`), `app.asar` `ae7a6564…0ae96a` idêntico em build e produção, integração do instalado `status: PASS`, `npm test` 177/177; backup do estado anterior em `backups/2026-10-27-before-motor-leaps/`.
+- [ ] Teste manual do roteiro em `docs/COMO_TESTAR_0.1.5.md` (perfis, menu de abas, downloads, atalhos).
+- [ ] Benchmark pareado 0.1.4 × checkpoint com provedor real e as flags `--journal`, `--scripts`, `--preinspect`.
+- [ ] Push para `origin` (11+ commits à frente) só quando o teste manual e o benchmark fecharem.

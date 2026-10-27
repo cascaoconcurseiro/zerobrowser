@@ -41,6 +41,7 @@ O `LEIA-ME.md` da pasta traz os hashes esperados e como restaurar o perfil.
 | 2026-10-27 | `check_task`: consulta do contrato no meio da tarefa (somente leitura, `ok:false` como resultado normal, catálogo só com contrato) | `git log --oneline --grep="check_task"` | 170/170 | `git revert <commit>` ou reset para a tag acima |
 | 2026-10-27 | ETL paralelo entre abas: `read_batch` com `extract` devolve linhas estruturadas por aba, proveniência, `missingColumns`/`truncationReasons` e agregados | `git log --oneline --grep="batch extract"` | 173/173 | `git revert <commit>` ou reset para a tag acima |
 | 2026-10-27 | Receitas por site (`recipe`, opt-in): passos estáveis com `expect` obrigatório, armazenamento atômico por origem e execução sem modelo | `git log --oneline --grep="recipe"` | 177/177 | `git revert <commit>` ou reset para a tag acima |
+| 2026-10-27 | Checkpoint instalado com os 11 saltos: instalador `9df4ed8b…a8545f`, `app.asar` `ae7a6564…0ae96a` igual em build/produção, backup do app anterior em `backups/2026-10-27-before-motor-leaps/` | build, não commit | 177/177 | reinstalar/copiar `backups/2026-10-27-before-motor-leaps/app` |
 
 Ao adicionar um salto, acrescente a linha aqui **no mesmo commit** da mudança.
 

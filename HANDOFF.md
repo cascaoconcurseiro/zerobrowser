@@ -60,6 +60,11 @@
 - **Motor, salto 11 (2026-10-27):** receitas por site (`recipe`, opt-in): passos estáveis com `expect` obrigatório,
   armazenamento por origem e execução sem modelo. `npm test` 177/177. Sem captura automática e sem journal nos
   passos da receita.
+- **Checkpoint instalado (2026-10-27):** build com os 11 saltos, `dist\Zero Browser Setup 0.1.5-dev.exe`
+  (124.441.875 bytes, SHA-256 `9df4ed8b…a8545f`), instalado sobre o build anterior após `win-unpacked` passar.
+  `app.asar` build/instalado: `ae7a6564…0ae96a`; integração do instalado `status: PASS`; `npm test` 177/177 na
+  árvore. Backup do estado anterior em `backups/2026-10-27-before-motor-leaps/` (`3658148c…f606401`, 184 arquivos)
+  com `LEIA-ME.md`. Perfil não foi tocado. Roteiro de teste em `docs/COMO_TESTAR_0.1.5.md`.
 - Continua SEM verificação no app: perfis (menu ⋮), menu de contexto de abas, histórico persistente de downloads,
   atalhos com foco na página e todas as flags opt-in do motor (`--preinspect`, `--scripts`, `--diff`,
   `--cascade=`, `--stream`, `--journal`, `structuredExtraction`, `recipes`).
