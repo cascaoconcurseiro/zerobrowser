@@ -751,7 +751,7 @@ class AutomationService {
   }
 
   // `trace`, when given, is filled in place with model calls, token usage and every tool call (used by run_task).
-  async runAgent(tabId, prompt, apiKey, model, allowTools = true, provider = 'openrouter', requireToolCall = false, { maxSteps = 30, trace = null, maxDurationMs = 5 * 60 * 1000, resumable = false, resumeId = null, observeAfterActions = true, captureReadEvidence = false, preInspect = false, actionScripts = false, diffSnapshots = false, cascadeModel = null, streaming = false, effectJournal = false } = {}) {
+  async runAgent(tabId, prompt, apiKey, model, allowTools = true, provider = 'openrouter', requireToolCall = false, { maxSteps = 30, trace = null, maxDurationMs = 5 * 60 * 1000, resumable = false, resumeId = null, observeAfterActions = true, captureReadEvidence = false, preInspect = false, actionScripts = false, diffSnapshots = false, cascadeModel = null, streaming = false, effectJournal = false, verify = null, correctionRounds = 0 } = {}) {
     for (const [id, state] of this.pausedAgentRuns) {
       if (state.expiresAt <= Date.now()) this.pausedAgentRuns.delete(id);
     }
@@ -779,6 +779,10 @@ class AutomationService {
     const agentTabIds = new Set([tabId]);
     // Só os downloads desta tarefa vão para o modelo; os anteriores do usuário ficam de fora.
     const taskStartedAt = resumed?.taskStartedAt || Date.now();
+    // Contrato de verificação opcional: conferido no fim de cada resposta final, com rodadas de correção limitadas.
+    const verificationChecks = Array.isArray(verify) && verify.length && !validateChecks(verify) ? verify : [];
+    const maxCorrections = Math.max(0, Math.min(3, Number(correctionRounds) || 0));
+    let correctionsUsed = 0;
     const taskDownloads = () => (this.browserControls.listDownloads?.() || []).filter((item) => item.startedAt >= taskStartedAt);
     const knownDownloads = new Set(resumed?.knownDownloads);
     // A janela "Escolher arquivo" do sistema travaria a tarefa: nas abas do agente ela não abre, e o modelo é avisado para usar upload_file.
@@ -819,6 +823,7 @@ class AutomationService {
     if (preInspect) messages[0].content += ' O host já leu a página inicial e entregou o resultado de inspect_page antes do seu primeiro turno: use esses índices e dados em vez de pedir inspect_page de novo.';
     if (actionScripts) messages[0].content += ' Para vários passos conhecidos na mesma página (preencher um formulário, marcar vários itens) prefira uma única chamada run_steps, com a ação que muda de página por último; cada passo pode declarar expect {url,text,absent} e o host só segue quando a pós-condição for verdadeira.';
     if (effectJournal) messages[0].content += ' O journal de efeitos impede repetir uma ação consequente sem confirmação: se a resposta trouxer alreadyDone ou needsVerification, inspecione a página e confirme o estado em vez de repetir às cegas.';
+    if (verificationChecks.length) messages[0].content += ' O host confere o resultado final contra um contrato; se ele falhar, você receberá o motivo e deverá corrigir a página antes de encerrar.';
     if (diffSnapshots) messages[0].content += ' Depois de uma ação, o snapshot pode vir como diferença (campo diff): os nodes listados substituem os de mesmo índice e os índices em diff.iguais continuam valendo como no snapshot anterior.';
     if (observeAfterActions) messages[0].content += ' A última ação de um lote pode devolver nodes e text atualizados (autoObserved): use esses índices e dados, sem pedir inspect_page de novo se já bastarem.';
     if (resumed) {
@@ -1523,9 +1528,29 @@ class AutomationService {
         messages.push(message);
         if (!message.tool_calls?.length) {
           if (resumeId) this.pausedAgentRuns.delete(resumeId);
+          let verification = null;
+          if (verificationChecks.length) {
+            verification = await this.verifyTask(tab, verificationChecks, taskStartedAt);
+            if (trace) {
+              trace.verification = {
+                ok: verification.ok === true,
+                failed: verification.results.filter((item) => !item.ok).map((item) => item.kind)
+              };
+            }
+            if (!verification.ok && correctionsUsed < maxCorrections) {
+              correctionsUsed += 1;
+              if (trace) trace.verificationRetries = correctionsUsed;
+              const failed = verification.results.filter((item) => !item.ok).map((item) => `- ${item.detail}`).join('\n');
+              messages.push({
+                role: 'user',
+                content: `[Zero Browser] A verificação final do host falhou; a tarefa ainda não está concluída:\n${failed}\nInspecione a página atual, corrija o que falta e só encerre quando o contrato for verdadeiro. Não repita uma ação já confirmada.`
+              });
+              continue;
+            }
+          }
           if (trace) trace.stopReason = 'final_answer';
           if (requireToolCall) return { success: false, error: `O modelo ${model} não confirmou suporte a chamadas de ferramenta` };
-          return { success: true, message: message.content || 'Tarefa concluída.' };
+          return { success: true, message: message.content || 'Tarefa concluída.', ...(verification ? { verification } : {}) };
         }
         if (!allowTools) return { success: true, message: message.content || 'Conexão com o modelo confirmada.' };
         for (const call of message.tool_calls) {
@@ -1825,7 +1850,7 @@ class AutomationService {
     return evaluateChecks(checks, { url, text: String(text || ''), downloads });
   }
 
-  async runTask({ startUrl, prompt, maxSteps = 20, approvalPolicy = 'ask', allowedHosts = [], keepTab = false, captureInitialText = false, captureInitialChecks = [], engine = 'navegante', maxDurationSec, observeAfterActions = true, captureReadEvidence = false, preInspect = false, actionScripts = false, diffSnapshots = false, cascadeModel = null, streaming = false, effectJournal = false, verify = null, requireVerification = false }) {
+  async runTask({ startUrl, prompt, maxSteps = 20, approvalPolicy = 'ask', allowedHosts = [], keepTab = false, captureInitialText = false, captureInitialChecks = [], engine = 'navegante', maxDurationSec, observeAfterActions = true, captureReadEvidence = false, preInspect = false, actionScripts = false, diffSnapshots = false, cascadeModel = null, streaming = false, effectJournal = false, verify = null, requireVerification = false, correctionRounds = 0 }) {
     const maxDurationMs = maxDurationSec ? maxDurationSec * 1000 : undefined;
     if (approvalPolicy === 'public-sites' && engine === 'flame') return { success: false, error: 'A política public-sites ainda não vale para o Flame' };
     if (engine === 'flame') return this.runFlameTask({ startUrl, prompt, maxSteps, approvalPolicy, keepTab, maxDurationMs });
@@ -1864,19 +1889,21 @@ class AutomationService {
           error: result?.success === false ? String(result.error || 'Leitura inicial falhou') : ''
         });
       }
-      const result = await this.runAgent(tabId, prompt, apiKey, model, true, provider, false, { maxSteps, trace, maxDurationMs, observeAfterActions, captureReadEvidence, preInspect, actionScripts, diffSnapshots, cascadeModel, streaming, effectJournal });
+      const result = await this.runAgent(tabId, prompt, apiKey, model, true, provider, false, { maxSteps, trace, maxDurationMs, observeAfterActions, captureReadEvidence, preInspect, actionScripts, diffSnapshots, cascadeModel, streaming, effectJournal, verify, correctionRounds });
       const finalUrl = tab.webContents.isDestroyed() ? '' : tab.webContents.getURL();
-      let verification = null;
-      if (Array.isArray(verify) && verify.length) {
+      let verification = result.verification || null;
+      if (!verification && Array.isArray(verify) && verify.length) {
         verification = await this.verifyTask(tab, verify, startedAt);
+      }
+      if (verification) {
         if (trace) {
           trace.verification = {
             ok: verification.ok === true,
-            failed: verification.results.filter((item) => !item.ok).map((item) => item.kind)
+            failed: (verification.results || []).filter((item) => !item.ok).map((item) => item.kind)
           };
         }
         if (requireVerification && !verification.ok) {
-          const failed = verification.results.filter((item) => !item.ok).map((item) => item.detail).join('; ');
+          const failed = (verification.results || []).filter((item) => !item.ok).map((item) => item.detail).join('; ');
           return {
             ...result, success: false,
             error: `A verificação final não confirmou a tarefa: ${failed || verification.error || 'contrato inválido'}`,
@@ -2534,7 +2561,8 @@ class AutomationService {
             min: z.number().int().min(0).optional(),
             max: z.number().int().min(0).optional()
           })).max(20).optional(),
-          requireVerification: z.boolean().optional()
+          requireVerification: z.boolean().optional(),
+          correctionRounds: z.number().int().min(0).max(3).optional()
         }),
         handler: async (input) => this.runTask(input)
       },

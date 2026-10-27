@@ -84,3 +84,89 @@ test('run_task returns host verification and can refuse to call the task done', 
     global.fetch = originalFetch;
   }
 });
+
+test('a failed verification goes back to the agent for a bounded correction round', async () => {
+  const { AutomationService } = require('../src/automation/service');
+  const service = new AutomationService();
+  const url = 'http://127.0.0.1:5000/t/pedido';
+  let pageText = 'Processando pagamento';
+  let round = 0;
+  const bodies = [];
+  service.tabs.set('tab-retry', {
+    state: { url },
+    webContents: {
+      isDestroyed: () => false, isLoading: () => false, getURL: () => url,
+      executeJavaScript: async (script) => (String(script).includes('innerText') ? pageText : null),
+      setBackgroundThrottling: () => {}
+    }
+  });
+  service.setBrowserControls({ createTab: async () => ({ tabId: 'tab-retry' }), closeTab: async () => {} });
+  service.setAgentConfigProvider(async () => ({ provider: 'openrouter', model: 'test-model', apiKey: 'test-key' }));
+  const originalFetch = global.fetch;
+  global.fetch = async (_url, options) => {
+    round += 1;
+    bodies.push(JSON.parse(options.body));
+    if (round === 2) pageText = 'Pedido confirmado';
+    return {
+      ok: true,
+      json: async () => ({ choices: [{ message: { role: 'assistant', content: 'Pedido enviado.' } }], usage: { prompt_tokens: 1, completion_tokens: 1 } })
+    };
+  };
+  try {
+    const result = await service.runTask({
+      startUrl: url, prompt: 'Finalizar o pedido', approvalPolicy: 'local-fixture',
+      verify: [{ kind: 'text', value: 'Pedido confirmado' }], requireVerification: true, correctionRounds: 1
+    });
+    assert.equal(round, 2, 'a falha de verificação gera exatamente uma nova rodada');
+    assert.match(JSON.stringify(bodies[1].messages.at(-1)), /verificação final do host falhou/);
+    assert.doesNotMatch(JSON.stringify(bodies[1].messages.at(-1)), /Processando pagamento/, 'o motivo não copia a página');
+    assert.equal(result.success, true);
+    assert.equal(result.verification.ok, true);
+    assert.equal(result.trace.verificationRetries, 1);
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
+test('without correction rounds the verification only reports, and exhaustion still refuses completion', async () => {
+  const { AutomationService } = require('../src/automation/service');
+  const service = new AutomationService();
+  const url = 'http://127.0.0.1:5000/t/pedido';
+  let round = 0;
+  service.tabs.set('tab-noretry', {
+    state: { url },
+    webContents: {
+      isDestroyed: () => false, isLoading: () => false, getURL: () => url,
+      executeJavaScript: async (script) => (String(script).includes('innerText') ? 'Processando pagamento' : null),
+      setBackgroundThrottling: () => {}
+    }
+  });
+  service.setBrowserControls({ createTab: async () => ({ tabId: 'tab-noretry' }), closeTab: async () => {} });
+  service.setAgentConfigProvider(async () => ({ provider: 'openrouter', model: 'test-model', apiKey: 'test-key' }));
+  const originalFetch = global.fetch;
+  global.fetch = async () => {
+    round += 1;
+    return { ok: true, json: async () => ({ choices: [{ message: { role: 'assistant', content: 'Pronto.' } }], usage: { prompt_tokens: 1, completion_tokens: 1 } }) };
+  };
+  try {
+    const reported = await service.runTask({
+      startUrl: url, prompt: 'Finalizar', approvalPolicy: 'local-fixture',
+      verify: [{ kind: 'text', value: 'Pedido confirmado' }]
+    });
+    assert.equal(round, 1, 'sem correção não há nova chamada ao modelo');
+    assert.equal(reported.success, true);
+    assert.equal(reported.verification.ok, false);
+
+    round = 0;
+    const exhausted = await service.runTask({
+      startUrl: url, prompt: 'Finalizar', approvalPolicy: 'local-fixture',
+      verify: [{ kind: 'text', value: 'Pedido confirmado' }], requireVerification: true, correctionRounds: 1
+    });
+    assert.equal(round, 2, 'uma rodada de correção e depois desiste');
+    assert.equal(exhausted.success, false);
+    assert.equal(exhausted.verification.ok, false);
+    assert.equal(exhausted.trace.verificationRetries, 1);
+  } finally {
+    global.fetch = originalFetch;
+  }
+});

@@ -380,3 +380,35 @@ Limites honestos:
 
 Próximo passo natural: devolver a falha ao agente com direito a uma rodada de correção, e usar o mesmo contrato
 para confirmar efeitos do journal (hoje a prova de efeito é só a resposta da ferramenta).
+
+### Correção após verificação — 2026-10-27
+
+Quinto salto: fecha o ciclo **agir → provar → corrigir**. Antes, a verificação final só informava (ou recusava) no
+fim; agora, com `correctionRounds` (0–3), a falha volta ao agente ainda dentro da tarefa.
+
+Como funciona:
+
+- ao receber uma resposta final, o host confere o contrato (`verify`) na aba atual;
+- se falhar e ainda houver rodada, o agente recebe uma mensagem de usuário com **apenas o motivo de cada checagem**
+  ("texto ausente: Pedido confirmado", "URL atual … não começa com …") — nunca o texto da página — e continua;
+- o laço gasta uma chamada de modelo por rodada e respeita `maxSteps`, tempo máximo e aprovações normais;
+- esgotadas as rodadas, o resultado carrega `verification.ok=false`; com `requireVerification`, a tarefa é recusada;
+- `trace.verificationRetries` conta as rodadas usadas; `trace.verification` guarda só `{ok, failed:[kinds]}`;
+- sem `correctionRounds` (padrão 0) nada muda: verifica no fim e informa.
+
+Correção de um defeito da versão anterior: a recusa por `requireVerification` só era aplicada quando a verificação
+acontecia **depois** do laço. Agora ela vale também quando o próprio laço já verificou e devolveu o veredito — teste
+cobre os dois caminhos.
+
+Arquivos: `src/automation/service/index.js` (`runAgent` verifica na resposta final, injeta a correção e devolve
+`verification`; `runTask` reaproveita o veredito e aplica `requireVerification`). Testes:
+`test/task-verifier.test.js` (7 casos, incluindo rodada de correção que muda a página e esgotamento). `npm test`
+155/155.
+
+Limites honestos:
+
+- O agente só descobre a falha **ao tentar concluir**; não existe ferramenta para consultar o contrato no meio da
+  tarefa.
+- Cada rodada custa uma chamada inteira ao modelo; `correctionRounds` acima de 1 raramente compensa sem medir.
+- A mensagem de correção expõe o valor esperado da checagem (parte do contrato), não o conteúdo lido da página.
+- Sem benchmark: não há medição de quantos "concluído" falsos foram corrigidos nem do custo em tokens.

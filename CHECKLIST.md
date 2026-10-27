@@ -479,3 +479,6 @@
 - [x] Verificação final por contrato (`src/automation/task-verifier.js`): `verify` no `run_task` com url/text/absent/textCount/download, `requireVerification` recusa o "concluído" sem prova e `trace.verification` registra só booleanos. 5 testes; `npm test` 153/153.
 - [ ] Devolver falha de verificação ao agente com uma rodada de correção (hoje o chamador decide repetir).
 - [ ] Usar o contrato de verificação como prova de efeito do journal, em vez da resposta da ferramenta.
+- [x] Correção após verificação (`correctionRounds` 0–3): falha do contrato volta ao agente com o motivo (sem texto da página), gasta uma rodada de modelo e encerra recusando quando `requireVerification` está ligado. Corrigido também o caminho em que a recusa era pulada quando o laço já havia verificado. 7 testes; `npm test` 155/155.
+- [ ] Ferramenta para o agente consultar o contrato no meio da tarefa (hoje só descobre ao tentar concluir).
+- [ ] Medir em benchmark: falsos "concluído" evitados e custo em chamadas de uma rodada de correção.

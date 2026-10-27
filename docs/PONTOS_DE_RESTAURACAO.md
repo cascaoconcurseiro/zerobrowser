@@ -34,6 +34,7 @@ O `LEIA-ME.md` da pasta traz os hashes esperados e como restaurar o perfil.
 | 2026-10-27 | Journal de efeitos com idempotência (`effectJournal`/`--journal`): bloqueia repetição sem verificação, `alreadyDone` após sucesso, TTL de 30 min e persistência entre reinícios | `git log --oneline --grep="effect journal"` | 141/141 | `git revert <commit>` ou reset para a tag acima |
 | 2026-10-27 | Risco por capacidade (`src/automation/risk.js`): níveis credential/destructive/commitment/write, precedência e motivos específicos; remove falso positivo de "conta"/"pedido" isolados | `git log --oneline --grep="risk"` | 148/148 | `git revert <commit>` ou reset para a tag acima |
 | 2026-10-27 | Verificação final por contrato (`verify`/`requireVerification`): url, text, absent, textCount e download conferidos pelo host, com prova no resultado e no trace | `git log --oneline --grep="verification"` | 153/153 | `git revert <commit>` ou reset para a tag acima |
+| 2026-10-27 | Correção após verificação (`correctionRounds` 0–3): falha volta ao agente com o motivo e gasta uma rodada; recusa vale também quando o laço já verificou | `git log --oneline --grep="correction"` | 155/155 | `git revert <commit>` ou reset para a tag acima |
 
 Ao adicionar um salto, acrescente a linha aqui **no mesmo commit** da mudança.
 

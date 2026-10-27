@@ -42,6 +42,9 @@
 - **Motor, salto 4 (2026-10-27):** verificação final por contrato (`verify` no `run_task`): url/text/absent/
   textCount/download conferidos pelo host, `requireVerification` recusa "concluído" sem prova e o trace guarda só
   booleanos. `npm test` 153/153; detalhe e limites em `docs/EVOLUCAO_MOTOR.md`. Não está no app instalado.
+- **Motor, salto 5 (2026-10-27):** correção após verificação (`correctionRounds` 0–3): a falha volta ao agente com o
+  motivo (sem texto da página) e gasta uma rodada; `requireVerification` agora recusa também quando o laço já
+  verificou. `npm test` 155/155; sem benchmark e ausente do app instalado.
 - Continua SEM verificação no app: perfis (menu ⋮), menu de contexto de abas, histórico persistente de downloads,
   atalhos com foco na página e todas as flags opt-in do motor (`--preinspect`, `--scripts`, `--diff`,
   `--cascade=`, `--stream`, `--journal`).
