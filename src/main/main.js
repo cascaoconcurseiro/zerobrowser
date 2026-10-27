@@ -928,6 +928,11 @@ function launchProfile(profile) {
   spawn(process.execPath, args, { detached: true, stdio: 'ignore', env }).unref();
 }
 
+ipcMain.handle('browser:app-info', () => ({
+  version: app.getVersion(),
+  profile: profiles.currentProfile(profilesRoot(), app.getPath('userData')).name
+}));
+
 ipcMain.handle('browser:profile-menu', (event, x, y) => {
   if (!mainWindow || event.sender !== mainWindow.webContents) throw new Error('Somente a janela principal pode abrir o menu de perfis.');
   const root = profilesRoot();

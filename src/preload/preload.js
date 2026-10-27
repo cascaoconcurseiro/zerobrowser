@@ -18,6 +18,7 @@ const browserApi = {
     reopenClosedTab: () => ipcRenderer.invoke('browser:reopen-closed-tab'),
     openTabMenu: (tabId, order, x, y) => ipcRenderer.invoke('browser:tab-menu', tabId, order, x, y),
     openProfileMenu: (x, y) => ipcRenderer.invoke('browser:profile-menu', x, y),
+    getAppInfo: () => ipcRenderer.invoke('browser:app-info'),
     getLastSession: () => ipcRenderer.invoke('browser:get-last-session'),
     getDownloads: () => ipcRenderer.invoke('browser:get-downloads'),
     showDownload: (id) => ipcRenderer.invoke('browser:show-download', id),

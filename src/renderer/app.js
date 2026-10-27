@@ -1117,6 +1117,9 @@ class ZeroBrowserApp {
     this.elements.appMenu.classList.toggle('hidden', !opening);
     this.elements.btnAppMenu.setAttribute('aria-expanded', String(opening));
     if (!opening) return this.releaseAppMenuFreeze();
+    window.zeroBrowser.browser.getAppInfo().then((info) => {
+      document.getElementById('app-menu-version').textContent = `Zero Browser ${info.version} · ${info.profile}`;
+    }).catch(() => {});
     const requestId = this.appMenuFreezeRequest = (this.appMenuFreezeRequest || 0) + 1;
     const frozen = await window.zeroBrowser.browser.freezePage(true, 'menu').catch(() => null);
     if (requestId !== this.appMenuFreezeRequest || this.elements.appMenu.classList.contains('hidden')) {
