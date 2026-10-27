@@ -493,3 +493,25 @@ Limites honestos:
 - `rowspan`/`colspan` não são resolvidos; a grade é lida célula a célula.
 - Só `<table>`: listas de cards, grades virtualizadas e `div` com `role=table` ainda exigem `read_batch`/texto.
 - Sem benchmark: nenhuma medição de acerto linha a linha contra extração por texto.
+
+### Consulta do contrato no meio da tarefa — 2026-10-27
+
+Nono salto e fechamento do limite do salto 5: o agente só descobria a falha ao tentar concluir. Agora, quando a
+tarefa tem contrato (`verify`), o catálogo inclui `check_task`:
+
+- sem argumentos, lê a aba atual e devolve `{ok, results[]}` com o motivo de cada checagem;
+- é somente leitura; não altera página, journal nem aprovações;
+- `ok: false` volta como **resultado normal** (não como erro), para o modelo corrigir antes de encerrar;
+- sem contrato, a ferramenta não aparece no catálogo e a chamada é recusada com motivo;
+- `trace.verifyChecks` conta as consultas; nenhum texto de página entra no trace.
+
+Arquivos: `src/automation/task-verifier.js` (`CHECK_TASK_TOOL`), `service/index.js` (catálogo condicional, handler e
+prompt). Testes: 2 novos em `test/task-verifier.test.js` (consulta com contrato satisfeito/falho e recusa sem
+contrato). `npm test` 170/170.
+
+Limites honestos:
+
+- A consulta gasta uma chamada de modelo (a do turno em que o modelo a pede) e uma leitura de página; em páginas
+  grandes isso tem custo.
+- O contrato continua sendo o do chamador; o modelo não pode inventar critérios novos em tempo de execução.
+- A prova segue textual/estrutural, não de rede.

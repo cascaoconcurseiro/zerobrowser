@@ -170,3 +170,90 @@ test('without correction rounds the verification only reports, and exhaustion st
     global.fetch = originalFetch;
   }
 });
+
+test('the agent can consult the verification contract before finishing', async () => {
+  const { AutomationService } = require('../src/automation/service');
+  const service = new AutomationService();
+  const url = 'http://127.0.0.1:5000/t/check';
+  let pageText = 'Pedido confirmado';
+  service.tabs.set('tab-check', {
+    state: { url },
+    webContents: {
+      isDestroyed: () => false, isLoading: () => false, getURL: () => url,
+      executeJavaScript: async (script) => (String(script).includes('innerText') ? pageText : null),
+      setBackgroundThrottling: () => {}
+    }
+  });
+  service.setBrowserControls({ createTab: async () => ({ tabId: 'tab-check' }), closeTab: async () => {} });
+  service.setAgentConfigProvider(async () => ({ provider: 'openrouter', model: 'test-model', apiKey: 'test-key' }));
+  const originalFetch = global.fetch;
+  const outputs = {};
+  let round = 0;
+  global.fetch = async (_url, options) => {
+    const messages = JSON.parse(options.body).messages;
+    const toolMessage = messages.find((message) => message.tool_call_id === 'check');
+    if (toolMessage) outputs.check = JSON.parse(toolMessage.content);
+    round += 1;
+    const message = round === 1
+      ? { role: 'assistant', tool_calls: [{ id: 'check', type: 'function', function: { name: 'check_task', arguments: '{}' } }] }
+      : { role: 'assistant', content: 'Pronto.' };
+    return { ok: true, json: async () => ({ choices: [{ message }], usage: { prompt_tokens: 1, completion_tokens: 1 } }) };
+  };
+  try {
+    const ok = await service.runTask({
+      startUrl: url, prompt: 'Finalizar', approvalPolicy: 'local-fixture',
+      verify: [{ kind: 'text', value: 'Pedido confirmado' }]
+    });
+    assert.equal(outputs.check.ok, true);
+    assert.equal(outputs.check.results[0].ok, true);
+    assert.equal(ok.trace.verifyChecks, 1);
+    assert.equal(ok.success, true);
+
+    pageText = 'Erro ao processar';
+    round = 0;
+    const notYet = await service.runTask({
+      startUrl: url, prompt: 'Finalizar', approvalPolicy: 'local-fixture',
+      verify: [{ kind: 'text', value: 'Pedido confirmado' }]
+    });
+    assert.equal(outputs.check.ok, false, 'a consulta informa o que falta sem derrubar a tarefa');
+    assert.equal(notYet.success, true);
+    assert.equal(notYet.verification.ok, false);
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
+test('check_task is refused when the task has no verification contract', async () => {
+  const { AutomationService } = require('../src/automation/service');
+  const service = new AutomationService();
+  const url = 'http://127.0.0.1:5000/t/nocontract';
+  service.tabs.set('tab-none', {
+    state: { url },
+    webContents: {
+      isDestroyed: () => false, isLoading: () => false, getURL: () => url,
+      executeJavaScript: async () => '', setBackgroundThrottling: () => {}
+    }
+  });
+  service.setBrowserControls({ createTab: async () => ({ tabId: 'tab-none' }), closeTab: async () => {} });
+  service.setAgentConfigProvider(async () => ({ provider: 'openrouter', model: 'test-model', apiKey: 'test-key' }));
+  const originalFetch = global.fetch;
+  let output;
+  let round = 0;
+  global.fetch = async (_url, options) => {
+    const messages = JSON.parse(options.body).messages;
+    const toolMessage = messages.find((message) => message.tool_call_id === 'check');
+    if (toolMessage) output = JSON.parse(toolMessage.content);
+    round += 1;
+    const message = round === 1
+      ? { role: 'assistant', tool_calls: [{ id: 'check', type: 'function', function: { name: 'check_task', arguments: '{}' } }] }
+      : { role: 'assistant', content: 'Fim.' };
+    return { ok: true, json: async () => ({ choices: [{ message }], usage: { prompt_tokens: 1, completion_tokens: 1 } }) };
+  };
+  try {
+    await service.runTask({ startUrl: url, prompt: 'Nada', approvalPolicy: 'local-fixture' });
+    assert.equal(output.success, false);
+    assert.match(output.error, /não está disponível/);
+  } finally {
+    global.fetch = originalFetch;
+  }
+});

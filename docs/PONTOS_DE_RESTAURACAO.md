@@ -38,6 +38,7 @@ O `LEIA-ME.md` da pasta traz os hashes esperados e como restaurar o perfil.
 | 2026-10-27 | Verificação aprovada como prova de efeito: `confirmAttempted` confirma tentativas pendentes do journal (`proof: task-verification`); contrato falho mantém `attempted` | `git log --oneline --grep="proof"` | 157/157 | `git revert <commit>` ou reset para a tag acima |
 | 2026-10-27 | Gate do journal dentro de `run_steps`: passo confirmado é pulado, efeito desconhecido bloqueia o lote sem despachar, falha/exceção liquidam a tentativa | `git log --oneline --grep="run_steps gate"` | 161/161 | `git revert <commit>` ou reset para a tag acima |
 | 2026-10-27 | Extração estruturada (`extract_table`, opt-in): tabela por selector/índice, colunas por cabeçalho, deduplicação, limite e proveniência (`url`, `totalRows`, `missingColumns`, `truncated`) | `git log --oneline --grep="extract"` | 168/168 | `git revert <commit>` ou reset para a tag acima |
+| 2026-10-27 | `check_task`: consulta do contrato no meio da tarefa (somente leitura, `ok:false` como resultado normal, catálogo só com contrato) | `git log --oneline --grep="check_task"` | 170/170 | `git revert <commit>` ou reset para a tag acima |
 
 Ao adicionar um salto, acrescente a linha aqui **no mesmo commit** da mudança.
 

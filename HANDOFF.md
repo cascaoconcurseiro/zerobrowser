@@ -52,6 +52,8 @@
   `npm test` 161/161. Lacuna do salto 6 fechada.
 - **Motor, salto 8 (2026-10-27):** extração estruturada (`extract_table`, opt-in): tabela por selector/índice,
   colunas por cabeçalho, deduplicação, limite e proveniência; trace só com contagens. `npm test` 168/168.
+- **Motor, salto 9 (2026-10-27):** `check_task` consulta o contrato no meio da tarefa (somente leitura, `ok:false`
+  como resultado normal, catálogo só com contrato). `npm test` 170/170.
 - Continua SEM verificação no app: perfis (menu ⋮), menu de contexto de abas, histórico persistente de downloads,
   atalhos com foco na página e todas as flags opt-in do motor (`--preinspect`, `--scripts`, `--diff`,
   `--cascade=`, `--stream`, `--journal`, `structuredExtraction`).

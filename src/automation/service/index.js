@@ -25,7 +25,7 @@ const { RUN_STEPS_TOOL, runSteps } = require('../action-script');
 const { evaluateExpectation, needsPageText } = require('../expectation');
 const { isConsequential, effectKey, normalizeUrl, planEffect, settleEffect } = require('../effect-journal');
 const { classifyRisk, approvalReasonForMode } = require('../risk');
-const { validateChecks, evaluateChecks } = require('../task-verifier');
+const { validateChecks, evaluateChecks, CHECK_TASK_TOOL } = require('../task-verifier');
 const { EXTRACT_TABLE_TOOL, validateRequest: validateTableRequest, shapeRows, buildTableScript } = require('../table-extractor');
 
 const {
@@ -815,6 +815,7 @@ class AutomationService {
     const tools = getAgentTools();
     if (actionScripts) tools.push(structuredClone(RUN_STEPS_TOOL));
     if (structuredExtraction) tools.push(structuredClone(EXTRACT_TABLE_TOOL));
+    if (verificationChecks.length) tools.push(structuredClone(CHECK_TASK_TOOL));
     const approvalMode =this.settingsProvider?.().automationApprovalMode || 'low-risk';
     const approvalInstructions = approvalInstructionsFor(approvalMode);
     const messages = [
@@ -825,7 +826,7 @@ class AutomationService {
     if (preInspect) messages[0].content += ' O host já leu a página inicial e entregou o resultado de inspect_page antes do seu primeiro turno: use esses índices e dados em vez de pedir inspect_page de novo.';
     if (actionScripts) messages[0].content += ' Para vários passos conhecidos na mesma página (preencher um formulário, marcar vários itens) prefira uma única chamada run_steps, com a ação que muda de página por último; cada passo pode declarar expect {url,text,absent} e o host só segue quando a pós-condição for verdadeira.';
     if (effectJournal) messages[0].content += ' O journal de efeitos impede repetir uma ação consequente sem confirmação: se a resposta trouxer alreadyDone ou needsVerification, inspecione a página e confirme o estado em vez de repetir às cegas.';
-    if (verificationChecks.length) messages[0].content += ' O host confere o resultado final contra um contrato; se ele falhar, você receberá o motivo e deverá corrigir a página antes de encerrar.';
+    if (verificationChecks.length) messages[0].content += ' O host confere o resultado final contra um contrato; chame check_task para conferir o estado antes de concluir e, se o host recusar, corrija a página antes de encerrar.';
     if (structuredExtraction) messages[0].content += ' Para tabelas, use extract_table com as colunas do cabeçalho em vez de copiar texto; confira missingColumns, totalRows e truncated antes de concluir.';
     if (diffSnapshots) messages[0].content += ' Depois de uma ação, o snapshot pode vir como diferença (campo diff): os nodes listados substituem os de mesmo índice e os índices em diff.iguais continuam valendo como no snapshot anterior.';
     if (observeAfterActions) messages[0].content += ' A última ação de um lote pode devolver nodes e text atualizados (autoObserved): use esses índices e dados, sem pedir inspect_page de novo se já bastarem.';
@@ -923,6 +924,12 @@ class AutomationService {
     };
     const callTool = async (name, args) => {
       if (name === 'calculate') return calculate(args);
+      if (name === 'check_task') {
+        if (!verificationChecks.length) throw new Error('check_task não está disponível: esta tarefa não tem contrato de verificação');
+        const verdict = await this.verifyTask(tab, verificationChecks, taskStartedAt);
+        if (trace) trace.verifyChecks = (trace.verifyChecks || 0) + 1;
+        return { success: true, readOnly: true, ok: verdict.ok === true, results: verdict.results || [], ...(verdict.error ? { error: verdict.error } : {}) };
+      }
       if (name === 'run_steps') {
         if (!actionScripts) throw new Error('run_steps não está ligado nesta tarefa');
         // A pós-condição é conferida no host, na aba atual: o modelo declara o efeito, não a evidência.

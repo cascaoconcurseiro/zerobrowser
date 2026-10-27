@@ -6,6 +6,15 @@ const { normalizeText } = require('./expectation');
 const CHECK_KINDS = Object.freeze(['url', 'text', 'absent', 'textCount', 'download']);
 const MAX_CHECKS = 20;
 
+const CHECK_TASK_TOOL = {
+  type: 'function',
+  function: {
+    name: 'check_task',
+    description: 'Confere agora o contrato de verificação da tarefa e devolve o motivo de cada checagem. Use antes de encerrar quando quiser saber se o estado da página já satisfaz o pedido. Somente leitura.',
+    parameters: { type: 'object', properties: {}, additionalProperties: false }
+  }
+};
+
 function validateChecks(checks) {
   if (!Array.isArray(checks) || checks.length === 0) return 'Informe ao menos uma verificação.';
   if (checks.length > MAX_CHECKS) return `No máximo ${MAX_CHECKS} verificações por tarefa.`;
@@ -96,4 +105,4 @@ function evaluateChecks(checks, state = {}) {
   return { ok: results.length > 0 && results.every((result) => result.ok), results };
 }
 
-module.exports = { CHECK_KINDS, MAX_CHECKS, validateChecks, evaluateChecks, evaluateCheck, countOccurrences };
+module.exports = { CHECK_KINDS, MAX_CHECKS, CHECK_TASK_TOOL, validateChecks, evaluateChecks, evaluateCheck, countOccurrences };

@@ -491,3 +491,5 @@
 - [x] Extração estruturada (`extract_table`, opt-in): tabela por selector/índice, colunas por cabeçalho normalizado, deduplicação, limite de linhas e proveniência (`url`, `totalRows`, `missingColumns`, `truncated`); trace só com contagens. 7 testes; `npm test` 168/168.
 - [ ] Extração de listas de cards e grades virtualizadas (hoje só `<table>`).
 - [ ] Paginação automática por `totalRows`/`truncated` e comparação de acerto com extração por texto no benchmark.
+- [x] `check_task`: o agente consulta o contrato de verificação no meio da tarefa (somente leitura, `ok:false` como resultado normal, catálogo só com contrato, `trace.verifyChecks`). 2 testes; `npm test` 170/170.
+- [ ] A/B do impacto de `check_task` em acerto e chamadas (o modelo pode consultar demais).
