@@ -17,7 +17,7 @@
       </div>
       <div id="tab-bar" class="tab-bar" role="tablist">
         <div id="tabs-container" class="tabs-container"></div>
-        <button id="btn-new-tab" class="tab-btn" title="Nova aba (Ctrl+T)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+        <button id="btn-new-tab" class="tab-btn" type="button" aria-label="Nova aba" title="Nova aba (Ctrl+T)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
       </div>
     </div>
 
@@ -217,14 +217,14 @@
             <span>Receitas por site (repetir passos sem chamar o modelo)</span>
           </label>
           <label class="setting-item">
-            <input type="checkbox" id="setting-agent-transforms" checked>
-            <span>Cálculo e módulos no sandbox (sem acesso a rede ou disco)</span>
+            <input type="checkbox" id="setting-agent-transforms" disabled>
+            <span>Cálculo e execução de módulos indisponíveis por segurança</span>
           </label>
           <label class="setting-item">
             <input type="checkbox" id="setting-agent-prompt-cache">
             <span>Cache de prefixo do provedor (só para OpenAI/OpenRouter/Claude)</span>
           </label>
-          <p class="setting-description">Receitas e módulos só rodam sobre dados já lidos; nenhum deles executa código dentro da página. O cache é opt-in porque só rende quando o provedor devolve tokens cacheados.</p>
+          <p class="setting-description">A execução de módulos está desativada até que exista isolamento seguro. O cache é opt-in porque só rende quando o provedor devolve tokens cacheados.</p>
         </section>
         <section class="settings-section">
           <h3>Desenvolvedor</h3>

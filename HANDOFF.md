@@ -1,5 +1,14 @@
 # Handoff — Zero Browser
 
+## Auditoria de 28/10/2026 — estado atual
+
+- Confirmado escape do sandbox: `input.constructor.constructor` consegue alcançar o processo hospedeiro apesar da filtragem. A execução de `transform` e `module run` foi bloqueada em `src/automation/sandbox.js`; dados e módulos salvos são preservados. A configuração informa a indisponibilidade.
+- A instalação 0.1.38-dev (`app.asar` SHA-256 `eef2f3191f391cf89c9da18cdb9981155b42b7281d94f4aec1d9abc430758c30`) ainda contém a falha; código local 0.1.39-dev não foi instalado. Alterações anteriores não commitadas foram preservadas.
+- Próximo passo: validar os testes finais e o pacote isolado, substituir o isolamento por uma solução de sistema operacional com testes adversariais antes de reativar `runTransform`, e prosseguir a auditoria dos demais fluxos. Não alegar auditoria completa nem ranking sem benchmark pareado.
+- Limites: sites autenticados e comparação quantitativa com concorrentes ainda não verificados. Consultar o histórico abaixo para as demais pendências.
+
+
+
 ## Estado em 2026-10-27 (integração 0.1.5-dev)
 
 - Árvore única: `main` com a integração commitada (`68e51f7` → `be7677f` → registro deste build). A paginação do

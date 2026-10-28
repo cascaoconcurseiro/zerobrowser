@@ -373,11 +373,15 @@ body {
 
 .tabs-container {
   display: flex;
-  flex: 1;
+  flex: 0 1 auto;
   min-width: 0;
+  max-width: calc(100% - 44px);
   overflow-x: auto;
   padding: 0 4px;
 }
+
+/* O + fica logo depois da última aba, como no Chrome; o resto da barra segue arrastável. */
+.tab-bar::after { content: ''; flex: 1; -webkit-app-region: drag; }
 
 .tab {
   display: flex;
@@ -441,8 +445,9 @@ body {
 }
 
 .tab-btn {
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
+  margin-bottom: 3px;
   border: none;
   background: transparent;
   color: var(--fg-secondary);
@@ -451,8 +456,9 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-right: 4px;
+  margin-right: 8px;
   -webkit-app-region: no-drag;
+  transition: background 120ms ease, color 120ms ease;
 }
 
 .tab-btn:hover {

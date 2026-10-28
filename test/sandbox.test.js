@@ -21,31 +21,12 @@ test('static check refuses everything that could leave the sandbox', () => {
   assert.match(checkCode('x'.repeat(5000)), /acima de/);
 });
 
-test('a deterministic transform runs in a separate process and returns JSON', async () => {
-  const output = await runTransform('return input.rows.map((r) => Number(r[1])).reduce((a, b) => a + b, 0)', {
-    rows: [['Cabo', '10'], ['Fita', '2.5']]
-  });
-  assert.equal(output.ok, true, output.error);
-  assert.equal(output.result, 12.5);
-
-  const shaped = await runTransform('return { total: input.length, nomes: input.map((x) => x.toUpperCase()) }', ['ana', 'bia']);
-  assert.deepEqual(shaped.result, { total: 2, nomes: ['ANA', 'BIA'] });
-});
-
-test('errors inside the code come back as a failed result, not a crash', async () => {
-  const output = await runTransform('throw new Error("quebrou de propósito")');
-  assert.equal(output.ok, false);
-  assert.match(output.error, /quebrou/);
-  const invalid = await runTransform('return undefined.boom');
-  assert.equal(invalid.ok, false);
-});
-
-test('an infinite loop is killed by the timeout', async () => {
-  const started = Date.now();
-  const output = await runTransform('while (true) {}', null, { timeoutMs: 700 });
-  assert.equal(output.ok, false);
-  assert.match(output.error, /tempo limite|inválida/);
-  assert.ok(Date.now() - started < 5000, 'o processo não fica pendurado');
+test('transform execution fails closed, including constructor escape attempts', async () => {
+  for (const code of ['return input.a + 1', "return input.constructor.constructor('return pro'+'cess')().version"]) {
+    const output = await runTransform(code, { a: 1 });
+    assert.equal(output.ok, false);
+    assert.match(output.error, /desativada/);
+  }
 });
 
 test('the guardian refuses unsafe transform code before execution', () => {

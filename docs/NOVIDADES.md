@@ -1,6 +1,10 @@
-# Novidades — Zero Browser 0.1.38-dev
+# Novidades — Zero Browser 0.1.39-dev
 
 Versão de desenvolvimento com foco no motor de IA e em sites difíceis (planilhas, canvas, editores).
+
+## Navegador
+
+- **Botão + ao lado da última aba**: nova aba com um clique, no lugar de sempre Ctrl+T; o resto da barra continua arrastável. O teste de UI exige o botão visível e encostado na última aba.
 
 ## Painel mais legível
 

@@ -545,3 +545,11 @@
 - [x] Checkpoint 12 / **0.1.13-dev** instalado com tarefa durável, receitas via MCP e sandbox `transform`: instalador `0d2ae9b6…6fc03`, `app.asar` `3e88f32c…bf6d0e`, `status: PASS`, `npm test` 233/233; backup em `backups/2026-10-28-before-durable-jobs/`.
 - [x] Checkpoint 11 / **0.1.12-dev** instalado com Guardian e cache opt-in: instalador `cf33b29d…c53f3f`, `app.asar` `aee7ee6e…ae91e21`, `status: PASS`, `npm test` 218/218; backup em `backups/2026-10-28-before-guardian/`.
 - [x] Checkpoint 10 / **0.1.11-dev** instalado com schema de saída por receita (`output`/`outputValid`/`OUTPUT_INVALID`) e `sheets` como passo determinístico: instalador `229ee406…a901e2`, `app.asar` `0d46e9db…b043a`, `status: PASS`, `npm test` 208/208; backup em `backups/2026-10-28-before-output-schema/`.
+
+## Auditoria de 28/10/2026
+
+- [x] Reproduzir escape do sandbox por construtor e bloquear transformações e execução de módulos no código local.
+- [x] Verificar interface, dependências de produção e integrações Electron selecionadas.
+- [ ] Substituir o sandbox por isolamento de sistema validado e testar ataques antes de reativar módulos.
+- [ ] Validar e instalar a correção no aplicativo; a instalação 0.1.38-dev continua vulnerável.
+- [ ] Concluir auditoria abrangente e benchmark pareado com concorrentes e sites reais.

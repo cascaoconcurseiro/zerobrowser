@@ -36,8 +36,8 @@ test('a module is stored by origin, listed and executed later without a model', 
     assert.ok(module);
     const { runTransform } = require('../src/automation/sandbox');
     const outcome = await runTransform(module.code, { rows: [['Cabo', '10'], ['Fita', '2,5']] }, { timeoutMs: 8000 });
-    assert.equal(outcome.ok, true, outcome.error);
-    assert.equal(outcome.result, 12.5);
+    assert.equal(outcome.ok, false);
+    assert.match(outcome.error, /desativada/);
 
     assert.equal(await restored.forget('https://planilha.test', 'somar-coluna'), true);
     assert.deepEqual(await restored.list('https://planilha.test'), []);
@@ -64,8 +64,8 @@ test('modules are exposed over MCP by origin', async () => {
   assert.equal(list.modules[0].name, 'contar');
 
   const run = await service.tools.get('module_run').handler({ origin: 'https://planilha.test', name: 'contar', input: { items: [1, 2, 3] } });
-  assert.equal(run.success, true, run.error);
-  assert.equal(run.result, 3);
+  assert.equal(run.success, false);
+  assert.match(run.error, /desativada/);
 
   const missing = await service.tools.get('module_run').handler({ origin: 'https://planilha.test', name: 'nao-existe' });
   assert.equal(missing.success, false);

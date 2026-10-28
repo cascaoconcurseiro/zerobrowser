@@ -1,9 +1,4 @@
-// Transformação determinística em processo separado: o código do agente roda sem require, rede ou disco,
-// com tempo e tamanho limitados. Não é uma fronteira de segurança contra código nativo — por isso a
-// verificação estática recusa tudo que tente sair do contexto.
-
-const { spawn } = require('child_process');
-const path = require('path');
+// A execução está bloqueada: Node vm e filtragem de texto não são uma fronteira de segurança.
 
 const MAX_CODE = 4000;
 const MAX_INPUT_BYTES = 256000;
@@ -34,54 +29,8 @@ function checkCode(code) {
   return null;
 }
 
-function runTransform(code, input = null, { timeoutMs = DEFAULT_TIMEOUT_MS } = {}) {
-  const problem = checkCode(code);
-  if (problem) return Promise.resolve({ ok: false, error: problem });
-  let payload;
-  try {
-    payload = JSON.stringify({ code, input });
-  } catch {
-    return Promise.resolve({ ok: false, error: 'input não é serializável em JSON.' });
-  }
-  if (Buffer.byteLength(payload) > MAX_INPUT_BYTES) return Promise.resolve({ ok: false, error: 'input grande demais.' });
-
-  return new Promise((resolve) => {
-    const child = spawn(process.execPath, [path.join(__dirname, 'sandbox-worker.js')], {
-      stdio: ['pipe', 'pipe', 'pipe'],
-      env: {},
-      windowsHide: true
-    });
-    let out = '';
-    let settled = false;
-    const finish = (value) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      try { child.kill(); } catch {}
-      resolve(value);
-    };
-    const timer = setTimeout(() => finish({ ok: false, error: `tempo limite de ${timeoutMs} ms no sandbox` }), timeoutMs);
-    child.stdout.setEncoding('utf8');
-    child.stdout.on('data', (chunk) => {
-      out += chunk;
-      if (out.length > MAX_OUTPUT_BYTES) finish({ ok: false, error: 'saída grande demais' });
-    });
-    child.on('error', (error) => finish({ ok: false, error: String(error?.message || error) }));
-    child.on('close', () => {
-      try {
-        const parsed = JSON.parse(out || '{}');
-        finish(parsed && typeof parsed === 'object' ? parsed : { ok: false, error: 'resposta inválida do sandbox' });
-      } catch {
-        finish({ ok: false, error: 'resposta inválida do sandbox' });
-      }
-    });
-    try {
-      child.stdin.write(payload);
-      child.stdin.end();
-    } catch (error) {
-      finish({ ok: false, error: String(error?.message || error) });
-    }
-  });
+function runTransform() {
+  return Promise.resolve({ ok: false, error: 'Execução de transformações e módulos desativada: isolamento de segurança indisponível.' });
 }
 
 const TRANSFORM_TOOL = {
