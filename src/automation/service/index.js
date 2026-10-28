@@ -941,7 +941,7 @@ class AutomationService {
   }
 
   // `trace`, when given, is filled in place with model calls, token usage and every tool call (used by run_task).
-  async runAgent(tabId, prompt, apiKey, model, allowTools = true, provider = 'openrouter', requireToolCall = false, { maxSteps = 40, trace = null, maxDurationMs = 5 * 60 * 1000, resumable = false, resumeId = null, observeAfterActions = true, captureReadEvidence = false, preInspect = false, actionScripts = false, diffSnapshots = false, cascadeModel = null, streaming = false, effectJournal = false, verify = null, correctionRounds = 0, structuredExtraction = false, recipes = false, advancedInput = true, saveRecipe = null, promptCache = false, taskStartUrl = null, transforms = false } = {}) {
+  async runAgent(tabId, prompt, apiKey, model, allowTools = true, provider = 'openrouter', requireToolCall = false, { maxSteps = 40, trace = null, maxDurationMs = 5 * 60 * 1000, resumable = false, resumeId = null, observeAfterActions = true, captureReadEvidence = false, preInspect = false, actionScripts = false, diffSnapshots = false, cascadeModel = null, streaming = false, effectJournal = false, verify = null, correctionRounds = 0, structuredExtraction = false, recipes = false, advancedInput = true, saveRecipe = null, promptCache = false, taskStartUrl = null, transforms = false, onEvent = null } = {}) {
     for (const [id, state] of this.pausedAgentRuns) {
       if (state.expiresAt <= Date.now()) this.forgetPausedRun(id);
     }
@@ -1065,6 +1065,7 @@ class AutomationService {
     const cascade = createModelCascade({ cheapModel: cascadeModel, strongModel: model });
     if (trace && cascade.enabled) trace.cascade = cascade.stats;
     let lastNodes = null;
+    const emit = (event) => { try { onEvent?.(event); } catch {} };
     const toolUse = new Map(); // diagnostico da pausa: quais ferramentas consumiram rodadas
     let lastError = '';
     const progressGuard = createProgressGuard({ maxSteps });
@@ -1924,6 +1925,7 @@ class AutomationService {
         : '';
       for (let step = 0; step < maxSteps; step++) {
         if (runController.signal.aborted) throw Object.assign(new Error('Tarefa interrompida pelo usuário.'), { name: 'AbortError' });
+        emit({ type: 'step', step: step + 1, maxSteps });
         stage('human-check', step);
         const humanCheck = await this.detectHumanCheck(tabId);
         if (humanCheck.detected) {
@@ -2264,6 +2266,7 @@ class AutomationService {
             }
           }
           turnTools.push({ name: call.function.name, args, ok: output?.success !== false });
+          emit({ type: 'tool', step: step + 1, name: call.function.name, ok: output?.success !== false, ...(output?.code ? { code: output.code } : {}) });
           toolUse.set(call.function.name, (toolUse.get(call.function.name) || 0) + 1);
           if (output?.success === false) lastError = String(output.error || '').slice(0, 160);
           const repeatNote = repeatGuard.record(call.function.name, args, output);

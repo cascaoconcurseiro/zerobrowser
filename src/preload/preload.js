@@ -73,6 +73,11 @@ const browserApi = {
     runAgent: (tabId, prompt, testOnly = false, requireToolCall = false, resumeId = null) => ipcRenderer.invoke('automation:run-agent', { tabId, prompt, testOnly, requireToolCall, resumeId }),
     cancelAgent: (tabId) => ipcRenderer.invoke('automation:cancel-agent', tabId),
     jobs: () => ipcRenderer.invoke('automation:jobs'),
+    onRunEvent: (callback) => {
+      const handler = (_event, data) => callback(data);
+      ipcRenderer.on('automation:run-event', handler);
+      return () => ipcRenderer.removeListener('automation:run-event', handler);
+    },
     memory: (action = 'list', id = null) => ipcRenderer.invoke('automation:memory', { action, id }),
     getState: (tabId) => ipcRenderer.invoke('automation:get-state', tabId),
     cdpSend: (tabId, method, params) => ipcRenderer.invoke('automation:cdp-send', tabId, method, params),

@@ -114,6 +114,8 @@ function setupIpc() {
     const configuredSteps = Number(await store.get('automation.maxSteps'));
     const maxSteps = [20, 40, 60].includes(configuredSteps) ? configuredSteps : 40;
     return automationService.runAgent(tabId, prompt, apiKey, model, !testOnly, provider, Boolean(requireToolCall), {
+      // Eventos de progresso para o painel; falha de envio nunca derruba a tarefa.
+      onEvent: (event) => { try { _e.sender.send('automation:run-event', event); } catch {} },
       resumable: !testOnly,
       resumeId: testOnly ? null : resumeId,
       // A pré-inspeção entrega a primeira leitura pronta e economiza uma rodada do modelo.

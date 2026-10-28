@@ -1321,3 +1321,8 @@ body.dark .ai-working-status-pill {
 
 /* Rodapé discreto da resposta: quais ferramentas consumiram rodadas. */
 .ai-tools-used { margin-top: 8px; padding-top: 6px; border-top: 1px solid var(--border); font-size: 11px; color: var(--fg-secondary); }
+
+/* Linha do tempo da tarefa: compacta por padrão, detalhada ao abrir. */
+.ai-timeline { margin-top: 8px; font-size: 11px; color: var(--fg-secondary); }
+.ai-timeline summary { cursor: pointer; }
+.ai-timeline-item { padding: 2px 0 2px 8px; border-left: 2px solid var(--border); }

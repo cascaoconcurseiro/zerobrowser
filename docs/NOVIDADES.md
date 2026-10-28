@@ -1,8 +1,11 @@
-# Novidades — Zero Browser 0.1.28-dev
+# Novidades — Zero Browser 0.1.29-dev
 
 Versão de desenvolvimento com foco no motor de IA e em sites difíceis (planilhas, canvas, editores).
 
 ## Painel mais legível
+
+- **Progresso ao vivo**: durante a tarefa o painel mostra “Ação N de MAX · ferramenta” em vez de “Executando…”.
+- **Linha do tempo**: cada resposta traz um resumo recolhível das ferramentas executadas, com passo e falha/código quando houver.
 
 - **Erro com código**: a mensagem de falha mostra a etiqueta do código (, , …) para diagnosticar sem abrir o trace.
 

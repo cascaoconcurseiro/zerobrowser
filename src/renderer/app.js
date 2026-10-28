@@ -20,6 +20,7 @@ class ZeroBrowserApp {
     this.initLibraryUi();
     this.initChatSessions();
     this.initAgentMemoryUi();
+    this.initRunEvents();
     this.refreshJobsBanner();
   }
 
@@ -1630,6 +1631,26 @@ class ZeroBrowserApp {
     chat.prepend(banner);
   }
 
+  initRunEvents() {
+    this.runEvents = [];
+    try {
+      this.offRunEvent = window.zeroBrowser.automation.onRunEvent((event) => this.handleRunEvent(event));
+    } catch {
+      this.offRunEvent = null;
+    }
+  }
+
+  handleRunEvent(event) {
+    if (!event || typeof event !== 'object') return;
+    this.runEvents.push(event);
+    if (this.runEvents.length > 200) this.runEvents.shift();
+    const banner = this.activeWorkingBanner;
+    const status = banner?.querySelector?.('.ai-status-text');
+    if (!status) return;
+    if (event.type === 'step') status.textContent = `Ação ${event.step} de ${event.maxSteps}…`;
+    else if (event.type === 'tool') status.textContent = `Ação ${event.step} · ${event.name}${event.ok === false ? ' (falhou)' : ''}`;
+  }
+
   initAgentMemoryUi() {
     this.elements.btnAiMemory?.addEventListener('click', () => this.showAgentMemory());
   }
@@ -1697,6 +1718,7 @@ class ZeroBrowserApp {
         this.showToast('Salve a chave e escolha um modelo primeiro', 'warning');
         return;
       }
+      this.runEvents = [];
       if (previousContinue) previousContinue.disabled = true;
       this.addAiMessage('user', resumeId ? 'Continuar tarefa' : text);
       if (!resumeId) this.elements.aiInput.value = '';
@@ -1718,6 +1740,7 @@ class ZeroBrowserApp {
           </div>
         `;
         this.elements.aiChat.appendChild(workingBanner);
+        this.activeWorkingBanner = workingBanner;
         this.elements.aiChat.scrollTop = this.elements.aiChat.scrollHeight;
       }
 
@@ -1726,6 +1749,21 @@ class ZeroBrowserApp {
 
       if (result.success) {
         const message = this.addAiMessage('assistant', result.message);
+        const toolsTimeline = (this.runEvents || []).filter((event) => event.type === 'tool');
+        if (toolsTimeline.length) {
+          const detalhes = document.createElement('details');
+          detalhes.className = 'ai-timeline';
+          const resumo = document.createElement('summary');
+          resumo.textContent = `Linha do tempo (${toolsTimeline.length} ações)`;
+          detalhes.appendChild(resumo);
+          for (const item of toolsTimeline) {
+            const linha = document.createElement('div');
+            linha.className = 'ai-timeline-item';
+            linha.textContent = `${item.step}. ${item.name}${item.ok === false ? ' — falhou' : ''}${item.code ? ` (${item.code})` : ''}`;
+            detalhes.appendChild(linha);
+          }
+          message.appendChild(detalhes);
+        }
         if (result.toolsUsed && Object.keys(result.toolsUsed).length) {
           const resumo = document.createElement('div');
           resumo.className = 'ai-tools-used';
@@ -1755,6 +1793,7 @@ class ZeroBrowserApp {
       if (resumeId && previousContinue) previousContinue.disabled = false;
     } finally {
       if (workingBanner && workingBanner.parentNode) workingBanner.remove();
+      this.activeWorkingBanner = null;
       document.getElementById('app')?.classList.remove('agent-active');
       document.getElementById('browser-container')?.classList.remove('agent-active');
       this.aiRunning = false;
