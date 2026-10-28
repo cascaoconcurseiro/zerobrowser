@@ -22,6 +22,7 @@ const browserApi = {
     getLastSession: () => ipcRenderer.invoke('browser:get-last-session'),
     getDownloads: () => ipcRenderer.invoke('browser:get-downloads'),
     showDownload: (id) => ipcRenderer.invoke('browser:show-download', id),
+    whatsNew: () => ipcRenderer.invoke('browser:whats-new'),
     minimize: () => ipcRenderer.invoke('window:minimize'),
     maximize: () => ipcRenderer.invoke('window:toggle-maximize'),
     onTabEvent: (callback) => {

@@ -704,3 +704,42 @@ estatística. O que a medição mostra com clareza é que a regressão desaparec
 
 Conclusão prática: o journal pode continuar **opt-in** sem medo de custo, e a decisão de ligá-lo por padrão ainda
 exige o conjunto difícil completo (14 tarefas) e outro modelo.
+
+### Receitas v2: entradas, placeholders e `possibleCommit` — 2026-10-28
+
+Inspirado no que o Pomerado chama de integração (“mint”): uma operação determinística com schema de entrada e
+semântica explícita de falha. Não copiamos código, só o desenho.
+
+- `recipe save` aceita `input` (schema com `properties` de tipo string/number/boolean e `required`);
+- passos e pós-condições podem usar `{{campo}}`; `recipe run` recebe `values`, valida obrigatórios e substitui sem
+  alterar a receita guardada;
+- falha **depois** de um passo despachado (navegação, clique) devolve `possibleCommit: true` e
+  `readBeforeRetry`, mandando ler a página antes de repetir; `wait_for` e clique cujo texto não foi encontrado
+  devolvem `possibleCommit: false`;
+- `list` mostra quantas entradas cada receita exige.
+
+Exemplo:
+
+```json
+{ "action": "save", "name": "buscar", "input": {
+    "properties": { "termo": { "type": "string" } }, "required": ["termo"] },
+  "steps": [
+    { "tool": "navigate", "args": { "url": "https://site.test/busca" },
+      "expect": { "text": "Buscar" } },
+    { "tool": "click_text", "args": { "text": "{{termo}}" },
+      "expect": { "url": "https://site.test/resultado" } }
+  ] }
+```
+
+Rodar: `{ "action": "run", "name": "buscar", "values": { "termo": "cadeira" } }` — sem modelo.
+
+Arquivos: `src/automation/recipe-store.js` (schema, substituição, metadados), `service/index.js` (save/run e
+`possibleCommit` em `runRecipe`). Testes: `test/recipe-store.test.js` (5 casos; schema inválido, obrigatório
+ausente, substituição sem mutar a receita, commit possível). `npm test` 186/186.
+
+Limites honestos:
+
+- Continua sem **captura automática** (o mint do Pomerado escreve módulos sozinho); aqui quem salva é o modelo.
+- Não gera código por site: a receita é uma lista de passos estáveis, não um módulo com lógica.
+- Sem autenticação própria: login continua sendo sessão da aba, e credencial só é digitada quando o modelo pede.
+- `possibleCommit` é conservador (navegação/clique contam como possível), não prova de efeito.

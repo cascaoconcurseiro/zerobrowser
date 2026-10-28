@@ -1154,6 +1154,7 @@ class ZeroBrowserApp {
     if (action === 'new-tab') return this.createTab('zero://newtab');
     if (action === 'history' || action === 'downloads' || action === 'bookmarks') return this.openLibrary(action);
     if (action === 'settings') return this.toggleSettingsPanel();
+    if (action === 'whats-new') return window.zeroBrowser.browser.whatsNew().catch(() => {});
     if (action === 'extensions') return this.openExtensionsManager();
     if (action === 'profiles') return window.zeroBrowser.browser.openProfileMenu(Math.max(0, window.innerWidth - 240), 90).catch(() => {});
   }

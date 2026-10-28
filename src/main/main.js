@@ -734,6 +734,27 @@ ipcMain.handle('browser:get-tabs', async () => {
   return tabs;
 });
 
+ipcMain.handle('browser:whats-new', async (event) => {
+  if (!mainWindow || event.sender !== mainWindow.webContents) throw new Error('Somente a janela principal pode abrir as novidades.');
+  let content = 'Sem notas para esta versão.';
+  try {
+    content = fs.readFileSync(path.join(__dirname, '../../docs/NOVIDADES.md'), 'utf8');
+  } catch (error) {
+    logError(error);
+  }
+  const plain = content.replace(/^#+\s*/gm, '').replace(/\*\*/g, '').replace(/`/g, '').trim();
+  await dialog.showMessageBox(mainWindow, {
+    type: 'info',
+    title: 'Novidades',
+    message: `Zero Browser ${app.getVersion()}`,
+    detail: plain.slice(0, 4000),
+    buttons: ['Fechar'],
+    defaultId: 0,
+    noLink: true
+  });
+  return { success: true };
+});
+
 ipcMain.handle('browser:set-side-panel-open', (event, isOpen) => {
   if (!mainWindow || event.sender !== mainWindow.webContents) {
     throw new Error('Somente a janela principal pode alterar o layout do navegador.');

@@ -1,10 +1,15 @@
-# Como testar o 0.1.5-dev com os saltos do motor
+# Como testar o 0.1.6-dev com os saltos do motor
 
-Checklist manual para a versão instalada em 27/10/2026. O que depende de modelo/provedor está separado do que já
+Checklist manual para a versão instalada em 28/10/2026. O que depende de modelo/provedor está separado do que já
 pode ser conferido sem chave.
 
-**Build instalado:** `0.1.5-dev`, `app.asar` `92940a8c…02b720`; backup do estado anterior em
-`backups/2026-10-27-before-journal-fix/`.
+**Build instalado:** `0.1.6-dev`, `app.asar` `40f5be10…9257dd`; backup do estado anterior em
+`backups/2026-10-28-before-recipe-v2/`.
+
+## 0. Novidades e versão
+
+- [ ] Menu ⋮ mostra **0.1.6-dev** e abre **Novidades** com o resumo (motor, sites difíceis, limites).
+- [ ] O diálogo fecha em **Fechar** e não altera a página.
 
 ## 1. Casca do navegador (não depende de provedor)
 

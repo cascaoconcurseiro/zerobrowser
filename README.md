@@ -6,11 +6,11 @@ Navegador Electron para Windows com agente integrado à OpenRouter ou DeepSeek.
 
 ## Estado atual (2026-10-27)
 
-O **0.1.5-dev** é o que está instalado em produção no Windows desde 27/10/2026, instalado por cima do 0.1.4 após backup verificável e validação do executável empacotado. O `app.asar` do build e da instalação coincide (`3658148c…f606401`), e a integração do executável instalado passou. É um build `-dev`: não passou pelos gates de release (integrações Electron restantes, benchmark pareado e inspeção visual), então trate como candidato. Testes com provider local e fixtures confirmam fluxos de integração, mas não comprovam desempenho ou acerto em Planilhas autenticadas, lojas com conta ou todos os sites complexos. O estado e os próximos passos estão em `HANDOFF.md`, `docs/EVOLUCAO_MOTOR.md` e `docs/REGISTRO_INTEGRACAO_0.1.5.md`.
+O **0.1.6-dev** é o que está instalado em produção no Windows desde 28/10/2026, instalado por cima do 0.1.5-dev após backup verificável e validação do executável empacotado. O `app.asar` do build e da instalação coincide (`40f5be10…9257dd`), e a integração do executável instalado passou. É um build `-dev`: não passou por todos os gates de release (benchmark pareado completo e inspeção visual), então trate como candidato. O menu ⋮ tem **Novidades** com o resumo desta versão. Testes com provider local e fixtures confirmam fluxos de integração, mas não comprovam desempenho ou acerto em Planilhas autenticadas, lojas com conta ou todos os sites complexos. O estado e os próximos passos estão em `HANDOFF.md`, `docs/EVOLUCAO_MOTOR.md` e `docs/NOVIDADES.md`.
 
-A instalação anterior (0.1.4) está preservada em `backups/2026-10-27-before-0.1.5-dev/` — app, perfil, atalhos e instalador — com instruções de restauração no `LEIA-ME.md` da pasta.
+A instalação anterior (0.1.5-dev com os saltos até o journal) está preservada em `backups/2026-10-28-before-recipe-v2/`; o release 0.1.4, em `backups/2026-10-27-before-0.1.5-dev/` — com instruções de restauração no `LEIA-ME.md` de cada pasta.
 
-### Em desenvolvimento (0.1.5-dev)
+### Em desenvolvimento (0.1.6-dev)
 
 - `tabs read_batch` pagina abas (`tabOffset`/`tabVersion`) e texto (`contentOffset`/`contentVersion`), reiniciando a leitura quando a página muda; `coverage.complete` agora fica `true` no último trecho.
 - Perfis locais pelo menu ⋮ (abrir, criar, excluir), cada um como processo próprio via `ZERO_USER_DATA`; sem renomear e sem migrar o perfil atual.

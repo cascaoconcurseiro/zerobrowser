@@ -500,7 +500,7 @@
 - [ ] Passos de receita passarem pelo journal e por preenchimento de campo (hoje só navegação/clique/espera).
 - [ ] Captura automática de receita apenas em tarefa verificada e versionamento por mudança de site.
 - [x] Checkpoint com os 11 saltos compilado e instalado: `dist/Zero Browser Setup 0.1.5-dev.exe` (SHA-256 `9df4ed8b…a8545f`), `app.asar` `ae7a6564…0ae96a` idêntico em build e produção, integração do instalado `status: PASS`, `npm test` 177/177; backup do estado anterior em `backups/2026-10-27-before-motor-leaps/`.
-- [ ] Teste manual do roteiro em `docs/COMO_TESTAR_0.1.5.md` (perfis, menu de abas, downloads, atalhos).
+- [ ] Teste manual do roteiro em `docs/COMO_TESTAR_0.1.6.md` (perfis, menu de abas, downloads, atalhos).
 - [ ] Benchmark pareado 0.1.4 × checkpoint com provedor real e as flags `--journal`, `--scripts`, `--preinspect`.
 - [x] Push para `origin` em 28/10/2026: `main` em `c13447e`, tag `motor-pre-leaps-2026-10-27` publicada. Teste manual de Planilhas e suíte difícil completa continuam pendentes.
 - [x] Canal alternativo para canvas: `clipboard` (read/write, 200k, write com aprovação) e `key_sequence` (repetição de setas/Tab/F2/Ctrl, 50 passos, Enter/espaço com aprovação); fluxo TSV documentado em `docs/PLANILHAS_E_SITES_DIFICEIS.md`. 4 testes; `npm test` 181/181.
@@ -513,3 +513,9 @@
 - [ ] Benchmark pareado com provedor real (tarefa 44 e 33) usando `--journal`, `--scripts` e `--preinspect`.
 - [x] Primeiras execuções reais pós-saltos (deepseek-flash, 1 por condição): 44 padrão 1/1; 44 `--journal` 1/1 mas 18 passos/2,2× tempo; 33 padrão 1/1; 33 `--scripts` 1/1 com −58% passos e −37% tokens. Evidência em `bench/resultados/`.
 - [x] Estreitar o journal a efeito crítico (commitment/destructive/credential + upload/Enter; navegação fora) e medir 5×5 na tarefa 44: 5/5 em ambas, −16,1% passos, −15,1% chamadas e −10,1% tokens contra a base. Regressão removida; prova estatística ainda exige o conjunto difícil completo e outro modelo.
+- [x] Receitas v2 (inspirado no Pomerado, sem copiar código): schema de entrada, placeholders `{{campo}}`, validação de obrigatórios e `possibleCommit` + `readBeforeRetry` após passo despachado. 5 testes; `npm test` 186/186.
+- [ ] Captura automática de receita a partir de tarefa verificada (mint) e schema de saída.
+- [ ] Credencial digitada só na origem do login (padrão do Pomerado), com recusa de formulário que envia para outro site.
+- [ ] Portar o cálculo de nome acessível do Playwright (Apache-2.0) usado pelo Pomerado e medir em locators.
+- [x] Versão **0.1.6-dev** com menu **Novidades** (diálogo nativo lendo `docs/NOVIDADES.md` do pacote) e teste de sincronia entre `package.json`, lock, notas e conteúdo; instalador `d493c626…2165df`, `app.asar` `40f5be10…9257dd`, `status: PASS`, `npm test` 187/187.
+- [ ] Validar o diálogo Novidades no app instalado (abrir, ler, fechar) e revisar o texto antes de um release.

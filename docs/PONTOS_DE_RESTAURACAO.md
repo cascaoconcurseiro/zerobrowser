@@ -45,6 +45,7 @@ O `LEIA-ME.md` da pasta traz os hashes esperados e como restaurar o perfil.
 | 2026-10-27 | Checkpoint com clipboard/teclado: instalador `e57c20cc…580632`, `app.asar` `2658b925…06088b`, backup anterior em `backups/2026-10-27-before-clipboard/` | build, não commit | 181/181 | copiar `backups/2026-10-27-before-clipboard/app` |
 | 2026-10-27 | Checkpoint com clique visual/acessibilidade: instalador `a2339c55…ad151c`, `app.asar` `39cb96e1…7494f8`, backup em `backups/2026-10-27-before-visual/`; primeiras execuções reais (44 e 33) passaram | build, não commit | 185/185 | copiar `backups/2026-10-27-before-visual/app` |
 | 2026-10-28 | Checkpoint com journal estreitado: instalador `36104023…effaff`, `app.asar` `92940a8c…02b720`, backup em `backups/2026-10-27-before-journal-fix/`; 5×5 na tarefa 44 sem regressão | build, não commit | 185/185 | copiar `backups/2026-10-27-before-journal-fix/app` |
+| 2026-10-28 | Checkpoint 5 / **0.1.6-dev**: instalador `d493c626…2165df`, `app.asar` `40f5be10…9257dd`, receitas v2 + menu Novidades; backup em `backups/2026-10-28-before-recipe-v2/` | build, não commit | 187/187 | copiar `backups/2026-10-28-before-recipe-v2/app` |
 
 Ao adicionar um salto, acrescente a linha aqui **no mesmo commit** da mudança.
 
