@@ -1305,3 +1305,12 @@ body.dark .ai-working-status-pill {
 .ai-memory-item { display: flex; gap: 8px; align-items: flex-start; margin: 4px 0; }
 .ai-memory-item button { margin-left: auto; flex: none; }
 .ai-memory-empty { font-size: 12px; color: var(--fg-secondary); }
+
+/* UX: foco visível em toda a casca, contraste dos textos secundários e largura das respostas. */
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+.btn-ghost:focus-visible, .ai-session-select:focus-visible, .tab:focus-visible, .ai-textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.ai-message.assistant { max-width: 96%; }
+.ai-message.user { max-width: 78%; }
+.ai-privacy-note { color: var(--fg-secondary); opacity: 0.92; }
+.ai-message.assistant.ai-rich .ai-empty-hint { color: var(--fg-secondary); }
+.ai-chat .ai-message.assistant:first-child { margin-top: 2px; }

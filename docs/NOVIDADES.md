@@ -1,6 +1,12 @@
-# Novidades — Zero Browser 0.1.24-dev
+# Novidades — Zero Browser 0.1.25-dev
 
 Versão de desenvolvimento com foco no motor de IA e em sites difíceis (planilhas, canvas, editores).
+
+## Painel mais legível
+
+- **Foco visível em toda a casca**: botões, selects, abas e caixa de texto ganham anel de foco — navegação por teclado deixa de ser às cegas.
+- **Respostas mais largas**: mensagens do agente usam até 96% da largura; as suas ficam em 78%, separando quem falou.
+- **Contraste dos textos secundários** elevado (nota de privacidade e dicas).
 
 ## Fallback visual
 
