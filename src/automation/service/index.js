@@ -2109,6 +2109,7 @@ class AutomationService {
             }
           }
           if (trace) trace.stopReason = 'final_answer';
+          emit({ type: 'done', durationMs: Date.now() - taskStartedAt, inputTokens: trace?.inputTokens || 0, outputTokens: trace?.outputTokens || 0 });
           if (requireToolCall) return { success: false, error: `O modelo ${model} não confirmou suporte a chamadas de ferramenta` };
           // Só revisa o que o modelo disse; o texto padrão do host não é afirmação do agente.
           if (verification?.ok && this.memoryStore && prompt) {

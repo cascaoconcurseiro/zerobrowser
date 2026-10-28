@@ -1326,3 +1326,6 @@ body.dark .ai-working-status-pill {
 .ai-timeline { margin-top: 8px; font-size: 11px; color: var(--fg-secondary); }
 .ai-timeline summary { cursor: pointer; }
 .ai-timeline-item { padding: 2px 0 2px 8px; border-left: 2px solid var(--border); }
+
+/* Tempo e tokens da última execução. */
+.ai-run-stats { margin-top: 6px; font-size: 11px; color: var(--fg-secondary); }

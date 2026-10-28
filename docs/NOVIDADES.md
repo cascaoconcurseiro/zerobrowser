@@ -1,8 +1,10 @@
-# Novidades — Zero Browser 0.1.29-dev
+# Novidades — Zero Browser 0.1.30-dev
 
 Versão de desenvolvimento com foco no motor de IA e em sites difíceis (planilhas, canvas, editores).
 
 ## Painel mais legível
+
+- **Tempo e tokens da execução**: cada resposta termina com “Concluído em 8,3 s · 12.345 tokens”, vindo do evento de fim da tarefa.
 
 - **Progresso ao vivo**: durante a tarefa o painel mostra “Ação N de MAX · ferramenta” em vez de “Executando…”.
 - **Linha do tempo**: cada resposta traz um resumo recolhível das ferramentas executadas, com passo e falha/código quando houver.

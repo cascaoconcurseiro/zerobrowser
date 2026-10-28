@@ -1749,6 +1749,15 @@ class ZeroBrowserApp {
 
       if (result.success) {
         const message = this.addAiMessage('assistant', result.message);
+        const finalEvent = [...(this.runEvents || [])].reverse().find((event) => event.type === 'done');
+        if (finalEvent) {
+          const stats = document.createElement('div');
+          stats.className = 'ai-run-stats';
+          const segundos = (finalEvent.durationMs / 1000).toFixed(1).replace('.', ',');
+          const tokens = Number(finalEvent.inputTokens || 0) + Number(finalEvent.outputTokens || 0);
+          stats.textContent = `Concluído em ${segundos} s${tokens ? ` · ${tokens.toLocaleString('pt-BR')} tokens` : ''}`;
+          message.appendChild(stats);
+        }
         const toolsTimeline = (this.runEvents || []).filter((event) => event.type === 'tool');
         if (toolsTimeline.length) {
           const detalhes = document.createElement('details');

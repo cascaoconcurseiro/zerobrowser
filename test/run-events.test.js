@@ -30,6 +30,8 @@ test('the agent emits step and tool events for the panel', async () => {
     assert.equal(tool.name, 'inspect_page');
     assert.equal(tool.ok, true);
     assert.ok(events.some((event) => event.type === 'step' && event.step === 2));
+    const done = events.find((event) => event.type === 'done');
+    assert.ok(done && typeof done.durationMs === 'number', 'evento done precisa trazer duração');
   } finally {
     global.fetch = original;
   }
