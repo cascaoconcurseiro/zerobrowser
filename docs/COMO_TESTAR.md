@@ -1,14 +1,14 @@
-# Como testar o Zero Browser (0.1.13-dev)
+# Como testar o Zero Browser (0.1.14-dev)
 
 Checklist manual para a versão instalada em 28/10/2026. O que depende de modelo/provedor está separado do que já
 pode ser conferido sem chave.
 
-**Build instalado:** `0.1.13-dev`, `app.asar` `3e88f32c…bf6d0e`; backup do estado anterior em
+**Build instalado:** `0.1.14-dev`, `app.asar` `24fb5659…570d81f`; backup do estado anterior em
 `backups/2026-10-28-before-durable-jobs/`.
 
 ## 0. Novidades e versão
 
-- [ ] Menu ⋮ mostra **0.1.13-dev** e abre **Novidades** com o resumo (motor, sites difíceis, limites).
+- [ ] Menu ⋮ mostra **0.1.14-dev** e abre **Novidades** com o resumo (motor, sites difíceis, limites).
 - [ ] O diálogo fecha em **Fechar** e não altera a página.
 
 ## 0.1 Contrato de saída (sem provedor)

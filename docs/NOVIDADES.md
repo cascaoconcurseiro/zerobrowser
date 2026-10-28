@@ -1,4 +1,4 @@
-# Novidades — Zero Browser 0.1.13-dev
+# Novidades — Zero Browser 0.1.14-dev
 
 Versão de desenvolvimento com foco no motor de IA e em sites difíceis (planilhas, canvas, editores).
 
@@ -14,7 +14,8 @@ Versão de desenvolvimento com foco no motor de IA e em sites difíceis (planilh
   recusa código que tente sair do contexto.
 - **Guardian independente**: cada ação passa por um revisor determinístico antes de executar. Ele recusa navegação
   fora de HTTP/HTTPS, URL com usuário e senha, envio de arquivo para origem diferente da tarefa (ou de uma origem
-  de login declarada), formulário cross-site e receita que grava em modo leitura. A resposta final também é
+  de login declarada) em fluxos com URL inicial declarada (run_task/MCP), formulário cross-site e receita que grava
+  em modo leitura. No uso interativo, o upload continua dependendo apenas da sua aprovação no diálogo. A resposta final também é
   revisada: se o agente afirma um efeito específico (salvei, enviei, apaguei) sem contrato de verificação, o
   resultado traz `guardian` com o motivo.
 - **Cache de prefixo opt-in**: `promptCache` envia `prompt_cache_key` só a provedores que têm esse campo

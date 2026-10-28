@@ -867,7 +867,9 @@ class AutomationService {
     const deadline = Date.now() + maxDurationMs;
     // A aba em que o agente age muda com a ferramenta tabs; a política do run_task acompanha as abas que ele adota.
     let tab = this.tabs.get(tabId);
-    const taskOrigin = normalizeOrigin(taskStartUrl || '') || normalizeOrigin(tab?.webContents?.getURL?.() || '');
+    // Só fluxos com URL inicial declarada (run_task/MCP) têm origem de tarefa; no uso interativo o usuário
+    // aprova cada upload no diálogo, então a origem não serve de fronteira.
+    const taskOrigin = normalizeOrigin(taskStartUrl || '');
     const taskPolicy = this.taskApprovalPolicies.get(tabId);
     const diagnosticFile = taskPolicy === 'local-fixture' ? (zeroEnv('AGENT_DIAGNOSTICS') || null) : null;
     const stage = (name, step = null) => {

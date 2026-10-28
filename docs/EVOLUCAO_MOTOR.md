@@ -914,3 +914,11 @@ Limites honestos: **não é** o minter com codegen do Pomerado — não há agen
 navegador e iterando, nem Playwright. `vm` + processo filho reduz o risco, mas não é uma fronteira de segurança
 contra código nativo; por isso a política é de lista negra estática e o código não recebe nada além do `input`.
 O sandbox não tem DOM: operações de página continuam vindo das ferramentas existentes.
+
+### Correção de escopo do Guardian — 0.1.14-dev
+
+A primeira versão recusava upload quando a página não era a origem onde o agente começou — mas, no uso interativo,
+o agente começa na aba atual e pode navegar para outro site antes de enviar o arquivo (fluxo comum). A recusa
+passou a valer só quando a tarefa declara URL inicial (`run_task`/MCP); no painel, o upload continua exigindo a
+aprovação do usuário no diálogo, que é a fronteira real ali. Regra em `src/automation/service/index.js`
+(`taskOrigin = normalizeOrigin(taskStartUrl || '')`), coberta pelo teste do Guardian.
