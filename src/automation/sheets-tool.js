@@ -88,16 +88,30 @@ function focusNameBoxScript() {
       const box = document.querySelector(selector);
       if (!box || box.offsetParent === null) continue;
       box.focus();
+      const previous = box.value;
       const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
       setter.call(box, '');
       box.dispatchEvent(new Event('input', { bubbles: true }));
-      return { found: true, selector };
+      return { found: true, selector, previous };
+    }
+    return { found: false };
+  })()`;
+}
+
+// Lê o valor atual da caixa de nome para conferir se o intervalo foi aplicado.
+function readNameBoxScript() {
+  return `(() => {
+    const candidates = ['#t-name-box', 'input.waffle-name-box', 'input[aria-label="Name Box"]', 'input[aria-label="Caixa de nome"]', 'input[aria-label*="Name Box" i]', 'input[aria-label*="nome" i]'];
+    for (const selector of candidates) {
+      const box = document.querySelector(selector);
+      if (!box || box.offsetParent === null) continue;
+      return { found: true, selector, value: String(box.value || '') };
     }
     return { found: false };
   })()`;
 }
 
 module.exports = {
-  SHEETS_TOOL, validateSheetsRequest, valuesToTsv, parseTsv, readRangeSummary, focusNameBoxScript,
+  SHEETS_TOOL, validateSheetsRequest, valuesToTsv, parseTsv, readRangeSummary, focusNameBoxScript, readNameBoxScript,
   RANGE_PATTERN, MAX_ROWS, MAX_COLUMNS
 };

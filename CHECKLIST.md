@@ -526,3 +526,6 @@
 - [x] Credencial com escopo de origem: campo sensível só aceita formulário na origem da página ou em `authenticationOrigins`; cross-origin é recusado antes de digitar. 3 testes; `npm test` 198/198.
 - [x] Autoridade de receita (`read`/`write`): leitura não executa clique, no save e na execução; `list` mostra a autoridade. Teste em `test/recipe-store.test.js`.
 - [ ] Cobrir `hidden_action` sensível sem `formAction` (hoje só aprovação) e formulário montado por script que envia para outra origem.
+- [x] Diagnóstico do `sheets`: `diagnostics` (nameBoxFound, selector, typed, selection, rangeApplied) e códigos `NAME_BOX_NOT_FOUND`/`CLIPBOARD_EMPTY`; fallback de digitação pelo setter. 6 testes; `npm test` 199/199.
+- [ ] Rodar o `sheets` numa planilha real e usar `diagnostics` para corrigir o seletor/fluxo (próximo passo empírico).
+- [x] Checkpoint 8 / **0.1.9-dev** instalado com diagnóstico do `sheets`: instalador `fd752acc…1b09e`, `app.asar` `1a769d28…c3033`, `status: PASS`, `npm test` 199/199; backup em `backups/2026-10-28-before-diagnostics/`.

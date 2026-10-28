@@ -1,10 +1,10 @@
-# Como testar o Zero Browser (0.1.8-dev)
+# Como testar o Zero Browser (0.1.9-dev)
 
 Checklist manual para a versão instalada em 28/10/2026. O que depende de modelo/provedor está separado do que já
 pode ser conferido sem chave.
 
-**Build instalado:** `0.1.8-dev`, `app.asar` `55a0f841…33c52`; backup do estado anterior em
-`backups/2026-10-28-before-credential/`.
+**Build instalado:** `0.1.9-dev`, `app.asar` `1a769d28…c3033`; backup do estado anterior em
+`backups/2026-10-28-before-diagnostics/`.
 
 ## 0. Novidades e versão
 
@@ -75,6 +75,8 @@ Numa planilha de teste (sem dados reais):
 - [ ] Se `sheets` disser que a caixa de nome não foi encontrada: testar `sheets_accessibility` e, depois,
       `see_page` + `visual_click` (0–1000).
 - [ ] No trace: `sheetsReads`, `sheetsWrites`, `sheetsCells`; sem clique em célula.
+- [ ] Se falhar, o resultado traz `diagnostics` (`nameBoxFound`, `typed`, `selection`, `rangeApplied`) e um `code`
+      (`NAME_BOX_NOT_FOUND` ou `CLIPBOARD_EMPTY`). Copie esse objeto: é com ele que o seletor/fluxo é corrigido.
 
 ## 4. O que ainda NÃO está pronto para "release"
 

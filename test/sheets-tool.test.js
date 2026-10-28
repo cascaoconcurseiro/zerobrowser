@@ -86,7 +86,12 @@ test('sheets writes TSV and reads the range back without clicking cells', async 
     webContents: {
       isDestroyed: () => false, isLoading: () => false, getURL: () => url,
       setBackgroundThrottling: () => {},
-      executeJavaScript: async (script) => (String(script).includes('t-name-box') ? { found: true } : null),
+      executeJavaScript: async (script) => {
+        const source = String(script);
+        if (source.includes('value: String(box.value')) return { found: true, selector: '#t-name-box', value: 'A1:B2' };
+        if (source.includes("setter.call(box, '')")) return { found: true, selector: '#t-name-box' };
+        return null;
+      },
       insertText: async (text) => { calls.push(['insertText', text]); },
       debugger: { isAttached: () => false, attach: () => {}, detach: () => {}, sendCommand: async (method, params) => { calls.push([method, params]); return {}; } }
     }
@@ -104,6 +109,9 @@ test('sheets writes TSV and reads the range back without clicking cells', async 
   assert.deepEqual(outputs.read.values, [['Produto', 'Estoque'], ['Cadeira', '20']]);
   assert.equal(outputs.read.rows, 2);
   assert.equal(outputs.read.cells, 4);
+  assert.equal(outputs.write.diagnostics.typed, true);
+  assert.equal(outputs.write.diagnostics.nameBoxFound, true);
+  assert.equal(outputs.read.diagnostics.rangeApplied, true);
   assert.ok(calls.some(([kind, value]) => kind === 'insertText' && value === 'A1'));
   assert.ok(calls.some(([method, params]) => method === 'Input.dispatchKeyEvent' && params.key === 'v' && params.modifiers === 2), 'Ctrl+V real');
   assert.ok(calls.some(([method, params]) => method === 'Input.dispatchKeyEvent' && params.key === 'c' && params.modifiers === 2), 'Ctrl+C real');
@@ -130,4 +138,33 @@ test('sheets refuses a page that is not a spreadsheet', async () => {
   const { outputs } = await rodar(service, url, [{ id: 'read', name: 'sheets', args: { action: 'read', range: 'A1' } }], { policy: 'local-fixture' });
   assert.equal(outputs.read.success, false);
   assert.match(outputs.read.error, /docs\.google\.com\/spreadsheets/);
+});
+
+test('read returns an explicit code when the clipboard comes back empty', async () => {
+  const { AutomationService } = require('../src/automation/service');
+  const service = new AutomationService();
+  const url = 'https://docs.google.com/spreadsheets/d/abc/edit';
+  service.setClipboard({ readText: () => '', writeText: () => {} });
+  service.setApprovalHandler(async () => true);
+  service.tabs.set('tab-empty', {
+    state: { url },
+    webContents: {
+      isDestroyed: () => false, isLoading: () => false, getURL: () => url,
+      setBackgroundThrottling: () => {},
+      executeJavaScript: async (script) => {
+        const source = String(script);
+        if (source.includes('value: String(box.value')) return { found: true, selector: '#t-name-box', value: 'A1:B2' };
+        if (source.includes("setter.call(box, '')")) return { found: true, selector: '#t-name-box' };
+        return null;
+      },
+      insertText: async () => {},
+      debugger: { isAttached: () => false, attach: () => {}, detach: () => {}, sendCommand: async () => ({}) }
+    }
+  });
+  service.setBrowserControls({ createTab: async () => ({ tabId: 'tab-empty' }), closeTab: async () => {} });
+  service.setAgentConfigProvider(async () => ({ provider: 'openrouter', model: 'test-model', apiKey: 'test-key' }));
+  const { outputs } = await rodar(service, url, [{ id: 'read', name: 'sheets', args: { action: 'read', range: 'A1:B2' } }]);
+  assert.equal(outputs.read.success, false);
+  assert.equal(outputs.read.code, 'CLIPBOARD_EMPTY');
+  assert.equal(outputs.read.diagnostics.rangeApplied, true);
 });

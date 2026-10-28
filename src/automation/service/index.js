@@ -32,7 +32,7 @@ const { CLIPBOARD_TOOL, validateClipboardRequest, shapeClipboardRead } = require
 const { KEY_SEQUENCE_TOOL, validateSequence, flattenKeys, needsFormApproval } = require('../key-sequence');
 const { VISUAL_CLICK_TOOL, validateVisualClick, pointFromNormalized } = require('../visual-click');
 const { SHEETS_ACCESSIBILITY_TOOL, isSheetsUrl, toggleSteps } = require('../sheets');
-const { SHEETS_TOOL, validateSheetsRequest, valuesToTsv, readRangeSummary, focusNameBoxScript } = require('../sheets-tool');
+const { SHEETS_TOOL, validateSheetsRequest, valuesToTsv, readRangeSummary, focusNameBoxScript, readNameBoxScript } = require('../sheets-tool');
 const {
   taskPolicyAllows, isLoopbackUrl, HUMAN_CHECK_GUARDED_TOOLS, compactScreenshot, dropImages,
   traceToolCall, selectOptionScript, ActionSchema, ToolSchema
@@ -1058,44 +1058,74 @@ class AutomationService {
         }
         const focus = await wc.executeJavaScript(focusNameBoxScript()).catch(() => null);
         if (!focus?.found) {
-          return { success: false, error: 'Caixa de nome não encontrada nesta planilha; tente sheets_accessibility ou visual_click.', range };
+          return {
+            success: false, code: 'NAME_BOX_NOT_FOUND', range,
+            error: 'Caixa de nome não encontrada nesta planilha; tente sheets_accessibility ou visual_click.',
+            diagnostics: { nameBoxFound: false, url: pageUrl }
+          };
         }
-        if (typeof wc.insertText === 'function') {
-          await wc.insertText(range);
-        } else {
-          await wc.executeJavaScript(`(() => {
+        let typed = false;
+        try {
+          if (typeof wc.insertText === 'function') {
+            await wc.insertText(range);
+            typed = true;
+          }
+        } catch {}
+        if (!typed) {
+          typed = await wc.executeJavaScript(`(() => {
             const box = document.querySelector('#t-name-box, input.waffle-name-box') || document.activeElement;
             if (!box) return false;
             const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
             setter.call(box, ${JSON.stringify(range)});
             box.dispatchEvent(new Event('input', { bubbles: true }));
             return true;
-          })()`);
+          })()`).catch(() => false);
         }
         await performKeySequence(wc, [{ keys: ['Enter'] }], { delayMs: 0 });
         await new Promise((resolve) => setTimeout(resolve, 350));
         tab.axCache = null;
+        const selectionInfo = await wc.executeJavaScript(readNameBoxScript()).catch(() => null);
+        const selection = String(selectionInfo?.value || '');
+        const diagnostics = {
+          nameBoxFound: true,
+          selector: focus.selector || '',
+          typed: typed === true,
+          selection,
+          rangeApplied: selection.replace(/\s+/g, '').toUpperCase() === range
+        };
         if (args.action === 'goto') {
           if (trace) trace.sheetsGotos = (trace.sheetsGotos || 0) + 1;
-          return { success: true, range, note: 'Intervalo selecionado.' };
+          return {
+            success: true, range, diagnostics,
+            note: diagnostics.rangeApplied ? 'Intervalo selecionado.' : 'O Enter pode não ter aplicado o intervalo; confira diagnostics.selection.'
+          };
         }
         if (args.action === 'write') {
           await performKeySequence(wc, [{ keys: ['Control', 'v'] }], { delayMs: 0 });
           await new Promise((resolve) => setTimeout(resolve, 400));
           if (trace) trace.sheetsWrites = (trace.sheetsWrites || 0) + 1;
           const columns = args.values.reduce((max, row) => Math.max(max, row.length), 0);
-          return { success: true, range, rows: args.values.length, columns, note: 'Intervalo colado. Use sheets read para confirmar se precisar.' };
+          return { success: true, range, rows: args.values.length, columns, diagnostics, note: 'Intervalo colado. Use sheets read para confirmar se precisar.' };
         }
         await performKeySequence(wc, [{ keys: ['Control', 'c'] }], { delayMs: 0 });
         await new Promise((resolve) => setTimeout(resolve, 250));
-        const summary = readRangeSummary(this.clipboard.readText?.() ?? '', { maxRows: args.maxRows, maxColumns: args.maxColumns });
+        const text = this.clipboard.readText?.() ?? '';
+        if (!text) {
+          return {
+            success: false, code: 'CLIPBOARD_EMPTY', range, diagnostics,
+            error: 'A cópia voltou vazia; confira diagnostics.selection e se a planilha está em foco.'
+          };
+        }
+        const summary = readRangeSummary(text, { maxRows: args.maxRows, maxColumns: args.maxColumns });
         if (trace) {
           trace.sheetsReads = (trace.sheetsReads || 0) + 1;
           trace.sheetsCells = (trace.sheetsCells || 0) + summary.cells;
         }
         return {
-          success: true, range, ...summary,
-          note: summary.truncated ? 'Intervalo maior que o limite devolvido; reduza o range.' : 'Valores copiados e lidos pelo host.'
+          success: true, range, ...summary, diagnostics,
+          note: summary.truncated
+            ? 'Intervalo maior que o limite devolvido; reduza o range.'
+            : diagnostics.rangeApplied ? 'Valores copiados e lidos pelo host.' : 'Valores lidos, mas a caixa de nome não confirmou o intervalo; confira diagnostics.selection.'
         };
       }
       if (name === 'recipe') {

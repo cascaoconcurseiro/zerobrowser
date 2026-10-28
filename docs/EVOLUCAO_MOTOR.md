@@ -799,3 +799,13 @@ dispatch, mesma origem/allowlist liberados, campo comum intacto) e autoridade em
 Limites: a verificação depende de `formAction` estar no snapshot; um formulário montado por script que envia para
 outro host depois do preenchimento não é detectado por esta regra (só a de exfiltração por URL cobre parte). O
 Pomerado também revisa o código final; isso continua pendente (Guardian).
+
+### Diagnóstico da ferramenta `sheets` — 2026-10-28
+
+Antes de continuar adivinhando o que falha no Planilhas, a ferramenta passou a devolver `diagnostics` em toda
+chamada: `nameBoxFound`, `selector`, `typed`, `selection` (valor lido da caixa de nome depois do Enter) e
+`rangeApplied`. Falhas ganham código: `NAME_BOX_NOT_FOUND` (seletor não casou) e `CLIPBOARD_EMPTY` (Ctrl+C não
+trouxe nada). Se `insertText` não existir ou falhar, há fallback pelo setter nativo.
+
+O objetivo é que o próximo teste numa planilha real diga **onde** parou, em vez de “horrível”. Testes: 6 em
+`test/sheets-tool.test.js`. `npm test` 199/199.

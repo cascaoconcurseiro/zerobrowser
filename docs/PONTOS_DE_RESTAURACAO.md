@@ -48,6 +48,7 @@ O `LEIA-ME.md` da pasta traz os hashes esperados e como restaurar o perfil.
 | 2026-10-28 | Checkpoint 5 / **0.1.6-dev**: instalador `d493c626…2165df`, `app.asar` `40f5be10…9257dd`, receitas v2 + menu Novidades; backup em `backups/2026-10-28-before-recipe-v2/` | build, não commit | 187/187 | copiar `backups/2026-10-28-before-recipe-v2/app` |
 | 2026-10-28 | Checkpoint 6 / **0.1.7-dev**: instalador `6740ee31…903f19`, `app.asar` `a977bf32…8a59b2`, mint automático + ferramenta `sheets`; backup em `backups/2026-10-28-before-mint/` | build, não commit | 194/194 | copiar `backups/2026-10-28-before-mint/app` |
 | 2026-10-28 | Checkpoint 7 / **0.1.8-dev**: instalador `3b76846c…f80278b`, `app.asar` `55a0f841…33c52`, credencial por origem + autoridade de receita; backup em `backups/2026-10-28-before-credential/` | build, não commit | 198/198 | copiar `backups/2026-10-28-before-credential/app` |
+| 2026-10-28 | Checkpoint 8 / **0.1.9-dev**: instalador `fd752acc…1b09e`, `app.asar` `1a769d28…c3033`, diagnóstico do `sheets`; backup em `backups/2026-10-28-before-diagnostics/` | build, não commit | 199/199 | copiar `backups/2026-10-28-before-diagnostics/app` |
 
 Ao adicionar um salto, acrescente a linha aqui **no mesmo commit** da mudança.
 

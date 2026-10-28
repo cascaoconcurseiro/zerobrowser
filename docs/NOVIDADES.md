@@ -1,8 +1,11 @@
-# Novidades — Zero Browser 0.1.8-dev
+# Novidades — Zero Browser 0.1.9-dev
 
 Versão de desenvolvimento com foco no motor de IA e em sites difíceis (planilhas, canvas, editores).
 
 ## Motor de IA
+
+- **Diagnóstico do Planilhas**: `sheets` devolve `diagnostics` (caixa de nome, seleção, intervalo aplicado) e códigos
+  como `NAME_BOX_NOT_FOUND` e `CLIPBOARD_EMPTY`, para saber exatamente onde falhou.
 
 - **Credencial com escopo de origem**: campo sensível só é preenchido quando o formulário envia para a origem da
   página ou para uma origem de autenticação declarada; formulário cross-origin é recusado antes de digitar.
