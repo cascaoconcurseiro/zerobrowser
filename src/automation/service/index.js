@@ -18,6 +18,7 @@ const { createRepeatGuard } = require('../repeat-guard');
 const { cachedInputTokens, compactHref } = require('../usage-metrics');
 const { cacheSeed, cacheRequestFields, cacheSummary } = require('../prompt-cache');
 const { reviewAction, reviewFinal } = require('../guardian');
+const { TRANSFORM_TOOL, checkCode, runTransform } = require('../sandbox');
 const { zeroEnv } = require('../../env');
 const { approvalInstructionsFor, buildBasePrompt } = require('./prompt');
 const { diffNodes } = require('../snapshot-diff');
@@ -29,6 +30,7 @@ const { isConsequential, effectKey, normalizeUrl, planEffect, settleEffect } = r
 const { classifyRisk, approvalReasonForMode } = require('../risk');
 const { validateChecks, evaluateChecks, CHECK_TASK_TOOL } = require('../task-verifier');
 const { EXTRACT_TABLE_TOOL, validateRequest: validateTableRequest, shapeRows, buildTableScript } = require('../table-extractor');
+const { JobStore } = require('../job-store');
 const { RecipeStore, RECIPE_TOOL, validateRecipe, applyRecipeInputs, missingRequiredInputs, normalizeOrigin } = require('../recipe-store');
 const { validateOutput } = require('../output-schema');
 const { CLIPBOARD_TOOL, validateClipboardRequest, shapeClipboardRead } = require('../clipboard');
@@ -55,6 +57,7 @@ class AutomationService {
     this.pipePath = null;
     this.effectJournal = null; // journal de efeitos consequentes (opt-in por tarefa); criado em start()
     this.recipeStore = null; // receitas determinísticas por origem (opt-in por tarefa); criado em start()
+    this.jobStore = null; // tarefas pausadas que sobrevivem ao reinício (TTL 20 min); criado em start()
     this.clipboard = null; // implementação injetada pelo processo principal (electron.clipboard)
     this.browserControls = {};
     this.approvalHandler = null;
@@ -405,6 +408,16 @@ class AutomationService {
       this.recipeStore = null;
     }
 
+    try {
+      this.jobStore = new JobStore({
+        filePath: path.join(zeroEnv('DATA_DIR') || process.cwd(), 'automation', 'tarefas.json')
+      });
+      const restored = await this.jobStore.prune();
+      for (const job of restored) this.pausedAgentRuns.set(job.id, job);
+    } catch {
+      this.jobStore = null;
+    }
+
     if (process.platform === 'win32') {
       try {
         this.pipePath = automationPipePath();
@@ -566,9 +579,39 @@ class AutomationService {
     this.tabs.set(tabId, tab);
   }
 
+  // Pausa que precisa sobreviver ao reinício: grava no disco sem bloquear o fluxo da tarefa.
+  rememberPausedRun(id, state) {
+    this.pausedAgentRuns.set(id, state);
+    this.jobStore?.save(id, state).catch(() => {});
+  }
+
+  forgetPausedRun(id) {
+    this.pausedAgentRuns.delete(id);
+    this.jobStore?.remove(id).catch(() => {});
+  }
+
+  // Lista enxuta para a interface oferecer "Continuar" depois de reabrir o app.
+  // Lê a memória (já restaurada do disco em start()), então não corre com a gravação assíncrona.
+  async listJobs() {
+    const now = Date.now();
+    return [...this.pausedAgentRuns.values()]
+      .filter((job) => (job.expiresAt || 0) > now)
+      .sort((a, b) => (b.taskStartedAt || 0) - (a.taskStartedAt || 0))
+      .map((job) => ({
+        id: job.id || job.resumeId || '',
+        tabId: job.tabId,
+        model: job.model,
+        provider: job.provider,
+        messages: Array.isArray(job.messages) ? job.messages.length : 0,
+        lastUrl: job.lastUrl || '',
+        startedAt: job.taskStartedAt,
+        expiresAt: job.expiresAt
+      }));
+  }
+
   unregisterTab(tabId) {
     for (const [id, state] of this.pausedAgentRuns) {
-      if (state.tabId === tabId || state.rootTabId === tabId) this.pausedAgentRuns.delete(id);
+      if (state.tabId === tabId || state.rootTabId === tabId) this.forgetPausedRun(id);
     }
     const tab = this.tabs.get(tabId);
     if (tab?.cdpMessageHandler && tab.webContents?.debugger) {
@@ -798,14 +841,26 @@ class AutomationService {
   }
 
   // `trace`, when given, is filled in place with model calls, token usage and every tool call (used by run_task).
-  async runAgent(tabId, prompt, apiKey, model, allowTools = true, provider = 'openrouter', requireToolCall = false, { maxSteps = 30, trace = null, maxDurationMs = 5 * 60 * 1000, resumable = false, resumeId = null, observeAfterActions = true, captureReadEvidence = false, preInspect = false, actionScripts = false, diffSnapshots = false, cascadeModel = null, streaming = false, effectJournal = false, verify = null, correctionRounds = 0, structuredExtraction = false, recipes = false, advancedInput = true, saveRecipe = null, promptCache = false, taskStartUrl = null } = {}) {
+  async runAgent(tabId, prompt, apiKey, model, allowTools = true, provider = 'openrouter', requireToolCall = false, { maxSteps = 30, trace = null, maxDurationMs = 5 * 60 * 1000, resumable = false, resumeId = null, observeAfterActions = true, captureReadEvidence = false, preInspect = false, actionScripts = false, diffSnapshots = false, cascadeModel = null, streaming = false, effectJournal = false, verify = null, correctionRounds = 0, structuredExtraction = false, recipes = false, advancedInput = true, saveRecipe = null, promptCache = false, taskStartUrl = null, transforms = false } = {}) {
     for (const [id, state] of this.pausedAgentRuns) {
-      if (state.expiresAt <= Date.now()) this.pausedAgentRuns.delete(id);
+      if (state.expiresAt <= Date.now()) this.forgetPausedRun(id);
     }
     const resumed = resumeId ? this.pausedAgentRuns.get(resumeId) : null;
     if (resumeId && !resumed) return { success: false, error: 'Esta tarefa não está mais disponível para continuar. Envie uma nova instrução.' };
     if (resumed && (resumed.model !== model || resumed.provider !== provider)) return { success: false, error: 'Selecione o mesmo provedor e modelo da tarefa para continuar.' };
-    if (resumed) tabId = resumed.tabId;
+    if (resumed) {
+      tabId = resumed.tabId;
+      if (!this.tabs.get(tabId) && resumed.lastUrl && this.browserControls.createTab) {
+        try {
+          const created = await this.browserControls.createTab(resumed.lastUrl);
+          if (created?.tabId) {
+            tabId = created.tabId;
+            resumed.tabId = created.tabId;
+            resumed.restoredTab = true;
+          }
+        } catch {}
+      }
+    }
     if (this.agentTabs.has(tabId)) return { success: false, error: 'Já existe uma tarefa em execução nesta aba.' };
     const rootTabId = resumed?.rootTabId || tabId;
     const runController = new AbortController();
@@ -857,14 +912,16 @@ class AutomationService {
     this.activeAgentRuns.set(rootTabId, runController);
     await this.setAuroraActive(tab, true, 'Chefe, assumi o controle da página…');
     if (!resumeId && resumable) {
-      for (const [id, state] of this.pausedAgentRuns) if (state.rootTabId === rootTabId) this.pausedAgentRuns.delete(id);
+      for (const [id, state] of this.pausedAgentRuns) if (state.rootTabId === rootTabId) this.forgetPausedRun(id);
     }
     const tools = getAgentTools();
     if (actionScripts) tools.push(structuredClone(RUN_STEPS_TOOL));
     if (structuredExtraction) tools.push(structuredClone(EXTRACT_TABLE_TOOL));
     if (verificationChecks.length) tools.push(structuredClone(CHECK_TASK_TOOL));
     if (recipes && this.recipeStore) tools.push(structuredClone(RECIPE_TOOL));
+    if (transforms) tools.push(structuredClone(TRANSFORM_TOOL));
     if (advancedInput) tools.push(structuredClone(CLIPBOARD_TOOL), structuredClone(KEY_SEQUENCE_TOOL), structuredClone(VISUAL_CLICK_TOOL), structuredClone(SHEETS_ACCESSIBILITY_TOOL), structuredClone(SHEETS_TOOL));
+    if (transforms) messages[0].content += ' Transform: use transform(code, input) para calcular sobre dados já lidos (somar coluna, normalizar data) em processo isolado; sem require, rede ou disco, e sem nova chamada ao modelo.';
     const approvalMode =this.settingsProvider?.().automationApprovalMode || 'low-risk';
     const approvalInstructions = approvalInstructionsFor(approvalMode);
     const messages = [
@@ -1050,6 +1107,15 @@ class AutomationService {
       }
       if (name === 'sheets') {
         return this.sheetsAction(tabId, tab, args, trace);
+      }
+      if (name === 'transform') {
+        if (!transforms) throw new Error('transform não está ligado nesta tarefa');
+        const problem = checkCode(args.code);
+        if (problem) throw new Error(problem);
+        const outcome = await runTransform(args.code, args.input ?? null);
+        if (trace) trace.transforms = (trace.transforms || 0) + 1;
+        if (!outcome.ok) return { success: false, code: 'TRANSFORM_FAILED', error: String(outcome.error || 'falha no sandbox') };
+        return { success: true, result: outcome.result, note: 'Código rodou em processo isolado e devolveu o resultado.' };
       }
       if (name === 'recipe') {
         if (!recipes || !this.recipeStore) throw new Error('Receitas não estão ligadas nesta tarefa');
@@ -1805,7 +1871,7 @@ class AutomationService {
         if (!message) throw new Error('Resposta vazia do modelo');
         messages.push(message);
         if (!message.tool_calls?.length) {
-          if (resumeId) this.pausedAgentRuns.delete(resumeId);
+          if (resumeId) this.forgetPausedRun(resumeId);
           let verification = null;
           if (verificationChecks.length) {
             verification = await this.verifyTask(tab, verificationChecks, taskStartedAt);
@@ -1951,7 +2017,7 @@ class AutomationService {
                       trace.toolCalls.push(traceToolCall(step, call.function.name, args, output, startedAt));
                       trace.stopReason = 'denied';
                     }
-                    if (resumeId) this.pausedAgentRuns.delete(resumeId);
+                    if (resumeId) this.forgetPausedRun(resumeId);
                     return { success: false, cancelled: true, error: 'A ação foi executada; a leitura seguinte foi cancelada e a tarefa parou.' };
                   }
                   output = { ...output, observationError: error.message };
@@ -1968,7 +2034,7 @@ class AutomationService {
                 trace.toolCalls.push(traceToolCall(step, call.function.name, args, { success: false, error: error.message }, startedAt));
                 trace.stopReason = 'denied';
               }
-              if (resumeId) this.pausedAgentRuns.delete(resumeId);
+              if (resumeId) this.forgetPausedRun(resumeId);
               return { success: false, cancelled: true, error: 'A ação foi cancelada pelo usuário; a tarefa foi interrompida.' };
             }
             output = { success: false, error: error.message };
@@ -2054,26 +2120,26 @@ class AutomationService {
           messages.push({ role: 'user', content: [{ type: 'text', text: '[Zero Browser] Captura da área visível da aba:' }, ...pendingImages.splice(0).map((url) => ({ type: 'image_url', image_url: { url } }))] });
         }
         if (resumeId && resumable && !taskPolicy) {
-          this.pausedAgentRuns.set(resumeId, { messages, tabId, rootTabId, model, provider, taskStartedAt, knownDownloads: [...knownDownloads], knownTabs: [...knownTabs], tabTrail, expiresAt: Date.now() + 30 * 60 * 1000 });
+          this.rememberPausedRun(resumeId, { messages, tabId, rootTabId, model, provider, taskStartedAt, knownDownloads: [...knownDownloads], knownTabs: [...knownTabs], tabTrail, lastUrl: tab?.webContents?.getURL?.() || '', expiresAt: Date.now() + 20 * 60 * 1000 });
         }
       }
       if (trace) trace.stopReason = 'max_steps';
       if (resumable && !taskPolicy) {
         const id = randomUUID();
-        if (resumeId) this.pausedAgentRuns.delete(resumeId);
-        for (const [oldId, state] of this.pausedAgentRuns) if (state.rootTabId === rootTabId) this.pausedAgentRuns.delete(oldId);
-        while (this.pausedAgentRuns.size >= 8) this.pausedAgentRuns.delete(this.pausedAgentRuns.keys().next().value);
-        this.pausedAgentRuns.set(id, { messages, tabId, rootTabId, model, provider, taskStartedAt, knownDownloads: [...knownDownloads], knownTabs: [...knownTabs], tabTrail, expiresAt: Date.now() + 30 * 60 * 1000 });
+        if (resumeId) this.forgetPausedRun(resumeId);
+        for (const [oldId, state] of this.pausedAgentRuns) if (state.rootTabId === rootTabId) this.forgetPausedRun(oldId);
+        while (this.pausedAgentRuns.size >= 8) this.forgetPausedRun(this.pausedAgentRuns.keys().next().value);
+        this.rememberPausedRun(id, { messages, tabId, rootTabId, model, provider, taskStartedAt, knownDownloads: [...knownDownloads], knownTabs: [...knownTabs], tabTrail, lastUrl: tab?.webContents?.getURL?.() || '', expiresAt: Date.now() + 20 * 60 * 1000 });
         return { success: true, paused: true, resumeId: id, tabId, message: `Parei após ${maxSteps} rodadas. Clique em Continuar para retomar esta tarefa com o histórico preservado.` };
       }
       return { success: true, message: `Parei após ${maxSteps} ações para manter a tarefa sob controle. Confira a página e envie a próxima instrução.` };
     } catch (error) {
       if (runController.signal.aborted || error.name === 'AbortError') {
         if (trace) trace.stopReason = 'user_cancelled';
-        if (resumeId) this.pausedAgentRuns.delete(resumeId);
+        if (resumeId) this.forgetPausedRun(resumeId);
         return { success: false, cancelled: true, error: 'Tarefa interrompida. Uma operação de página que já havia sido enviada pode terminar antes de parar.' };
       }
-      if (resumeId && error.code === 'USER_DENIED') this.pausedAgentRuns.delete(resumeId);
+      if (resumeId && error.code === 'USER_DENIED') this.forgetPausedRun(resumeId);
       if (trace) trace.stopReason = 'error';
       return { success: false, error: error.message };
     } finally {
@@ -2391,7 +2457,7 @@ class AutomationService {
     return { success: true, completed: steps.length, total: steps.length, results, output: verdict.output, outputValid: true };
   }
 
-  async runTask({ startUrl, prompt, maxSteps = 20, approvalPolicy = 'ask', allowedHosts = [], keepTab = false, captureInitialText = false, captureInitialChecks = [], engine = 'navegante', maxDurationSec, observeAfterActions = true, captureReadEvidence = false, preInspect = false, actionScripts = false, diffSnapshots = false, cascadeModel = null, streaming = false, effectJournal = false, verify = null, requireVerification = false, correctionRounds = 0, structuredExtraction = false, recipes = false, advancedInput = true, saveRecipe = null, authenticationOrigins = [], promptCache = false }) {
+  async runTask({ startUrl, prompt, maxSteps = 20, approvalPolicy = 'ask', allowedHosts = [], keepTab = false, captureInitialText = false, captureInitialChecks = [], engine = 'navegante', maxDurationSec, observeAfterActions = true, captureReadEvidence = false, preInspect = false, actionScripts = false, diffSnapshots = false, cascadeModel = null, streaming = false, effectJournal = false, verify = null, requireVerification = false, correctionRounds = 0, structuredExtraction = false, recipes = false, advancedInput = true, saveRecipe = null, authenticationOrigins = [], promptCache = false, transforms = false }) {
     const maxDurationMs = maxDurationSec ? maxDurationSec * 1000 : undefined;
     if (approvalPolicy === 'public-sites' && engine === 'flame') return { success: false, error: 'A política public-sites ainda não vale para o Flame' };
     if (engine === 'flame') return this.runFlameTask({ startUrl, prompt, maxSteps, approvalPolicy, keepTab, maxDurationMs });
@@ -2434,7 +2500,7 @@ class AutomationService {
           error: result?.success === false ? String(result.error || 'Leitura inicial falhou') : ''
         });
       }
-      const result = await this.runAgent(tabId, prompt, apiKey, model, true, provider, false, { maxSteps, trace, maxDurationMs, observeAfterActions, captureReadEvidence, preInspect, actionScripts, diffSnapshots, cascadeModel, streaming, effectJournal, verify, correctionRounds, structuredExtraction, recipes, advancedInput, saveRecipe, promptCache, taskStartUrl: startUrl });
+      const result = await this.runAgent(tabId, prompt, apiKey, model, true, provider, false, { maxSteps, trace, maxDurationMs, observeAfterActions, captureReadEvidence, preInspect, actionScripts, diffSnapshots, cascadeModel, streaming, effectJournal, verify, correctionRounds, structuredExtraction, recipes, advancedInput, saveRecipe, promptCache, taskStartUrl: startUrl, transforms });
       const finalUrl = tab.webContents.isDestroyed() ? '' : tab.webContents.getURL();
       let verification = result.verification || null;
       if (!verification && Array.isArray(verify) && verify.length) {
@@ -3120,9 +3186,51 @@ class AutomationService {
           advancedInput: z.boolean().optional(),
           saveRecipe: z.string().min(1).max(41).optional(),
           promptCache: z.boolean().optional(),
+          transforms: z.boolean().optional(),
           authenticationOrigins: z.array(z.string().url()).max(10).optional()
         }),
         handler: async (input) => this.runTask(input)
+      },
+      {
+        name: 'recipe_list',
+        description: 'Lista as receitas determinísticas guardadas (por origem), com entradas e campos de saída. Sem origin, lista todas as origens conhecidas.',
+        inputSchema: z.object({ origin: z.string().url().optional() }),
+        handler: async ({ origin }) => {
+          if (!this.recipeStore) return { success: false, error: 'Armazenamento de receitas indisponível' };
+          await this.recipeStore.load();
+          const origins = origin ? [new URL(origin).origin] : Object.keys(this.recipeStore.data.recipes || {});
+          const recipes = [];
+          for (const key of origins) {
+            for (const item of await this.recipeStore.list(key)) recipes.push({ origin: key, ...item });
+          }
+          return { success: true, recipes };
+        }
+      },
+      {
+        name: 'recipe_run',
+        description: 'Executa uma receita salva sem chamar modelo: passos estáveis com pós-condição e, quando a receita declara output, valida o contrato sobre a leitura da planilha e devolve output/outputValid.',
+        inputSchema: z.object({ origin: z.string().url(), name: z.string().min(1).max(41), values: z.record(z.any()).optional() }),
+        handler: async ({ origin, name, values }) => {
+          if (!this.recipeStore) return { success: false, error: 'Armazenamento de receitas indisponível' };
+          const key = new URL(origin).origin;
+          const recipe = await this.recipeStore.get(key, name);
+          if (!recipe) return { success: false, error: `Receita "${name}" não existe para ${key}` };
+          const tabEntry = [...this.tabs.entries()].find(([, tab]) => {
+            try { return new URL(tab?.webContents?.getURL?.() || '').origin === key; } catch { return false; }
+          });
+          if (!tabEntry) return { success: false, error: `Abra uma aba em ${key} antes de rodar a receita` };
+          const [tabId, tab] = tabEntry;
+          if ((recipe.authority || 'write') === 'read' && recipe.steps.some((step) => step.tool === 'click_text')) {
+            return { success: false, error: 'Receita de leitura não executa cliques; salve como write.' };
+          }
+          const missing = missingRequiredInputs(recipe.input, values);
+          if (missing.length) return { success: false, error: `Faltam entradas obrigatórias: ${missing.join(', ')}` };
+          let steps;
+          try { steps = applyRecipeInputs(recipe.steps, values || {}); } catch (error) { return { success: false, error: error.message }; }
+          const trace = { modelCalls: 0, toolCalls: [], stopReason: null };
+          const result = await this.runRecipe(tabId, tab, steps, trace, recipe.output || null);
+          return { ...result, name: recipe.name, origin: key, authority: recipe.authority || 'write' };
+        }
       },
       {
         name: 'browser_cdp_send',

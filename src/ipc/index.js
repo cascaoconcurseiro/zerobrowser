@@ -110,6 +110,12 @@ function setupIpc() {
     return automationService.runAgent(tabId, prompt, apiKey, model, !testOnly, provider, Boolean(requireToolCall), { resumable: !testOnly, resumeId: testOnly ? null : resumeId });
   });
 
+  // Tarefas pausadas que sobreviveram ao reinício (TTL 20 min), para oferecer "Continuar".
+  ipcMain.handle('automation:jobs', async () => {
+    if (!automationService) return [];
+    return await automationService.listJobs();
+  });
+
   ipcMain.handle('automation:cancel-agent', async (_e, tabId) => {
     if (!automationService) return { success: false, error: 'Serviço de automação indisponível' };
     return automationService.cancelAgentRun(tabId);

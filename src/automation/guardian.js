@@ -2,6 +2,7 @@
 // Não chama modelo e não substitui a aprovação do usuário — recusa só o que a política proíbe sozinha.
 
 const { isSameSite } = require('../main/browser-policy');
+const { checkCode } = require('./sandbox');
 
 const WEB_PROTOCOLS = new Set(['http:', 'https:']);
 // Só efeito específico afirmado conta como promessa verificável; "tarefa concluída" genérico não é alegação de efeito.
@@ -62,6 +63,11 @@ function reviewAction({ name, args = {}, pageUrl = '', taskOrigin = '', authenti
     if (args.authority === 'read' && args.steps.some((step) => step?.tool === 'sheets' && step.args?.action === 'write')) {
       deny('receita de leitura não pode gravar na planilha');
     }
+  }
+
+  if (name === 'transform') {
+    const problem = checkCode(args.code);
+    if (problem) deny(problem);
   }
 
   if (name === 'clipboard' && args.action === 'write') flags.push('gravação na área de transferência');

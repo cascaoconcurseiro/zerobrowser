@@ -1,9 +1,25 @@
-# Novidades — Zero Browser 0.1.12-dev
+# Novidades — Zero Browser 0.1.13-dev
 
 Versão de desenvolvimento com foco no motor de IA e em sites difíceis (planilhas, canvas, editores).
 
 ## Motor de IA
 
+- **Tarefa durável**: quando o agente para no limite de rodadas, o histórico é gravado em disco e sobrevive a
+  fechar o app (TTL de 20 min). Ao reabrir, a aba é recriada no último endereço e "Continuar" retoma de onde parou;
+  até 8 tarefas, sem chave de API no arquivo.
+- **Receitas como integração (MCP)**: `recipe_list` e `recipe_run` expõem as receitas salvas a qualquer cliente MCP.
+  Rodam sem modelo, exigem a aba na origem certa, respeitam entradas obrigatórias e devolvem o contrato de saída.
+- **Transformação isolada**: `transform` roda uma função determinística sobre dados já lidos (somar coluna,
+  normalizar data) em processo separado, sem `require`, rede ou disco, com timeout e limite de tamanho. O Guardian
+  recusa código que tente sair do contexto.
+- **Guardian independente**: cada ação passa por um revisor determinístico antes de executar. Ele recusa navegação
+  fora de HTTP/HTTPS, URL com usuário e senha, envio de arquivo para origem diferente da tarefa (ou de uma origem
+  de login declarada), formulário cross-site e receita que grava em modo leitura. A resposta final também é
+  revisada: se o agente afirma um efeito específico (salvei, enviei, apaguei) sem contrato de verificação, o
+  resultado traz `guardian` com o motivo.
+- **Cache de prefixo opt-in**: `promptCache` envia `prompt_cache_key` só a provedores que têm esse campo
+  (OpenAI/OpenRouter) e um breakpoint `cache_control` no system para modelos Claude. O resultado traz
+  `promptCache.cacheHitRate` e diz para desligar quando o provedor não devolve token cacheado.
 - **Guardian independente**: cada ação passa por um revisor determinístico antes de executar. Ele recusa navegação
   fora de HTTP/HTTPS, URL com usuário e senha, envio de arquivo para origem diferente da tarefa (ou de uma origem
   de login declarada), formulário cross-site e receita que grava em modo leitura. A resposta final também é

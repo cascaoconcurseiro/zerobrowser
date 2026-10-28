@@ -26,7 +26,7 @@
   paginada agora é `complete` (antes era sempre falso), e uma leitura por `tabId` não conta as outras abas como
   omitidas. Regra em `src/automation/batch-coverage.js`; detalhe, conflitos e reversão em
   `docs/REGISTRO_INTEGRACAO_0.1.5.md`.
-- Versão: `package.json` e `package-lock.json` em 0.1.12-dev (o lock acompanha; teste `test/whats-new.test.js`).
+- Versão: `package.json` e `package-lock.json` em 0.1.13-dev (o lock acompanha; teste `test/whats-new.test.js`).
 - **Motor, salto 1 (2026-10-27):** `run_steps` aceita `expect {url,text,absent}` conferido pelo host (espera de até
   3 s, texto normalizado, parada quando a pós-condição não vem). Opt-in: só com `actionScripts`/`--scripts`.
   `npm test` 133/133; regra em `docs/EVOLUCAO_MOTOR.md`; restauração em `docs/PONTOS_DE_RESTAURACAO.md`
@@ -108,6 +108,12 @@
   Instalador `Zero Browser Setup 0.1.12-dev.exe` (SHA-256 `cf33b29d…c53f3f`, 124.456.756 bytes); `app.asar`
   `aee7ee6e…ae91e21` igual em build/produção; integração `status: PASS`; `npm test` 218/218. Backup do 0.1.11-dev
   em `backups/2026-10-28-before-guardian/`.
+- **Checkpoint 12 instalado (2026-10-28):** versão **0.1.13-dev** com **tarefa durável** (`JobStore` em disco, TTL
+  20 min, aba recriada na retomada, `automation:jobs`), **receitas via MCP** (`recipe_list`/`recipe_run`) e
+  **transformação isolada** (`transform` em processo filho com lista negra estática e timeout de 2 s). Instalador
+  `Zero Browser Setup 0.1.13-dev.exe` (SHA-256 `0d2ae9b6…6fc03`, 124.459.785 bytes); `app.asar` `3e88f32c…bf6d0e`
+  igual em build/produção; integração `status: PASS`; `npm test` 233/233. Backup do 0.1.12-dev em
+  `backups/2026-10-28-before-durable-jobs/`.
 - **Publicação (2026-10-28):** `main` em `c13447e` enviado a `origin/main` (26 commits desde 0.1.4); tag
   `motor-pre-leaps-2026-10-27` publicada. Nenhum build/instalador foi anexado a release no GitHub.
 - **Primeiras execuções reais (deepseek-flash, 1 por condição):** tarefa 44 padrão 13 passos/13,0 s/47.456 tokens;

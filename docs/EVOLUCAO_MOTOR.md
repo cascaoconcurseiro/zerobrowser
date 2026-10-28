@@ -885,3 +885,32 @@ Testes: `test/guardian.test.js` (5) e `test/prompt-cache.test.js` (5). `npm test
 Limites: o Guardian não lê o código gerado (ainda não há codegen) nem julga semântica de página; a política é
 estática e conservadora. O cache depende de o provedor devolver `usage` com tokens cacheados; não foi medido ainda
 num provedor real.
+
+### Tarefa durável, receitas via MCP e transformação isolada — 2026-10-28 (0.1.13-dev)
+
+**Tarefa durável** (`src/automation/job-store.js`): o mecanismo de “Continuar” que já existia em memória passou a
+ser gravado em `<dados>/automation/tarefas.json`, com TTL de 20 min, no máximo 8 tarefas e 2 MB no arquivo. O
+registro guarda histórico de mensagens, modelo/provedor, abas conhecidas, última URL e expiração — nunca a chave
+de API. Ao subir, o serviço restaura os registros vivos; se a aba original não existir mais (app reiniciado), a
+retomada recria a aba na última URL antes de continuar. `automation:jobs` / `preload.automation.jobs()` expõem a
+lista para a interface.
+
+**Receitas via MCP** (`recipe_list`, `recipe_run`): qualquer cliente MCP pode listar as receitas por origem e
+executá-las sem modelo. `recipe_run` exige uma aba na origem da receita (não age na página errada), valida as
+entradas obrigatórias, respeita a autoridade `read` e devolve `output`/`outputValid` quando a receita declara
+contrato.
+
+**Transformação isolada** (`src/automation/sandbox.js` + `sandbox-worker.js`, ferramenta `transform`): o modelo
+escreve o corpo de uma função que recebe `input` e devolve JSON. O código roda em **processo filho** com contexto
+`vm` sem `require`, `process`, `fetch` ou timers, limite de 4.000 caracteres, 256 KB de entrada/saída e timeout de
+2 s (processo morto ao estourar). A checagem estática recusa `require`, `import()`, `process`, `globalThis`,
+`Function(`, `eval(`, `fetch(`, `XMLHttpRequest`, `WebSocket` e `child_process`; o Guardian repete a checagem antes
+de executar. Isso cobre o caso real de “somar uma coluna”, “normalizar datas” e “reescrever rótulos” sem gastar
+tokens nem abrir uma segunda chamada ao modelo.
+
+Testes: `test/job-store.test.js` (5), `test/recipe-mcp.test.js` (4), `test/sandbox.test.js` (6). `npm test` 233/233.
+
+Limites honestos: **não é** o minter com codegen do Pomerado — não há agente escrevendo módulo, executando no
+navegador e iterando, nem Playwright. `vm` + processo filho reduz o risco, mas não é uma fronteira de segurança
+contra código nativo; por isso a política é de lista negra estática e o código não recebe nada além do `input`.
+O sandbox não tem DOM: operações de página continuam vindo das ferramentas existentes.
