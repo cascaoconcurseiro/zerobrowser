@@ -809,3 +809,25 @@ trouxe nada). Se `insertText` não existir ou falhar, há fallback pelo setter n
 
 O objetivo é que o próximo teste numa planilha real diga **onde** parou, em vez de “horrível”. Testes: 6 em
 `test/sheets-tool.test.js`. `npm test` 199/199.
+
+### Nome acessível padrão (accname) — 2026-10-28
+
+Primeiro item da fase de precisão. O snapshot AX e o `locator_action` deixaram de usar a heurística
+(aria-label/labels/alt/title/placeholder/innerText) e passaram a calcular o nome na ordem do algoritmo W3C:
+
+1. `aria-labelledby` (ids em ordem, ignorando alvo oculto, com proteção contra ciclo);
+2. `aria-label`;
+3. rótulo nativo (labels de input, `alt` de imagem, `value` de input button/submit/reset);
+4. `title`;
+5. `placeholder`;
+6. conteúdo (para button, link, heading, tab, option etc.);
+7. valor de campo de texto (nunca em campo sensível).
+
+Implementação própria inspirada na especificação (`src/automation/accessible-name.js`), **sem copiar** o arquivo do
+Playwright; por isso não há obrigação de NOTICE Apache. O nome é injetado nos scripts de página como função
+autocontida. Testes: `test/accessible-name.test.js` (3 casos: precedência, fallbacks e ciclo/oculto). `npm test`
+202/202.
+
+Limites: não implementa o cálculo completo de “name from content” com exclusão de descendentes ocultos nem
+`aria-describedby`; cobre a maioria dos controles reais. CSS `display:none` só é considerado quando há
+`defaultView` (no navegador, sim).

@@ -529,3 +529,6 @@
 - [x] Diagnóstico do `sheets`: `diagnostics` (nameBoxFound, selector, typed, selection, rangeApplied) e códigos `NAME_BOX_NOT_FOUND`/`CLIPBOARD_EMPTY`; fallback de digitação pelo setter. 6 testes; `npm test` 199/199.
 - [ ] Rodar o `sheets` numa planilha real e usar `diagnostics` para corrigir o seletor/fluxo (próximo passo empírico).
 - [x] Checkpoint 8 / **0.1.9-dev** instalado com diagnóstico do `sheets`: instalador `fd752acc…1b09e`, `app.asar` `1a769d28…c3033`, `status: PASS`, `npm test` 199/199; backup em `backups/2026-10-28-before-diagnostics/`.
+- [x] Nome acessível padrão (accname W3C, implementação própria): `aria-labelledby`, `aria-label`, rótulo nativo, title, placeholder, conteúdo e valor; usado no snapshot e no locator; oculto e ciclo protegidos. 3 testes; `npm test` 202/202.
+- [ ] Completar accname com “name from content” excluindo descendentes ocultos e `aria-describedby`; comparar com o Playwright num conjunto de fixtures.
+- [x] Checkpoint 9 / **0.1.10-dev** instalado com accname: instalador `e2f06273…2d27c6c`, `app.asar` `bf495150…5e045`, `status: PASS`, `npm test` 202/202; backup em `backups/2026-10-28-before-accname/`.

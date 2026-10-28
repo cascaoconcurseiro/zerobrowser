@@ -26,7 +26,7 @@
   paginada agora é `complete` (antes era sempre falso), e uma leitura por `tabId` não conta as outras abas como
   omitidas. Regra em `src/automation/batch-coverage.js`; detalhe, conflitos e reversão em
   `docs/REGISTRO_INTEGRACAO_0.1.5.md`.
-- Versão: `package.json` e `package-lock.json` em 0.1.9-dev (o lock acompanha; teste `test/whats-new.test.js`).
+- Versão: `package.json` e `package-lock.json` em 0.1.10-dev (o lock acompanha; teste `test/whats-new.test.js`).
 - **Motor, salto 1 (2026-10-27):** `run_steps` aceita `expect {url,text,absent}` conferido pelo host (espera de até
   3 s, texto normalizado, parada quando a pós-condição não vem). Opt-in: só com `actionScripts`/`--scripts`.
   `npm test` 133/133; regra em `docs/EVOLUCAO_MOTOR.md`; restauração em `docs/PONTOS_DE_RESTAURACAO.md`
@@ -91,6 +91,10 @@
   códigos `NAME_BOX_NOT_FOUND`/`CLIPBOARD_EMPTY`). Instalador `Zero Browser Setup 0.1.9-dev.exe` (SHA-256
   `fd752acc…1b09e`, 124.450.036 bytes); `app.asar` `1a769d28…c3033` igual em build/produção; integração
   `status: PASS`; `npm test` 199/199. Backup do 0.1.8-dev em `backups/2026-10-28-before-diagnostics/`.
+- **Checkpoint 9 instalado (2026-10-28):** versão **0.1.10-dev** com **nome acessível padrão (accname W3C)** no
+  snapshot e no locator. Instalador `Zero Browser Setup 0.1.10-dev.exe` (SHA-256 `e2f06273…2d27c6c`, 124.451.280
+  bytes); `app.asar` `bf495150…5e045` igual em build/produção; integração `status: PASS`; `npm test` 202/202.
+  Backup do 0.1.9-dev em `backups/2026-10-28-before-accname/`.
 - **Publicação (2026-10-28):** `main` em `c13447e` enviado a `origin/main` (26 commits desde 0.1.4); tag
   `motor-pre-leaps-2026-10-27` publicada. Nenhum build/instalador foi anexado a release no GitHub.
 - **Primeiras execuções reais (deepseek-flash, 1 por condição):** tarefa 44 padrão 13 passos/13,0 s/47.456 tokens;

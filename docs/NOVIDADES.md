@@ -1,8 +1,11 @@
-# Novidades — Zero Browser 0.1.9-dev
+# Novidades — Zero Browser 0.1.10-dev
 
 Versão de desenvolvimento com foco no motor de IA e em sites difíceis (planilhas, canvas, editores).
 
 ## Motor de IA
+
+- **Nome acessível padrão**: snapshot e locators usam a ordem do accname (labelledby, aria-label, rótulo nativo,
+  title, placeholder, conteúdo), o que reduz clique no controle errado em qualquer site.
 
 - **Diagnóstico do Planilhas**: `sheets` devolve `diagnostics` (caixa de nome, seleção, intervalo aplicado) e códigos
   como `NAME_BOX_NOT_FOUND` e `CLIPBOARD_EMPTY`, para saber exatamente onde falhou.

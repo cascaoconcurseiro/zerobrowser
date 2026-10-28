@@ -33,6 +33,7 @@ const { KEY_SEQUENCE_TOOL, validateSequence, flattenKeys, needsFormApproval } = 
 const { VISUAL_CLICK_TOOL, validateVisualClick, pointFromNormalized } = require('../visual-click');
 const { SHEETS_ACCESSIBILITY_TOOL, isSheetsUrl, toggleSteps } = require('../sheets');
 const { SHEETS_TOOL, validateSheetsRequest, valuesToTsv, readRangeSummary, focusNameBoxScript, readNameBoxScript } = require('../sheets-tool');
+const { accessibleName } = require('../accessible-name');
 const {
   taskPolicyAllows, isLoopbackUrl, HUMAN_CHECK_GUARDED_TOOLS, compactScreenshot, dropImages,
   traceToolCall, selectOptionScript, ActionSchema, ToolSchema
@@ -2448,6 +2449,7 @@ class AutomationService {
           return r.width>0&&r.height>0&&s.visibility!=='hidden'&&s.display!=='none'&&!e.closest('[aria-hidden="true"]');
         }).slice(0,${maxNodes});
         const roleOf=e=>e.getAttribute('role')||({A:'link',BUTTON:'button',INPUT:e.type==='checkbox'?'checkbox':e.type==='radio'?'radio':'textbox',TEXTAREA:'textbox',SELECT:'combobox'}[e.tagName]||'generic');
+        const accName=${accessibleName.toString()};
         const needsPierce=!!document.querySelector('iframe')||[...document.body?.querySelectorAll('*')||[]].some(e=>e.tagName.includes('-'));
         return {url:location.href,title:document.title,needsPierce,nodes:nodes.map((e,index)=>{
           const r=e.getBoundingClientRect();
@@ -2457,7 +2459,7 @@ class AutomationService {
           if(!registry){registry={pageId:(crypto.randomUUID?.()||Math.random().toString(36).slice(2)+Date.now().toString(36)),ids:new WeakMap(),next:0};Object.defineProperty(window,'__naveganteTargetRegistry',{value:registry,configurable:false});}
           let targetId=registry.ids.get(e);if(!targetId){targetId=registry.pageId+':'+(++registry.next);registry.ids.set(e,targetId);}
           const formAction=e.form?.action?(()=>{try{const u=new URL(e.form.action,location.href);return u.origin+u.pathname}catch{return undefined}})():undefined;
-          return {index,targetId,role:roleOf(e),tag:e.tagName.toLowerCase(),name:(e.getAttribute('aria-label')||e.labels?.[0]?.innerText||e.alt||e.title||e.placeholder||e.innerText||(!sensitiveInput?e.value:'')||'').trim().slice(0,240),value:sensitiveInput?undefined:('value' in e?String(e.value).slice(0,500):undefined),type:e.type||undefined,disabled:!!e.disabled,checked:!!e.checked,expanded:e.getAttribute('aria-expanded'),selected:!!e.selected,options:e.tagName==='SELECT'?[...e.options].slice(0,30).map(o=>o.text.trim().slice(0,80)):undefined,href:e.href||undefined,focused:document.activeElement===e,inForm:!!e.form,formAction,formMethod:e.form?.method||undefined,isSubmitControl:!!(e.form&&(e.matches('input[type=submit],input[type=image],button:not([type]),button[type=submit]'))),sensitiveInput,rect:{x:Math.round(r.x),y:Math.round(r.y),width:Math.round(r.width),height:Math.round(r.height)}};
+          return {index,targetId,role:roleOf(e),tag:e.tagName.toLowerCase(),name:accName(e,{sensitive:sensitiveInput}).slice(0,240),value:sensitiveInput?undefined:('value' in e?String(e.value).slice(0,500):undefined),type:e.type||undefined,disabled:!!e.disabled,checked:!!e.checked,expanded:e.getAttribute('aria-expanded'),selected:!!e.selected,options:e.tagName==='SELECT'?[...e.options].slice(0,30).map(o=>o.text.trim().slice(0,80)):undefined,href:e.href||undefined,focused:document.activeElement===e,inForm:!!e.form,formAction,formMethod:e.form?.method||undefined,isSubmitControl:!!(e.form&&(e.matches('input[type=submit],input[type=image],button:not([type]),button[type=submit]'))),sensitiveInput,rect:{x:Math.round(r.x),y:Math.round(r.y),width:Math.round(r.width),height:Math.round(r.height)}};
         })};
       })()`);
       if (tree.needsPierce && options.pierce) tree.hiddenControls = await this.getPiercedControls(tab).catch(() => []);
@@ -2610,7 +2612,8 @@ class AutomationService {
         const interactive='a[href],button,input:not([type=hidden]),textarea,select,[role],[tabindex]:not([tabindex="-1"])';
         const visible=(e)=>{const s=getComputedStyle(e),r=e.getBoundingClientRect();return r.width>0&&r.height>0&&s.visibility!=='hidden'&&s.display!=='none'&&!e.closest('[aria-hidden="true"]')};
         const normalize=(s)=>String(s||'').replace(/\\s+/g,' ').trim();
-        const nameOf=(e)=>normalize(e.getAttribute('aria-label')||e.labels?.[0]?.innerText||e.alt||e.title||e.placeholder||e.innerText||(!sensitiveOf(e)?e.value:'')||'');
+        const accName=${accessibleName.toString()};
+        const nameOf=(e)=>normalize(accName(e,{sensitive:sensitiveOf(e)}));
         const sensitiveOf=(e)=>{const type=String(e.type||'').toLowerCase(),autocomplete=String(e.getAttribute('autocomplete')||'').toLowerCase(),fieldName=String(e.name||'').toLowerCase();return ['password','one-time-code','cc-number','cc-csc','cc-exp','current-password','new-password'].includes(type)||/password|one-time-code|cc-number|cc-csc|cc-exp/.test(autocomplete)||/password|one-time-code|cc-number|cc-csc|cc-exp/.test(fieldName)};
         const roleOf=(e)=>e.getAttribute('role')||({A:'link',BUTTON:'button',INPUT:e.type==='checkbox'?'checkbox':e.type==='radio'?'radio':e.type==='button'||e.type==='submit'?'button':'textbox',TEXTAREA:'textbox',SELECT:'combobox'}[e.tagName]||'generic');
         const matches=(candidate)=>{const target=normalize(candidate),needle=normalize(query);const valueMatches=exact?target===needle:target.toLowerCase().includes(needle.toLowerCase());return valueMatches};
