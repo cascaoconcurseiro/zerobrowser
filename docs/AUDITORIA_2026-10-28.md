@@ -34,13 +34,17 @@ Também removido um binding morto (`browserView`, id que não existe no HTML).
 
 ## Riscos conhecidos que ficaram abertos (deliberadamente)
 
-1. **Token do pipe no Windows**: `mode 0600` é POSIX; no Windows a proteção efetiva é a ACL da pasta do perfil.
-2. **Extensões**: `management.uninstall` não apaga arquivos do usuário; orienta usar ⋯ → Extensões → Remover.
+1. **Extensões**: `management.uninstall` não apaga arquivos do usuário; orienta usar ⋯ → Extensões → Remover.
 
 Itens resolvidos em 0.1.18-dev: CSP nas duas páginas locais (com `newtab.css`/`newtab.js` externos e classes no
 lugar de `style=""`), `automation:list-tools` removido, cliente WebSocket rejeitando pendências no disconnect,
 `management.getAll`/`setEnabled` implementados. Verificação: `npm run test:ui` (Electron carrega as duas páginas e
 falha em qualquer violação de CSP).
+
+Resolvido em 0.1.21-dev: **ACL do token do pipe**. No Windows o arquivo recebe `icacls /inheritance:r` com
+`*<SID do usuário>:(F)` e `*S-1-5-18:(F)`, usando o `whoami.exe`/`icacls.exe` de `System32` (o `whoami` do Git/MSYS
+no PATH não entende `/user`). O token só é gravado depois que a instância possui o pipe, e é apagado no `stop()`.
+Conferido no app instalado: `icacls` mostra apenas `NT AUTHORITY\SYSTEM` e o usuário, sem entradas herdadas.
 
 ## Números
 

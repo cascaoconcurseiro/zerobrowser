@@ -8,6 +8,7 @@ const fs = require('fs');
 const path = require('path');
 const { performCuaInput, performKeySequence } = require('../cua-input');
 const { automationPipePath, pipeTokenPath } = require('../pipe-path');
+const { restrictFileToCurrentUser } = require('../file-acl');
 const { scrollSearchInPage } = require('../scroll-search');
 const { summarizeBatchCoverage } = require('../batch-coverage');
 const { getAgentTools } = require('../tools/agent-tool-registry');
@@ -445,9 +446,6 @@ class AutomationService {
         this.pipePath = automationPipePath();
         // Token por execução: cliente local precisa provar que tem acesso à pasta de dados do usuário.
         this.pipeToken = randomBytes(32).toString('hex');
-        const tokenFile = pipeTokenPath();
-        await fs.promises.mkdir(path.dirname(tokenFile), { recursive: true });
-        await fs.promises.writeFile(tokenFile, this.pipeToken, { mode: 0o600 });
         this.pipeServer = net.createServer((socket) => this.acceptMcpPipeClient(socket));
         await new Promise((resolve, reject) => {
           this.pipeServer.once('error', reject);
@@ -456,6 +454,12 @@ class AutomationService {
             resolve();
           });
         });
+        // Só depois de possuir o pipe: uma segunda instância no mesmo perfil não pode sobrescrever o token da primeira.
+        const tokenFile = pipeTokenPath();
+        await fs.promises.mkdir(path.dirname(tokenFile), { recursive: true });
+        await fs.promises.writeFile(tokenFile, this.pipeToken, { mode: 0o600 });
+        // Só o dono lê: sem isso, a ACL herdada da pasta decidiria quem pode falar com o navegador.
+        this.pipeTokenAcl = restrictFileToCurrentUser(tokenFile);
       } catch {
         this.pipeServer = null;
       }
@@ -513,6 +517,8 @@ class AutomationService {
       const server = this.pipeServer;
       this.pipeServer = null;
       await new Promise((resolve) => server.close(resolve));
+      // O token vale só enquanto este processo vive; não deixa credencial parada no perfil.
+      try { await fs.promises.unlink(pipeTokenPath()); } catch {}
     }
     if (this.wss) {
       const server = this.wss;

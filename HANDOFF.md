@@ -26,7 +26,7 @@
   paginada agora é `complete` (antes era sempre falso), e uma leitura por `tabId` não conta as outras abas como
   omitidas. Regra em `src/automation/batch-coverage.js`; detalhe, conflitos e reversão em
   `docs/REGISTRO_INTEGRACAO_0.1.5.md`.
-- Versão: `package.json` e `package-lock.json` em 0.1.20-dev (o lock acompanha; teste `test/whats-new.test.js`).
+- Versão: `package.json` e `package-lock.json` em 0.1.21-dev (o lock acompanha; teste `test/whats-new.test.js`).
 - **Motor, salto 1 (2026-10-27):** `run_steps` aceita `expect {url,text,absent}` conferido pelo host (espera de até
   3 s, texto normalizado, parada quando a pós-condição não vem). Opt-in: só com `actionScripts`/`--scripts`.
   `npm test` 133/133; regra em `docs/EVOLUCAO_MOTOR.md`; restauração em `docs/PONTOS_DE_RESTAURACAO.md`
@@ -160,6 +160,13 @@
   (SHA-256 `72648c4a…e8680`, 124.471.257 bytes); `app.asar` `6f318904…6d92d` igual em build/produção; integração
   `status: PASS`; `npm test` 269/269; `test:ui` PASS; benchmark 33 e 44 passaram. Backup em
   `backups/2026-10-28-before-runsteps/`.
+- **Checkpoint 20 instalado (2026-10-28):** versão **0.1.21-dev** fechando o último risco da auditoria. O
+  `pipe-token` no Windows recebe ACL explícita (`icacls /inheritance:r`, `*<SID>:(F)` + SYSTEM) usando
+  `System32\whoami.exe`/`icacls.exe`; é gravado só depois que a instância possui o pipe e apagado no `stop()`.
+  Instalador `Zero Browser Setup 0.1.21-dev.exe` (SHA-256 `bd606f71…27209c`, 124.472.667 bytes); `app.asar`
+  `ba103cba…c0878` igual em build/produção; integração `status: PASS`; `npm test` **273/273**. Conferido no app
+  instalado: `icacls` mostra apenas `NT AUTHORITY\SYSTEM` e o usuário. Backup em
+  `backups/2026-10-28-before-pipe-acl/`.
 - **Publicação (2026-10-28):** `main` em `c13447e` enviado a `origin/main` (26 commits desde 0.1.4); tag
   `motor-pre-leaps-2026-10-27` publicada. Nenhum build/instalador foi anexado a release no GitHub.
 - **Primeiras execuções reais (deepseek-flash, 1 por condição):** tarefa 44 padrão 13 passos/13,0 s/47.456 tokens;

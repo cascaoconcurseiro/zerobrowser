@@ -1070,3 +1070,21 @@ consequente continua passando pela aprovação normal — o que muda é o númer
 
 Efeito esperado: formulário de 6 campos passa de ~7 rodadas para 1–2; junto com a pré-inspeção e o guardião de
 progresso, o teto de 40 deixa de ser atingido em tarefas normais.
+
+### ACL do token do pipe — 0.1.21-dev
+
+Último risco da auditoria: no Windows a proteção do `pipe-token` era só a ACL herdada de `%APPDATA%`. Agora
+`src/automation/file-acl.js` aplica `icacls <arquivo> /inheritance:r /grant:r *<SID>:(F)
+/grant:r *S-1-5-18:(F)` usando o SID do usuário (não `DOMÍNIO\usuário`), o que sobrevive a perfil roaming ou
+redirecionado.
+
+Dois detalhes que só aparecem testando de verdade:
+
+- o `whoami` do PATH pode ser o do Git/MSYS, que não entende `/user`; o módulo usa sempre
+  `%SystemRoot%\System32\whoami.exe` e `icacls.exe`;
+- uma segunda instância no mesmo perfil sobrescrevia o token antes de tentar o pipe: agora o arquivo só é escrito
+  **depois** que o `listen` do pipe dá certo, e o token é removido no `stop()`.
+
+Falha de `icacls` nunca impede o app de subir (`{ ok:false, reason }` e segue). Evidência no app instalado:
+`icacls` mostra apenas `NT AUTHORITY\SYSTEM` e `WESLEY\Wesley`, sem entradas `(I)`. Testes: `test/file-acl.test.js`
+(4, incluindo ACL real no Windows). `npm test` 273/273.

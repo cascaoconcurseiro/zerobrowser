@@ -1,6 +1,14 @@
-# Novidades — Zero Browser 0.1.20-dev
+# Novidades — Zero Browser 0.1.21-dev
 
 Versão de desenvolvimento com foco no motor de IA e em sites difíceis (planilhas, canvas, editores).
+
+## Segurança do canal local
+
+- **Token do pipe restrito ao seu usuário**: no Windows, o arquivo `pipe-token` agora recebe ACL explícita
+  (`icacls /inheritance:r`) só para o SID atual e SYSTEM — outros usuários locais deixam de poder lê-lo, mesmo com
+  acesso à pasta do perfil. O token é apagado quando o app fecha e só é gravado depois que a instância possui o pipe
+  (uma segunda instância não sobrescreve a primeira). Usa SID, não nome de conta, então perfil roaming ou
+  redirecionado continua funcionando.
 
 ## Menos rodadas, mais progresso
 
