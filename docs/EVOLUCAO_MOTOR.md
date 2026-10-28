@@ -743,3 +743,28 @@ Limites honestos:
 - Não gera código por site: a receita é uma lista de passos estáveis, não um módulo com lógica.
 - Sem autenticação própria: login continua sendo sessão da aba, e credencial só é digitada quando o modelo pede.
 - `possibleCommit` é conservador (navegação/clique contam como possível), não prova de efeito.
+
+### Mint automático e módulo de Planilhas — 2026-10-28
+
+Fechando o que faltava do modelo do Pomerado sem copiar a stack deles.
+
+**Mint automático (`saveRecipe` no `run_task`):** quando a tarefa termina com contrato de verificação aprovado e usou
+`run_steps` só com passos estáveis (`navigate`, `click_text`, `wait_for`) e `expect` em todos, o host grava a receita
+sozinho na origem atual. O resultado devolve `minted: {name, steps, origin}` ou `mintSkipped` com o motivo (sem
+contrato, sem run_steps estável, nome inválido, origem inválida). O modelo não precisa chamar `recipe save`.
+
+**Ferramenta `sheets`:** módulo determinístico do Planilhas. `read`, `write` e `goto` por intervalo A1, usando a
+caixa de nome (DOM), `insertText`, Enter e clipboard — sem clicar em célula. `write` pede aprovação e cola TSV;
+`read` seleciona, copia (Ctrl+C) e devolve `values/rows/columns/cells/truncated`; `goto` só seleciona. Se a caixa de
+nome não existir na página, devolve erro orientando `sheets_accessibility`/`visual_click`.
+
+Arquivos: `src/automation/sheets-tool.js`, `service/index.js` (ferramenta e mint). Testes: `test/sheets-tool.test.js`
+(5 casos, incluindo escrita+leitura de TSV com clipboard e teclado reais simulados) e `test/mint.test.js` (2 casos).
+`npm test` 194/194.
+
+Limites honestos:
+
+- O mint só grava o que já é estável; tarefa que usou clique por índice não vira receita (fica `mintSkipped`).
+- A ferramenta `sheets` depende do DOM da caixa de nome; idioma/layout diferente pode exigir o fallback visual.
+- Continua sem Guardian (revisor de ação), sem credencial com escopo de origem e sem nome acessível do Playwright —
+  os três próximos itens do Pomerado que ainda não estão aqui.

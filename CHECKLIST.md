@@ -500,7 +500,7 @@
 - [ ] Passos de receita passarem pelo journal e por preenchimento de campo (hoje só navegação/clique/espera).
 - [ ] Captura automática de receita apenas em tarefa verificada e versionamento por mudança de site.
 - [x] Checkpoint com os 11 saltos compilado e instalado: `dist/Zero Browser Setup 0.1.5-dev.exe` (SHA-256 `9df4ed8b…a8545f`), `app.asar` `ae7a6564…0ae96a` idêntico em build e produção, integração do instalado `status: PASS`, `npm test` 177/177; backup do estado anterior em `backups/2026-10-27-before-motor-leaps/`.
-- [ ] Teste manual do roteiro em `docs/COMO_TESTAR_0.1.6.md` (perfis, menu de abas, downloads, atalhos).
+- [ ] Teste manual do roteiro em `docs/COMO_TESTAR.md` (perfis, menu de abas, downloads, atalhos).
 - [ ] Benchmark pareado 0.1.4 × checkpoint com provedor real e as flags `--journal`, `--scripts`, `--preinspect`.
 - [x] Push para `origin` em 28/10/2026: `main` em `c13447e`, tag `motor-pre-leaps-2026-10-27` publicada. Teste manual de Planilhas e suíte difícil completa continuam pendentes.
 - [x] Canal alternativo para canvas: `clipboard` (read/write, 200k, write com aprovação) e `key_sequence` (repetição de setas/Tab/F2/Ctrl, 50 passos, Enter/espaço com aprovação); fluxo TSV documentado em `docs/PLANILHAS_E_SITES_DIFICEIS.md`. 4 testes; `npm test` 181/181.
@@ -519,3 +519,7 @@
 - [ ] Portar o cálculo de nome acessível do Playwright (Apache-2.0) usado pelo Pomerado e medir em locators.
 - [x] Versão **0.1.6-dev** com menu **Novidades** (diálogo nativo lendo `docs/NOVIDADES.md` do pacote) e teste de sincronia entre `package.json`, lock, notas e conteúdo; instalador `d493c626…2165df`, `app.asar` `40f5be10…9257dd`, `status: PASS`, `npm test` 187/187.
 - [ ] Validar o diálogo Novidades no app instalado (abrir, ler, fechar) e revisar o texto antes de um release.
+- [x] Mint automático: tarefa com contrato aprovado e `run_steps` estável + `expect` grava receita sozinha (`saveRecipe`), com `minted`/`mintSkipped`. 2 testes.
+- [x] Ferramenta `sheets`: read/write/goto por intervalo A1 via caixa de nome + clipboard + teclado, sem clicar em célula; fallback orientado. 5 testes; `npm test` 194/194.
+- [ ] Testar `sheets` numa planilha real (intervalo, valores, mescladas) e o mint numa tarefa real com run_steps.
+- [x] Checkpoint 6 / **0.1.7-dev** instalado: mint automático + `sheets` + receitas v2; instalador `6740ee31…903f19`, `app.asar` `a977bf32…8a59b2`, `status: PASS`, `npm test` 194/194; backup em `backups/2026-10-28-before-mint/`.

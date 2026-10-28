@@ -32,6 +32,7 @@ const { CLIPBOARD_TOOL, validateClipboardRequest, shapeClipboardRead } = require
 const { KEY_SEQUENCE_TOOL, validateSequence, flattenKeys, needsFormApproval } = require('../key-sequence');
 const { VISUAL_CLICK_TOOL, validateVisualClick, pointFromNormalized } = require('../visual-click');
 const { SHEETS_ACCESSIBILITY_TOOL, isSheetsUrl, toggleSteps } = require('../sheets');
+const { SHEETS_TOOL, validateSheetsRequest, valuesToTsv, readRangeSummary, focusNameBoxScript } = require('../sheets-tool');
 const {
   taskPolicyAllows, isLoopbackUrl, HUMAN_CHECK_GUARDED_TOOLS, compactScreenshot, dropImages,
   traceToolCall, selectOptionScript, ActionSchema, ToolSchema
@@ -278,6 +279,8 @@ class AutomationService {
       reason = 'Enviar um arquivo do computador para o site';
     } else if (!reason && action.kind === 'clipboard_write') {
       reason = 'Gravar na área de transferência do sistema';
+    } else if (!reason && action.kind === 'sheets_write') {
+      reason = 'Gravar um intervalo na planilha';
     } else if (!reason && action.kind === 'navigate' && !taskPolicy) {
       reason = navigationLeakReason(tab?.webContents?.getURL?.(), action.url);
     } else if (!reason && action.kind === 'browser_evaluate') {
@@ -773,7 +776,7 @@ class AutomationService {
   }
 
   // `trace`, when given, is filled in place with model calls, token usage and every tool call (used by run_task).
-  async runAgent(tabId, prompt, apiKey, model, allowTools = true, provider = 'openrouter', requireToolCall = false, { maxSteps = 30, trace = null, maxDurationMs = 5 * 60 * 1000, resumable = false, resumeId = null, observeAfterActions = true, captureReadEvidence = false, preInspect = false, actionScripts = false, diffSnapshots = false, cascadeModel = null, streaming = false, effectJournal = false, verify = null, correctionRounds = 0, structuredExtraction = false, recipes = false, advancedInput = true } = {}) {
+  async runAgent(tabId, prompt, apiKey, model, allowTools = true, provider = 'openrouter', requireToolCall = false, { maxSteps = 30, trace = null, maxDurationMs = 5 * 60 * 1000, resumable = false, resumeId = null, observeAfterActions = true, captureReadEvidence = false, preInspect = false, actionScripts = false, diffSnapshots = false, cascadeModel = null, streaming = false, effectJournal = false, verify = null, correctionRounds = 0, structuredExtraction = false, recipes = false, advancedInput = true, saveRecipe = null } = {}) {
     for (const [id, state] of this.pausedAgentRuns) {
       if (state.expiresAt <= Date.now()) this.pausedAgentRuns.delete(id);
     }
@@ -838,7 +841,7 @@ class AutomationService {
     if (structuredExtraction) tools.push(structuredClone(EXTRACT_TABLE_TOOL));
     if (verificationChecks.length) tools.push(structuredClone(CHECK_TASK_TOOL));
     if (recipes && this.recipeStore) tools.push(structuredClone(RECIPE_TOOL));
-    if (advancedInput) tools.push(structuredClone(CLIPBOARD_TOOL), structuredClone(KEY_SEQUENCE_TOOL), structuredClone(VISUAL_CLICK_TOOL), structuredClone(SHEETS_ACCESSIBILITY_TOOL));
+    if (advancedInput) tools.push(structuredClone(CLIPBOARD_TOOL), structuredClone(KEY_SEQUENCE_TOOL), structuredClone(VISUAL_CLICK_TOOL), structuredClone(SHEETS_ACCESSIBILITY_TOOL), structuredClone(SHEETS_TOOL));
     const approvalMode =this.settingsProvider?.().automationApprovalMode || 'low-risk';
     const approvalInstructions = approvalInstructionsFor(approvalMode);
     const messages = [
@@ -852,7 +855,7 @@ class AutomationService {
     if (verificationChecks.length) messages[0].content += ' O host confere o resultado final contra um contrato; chame check_task para conferir o estado antes de concluir e, se o host recusar, corrija a página antes de encerrar.';
     if (structuredExtraction) messages[0].content += ' Para tabelas, use extract_table com as colunas do cabeçalho em vez de copiar texto; confira missingColumns, totalRows e truncated antes de concluir.';
     if (recipes && this.recipeStore) messages[0].content += ' Receitas: recipe list mostra as da origem; recipe save grava passos estáveis (navigate, click_text, wait_for) com expect obrigatório; recipe run repete sem modelo e para na primeira pós-condição que falhar. Só grave depois de a tarefa ter sido verificada.';
-    if (advancedInput) messages[0].content += ' Em planilhas e editores em canvas: tente sheets_accessibility e inspecione; selecione o intervalo pela caixa de nome, use clipboard write com TSV e cole com key_sequence [{keys:["Control","v"]}]; para ler, copie a seleção e use clipboard read. Navegue com key_sequence (setas, Tab) em vez de clicar em células. Se um controle aparecer na see_page mas não nos nodes, use visual_click com x,y de 0 a 1000 do viewport.';
+    if (advancedInput) messages[0].content += ' Em planilhas do Google, use sheets (read/write/goto com intervalo A1) — não clique em célula. Se sheets disser que a caixa de nome não foi encontrada, tente sheets_accessibility e inspecione; para o que só existe na imagem, use see_page + visual_click com x,y de 0 a 1000. Em outros editores em canvas, use clipboard write/read e key_sequence (setas, Tab).';
     if (diffSnapshots) messages[0].content += ' Depois de uma ação, o snapshot pode vir como diferença (campo diff): os nodes listados substituem os de mesmo índice e os índices em diff.iguais continuam valendo como no snapshot anterior.';
     if (observeAfterActions) messages[0].content += ' A última ação de um lote pode devolver nodes e text atualizados (autoObserved): use esses índices e dados, sem pedir inspect_page de novo se já bastarem.';
     if (resumed) {
@@ -871,6 +874,7 @@ class AutomationService {
     const cascade = createModelCascade({ cheapModel: cascadeModel, strongModel: model });
     if (trace && cascade.enabled) trace.cascade = cascade.stats;
     let lastNodes = null;
+    let mintCandidate = null; // último run_steps estável com expect, usado pelo mint ao final
     let lastSnapshotUrl = null;
     let snapshotRequired = false;
     let snapshotRevision = 0;
@@ -1020,6 +1024,61 @@ class AutomationService {
         if (trace) trace.sheetsAccessibility = (trace.sheetsAccessibility || 0) + 1;
         return { success: true, ...result, note: 'Modo alternado. Inspecione a página: se as células aparecerem nos nodes, use-as; senão volte ao clipboard.' };
       }
+      if (name === 'sheets') {
+        const pageUrl = tab?.webContents?.getURL?.() || '';
+        if (!isSheetsUrl(pageUrl)) throw new Error('A ferramenta sheets só funciona em docs.google.com/spreadsheets');
+        const invalid = validateSheetsRequest(args);
+        if (invalid) throw new Error(invalid);
+        if (!this.clipboard) throw new Error('Área de transferência indisponível neste processo');
+        const wc = tab.webContents;
+        const range = String(args.range).trim().toUpperCase();
+        if (args.action === 'write') {
+          const approval = await this.confirmConsequentialAction(tabId, { kind: 'sheets_write', readOnly: false, targetName: range });
+          if (!approval.approved) throw denied(approval, 'A gravação na planilha foi cancelada');
+          this.clipboard.writeText(valuesToTsv(args.values));
+        }
+        const focus = await wc.executeJavaScript(focusNameBoxScript()).catch(() => null);
+        if (!focus?.found) {
+          return { success: false, error: 'Caixa de nome não encontrada nesta planilha; tente sheets_accessibility ou visual_click.', range };
+        }
+        if (typeof wc.insertText === 'function') {
+          await wc.insertText(range);
+        } else {
+          await wc.executeJavaScript(`(() => {
+            const box = document.querySelector('#t-name-box, input.waffle-name-box') || document.activeElement;
+            if (!box) return false;
+            const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+            setter.call(box, ${JSON.stringify(range)});
+            box.dispatchEvent(new Event('input', { bubbles: true }));
+            return true;
+          })()`);
+        }
+        await performKeySequence(wc, [{ keys: ['Enter'] }], { delayMs: 0 });
+        await new Promise((resolve) => setTimeout(resolve, 350));
+        tab.axCache = null;
+        if (args.action === 'goto') {
+          if (trace) trace.sheetsGotos = (trace.sheetsGotos || 0) + 1;
+          return { success: true, range, note: 'Intervalo selecionado.' };
+        }
+        if (args.action === 'write') {
+          await performKeySequence(wc, [{ keys: ['Control', 'v'] }], { delayMs: 0 });
+          await new Promise((resolve) => setTimeout(resolve, 400));
+          if (trace) trace.sheetsWrites = (trace.sheetsWrites || 0) + 1;
+          const columns = args.values.reduce((max, row) => Math.max(max, row.length), 0);
+          return { success: true, range, rows: args.values.length, columns, note: 'Intervalo colado. Use sheets read para confirmar se precisar.' };
+        }
+        await performKeySequence(wc, [{ keys: ['Control', 'c'] }], { delayMs: 0 });
+        await new Promise((resolve) => setTimeout(resolve, 250));
+        const summary = readRangeSummary(this.clipboard.readText?.() ?? '', { maxRows: args.maxRows, maxColumns: args.maxColumns });
+        if (trace) {
+          trace.sheetsReads = (trace.sheetsReads || 0) + 1;
+          trace.sheetsCells = (trace.sheetsCells || 0) + summary.cells;
+        }
+        return {
+          success: true, range, ...summary,
+          note: summary.truncated ? 'Intervalo maior que o limite devolvido; reduza o range.' : 'Valores copiados e lidos pelo host.'
+        };
+      }
       if (name === 'recipe') {
         if (!recipes || !this.recipeStore) throw new Error('Receitas não estão ligadas nesta tarefa');
         const origin = normalizeOrigin(tab?.webContents?.getURL?.() || '');
@@ -1093,6 +1152,11 @@ class AutomationService {
           if (result.blockedEffect) trace.scriptEffectBlocks = (trace.scriptEffectBlocks || 0) + 1;
           const skips = (result.results || []).filter((item) => item.alreadyDone).length;
           if (skips) trace.scriptEffectSkips = (trace.scriptEffectSkips || 0) + skips;
+        }
+        // Candidato ao mint: só passos estáveis com pós-condição declarada.
+        if (result.success && Array.isArray(args.steps)
+          && args.steps.every((step) => ['navigate', 'click_text', 'wait_for'].includes(step.tool) && step.expect)) {
+          mintCandidate = args.steps;
         }
         return result;
       }
@@ -1772,9 +1836,28 @@ class AutomationService {
               if (trace && proven) trace.effectProofs = proven;
             }
           }
+          // Mint: só grava receita quando o contrato final passou e houve run_steps estável com expect.
+          let minted = null;
+          let mintSkipped = null;
+          if (saveRecipe) {
+            const origin = normalizeOrigin(tab?.webContents?.getURL?.() || '');
+            if (!this.recipeStore) mintSkipped = 'armazenamento de receitas indisponível';
+            else if (!origin) mintSkipped = 'origem inválida para receita';
+            else if (!verification || !verification.ok) mintSkipped = 'a tarefa não terminou com contrato de verificação aprovado';
+            else if (!mintCandidate) mintSkipped = 'a tarefa não usou run_steps com passos estáveis e expect';
+            else {
+              const invalid = validateRecipe({ name: saveRecipe, steps: mintCandidate });
+              if (invalid) mintSkipped = invalid;
+              else {
+                await this.recipeStore.save(origin, saveRecipe, mintCandidate);
+                minted = { name: saveRecipe, steps: mintCandidate.length, origin };
+                if (trace) trace.minted = saveRecipe;
+              }
+            }
+          }
           if (trace) trace.stopReason = 'final_answer';
           if (requireToolCall) return { success: false, error: `O modelo ${model} não confirmou suporte a chamadas de ferramenta` };
-          return { success: true, message: message.content || 'Tarefa concluída.', ...(verification ? { verification } : {}) };
+          return { success: true, message: message.content || 'Tarefa concluída.', ...(verification ? { verification } : {}), ...(minted ? { minted } : {}), ...(mintSkipped ? { mintSkipped } : {}) };
         }
         if (!allowTools) return { success: true, message: message.content || 'Conexão com o modelo confirmada.' };
         for (const call of message.tool_calls) {
@@ -2181,7 +2264,7 @@ class AutomationService {
     return { success: true, completed: steps.length, total: steps.length, results };
   }
 
-  async runTask({ startUrl, prompt, maxSteps = 20, approvalPolicy = 'ask', allowedHosts = [], keepTab = false, captureInitialText = false, captureInitialChecks = [], engine = 'navegante', maxDurationSec, observeAfterActions = true, captureReadEvidence = false, preInspect = false, actionScripts = false, diffSnapshots = false, cascadeModel = null, streaming = false, effectJournal = false, verify = null, requireVerification = false, correctionRounds = 0, structuredExtraction = false, recipes = false, advancedInput = true }) {
+  async runTask({ startUrl, prompt, maxSteps = 20, approvalPolicy = 'ask', allowedHosts = [], keepTab = false, captureInitialText = false, captureInitialChecks = [], engine = 'navegante', maxDurationSec, observeAfterActions = true, captureReadEvidence = false, preInspect = false, actionScripts = false, diffSnapshots = false, cascadeModel = null, streaming = false, effectJournal = false, verify = null, requireVerification = false, correctionRounds = 0, structuredExtraction = false, recipes = false, advancedInput = true, saveRecipe = null }) {
     const maxDurationMs = maxDurationSec ? maxDurationSec * 1000 : undefined;
     if (approvalPolicy === 'public-sites' && engine === 'flame') return { success: false, error: 'A política public-sites ainda não vale para o Flame' };
     if (engine === 'flame') return this.runFlameTask({ startUrl, prompt, maxSteps, approvalPolicy, keepTab, maxDurationMs });
@@ -2220,7 +2303,7 @@ class AutomationService {
           error: result?.success === false ? String(result.error || 'Leitura inicial falhou') : ''
         });
       }
-      const result = await this.runAgent(tabId, prompt, apiKey, model, true, provider, false, { maxSteps, trace, maxDurationMs, observeAfterActions, captureReadEvidence, preInspect, actionScripts, diffSnapshots, cascadeModel, streaming, effectJournal, verify, correctionRounds, structuredExtraction, recipes, advancedInput });
+      const result = await this.runAgent(tabId, prompt, apiKey, model, true, provider, false, { maxSteps, trace, maxDurationMs, observeAfterActions, captureReadEvidence, preInspect, actionScripts, diffSnapshots, cascadeModel, streaming, effectJournal, verify, correctionRounds, structuredExtraction, recipes, advancedInput, saveRecipe });
       const finalUrl = tab.webContents.isDestroyed() ? '' : tab.webContents.getURL();
       let verification = result.verification || null;
       if (!verification && Array.isArray(verify) && verify.length) {
@@ -2900,7 +2983,8 @@ class AutomationService {
           correctionRounds: z.number().int().min(0).max(3).optional(),
           structuredExtraction: z.boolean().optional(),
           recipes: z.boolean().optional(),
-          advancedInput: z.boolean().optional()
+          advancedInput: z.boolean().optional(),
+          saveRecipe: z.string().min(1).max(41).optional()
         }),
         handler: async (input) => this.runTask(input)
       },

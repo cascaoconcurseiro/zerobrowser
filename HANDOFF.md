@@ -26,7 +26,7 @@
   paginada agora é `complete` (antes era sempre falso), e uma leitura por `tabId` não conta as outras abas como
   omitidas. Regra em `src/automation/batch-coverage.js`; detalhe, conflitos e reversão em
   `docs/REGISTRO_INTEGRACAO_0.1.5.md`.
-- Versão: `package.json` e `package-lock.json` em 0.1.6-dev (o lock acompanha; teste `test/whats-new.test.js`).
+- Versão: `package.json` e `package-lock.json` em 0.1.7-dev (o lock acompanha; teste `test/whats-new.test.js`).
 - **Motor, salto 1 (2026-10-27):** `run_steps` aceita `expect {url,text,absent}` conferido pelo host (espera de até
   3 s, texto normalizado, parada quando a pós-condição não vem). Opt-in: só com `actionScripts`/`--scripts`.
   `npm test` 133/133; regra em `docs/EVOLUCAO_MOTOR.md`; restauração em `docs/PONTOS_DE_RESTAURACAO.md`
@@ -76,9 +76,12 @@
   regressão do journal removida (prova estatística ainda requer 14 tarefas e outro modelo).
 - **Checkpoint 5 instalado (2026-10-28):** versão **0.1.6-dev** (instalador `Zero Browser Setup 0.1.6-dev.exe`,
   SHA-256 `d493c626…2165df`, 124.447.459 bytes; `app.asar` `40f5be10…9257dd` igual em build/produção; integração
-  `status: PASS`). Inclui receitas v2 (schema de entrada, `{{placeholders}}`, `possibleCommit`), o menu **Novidades**
-  (diálogo nativo lendo `docs/NOVIDADES.md` do pacote) e `npm test` 187/187. Backup do estado anterior em
-  `backups/2026-10-28-before-recipe-v2/` (`92940a8c…`). Perfil intacto.
+  `status: PASS`). Backup do estado anterior em `backups/2026-10-28-before-recipe-v2/`. Perfil intacto.
+- **Checkpoint 6 instalado (2026-10-28):** versão **0.1.7-dev** com **mint automático** (`saveRecipe`), ferramenta
+  **`sheets`** (read/write/goto A1 sem clicar em célula) e receitas v2 (schema de entrada + `possibleCommit`).
+  Instalador `Zero Browser Setup 0.1.7-dev.exe` (SHA-256 `6740ee31…903f19`, 124.449.277 bytes); `app.asar`
+  `a977bf32…8a59b2` igual em build/produção; integração `status: PASS`; `npm test` 194/194. Backup do 0.1.6-dev em
+  `backups/2026-10-28-before-mint/` (`40f5be10…`).
 - **Publicação (2026-10-28):** `main` em `c13447e` enviado a `origin/main` (26 commits desde 0.1.4); tag
   `motor-pre-leaps-2026-10-27` publicada. Nenhum build/instalador foi anexado a release no GitHub.
 - **Primeiras execuções reais (deepseek-flash, 1 por condição):** tarefa 44 padrão 13 passos/13,0 s/47.456 tokens;
@@ -88,7 +91,7 @@
   (124.441.875 bytes, SHA-256 `9df4ed8b…a8545f`), instalado sobre o build anterior após `win-unpacked` passar.
   `app.asar` build/instalado: `ae7a6564…0ae96a`; integração do instalado `status: PASS`; `npm test` 177/177 na
   árvore. Backup do estado anterior em `backups/2026-10-27-before-motor-leaps/` (`3658148c…f606401`, 184 arquivos)
-  com `LEIA-ME.md`. Perfil não foi tocado. Roteiro de teste em `docs/COMO_TESTAR_0.1.6.md`.
+  com `LEIA-ME.md`. Perfil não foi tocado. Roteiro de teste em `docs/COMO_TESTAR.md`.
 - Continua SEM verificação no app: perfis (menu ⋮), menu de contexto de abas, histórico persistente de downloads,
   atalhos com foco na página e todas as flags opt-in do motor (`--preinspect`, `--scripts`, `--diff`,
   `--cascade=`, `--stream`, `--journal`, `structuredExtraction`, `recipes`).

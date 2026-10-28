@@ -1,21 +1,18 @@
-# Novidades — Zero Browser 0.1.6-dev
+# Novidades — Zero Browser 0.1.7-dev
 
 Versão de desenvolvimento com foco no motor de IA e em sites difíceis (planilhas, canvas, editores).
 
 ## Motor de IA
 
-- **Pós-condições verificadas** em `run_steps`: cada passo pode declarar `expect` (texto, URL, ausência) e o host
-  confere antes de seguir.
-- **Journal de efeitos**: envio/compra/exclusão não se repetem às cegas; falha com efeito desconhecido exige ler a
-  página. Agora só efeito crítico entra no journal, o que removeu o custo em cliques comuns.
-- **Risco por capacidade**: aprovação por credencial/destrutivo/compromisso/escrita, com motivo específico no
-  diálogo. "Minha conta" e "Meus pedidos" deixaram de pedir aprovação.
-- **Verificação por contrato**: a tarefa só é declarada concluída com prova de estado (`url`, `text`, `absent`,
-  `textCount`, `download`). O agente pode consultar com `check_task` e receber uma rodada de correção.
-- **Extração estruturada**: `extract_table` lê tabelas como linhas com colunas nomeadas e proveniência;
-  `read_batch` com `extract` faz o mesmo em todas as abas da tarefa, em paralelo.
-- **Receitas por site**: sequências estáveis executadas sem modelo, com schema de entrada (`{{campo}}`) e
-  `possibleCommit` para dizer "leia antes de repetir".
+- **Mint automático**: tarefa verificada que usou passos estáveis vira receita sozinha, sem o modelo precisar salvar.
+- **Receitas v2**: schema de entrada (`{{campo}}`), validação de obrigatórios e `possibleCommit` com
+  “leia antes de repetir”.
+- **Planilhas**: ferramenta `sheets` lê/grava intervalo A1 (TSV + clipboard + teclado), sem clicar em célula.
+- **Pós-condições verificadas** em `run_steps`: cada passo declara `expect` e o host confere antes de seguir.
+- **Journal de efeitos**: envio/compra/exclusão não se repetem às cegas; só efeito crítico entra no journal.
+- **Risco por capacidade**: aprovação por credencial/destrutivo/compromisso/escrita, com motivo específico.
+- **Verificação por contrato**: `url`, `text`, `absent`, `textCount` e `download`, com `check_task` e correção.
+- **Extração estruturada**: `extract_table` e `read_batch` com `extract` em paralelo entre abas.
 
 ## Sites difíceis
 

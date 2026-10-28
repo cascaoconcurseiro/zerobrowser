@@ -1,10 +1,10 @@
-# Como testar o 0.1.6-dev com os saltos do motor
+# Como testar o Zero Browser (0.1.7-dev)
 
 Checklist manual para a versão instalada em 28/10/2026. O que depende de modelo/provedor está separado do que já
 pode ser conferido sem chave.
 
-**Build instalado:** `0.1.6-dev`, `app.asar` `40f5be10…9257dd`; backup do estado anterior em
-`backups/2026-10-28-before-recipe-v2/`.
+**Build instalado:** `0.1.7-dev`, `app.asar` `a977bf32…8a59b2`; backup do estado anterior em
+`backups/2026-10-28-before-mint/`.
 
 ## 0. Novidades e versão
 
@@ -61,17 +61,20 @@ node bench/avaliar.js x1 --conjunto=basico --tarefas=01 --repeticoes=1   # struc
 - [ ] Contrato de verificação: rodar via MCP `run_task` com `verify: [{kind:'text', value:'...'}]` e
       `requireVerification: true` numa fixture; sem o texto, deve retornar `success:false`.
 - [ ] Receitas: `recipe save` e `recipe run` numa fixture; a segunda execução não deve chamar o modelo.
+- [ ] Mint: `run_task` via MCP com `saveRecipe: "fluxo"` numa tarefa que use `run_steps` estável + `verify`;
+      o resultado deve trazer `minted` e `recipe list` deve mostrar a receita. Sem contrato aprovado, deve vir
+      `mintSkipped` com o motivo.
 
-### 3.1 Planilhas e canvas (clipboard + teclado)
+### 3.1 Planilhas e canvas (sheets + clipboard + teclado)
 
 Numa planilha de teste (sem dados reais):
 
-- [ ] "Escreva uma tabela de 3 colunas e 5 linhas em A1". Esperado: caixa de nome → `A1` → Enter →
-      `clipboard write` (com aprovação) → Ctrl+V. Conferir que entrou de uma vez, sem clique em célula.
-- [ ] "Copie A1:C5 e diga os valores". Esperado: seleção pela caixa de nome → Ctrl+C → `clipboard read`.
-- [ ] "Vá até a última linha preenchida e acrescente X". Esperado: `key_sequence` com Ctrl+seta/ArrowDown.
-- [ ] No trace: `clipboardWrites`, `clipboardReads` e `keyChords` presentes; passos ≤ 6 por operação.
-- [ ] Comparar com o comportamento antigo (clique por coordenada) em passos e acerto.
+- [ ] "Leia o intervalo A1:C5" → deve usar **`sheets read`**; confira `values`, `rows`, `cells` e passos ≤ 4.
+- [ ] "Escreva 3 colunas e 5 linhas em A1" → **`sheets write`** com aprovação; leia de volta para confirmar.
+- [ ] "Vá para B10" → **`sheets goto`**; confira a seleção.
+- [ ] Se `sheets` disser que a caixa de nome não foi encontrada: testar `sheets_accessibility` e, depois,
+      `see_page` + `visual_click` (0–1000).
+- [ ] No trace: `sheetsReads`, `sheetsWrites`, `sheetsCells`; sem clique em célula.
 
 ## 4. O que ainda NÃO está pronto para "release"
 
