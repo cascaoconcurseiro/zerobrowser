@@ -1337,3 +1337,7 @@ body.dark .ai-working-status-pill {
 /* Aprovação no chat: cartão destacado, botões desabilitados depois da resposta. */
 .ai-approval { border-color: var(--accent); }
 .ai-approval.respondido { opacity: 0.7; }
+
+/* Lista de tarefas pausadas. */
+.ai-job-row { display: flex; gap: 8px; align-items: center; margin-top: 6px; font-size: 12px; }
+.ai-job-row span { flex: 1; color: var(--fg-secondary); }

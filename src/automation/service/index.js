@@ -690,6 +690,12 @@ class AutomationService {
     }
   }
 
+  async dropJob(id) {
+    if (!id) return false;
+    this.forgetPausedRun(String(id));
+    return true;
+  }
+
   // Lista enxuta para a interface oferecer "Continuar" depois de reabrir o app.
   // Lê a memória (já restaurada do disco em start()), então não corre com a gravação assíncrona.
   async listJobs() {

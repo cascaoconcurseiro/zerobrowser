@@ -1,8 +1,10 @@
-# Novidades — Zero Browser 0.1.35-dev
+# Novidades — Zero Browser 0.1.36-dev
 
 Versão de desenvolvimento com foco no motor de IA e em sites difíceis (planilhas, canvas, editores).
 
 ## Painel mais legível
+
+- **Tarefas pausadas**: o painel lista até três, cada uma com Continuar e Descartar (sem reiniciar o app).
 
 - **Receitas no painel**: botão Receitas lista as do site atual e executa sem modelo, mostrando passos e contrato de saída.
 

@@ -74,6 +74,7 @@ const browserApi = {
     cancelAgent: (tabId) => ipcRenderer.invoke('automation:cancel-agent', tabId),
     jobs: () => ipcRenderer.invoke('automation:jobs'),
     recipes: (origin) => ipcRenderer.invoke('automation:recipes', { origin }),
+    dropJob: (id) => ipcRenderer.invoke('automation:job-drop', { id }),
     runRecipe: (origin, name) => ipcRenderer.invoke('automation:recipe-run', { origin, name }),
     approvalReply: (id, decision) => ipcRenderer.invoke('automation:approval-reply', { id, decision }),
     onApprovalRequest: (callback) => {

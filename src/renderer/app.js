@@ -1654,92 +1654,37 @@ class ZeroBrowserApp {
       jobs = [];
     }
     if (!Array.isArray(jobs) || !jobs.length) return;
-    const job = jobs[0];
-    const banner = document.createElement('div');
-    banner.className = 'ai-message assistant ai-jobs-banner';
-    const title = document.createElement('strong');
-    title.textContent = 'Tarefa pausada';
-    const detail = document.createElement('p');
-    const when = new Date(job.startedAt || Date.now()).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-    detail.textContent = `${job.model || 'modelo'} · ${job.messages || 0} mensagens no histórico · iniciada às ${when}${job.lastUrl ? ` · ${job.lastUrl}` : ''}`;
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'btn-primary';
-    button.textContent = 'Continuar tarefa';
-    button.addEventListener('click', () => {
-      button.disabled = true;
-      this.sendAiMessage(job.id);
-    });
-    banner.append(title, detail, button);
-    chat.prepend(banner);
-  }
-
-  initRunEvents() {
-    this.runEvents = [];
-    try {
-      this.offRunEvent = window.zeroBrowser.automation.onRunEvent((event) => this.handleRunEvent(event));
-      this.offApproval = window.zeroBrowser.automation.onApprovalRequest((request) => this.showApprovalCard(request));
-    } catch {
-      this.offRunEvent = null;
-    }
-  }
-
-  showApprovalCard(request) {
     const cartao = document.createElement('div');
-    cartao.className = 'ai-message assistant ai-approval';
+    cartao.className = 'ai-message assistant ai-jobs-banner';
     const titulo = document.createElement('strong');
-    titulo.textContent = 'Precisa da sua aprovação';
-    const detalhe = document.createElement('p');
-    detalhe.textContent = [request.reason, request.origin ? `Origem: ${request.origin}` : '', request.targetName ? `Alvo: ${String(request.targetName).slice(0, 120)}` : ''].filter(Boolean).join(' · ');
-    cartao.append(titulo, detalhe);
-    const acoes = document.createElement('div');
-    acoes.className = 'ai-message-actions';
-    const responder = async (decisao, rotulo) => {
-      acoes.querySelectorAll('button').forEach((botao) => { botao.disabled = true; });
-      await window.zeroBrowser.automation.approvalReply(request.id, decisao).catch(() => {});
-      cartao.classList.add('respondido');
-      detalhe.textContent = `${detalhe.textContent} — ${rotulo}`;
-    };
-    for (const [decisao, rotulo] of [['allow', 'Permitir uma vez'], ['allow-site', 'Sempre neste site'], ['deny', 'Negar']]) {
-      const botao = document.createElement('button');
-      botao.type = 'button';
-      botao.className = 'btn-ghost';
-      botao.textContent = rotulo;
-      botao.addEventListener('click', () => responder(decisao, rotulo));
-      acoes.appendChild(botao);
+    titulo.textContent = jobs.length === 1 ? 'Tarefa pausada' : `${jobs.length} tarefas pausadas`;
+    cartao.appendChild(titulo);
+    for (const job of jobs.slice(0, 3)) {
+      const linha = document.createElement('div');
+      linha.className = 'ai-job-row';
+      const detalhe = document.createElement('span');
+      const quando = new Date(job.startedAt || Date.now()).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      detalhe.textContent = `${job.model || 'modelo'} · ${job.messages || 0} msgs · ${quando}`;
+      const continuar = document.createElement('button');
+      continuar.type = 'button';
+      continuar.className = 'btn-primary';
+      continuar.textContent = 'Continuar';
+      continuar.addEventListener('click', () => {
+        continuar.disabled = true;
+        this.sendAiMessage(job.id);
+      });
+      const descartar = document.createElement('button');
+      descartar.type = 'button';
+      descartar.className = 'btn-ghost';
+      descartar.textContent = 'Descartar';
+      descartar.addEventListener('click', async () => {
+        await window.zeroBrowser.automation.dropJob(job.id).catch(() => false);
+        this.refreshJobsBanner();
+      });
+      linha.append(detalhe, continuar, descartar);
+      cartao.appendChild(linha);
     }
-    cartao.appendChild(acoes);
-    this.elements.aiChat.appendChild(cartao);
-    this.elements.aiChat.scrollTop = this.elements.aiChat.scrollHeight;
-  }
-
-  handleRunEvent(event) {
-    if (!event || typeof event !== 'object') return;
-    this.runEvents.push(event);
-    if (this.runEvents.length > 200) this.runEvents.shift();
-    const banner = this.activeWorkingBanner;
-    const status = banner?.querySelector?.('.ai-status-text');
-    if (!status) return;
-    if (event.type === 'step') status.textContent = `Ação ${event.step} de ${event.maxSteps}…`;
-    else if (event.type === 'tool') status.textContent = `Ação ${event.step} · ${event.name}${event.ok === false ? ' (falhou)' : ''}`;
-  }
-
-  async copiarTexto(texto) {
-    try {
-      await navigator.clipboard.writeText(String(texto ?? ''));
-      this.showToast('Copiado', 'success');
-    } catch {
-      this.showToast('Não foi possível copiar', 'error');
-    }
-  }
-
-  conversaEmMarkdown() {
-    const linhas = (this.chatSession?.messages || []).map((message) => {
-      const quem = message.role === 'user' ? 'Voce' : message.role === 'assistant' ? 'Zero Browser' : 'Sistema';
-      return `**${quem}:** ` + String(message.content || '');
-    });
-    const titulo = this.chatSession?.title || 'Conversa';
-    return `# ${titulo}` + '\n\n' + linhas.join('\n\n');
+    chat.prepend(cartao);
   }
 
   initAgentMemoryUi() {
