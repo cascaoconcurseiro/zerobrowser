@@ -519,9 +519,11 @@ class ExtensionHost {
 
       'management.getSelf': () => host.selfInfo(),
       'management.get': () => host.selfInfo(),
-      'management.getAll': () => [host.selfInfo()],
-      'management.setEnabled': () => { throw new Error('Não suportado no Zero Browser'); },
-      'management.uninstall': () => { throw new Error('Não suportado no Zero Browser'); },
+      'management.getAll': () => host.managementList(),
+      // Desativar uma extensão de terceiros descarrega só nesta sessão; reativar é pelo menu do Zero Browser.
+      'management.setEnabled': (extensionId, enabled) => host.managementSetEnabled(extensionId, enabled),
+      // Apagar arquivos do usuário a pedido de uma extensão é destrutivo demais para expor aqui.
+      'management.uninstall': () => { throw new Error('Use ⋯ → Extensões → Remover no Zero Browser'); },
 
       'action.setBadgeText': () => undefined,
       'action.setBadgeBackgroundColor': () => undefined,
@@ -551,6 +553,25 @@ class ExtensionHost {
   selfInfo() {
     const ext = this.primary;
     return { id: ext?.id, name: ext?.name, version: ext?.version, enabled: true, type: 'extension', installType: 'development' };
+  }
+
+  managementList() {
+    const list = [...this.extensions.values()].map((ext) => ({
+      id: ext.id, name: ext.name, version: ext.version, enabled: true,
+      type: 'extension', installType: 'development'
+    }));
+    return list.some((item) => item.id === this.primaryId) ? list : [...list, this.selfInfo()];
+  }
+
+  managementSetEnabled(extensionId, enabled) {
+    if (typeof extensionId !== 'string' || !extensionId) throw new Error('Identificador de extensão inválido');
+    if (extensionId === this.primaryId) throw new Error('A extensão principal do Zero Browser não pode ser desativada por aqui');
+    if (!this.extensions.has(extensionId)) throw new Error('Extensão não está carregada nesta sessão');
+    if (enabled === false) {
+      this.unloadExtension(extensionId);
+      return true;
+    }
+    throw new Error('Para reativar, use o menu do Zero Browser (⋯ → Extensões)');
   }
 
   // Abre o painel da extensão na aba ativa (botão do agente na barra do Zero Browser).

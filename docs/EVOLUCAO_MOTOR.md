@@ -1013,3 +1013,25 @@ Verificado sem defeito: sintaxe 57/57; 57 handlers IPC sem `invoke` órfão; 74 
 SQL com prepared statements e rollback. Riscos deixados abertos e conscientes: sem CSP nas páginas locais (testar
 antes de aplicar em `file://`), script inline no `newtab.html`, token do pipe protegido pela ACL da pasta no
 Windows, `automation:list-tools` sem consumidor e cliente WS sem rejeição imediata no disconnect.
+
+### CSP e fechamento da auditoria — 0.1.18-dev
+
+O risco “sem CSP nas páginas locais” foi fechado com teste real, não com suposição.
+
+- **`index.html`**: `default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: https: http:;
+  connect-src 'none'; object-src 'none'; base-uri 'none'; frame-src 'none'; form-action 'none'`. A casca não tem
+  formulário, não faz `fetch`/WebSocket (tudo passa por IPC) e não usa `style=""`.
+- **`newtab.html`**: o bloco `<style>` virou `newtab.css` e o `<script>` virou `newtab.js`; as seis cores inline dos
+  atalhos viraram classes `.icon-google` … `.icon-wiki`. CSP própria: `default-src 'self'; script-src 'self';
+  style-src 'self'; img-src 'self' data: https:; form-action https://www.google.com; connect-src 'none';
+  object-src 'none'; base-uri 'none'`.
+- **Prova**: `scripts/electron-ui.integration.js` (`npm run test:ui`) abre as duas páginas num BrowserWindow com o
+  preload real e `sandbox`, coleta `console-message`, falha em qualquer “Content Security Policy/Refused to…” e
+  exige `window.app`, `window.ZeroMarkdown`, seletor de conversas, três opções de recursos, CSS aplicado e relógio
+  da nova aba preenchido. Resultado: `{"status":"PASS","messages":0}`.
+
+Também nesta rodada: `management.getAll` lista as extensões carregadas e `setEnabled(id,false)` descarrega uma
+extensão de terceiros (reativar é pelo menu; `uninstall` orienta o menu em vez de apagar arquivos); o cliente
+WebSocket rejeita promessas pendentes no `close`/`disconnect`; o IPC morto `automation:list-tools` foi removido.
+
+Limite remanescente: o token do pipe depende da ACL da pasta do perfil no Windows (`0600` é POSIX).

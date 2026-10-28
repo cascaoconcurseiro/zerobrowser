@@ -3,369 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: https:; form-action https://www.google.com; connect-src 'none'; object-src 'none'; base-uri 'none'">
   <title>Novo Separador · Zero Browser</title>
-  <style>
-    :root {
-      --bg: #090d16;
-      --bg-card: rgba(18, 26, 43, 0.75);
-      --bg-card-hover: rgba(28, 40, 65, 0.9);
-      --border: rgba(255, 255, 255, 0.08);
-      --border-hover: rgba(16, 185, 129, 0.4);
-      --fg-primary: #f8fafc;
-      --fg-secondary: #94a3b8;
-      --fg-muted: #64748b;
-      --accent: #10b981;
-      --accent-cyan: #06b6d4;
-      --accent-indigo: #6366f1;
-      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", "Helvetica Neue", sans-serif;
-    }
-
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
-
-    body {
-      font-family: var(--font);
-      background-color: var(--bg);
-      background-image:
-        radial-gradient(circle at 15% 15%, rgba(16, 185, 129, 0.12) 0%, transparent 45%),
-        radial-gradient(circle at 85% 25%, rgba(6, 182, 212, 0.10) 0%, transparent 40%),
-        radial-gradient(circle at 50% 85%, rgba(99, 102, 241, 0.08) 0%, transparent 50%);
-      background-attachment: fixed;
-      color: var(--fg-primary);
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: space-between;
-      padding: 32px 24px 24px;
-      overflow-x: hidden;
-    }
-
-    /* Top bar */
-    .top-bar {
-      width: 100%;
-      max-width: 1040px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-size: 13px;
-      color: var(--fg-secondary);
-    }
-
-    .brand-pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 6px 14px;
-      border-radius: 999px;
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      backdrop-filter: blur(12px);
-      font-weight: 600;
-      letter-spacing: 0.3px;
-    }
-
-    .brand-pill svg {
-      color: var(--accent);
-    }
-
-    .live-clock {
-      font-variant-numeric: tabular-nums;
-      font-weight: 500;
-    }
-
-    /* Main container */
-    .dashboard-container {
-      width: 100%;
-      max-width: 900px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 36px;
-      margin: auto 0;
-      padding: 20px 0;
-    }
-
-    /* Hero */
-    .hero {
-      text-align: center;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 10px;
-    }
-
-    .hero-title {
-      font-size: 38px;
-      font-weight: 700;
-      letter-spacing: -0.6px;
-      background: linear-gradient(135deg, #ffffff 40%, #cbd5e1 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-    }
-
-    .hero-subtitle {
-      font-size: 15px;
-      color: var(--fg-secondary);
-      max-width: 480px;
-      line-height: 1.5;
-    }
-
-    /* Search Bar Omnibox */
-    .search-box-wrapper {
-      width: 100%;
-      max-width: 720px;
-      position: relative;
-    }
-
-    .search-box {
-      width: 100%;
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      padding: 10px 16px 10px 20px;
-      border-radius: 18px;
-      background: rgba(18, 26, 43, 0.85);
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5), 0 0 1px rgba(255, 255, 255, 0.1);
-      backdrop-filter: blur(20px);
-      transition: all 250ms cubic-bezier(0.16, 1, 0.3, 1);
-    }
-
-    .search-box:focus-within {
-      border-color: var(--accent);
-      box-shadow: 0 12px 36px -10px rgba(0, 0, 0, 0.6), 0 0 0 3px rgba(16, 185, 129, 0.2);
-      transform: translateY(-2px);
-    }
-
-    .search-icon {
-      color: var(--fg-muted);
-      flex-shrink: 0;
-      transition: color 200ms ease;
-    }
-
-    .search-box:focus-within .search-icon {
-      color: var(--accent);
-    }
-
-    .search-input {
-      flex: 1;
-      border: none;
-      background: transparent;
-      color: var(--fg-primary);
-      font-size: 16px;
-      font-family: inherit;
-      outline: none;
-    }
-
-    .search-input::placeholder {
-      color: var(--fg-muted);
-      font-size: 15px;
-    }
-
-    .search-submit-btn {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 38px;
-      height: 38px;
-      border-radius: 12px;
-      border: none;
-      background: linear-gradient(135deg, #10b981, #059669);
-      color: #ffffff;
-      cursor: pointer;
-      flex-shrink: 0;
-      transition: transform 150ms ease, box-shadow 150ms ease;
-    }
-
-    .search-submit-btn:hover {
-      transform: scale(1.05);
-      box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4);
-    }
-
-    /* Big Action Buttons - "Menos é mais" */
-    .action-grid {
-      width: 100%;
-      max-width: 760px;
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 16px;
-    }
-
-    .action-card {
-      display: flex;
-      flex-direction: column;
-      align-items: flex-start;
-      padding: 20px;
-      border-radius: 18px;
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      backdrop-filter: blur(12px);
-      text-decoration: none;
-      color: inherit;
-      cursor: pointer;
-      transition: all 220ms cubic-bezier(0.16, 1, 0.3, 1);
-      position: relative;
-      overflow: hidden;
-    }
-
-    .action-card:hover {
-      background: var(--bg-card-hover);
-      border-color: var(--border-hover);
-      transform: translateY(-3px);
-      box-shadow: 0 12px 28px -8px rgba(0, 0, 0, 0.4);
-    }
-
-    .action-card.primary-copilot {
-      border-color: rgba(16, 185, 129, 0.3);
-      background: linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(6, 182, 212, 0.05));
-    }
-
-    .action-card.primary-copilot:hover {
-      border-color: var(--accent);
-      box-shadow: 0 12px 32px -8px rgba(16, 185, 129, 0.25);
-    }
-
-    .action-icon-pill {
-      width: 44px;
-      height: 44px;
-      border-radius: 12px;
-      background: rgba(255, 255, 255, 0.06);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin-bottom: 14px;
-      color: var(--accent);
-      transition: transform 200ms ease;
-    }
-
-    .action-card:hover .action-icon-pill {
-      transform: scale(1.08);
-    }
-
-    .action-card.primary-copilot .action-icon-pill {
-      background: rgba(16, 185, 129, 0.2);
-      color: #34d399;
-    }
-
-    .action-card strong {
-      font-size: 15px;
-      font-weight: 600;
-      color: var(--fg-primary);
-      margin-bottom: 4px;
-    }
-
-    .action-card span {
-      font-size: 12.5px;
-      color: var(--fg-secondary);
-      line-height: 1.4;
-    }
-
-    /* Shortcuts Grid */
-    .shortcuts-section {
-      width: 100%;
-      max-width: 760px;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-
-    .section-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 0 4px;
-    }
-
-    .section-title {
-      font-size: 12px;
-      text-transform: uppercase;
-      letter-spacing: 0.8px;
-      font-weight: 600;
-      color: var(--fg-muted);
-    }
-
-    .shortcuts-grid {
-      display: grid;
-      grid-template-columns: repeat(6, 1fr);
-      gap: 12px;
-    }
-
-    .shortcut-item {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 8px;
-      padding: 14px 10px;
-      border-radius: 14px;
-      background: rgba(18, 26, 43, 0.5);
-      border: 1px solid var(--border);
-      text-decoration: none;
-      color: inherit;
-      transition: all 180ms ease;
-      cursor: pointer;
-    }
-
-    .shortcut-item:hover {
-      background: var(--bg-card-hover);
-      border-color: rgba(255, 255, 255, 0.18);
-      transform: translateY(-2px);
-    }
-
-    .shortcut-icon {
-      width: 36px;
-      height: 36px;
-      border-radius: 10px;
-      background: rgba(255, 255, 255, 0.08);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 700;
-      font-size: 14px;
-      color: var(--fg-primary);
-    }
-
-    .shortcut-name {
-      font-size: 11.5px;
-      font-weight: 500;
-      color: var(--fg-secondary);
-      text-align: center;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      max-width: 100%;
-    }
-
-    /* Footer badge */
-    .footer-status {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 12px;
-      color: var(--fg-muted);
-      padding: 6px 14px;
-      border-radius: 999px;
-      background: rgba(255, 255, 255, 0.03);
-      border: 1px solid var(--border);
-    }
-
-    .status-dot {
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      background: var(--accent);
-      box-shadow: 0 0 8px var(--accent);
-    }
-
-    @media (max-width: 640px) {
-      .hero-title { font-size: 28px; }
-      .action-grid { grid-template-columns: 1fr; }
-      .shortcuts-grid { grid-template-columns: repeat(3, 1fr); }
-    }
-  </style>
+  <link rel="stylesheet" href="newtab.css">
 </head>
 <body>
 
@@ -450,27 +90,27 @@
       </div>
       <div class="shortcuts-grid">
         <a class="shortcut-item" href="https://www.google.com">
-          <div class="shortcut-icon" style="color: #4285f4;">G</div>
+          <div class="shortcut-icon icon-google">G</div>
           <span class="shortcut-name">Google</span>
         </a>
         <a class="shortcut-item" href="https://www.youtube.com">
-          <div class="shortcut-icon" style="color: #ef4444;">▶</div>
+          <div class="shortcut-icon icon-youtube">▶</div>
           <span class="shortcut-name">YouTube</span>
         </a>
         <a class="shortcut-item" href="https://chatgpt.com">
-          <div class="shortcut-icon" style="color: #10b981;">AI</div>
+          <div class="shortcut-icon icon-ai">AI</div>
           <span class="shortcut-name">ChatGPT</span>
         </a>
         <a class="shortcut-item" href="https://github.com">
-          <div class="shortcut-icon" style="color: #e2e8f0;">GH</div>
+          <div class="shortcut-icon icon-github">GH</div>
           <span class="shortcut-name">GitHub</span>
         </a>
         <a class="shortcut-item" href="https://news.google.com">
-          <div class="shortcut-icon" style="color: #38bdf8;">📰</div>
+          <div class="shortcut-icon icon-news">📰</div>
           <span class="shortcut-name">Notícias</span>
         </a>
         <a class="shortcut-item" href="https://pt.wikipedia.org">
-          <div class="shortcut-icon" style="color: #cbd5e1;">W</div>
+          <div class="shortcut-icon icon-wiki">W</div>
           <span class="shortcut-name">Wikipedia</span>
         </a>
       </div>
@@ -481,58 +121,9 @@
   <!-- Footer Status -->
   <footer class="footer-status">
     <span class="status-dot"></span>
-    <span>Zero Browser v0.1.3 · Moldura Aurora Boreal & Copilot Prontos</span>
+    <span>Zero Browser · Moldura Aurora Boreal & Copilot Prontos</span>
   </footer>
 
-  <script>
-    // Live Clock & Dynamic Greeting
-    function updateGreeting() {
-      const now = new Date();
-      const hour = now.getHours();
-      let greeting = 'Olá, bom dia';
-      if (hour >= 12 && hour < 18) greeting = 'Olá, boa tarde';
-      else if (hour >= 18 || hour < 5) greeting = 'Olá, boa noite';
-
-      const titleEl = document.getElementById('greeting-title');
-      if (titleEl) titleEl.textContent = greeting;
-
-      const clockEl = document.getElementById('live-clock');
-      if (clockEl) {
-        const timeStr = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-        const dateStr = now.toLocaleDateString('pt-BR', { weekday: 'short', day: 'numeric', month: 'short' });
-        clockEl.textContent = `${dateStr} · ${timeStr}`;
-      }
-    }
-    updateGreeting();
-    setInterval(updateGreeting, 10000);
-
-    // Search Box Form Handler
-    const searchForm = document.getElementById('search-form');
-    const searchInput = document.getElementById('search-input');
-
-    searchForm.addEventListener('submit', (e) => {
-      const query = (searchInput.value || '').trim();
-      if (!query) {
-        e.preventDefault();
-        return;
-      }
-      // If it looks like a URL, navigate directly
-      if (/^(https?:\/\/|[a-z0-9-]+\.[a-z]{2,})/i.test(query)) {
-        e.preventDefault();
-        const target = /^https?:\/\//i.test(query) ? query : 'https://' + query;
-        window.location.href = target;
-      }
-    });
-
-    // Action cards
-    document.getElementById('action-focus-search')?.addEventListener('click', () => {
-      searchInput?.focus();
-    });
-
-    document.getElementById('action-copilot')?.addEventListener('click', () => {
-      // Signal to browser to open Copilot panel
-      window.location.hash = 'open-copilot';
-    });
-  </script>
+  <script src="newtab.js"></script>
 </body>
 </html>

@@ -34,15 +34,13 @@ Também removido um binding morto (`browserView`, id que não existe no HTML).
 
 ## Riscos conhecidos que ficaram abertos (deliberadamente)
 
-1. **Sem CSP nas páginas locais** (`index.html`, `newtab.html`). Adicionar CSP em `file://` com `'self'` pode
-   bloquear o próprio `app.js`; precisa de teste visual antes. Mitigação atual: sem conteúdo remoto na casca, sem
-   preload exposto a páginas de site, `sandbox` ligado.
-2. **`newtab.html` tem script e estilo inline** — CSP exigiria `'unsafe-inline'` ou refatoração.
-3. **Token do pipe no Windows**: `mode 0600` é POSIX; no Windows a proteção efetiva é a ACL da pasta do perfil.
-4. **`automation:list-tools`** é código morto (nenhum consumidor no preload).
-5. **Cliente WebSocket** (`src/automation/client/index.js`) não rejeita requisições pendentes no `disconnect`;
-   elas expiram em 30 s.
-6. **Extensões**: `management.uninstall` e `management.setEnabled` não são suportados; documentado no host.
+1. **Token do pipe no Windows**: `mode 0600` é POSIX; no Windows a proteção efetiva é a ACL da pasta do perfil.
+2. **Extensões**: `management.uninstall` não apaga arquivos do usuário; orienta usar ⋯ → Extensões → Remover.
+
+Itens resolvidos em 0.1.18-dev: CSP nas duas páginas locais (com `newtab.css`/`newtab.js` externos e classes no
+lugar de `style=""`), `automation:list-tools` removido, cliente WebSocket rejeitando pendências no disconnect,
+`management.getAll`/`setEnabled` implementados. Verificação: `npm run test:ui` (Electron carrega as duas páginas e
+falha em qualquer violação de CSP).
 
 ## Números
 

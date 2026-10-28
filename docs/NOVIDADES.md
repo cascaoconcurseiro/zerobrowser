@@ -1,8 +1,17 @@
-# Novidades — Zero Browser 0.1.17-dev
+# Novidades — Zero Browser 0.1.18-dev
 
 Versão de desenvolvimento com foco no motor de IA e em sites difíceis (planilhas, canvas, editores).
 
 ## Auditoria e correções
+
+- **CSP nas páginas locais**: a casca (painel, menus) e a nova aba agora recusam script/estilo inline e conexões de
+  rede. Para isso, o estilo e o script da nova aba saíram do HTML para `newtab.css` e `newtab.js`, e as cores dos
+  atalhos viraram classes. Um teste de UI com Electron (`npm run test:ui`) falha se a CSP bloquear qualquer coisa.
+- **APIs de extensão**: `management.getAll` lista as extensões realmente carregadas; `management.setEnabled(id,false)`
+  descarrega uma extensão de terceiros na sessão; `uninstall` aponta para ⋯ → Extensões → Remover em vez de apagar
+  arquivos do usuário.
+- **Cliente de automação**: requisições pendentes são rejeitadas na hora em que a conexão cai, sem esperar 30 s.
+- **Sem código morto**: o canal IPC `automation:list-tools` (sem consumidor) foi removido.
 
 - **Pipe MCP autenticado**: o canal local que clientes como Claude Code e Codex usam agora exige um token criado a
   cada início (arquivo `pipe-token` na pasta de dados do usuário). Antes, qualquer processo local podia dirigir o

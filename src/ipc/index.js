@@ -145,10 +145,6 @@ function setupIpc() {
     return await automationService.sendCdpCommand(tabId, method, params);
   });
 
-  ipcMain.handle('automation:list-tools', async () => {
-    if (!automationService) return { success: false, error: 'Automation service not running' };
-    return await automationService.listTools();
-  });
 }
 
 module.exports = { setupIpc, setAutomationService, setProviderFetch, saveProviderKey, maskApiKey, getAgentConfig };

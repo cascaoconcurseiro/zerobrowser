@@ -1,10 +1,12 @@
-# Como testar o Zero Browser (0.1.17-dev)
+# Como testar o Zero Browser (0.1.18-dev)
 
 Checklist manual para a versão instalada em 28/10/2026. O que depende de modelo/provedor está separado do que já
 pode ser conferido sem chave.
 
-**Build instalado:** `0.1.17-dev`, `app.asar` `389b4f7c…c36868`; backup do estado anterior em
-`backups/2026-10-28-before-audit/`.
+**Build instalado:** `0.1.18-dev`, `app.asar` `ab0b381c…1b9f1`; backup do estado anterior em
+`backups/2026-10-28-before-csp/`.
+
+- [ ] `npm run test:ui` deve terminar com `{"status":"PASS"}` (CSP, app.js, markdown.js e nova aba).
 
 ## 0.3 Auditoria (o que conferir)
 

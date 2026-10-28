@@ -35,6 +35,8 @@ class AutomationClient {
 
       this.ws.on('close', () => {
         this.connected = false;
+        // Sem isto, quem esperava uma resposta ficaria pendurado até o timeout de 30 s.
+        this.failPending(new Error('A conexão com o serviço de automação caiu.'));
         if (this.shouldReconnect) this.scheduleReconnect();
       });
 
@@ -50,6 +52,11 @@ class AutomationClient {
       this.reconnectTimer = null;
       if (this.url) this.connect(this.url).catch(console.error);
     }, 3000);
+  }
+
+  failPending(error) {
+    for (const pending of this.pending.values()) pending.reject(error);
+    this.pending.clear();
   }
 
   handleMessage(message) {
@@ -129,6 +136,7 @@ class AutomationClient {
 
   disconnect() {
     this.shouldReconnect = false;
+    this.failPending(new Error('Conexão encerrada.'));
     if (this.ws) {
       this.ws.close();
       this.ws = null;
