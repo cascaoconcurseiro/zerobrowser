@@ -1744,7 +1744,9 @@ class ZeroBrowserApp {
           this.elements.aiChat.scrollTop = this.elements.aiChat.scrollHeight;
         }
       } else {
-        this.addAiMessage('error', 'Erro: ' + result.error);
+        // Código de erro explícito (GUARDIAN_DENIED, OUTPUT_INVALID, NAME_BOX_NOT_FOUND…) ajuda a diagnosticar.
+        const etiqueta = result.code ? `Erro (${result.code})` : 'Erro';
+        this.addAiMessage('error', `${etiqueta}: ${result.error}`);
         if (resumeId && previousContinue) previousContinue.disabled = false;
       }
     } catch (err) {

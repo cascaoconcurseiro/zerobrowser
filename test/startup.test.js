@@ -255,7 +255,7 @@ test('the agent inspects the AX snapshot and executes a selected AX element', as
   };
   try {
     const result = await service.runAgent('tab-agent-ax', 'Clique em Continuar', 'test-key', 'test-model');
-    assert.deepEqual(result, { success: true, message: 'Botão acionado.' });
+    assert.deepEqual(result, { success: true, message: 'Botão acionado.', toolsUsed: { inspect_page: 1, click: 1 } });
     assert.equal(call, 3);
     assert.deepEqual(actions, [{ kind: 'click', elementIndex: 0 }]);
   } finally {
