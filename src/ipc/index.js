@@ -124,6 +124,16 @@ function setupIpc() {
     });
   });
 
+  ipcMain.handle('automation:recipes', async (_e, { origin } = {}) => {
+    if (!automationService || !origin) return [];
+    try { return await automationService.callTool('recipe_list', { origin }); } catch { return []; }
+  });
+
+  ipcMain.handle('automation:recipe-run', async (_e, { origin, name } = {}) => {
+    if (!automationService) return { success: false, error: 'Serviço de automação indisponível' };
+    try { return await automationService.callTool('recipe_run', { origin, name }); } catch (error) { return { success: false, error: error.message }; }
+  });
+
   ipcMain.handle('automation:memory', async (_e, { action = 'list', id } = {}) => {
     if (!automationService) return action === 'list' ? [] : false;
     if (action === 'forget') return await automationService.forgetMemory(id);

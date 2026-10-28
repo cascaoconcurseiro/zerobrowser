@@ -71,6 +71,7 @@ class ZeroBrowserApp {
       btnAiNewChat: document.getElementById('btn-ai-new-chat'),
       btnAiMemory: document.getElementById('btn-ai-memory'),
       btnAiCopyChat: document.getElementById('btn-ai-copy-chat'),
+      btnAiRecipes: document.getElementById('btn-ai-recipes'),
       btnAiRenameChat: document.getElementById('btn-ai-rename-chat'),
       btnAiPinChat: document.getElementById('btn-ai-pin-chat'),
       btnAiDeleteChat: document.getElementById('btn-ai-delete-chat'),
@@ -1744,6 +1745,52 @@ class ZeroBrowserApp {
   initAgentMemoryUi() {
     this.elements.btnAiMemory?.addEventListener('click', () => this.showAgentMemory());
     this.elements.btnAiCopyChat?.addEventListener('click', () => this.copiarTexto(this.conversaEmMarkdown()));
+    this.elements.btnAiRecipes?.addEventListener('click', () => this.showRecipes());
+  }
+
+  async showRecipes() {
+    const url = this.tabs.get(this.activeTabId)?.url || '';
+    let origin = '';
+    try { origin = new URL(url).origin; } catch {}
+    if (!origin) { this.showToast('Abra uma página do site para ver receitas', 'warning'); return; }
+    const lista = await window.zeroBrowser.automation.recipes(origin).catch(() => []);
+    const receitas = Array.isArray(lista?.recipes) ? lista.recipes : [];
+    const caixa = document.createElement('div');
+    caixa.className = 'ai-message assistant ai-rich';
+    const titulo = document.createElement('strong');
+    titulo.textContent = `Receitas em ${origin} (${receitas.length})`;
+    caixa.appendChild(titulo);
+    if (!receitas.length) {
+      const vazio = document.createElement('p');
+      vazio.textContent = 'Nenhuma receita salva. Depois de uma tarefa verificada, peça ao agente para salvar uma receita.';
+      caixa.appendChild(vazio);
+    } else {
+      const ul = document.createElement('ul');
+      ul.className = 'ai-memory-list';
+      for (const receita of receitas) {
+        const li = document.createElement('li');
+        li.className = 'ai-memory-item';
+        const nome = document.createElement('span');
+        nome.textContent = `${receita.name} (${receita.steps} passos${receita.outputs ? `, saída: ${receita.outputs.join(', ')}` : ''})`;
+        const rodar = document.createElement('button');
+        rodar.type = 'button';
+        rodar.className = 'btn-ghost';
+        rodar.textContent = 'Executar';
+        rodar.addEventListener('click', async () => {
+          rodar.disabled = true;
+          const resultado = await window.zeroBrowser.automation.runRecipe(origin, receita.name);
+          this.addAiMessage('assistant', resultado.success
+            ? `Receita ${receita.name}: ${resultado.completed} passos${resultado.output ? ` · saída ${JSON.stringify(resultado.output)}` : ''}.`
+            : `Receita ${receita.name} falhou: ${resultado.error || 'sem detalhe'}`);
+          rodar.disabled = false;
+        });
+        li.append(nome, rodar);
+        ul.appendChild(li);
+      }
+      caixa.appendChild(ul);
+    }
+    this.elements.aiChat.appendChild(caixa);
+    this.elements.aiChat.scrollTop = this.elements.aiChat.scrollHeight;
   }
 
   async showAgentMemory() {

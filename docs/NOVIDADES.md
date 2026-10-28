@@ -1,8 +1,10 @@
-# Novidades — Zero Browser 0.1.34-dev
+# Novidades — Zero Browser 0.1.35-dev
 
 Versão de desenvolvimento com foco no motor de IA e em sites difíceis (planilhas, canvas, editores).
 
 ## Painel mais legível
+
+- **Receitas no painel**: botão Receitas lista as do site atual e executa sem modelo, mostrando passos e contrato de saída.
 
 - **Gestão de conversas**: renomear, fixar no topo (★) e apagar pelo seletor — tudo salvo no perfil.
 
