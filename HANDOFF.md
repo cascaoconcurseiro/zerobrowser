@@ -147,7 +147,7 @@
   Também: `management.getAll`/`setEnabled` reais nas extensões, cliente WebSocket rejeitando pendências no
   disconnect e remoção do IPC morto `automation:list-tools`. Instalador `Zero Browser Setup 0.1.18-dev.exe`
   (SHA-256 `c659c7a3…36da8`, 124.469.373 bytes); `app.asar` `ab0b381c…1b9f1` igual em build/produção; integração
-  `status: PASS`; `npm test` 260/260; benchmark 44 passou. Backup em `backups/2026-10-28-before-csp/`.
+  `status: PASS`; `npm test` 261/261; benchmark 44 passou. Backup em `backups/2026-10-28-before-csp/`.
 - **Publicação (2026-10-28):** `main` em `c13447e` enviado a `origin/main` (26 commits desde 0.1.4); tag
   `motor-pre-leaps-2026-10-27` publicada. Nenhum build/instalador foi anexado a release no GitHub.
 - **Primeiras execuções reais (deepseek-flash, 1 por condição):** tarefa 44 padrão 13 passos/13,0 s/47.456 tokens;

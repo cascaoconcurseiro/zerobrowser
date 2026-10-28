@@ -40,3 +40,24 @@ test('user extensions cannot replace or unload the protected primary Flame exten
   assert.deepEqual(removed, ['user-id']);
   assert.equal(host.primary, flame);
 });
+
+test('management lists loaded extensions and only allows disabling third parties', () => {
+  const host = Object.create(ExtensionHost.prototype);
+  host.primaryId = 'flame-id';
+  host.extensions = new Map([
+    ['flame-id', { id: 'flame-id', name: 'Flame', version: '1.0' }],
+    ['user-id', { id: 'user-id', name: 'User', version: '0.2' }]
+  ]);
+  const removed = [];
+  host.session = { extensions: { removeExtension: (id) => removed.push(id) } };
+
+  const list = host.managementList();
+  assert.deepEqual(list.map((item) => item.id).sort(), ['flame-id', 'user-id']);
+  assert.equal(list.find((item) => item.id === 'user-id').name, 'User');
+
+  assert.throws(() => host.managementSetEnabled('flame-id', false), /principal/);
+  assert.throws(() => host.managementSetEnabled('user-id', true), /Reativar|reativar/);
+  assert.equal(host.managementSetEnabled('user-id', false), true);
+  assert.deepEqual(removed, ['user-id']);
+  assert.equal(host.extensions.has('user-id'), false);
+});
