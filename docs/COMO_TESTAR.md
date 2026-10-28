@@ -1,10 +1,18 @@
-# Como testar o Zero Browser (0.1.14-dev)
+# Como testar o Zero Browser (0.1.15-dev)
 
 Checklist manual para a versão instalada em 28/10/2026. O que depende de modelo/provedor está separado do que já
 pode ser conferido sem chave.
 
-**Build instalado:** `0.1.14-dev`, `app.asar` `24fb5659…570d81f`; backup do estado anterior em
-`backups/2026-10-28-before-durable-jobs/`.
+**Build instalado:** `0.1.15-dev`, `app.asar` `c6909e1a…df33`; backup do estado anterior em
+`backups/2026-10-28-before-panel-history/`.
+
+## 0.1 Painel do agente (sem provedor)
+
+- [ ] Abrir o painel de IA (ícone do agente). No topo deve haver **seletor de conversa**, **Nova** e **Memória**.
+- [ ] Mandar duas mensagens, fechar o app e reabrir: a conversa continua no seletor, com título e data.
+- [ ] Nova conversa começa vazia; voltar pelo seletor restaura a anterior.
+- [ ] Resposta com vários parágrafos aparece **em parágrafos e listas**, não num bloco único.
+- [ ] Botão **Memória** lista fatos por site; **Apagar** remove o item na hora.
 
 ## 0. Novidades e versão
 

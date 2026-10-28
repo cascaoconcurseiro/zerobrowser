@@ -31,6 +31,8 @@ const { classifyRisk, approvalReasonForMode } = require('../risk');
 const { validateChecks, evaluateChecks, CHECK_TASK_TOOL } = require('../task-verifier');
 const { EXTRACT_TABLE_TOOL, validateRequest: validateTableRequest, shapeRows, buildTableScript } = require('../table-extractor');
 const { JobStore } = require('../job-store');
+const { MemoryStore, memoryPrompt, MEMORY_TOOL } = require('../memory-store');
+const { ModuleStore, MODULE_TOOL, validateModule } = require('../module-store');
 const { RecipeStore, RECIPE_TOOL, validateRecipe, applyRecipeInputs, missingRequiredInputs, normalizeOrigin } = require('../recipe-store');
 const { validateOutput } = require('../output-schema');
 const { CLIPBOARD_TOOL, validateClipboardRequest, shapeClipboardRead } = require('../clipboard');
@@ -58,6 +60,8 @@ class AutomationService {
     this.effectJournal = null; // journal de efeitos consequentes (opt-in por tarefa); criado em start()
     this.recipeStore = null; // receitas determinísticas por origem (opt-in por tarefa); criado em start()
     this.jobStore = null; // tarefas pausadas que sobrevivem ao reinício (TTL 20 min); criado em start()
+    this.memoryStore = null; // fatos por origem com TTL de 30 dias; criado em start()
+    this.moduleStore = null; // modulos deterministicos escritos pelo agente; criado em start()
     this.clipboard = null; // implementação injetada pelo processo principal (electron.clipboard)
     this.browserControls = {};
     this.approvalHandler = null;
@@ -409,6 +413,23 @@ class AutomationService {
     }
 
     try {
+      this.moduleStore = new ModuleStore({
+        filePath: path.join(zeroEnv('DATA_DIR') || process.cwd(), 'automation', 'modulos.json')
+      });
+    } catch {
+      this.moduleStore = null;
+    }
+
+    try {
+      this.memoryStore = new MemoryStore({
+        filePath: path.join(zeroEnv('DATA_DIR') || process.cwd(), 'automation', 'memoria.json')
+      });
+      await this.memoryStore.prune();
+    } catch {
+      this.memoryStore = null;
+    }
+
+    try {
       this.jobStore = new JobStore({
         filePath: path.join(zeroEnv('DATA_DIR') || process.cwd(), 'automation', 'tarefas.json')
       });
@@ -588,6 +609,49 @@ class AutomationService {
   forgetPausedRun(id) {
     this.pausedAgentRuns.delete(id);
     this.jobStore?.remove(id).catch(() => {});
+  }
+
+  // Biblioteca local: receita vira artefato JSON e volta sem depender de banco.
+  async exportRecipe(origin, name) {
+    if (!this.recipeStore) return { success: false, error: 'Armazenamento de receitas indisponível' };
+    const recipe = await this.recipeStore.get(origin, name);
+    if (!recipe) return { success: false, error: `Receita "${name}" não existe para ${origin}` };
+    let normalized;
+    try {
+      normalized = new URL(String(origin)).origin;
+    } catch {
+      return { success: false, error: 'Origem inválida' };
+    }
+    return { success: true, artifact: { kind: 'zero-recipe', version: 1, origin: normalized, ...recipe } };
+  }
+
+  async importRecipe(artifact) {
+    if (!this.recipeStore) return { success: false, error: 'Armazenamento de receitas indisponível' };
+    if (!artifact || artifact.kind !== 'zero-recipe' || artifact.version !== 1) {
+      return { success: false, error: 'Artefato inválido: espere kind "zero-recipe" e version 1.' };
+    }
+    const invalid = validateRecipe({ name: artifact.name, steps: artifact.steps, input: artifact.input, authority: artifact.authority, output: artifact.output });
+    if (invalid) return { success: false, error: invalid };
+    const saved = await this.recipeStore.save(artifact.origin, artifact.name, artifact.steps, artifact.input || null, artifact.authority || 'write', artifact.output || null);
+    return { success: true, name: saved.name, origin: saved.origin, steps: saved.steps.length };
+  }
+
+  async listMemories(limit = 50) {
+    if (!this.memoryStore) return [];
+    try {
+      return await this.memoryStore.list({ origin: null, limit });
+    } catch {
+      return [];
+    }
+  }
+
+  async forgetMemory(id) {
+    if (!this.memoryStore) return false;
+    try {
+      return await this.memoryStore.forget(id);
+    } catch {
+      return false;
+    }
   }
 
   // Lista enxuta para a interface oferecer "Continuar" depois de reabrir o app.
@@ -921,10 +985,11 @@ class AutomationService {
     if (structuredExtraction) tools.push(structuredClone(EXTRACT_TABLE_TOOL));
     if (verificationChecks.length) tools.push(structuredClone(CHECK_TASK_TOOL));
     if (recipes && this.recipeStore) tools.push(structuredClone(RECIPE_TOOL));
+    if (this.memoryStore) tools.push(structuredClone(MEMORY_TOOL));
     if (transforms) tools.push(structuredClone(TRANSFORM_TOOL));
+    if (transforms && this.moduleStore) tools.push(structuredClone(MODULE_TOOL));
     if (advancedInput) tools.push(structuredClone(CLIPBOARD_TOOL), structuredClone(KEY_SEQUENCE_TOOL), structuredClone(VISUAL_CLICK_TOOL), structuredClone(SHEETS_ACCESSIBILITY_TOOL), structuredClone(SHEETS_TOOL));
-    if (transforms) messages[0].content += ' Transform: use transform(code, input) para calcular sobre dados já lidos (somar coluna, normalizar data) em processo isolado; sem require, rede ou disco, e sem nova chamada ao modelo.';
-    const approvalMode =this.settingsProvider?.().automationApprovalMode || 'low-risk';
+    const approvalMode = this.settingsProvider?.().automationApprovalMode || 'low-risk';
     const approvalInstructions = approvalInstructionsFor(approvalMode);
     const messages = [
       { role: 'system', content: buildBasePrompt(approvalInstructions) },
@@ -938,6 +1003,14 @@ class AutomationService {
     if (structuredExtraction) messages[0].content += ' Para tabelas, use extract_table com as colunas do cabeçalho em vez de copiar texto; confira missingColumns, totalRows e truncated antes de concluir.';
     if (recipes && this.recipeStore) messages[0].content += ' Receitas: recipe list mostra as da origem; recipe save grava passos estáveis (navigate, click_text, wait_for, sheets) com expect obrigatório — passo sheets dispensa expect — e pode declarar output (campos tipados por célula A1, validados pelo host no run); recipe run repete sem modelo, para na primeira pós-condição que falhar e devolve output/outputValid. Só grave depois de a tarefa ter sido verificada.';
     if (advancedInput) messages[0].content += ' Em planilhas do Google, use sheets (read/write/goto com intervalo A1) — não clique em célula. Se sheets disser que a caixa de nome não foi encontrada, tente sheets_accessibility e inspecione; para o que só existe na imagem, use see_page + visual_click com x,y de 0 a 1000. Em outros editores em canvas, use clipboard write/read e key_sequence (setas, Tab).';
+    if (this.memoryStore) {
+      try {
+        const facts = await this.memoryStore.list({ origin: normalizeOrigin(tab?.webContents?.getURL?.() || '') || taskOrigin, limit: 8 });
+        if (facts.length) messages[0].content += memoryPrompt(facts);
+      } catch {}
+    }
+    if (transforms && this.moduleStore) messages[0].content += ' Módulos: module save guarda um código curto para repetir um cálculo por site; module run executa com input; se falhar, corrija code e rode de novo antes de salvar.';
+    if (transforms) messages[0].content += ' Transform: use transform(code, input) para calcular sobre dados já lidos (somar coluna, normalizar data) em processo isolado; sem require, rede ou disco, e sem nova chamada ao modelo.';
     if (diffSnapshots) messages[0].content += ' Depois de uma ação, o snapshot pode vir como diferença (campo diff): os nodes listados substituem os de mesmo índice e os índices em diff.iguais continuam valendo como no snapshot anterior.';
     if (observeAfterActions) messages[0].content += ' A última ação de um lote pode devolver nodes e text atualizados (autoObserved): use esses índices e dados, sem pedir inspect_page de novo se já bastarem.';
     if (resumed) {
@@ -1109,6 +1182,48 @@ class AutomationService {
       }
       if (name === 'sheets') {
         return this.sheetsAction(tabId, tab, args, trace);
+      }
+      if (name === 'module') {
+        if (!transforms || !this.moduleStore) throw new Error('Módulos não estão ligados nesta tarefa');
+        const moduleOrigin = normalizeOrigin(tab?.webContents?.getURL?.() || '');
+        if (args.action === 'save') {
+          const invalid = validateModule(args);
+          if (invalid) throw new Error(invalid);
+          const saved = await this.moduleStore.save(moduleOrigin, { name: args.name, code: args.code, description: args.description || '' });
+          if (trace) trace.modulesSaved = (trace.modulesSaved || 0) + 1;
+          return { success: true, name: saved.name, origin: saved.origin, note: 'Módulo gravado; ele roda no sandbox e pode ser repetido sem modelo.' };
+        }
+        if (args.action === 'list') return { success: true, readOnly: true, origin: moduleOrigin, modules: await this.moduleStore.list(moduleOrigin) };
+        if (args.action === 'forget') return { success: true, removed: await this.moduleStore.forget(moduleOrigin, args.name) };
+        if (args.action === 'run') {
+          const found = await this.moduleStore.get(moduleOrigin, args.name);
+          if (!found) throw new Error(`Módulo "${args.name}" não existe para ${moduleOrigin}`);
+          const code = typeof args.code === 'string' && args.code.trim() ? args.code : found.code;
+          const outcome = await runTransform(code, args.input ?? null);
+          if (trace) trace.moduleRuns = (trace.moduleRuns || 0) + 1;
+          if (!outcome.ok) {
+            return { success: false, code: 'MODULE_FAILED', name: found.name, error: String(outcome.error || 'falha no sandbox'), hint: 'Corrija code e rode de novo com code corrigido; depois salve para atualizar o módulo.' };
+          }
+          return { success: true, name: found.name, result: outcome.result, usedOverride: code !== found.code };
+        }
+        throw new Error('Ação de módulo inválida');
+      }
+      if (name === 'memory') {
+        if (!this.memoryStore) throw new Error('Memória indisponível nesta execução');
+        if (args.action === 'save') {
+          const entry = await this.memoryStore.add({
+            origin: normalizeOrigin(tab?.webContents?.getURL?.() || ''),
+            text: args.text,
+            kind: args.kind || 'fact'
+          });
+          if (trace) trace.memoriesSaved = (trace.memoriesSaved || 0) + 1;
+          return { success: true, memory: entry };
+        }
+        if (args.action === 'list') {
+          return { success: true, readOnly: true, memories: await this.memoryStore.list({ origin: normalizeOrigin(tab?.webContents?.getURL?.() || ''), limit: args.limit || 12 }) };
+        }
+        if (args.action === 'forget') return { success: true, removed: await this.memoryStore.forget(args.id) };
+        throw new Error('Ação de memória inválida');
       }
       if (name === 'transform') {
         if (!transforms) throw new Error('transform não está ligado nesta tarefa');
@@ -1921,6 +2036,15 @@ class AutomationService {
           if (trace) trace.stopReason = 'final_answer';
           if (requireToolCall) return { success: false, error: `O modelo ${model} não confirmou suporte a chamadas de ferramenta` };
           // Só revisa o que o modelo disse; o texto padrão do host não é afirmação do agente.
+          if (verification?.ok && this.memoryStore && prompt) {
+            try {
+              await this.memoryStore.add({
+                origin: normalizeOrigin(tab?.webContents?.getURL?.() || ''),
+                text: `${String(prompt).replace(/\s+/g, ' ').slice(0, 140)} — concluído`,
+                kind: 'action'
+              });
+            } catch {}
+          }
           const finalReview = message.content ? reviewFinal({ message: message.content, verification }) : { decision: 'ok', reasons: [] };
           return {
             success: true,
@@ -3192,6 +3316,39 @@ class AutomationService {
           authenticationOrigins: z.array(z.string().url()).max(10).optional()
         }),
         handler: async (input) => this.runTask(input)
+      },
+      {
+        name: 'module_list',
+        description: 'Lista os módulos determinísticos gravados por origem (código escrito pelo agente para transformar dados).',
+        inputSchema: z.object({ origin: z.string().url().optional() }),
+        handler: async ({ origin }) => {
+          if (!this.moduleStore) return { success: false, error: 'Armazenamento de módulos indisponível' };
+          return { success: true, modules: await this.moduleStore.list(origin ? new URL(origin).origin : null) };
+        }
+      },
+      {
+        name: 'module_run',
+        description: 'Executa um módulo salvo no sandbox (sem require, rede ou disco) sobre um input JSON e devolve o resultado.',
+        inputSchema: z.object({ origin: z.string().url(), name: z.string().min(1).max(41), input: z.any().optional() }),
+        handler: async ({ origin, name, input }) => {
+          if (!this.moduleStore) return { success: false, error: 'Armazenamento de módulos indisponível' };
+          const found = await this.moduleStore.get(new URL(origin).origin, name);
+          if (!found) return { success: false, error: `Módulo "${name}" não existe para ${origin}` };
+          const outcome = await runTransform(found.code, input ?? null);
+          return outcome.ok ? { success: true, name: found.name, result: outcome.result } : { success: false, code: 'MODULE_FAILED', error: outcome.error };
+        }
+      },
+      {
+        name: 'recipe_export',
+        description: 'Exporta uma receita como artefato JSON (kind zero-recipe, version 1) para guardar ou levar a outro perfil.',
+        inputSchema: z.object({ origin: z.string().url(), name: z.string().min(1).max(41) }),
+        handler: async ({ origin, name }) => this.exportRecipe(new URL(origin).origin, name)
+      },
+      {
+        name: 'recipe_import',
+        description: 'Importa um artefato de receita exportado, recusando passos inválidos e saída fora do contrato.',
+        inputSchema: z.object({ artifact: z.any() }),
+        handler: async ({ artifact }) => this.importRecipe(artifact)
       },
       {
         name: 'recipe_list',

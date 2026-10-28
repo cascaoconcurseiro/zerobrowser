@@ -1,6 +1,20 @@
-# Novidades — Zero Browser 0.1.14-dev
+# Novidades — Zero Browser 0.1.15-dev
 
 Versão de desenvolvimento com foco no motor de IA e em sites difíceis (planilhas, canvas, editores).
+
+## Painel e conversas
+
+- **Histórico de conversas**: cada conversa fica salva com título e data; você alterna pelo seletor no topo do
+  painel, cria uma **Nova** e continua de onde parou depois de fechar o app.
+- **Resposta organizada**: o texto do modelo agora sai em parágrafos, listas, títulos, negrito e blocos de código,
+  em vez de um bloco único. O parser não injeta HTML — o texto do modelo continua sendo texto.
+- **Retomar tarefa**: se uma tarefa foi pausada (inclusive antes de fechar o app), aparece um cartão
+  **Continuar tarefa** no topo do chat, com modelo, horário e endereço.
+- **Memória do agente**: botão **Memória** mostra o que foi guardado (fatos por site e ações concluídas), com
+  validade de 30 dias e opção de apagar. Senha, token e cartão são recusados na hora de guardar.
+- **Módulos de operação**: com `transforms` ligado, o agente pode gravar um código curto por site
+  (`module save`), executar no sandbox e repetir o cálculo sem modelo; se falhar, ele corrige e roda de novo.
+- **Receitas como artefato**: `recipe_export`/`recipe_import` levam uma receita de um perfil a outro sem banco.
 
 ## Motor de IA
 
@@ -15,16 +29,8 @@ Versão de desenvolvimento com foco no motor de IA e em sites difíceis (planilh
 - **Guardian independente**: cada ação passa por um revisor determinístico antes de executar. Ele recusa navegação
   fora de HTTP/HTTPS, URL com usuário e senha, envio de arquivo para origem diferente da tarefa (ou de uma origem
   de login declarada) em fluxos com URL inicial declarada (run_task/MCP), formulário cross-site e receita que grava
-  em modo leitura. No uso interativo, o upload continua dependendo apenas da sua aprovação no diálogo. A resposta final também é
-  revisada: se o agente afirma um efeito específico (salvei, enviei, apaguei) sem contrato de verificação, o
-  resultado traz `guardian` com o motivo.
-- **Cache de prefixo opt-in**: `promptCache` envia `prompt_cache_key` só a provedores que têm esse campo
-  (OpenAI/OpenRouter) e um breakpoint `cache_control` no system para modelos Claude. O resultado traz
-  `promptCache.cacheHitRate` e diz para desligar quando o provedor não devolve token cacheado.
-- **Guardian independente**: cada ação passa por um revisor determinístico antes de executar. Ele recusa navegação
-  fora de HTTP/HTTPS, URL com usuário e senha, envio de arquivo para origem diferente da tarefa (ou de uma origem
-  de login declarada), formulário cross-site e receita que grava em modo leitura. A resposta final também é
-  revisada: se o agente afirma um efeito específico (salvei, enviei, apaguei) sem contrato de verificação, o
+  em modo leitura. No uso interativo, o upload depende apenas da sua aprovação no diálogo. A resposta final também
+  é revisada: se o agente afirma um efeito específico (salvei, enviei, apaguei) sem contrato de verificação, o
   resultado traz `guardian` com o motivo.
 - **Cache de prefixo opt-in**: `promptCache` envia `prompt_cache_key` só a provedores que têm esse campo
   (OpenAI/OpenRouter) e um breakpoint `cache_control` no system para modelos Claude. O resultado traz
@@ -33,14 +39,12 @@ Versão de desenvolvimento com foco no motor de IA e em sites difíceis (planilh
   intervalo lido. O host valida os valores lidos (não o que o modelo diz ter lido), converte número no padrão
   brasileiro (`R$ 1.234,56` → `1234.56`), booleano e lista, e devolve `output` + `outputValid`. Contrato quebrado
   devolve `OUTPUT_INVALID` com os problemas por campo, em vez de texto solto.
-- **`sheets` como passo de receita**: ler/gravar intervalo A1 agora faz parte das receitas determinísticas
+- **`sheets` como passo de receita**: ler/gravar intervalo A1 faz parte das receitas determinísticas
   (`read`, `write`, `goto`), com a mesma autoridade `read`/`write` e sem clique em célula.
 - **Nome acessível padrão**: snapshot e locators usam a ordem do accname (labelledby, aria-label, rótulo nativo,
   title, placeholder, conteúdo), o que reduz clique no controle errado em qualquer site.
-
 - **Diagnóstico do Planilhas**: `sheets` devolve `diagnostics` (caixa de nome, seleção, intervalo aplicado) e códigos
   como `NAME_BOX_NOT_FOUND` e `CLIPBOARD_EMPTY`, para saber exatamente onde falhou.
-
 - **Credencial com escopo de origem**: campo sensível só é preenchido quando o formulário envia para a origem da
   página ou para uma origem de autenticação declarada; formulário cross-origin é recusado antes de digitar.
 - **Autoridade de receita**: `read` só navega e espera; `write` pode clicar. A receita recusa cliques quando é de
@@ -48,7 +52,6 @@ Versão de desenvolvimento com foco no motor de IA e em sites difíceis (planilh
 - **Mint automático**: tarefa verificada que usou passos estáveis vira receita sozinha, sem o modelo precisar salvar.
 - **Receitas v2**: schema de entrada (`{{campo}}`), validação de obrigatórios e `possibleCommit` com
   “leia antes de repetir”.
-- **Planilhas**: ferramenta `sheets` lê/grava intervalo A1 (TSV + clipboard + teclado), sem clicar em célula.
 - **Pós-condições verificadas** em `run_steps`: cada passo declara `expect` e o host confere antes de seguir.
 - **Journal de efeitos**: envio/compra/exclusão não se repetem às cegas; só efeito crítico entra no journal.
 - **Risco por capacidade**: aprovação por credencial/destrutivo/compromisso/escrita, com motivo específico.
@@ -66,11 +69,12 @@ Versão de desenvolvimento com foco no motor de IA e em sites difíceis (planilh
 
 - Perfis locais no menu ⋮, menu de contexto das abas, histórico de downloads persistente e atalhos com foco na
   página.
-- Build `0.1.6-dev` (histórico); o perfil e a instalação anterior permanecem recuperáveis pelos backups em `backups/`.
+- O perfil e a instalação anterior permanecem recuperáveis pelos backups em `backups/`.
 
 ## Limites conhecidos
 
 - O modo de acessibilidade do Planilhas ainda não foi validado numa conta real.
 - Grounding visual depende de um modelo com visão.
 - Integração por API (Sheets e afins) ainda não existe.
+- Módulos rodam só sobre dados já lidos: não executam código dentro da página nem clicam sozinhos.
 - Nada disto substitui o teste numa conta/site real: os números do benchmark são de fixtures locais e um modelo.

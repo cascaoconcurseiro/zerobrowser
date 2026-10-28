@@ -1236,3 +1236,72 @@ body.dark .ai-working-status-pill {
   from { opacity: 0.5; transform: scale(0.85); }
   to { opacity: 1; transform: scale(1.2); }
 }
+
+/* --- Conversas, texto formatado e memória do agente --- */
+.ai-chat-toolbar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 10px 16px;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-secondary);
+}
+
+.ai-session-select {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-tertiary);
+  color: var(--fg-primary);
+  font-size: 12px;
+}
+
+.btn-ghost {
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--fg-secondary);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.btn-ghost:hover {
+  border-color: var(--accent);
+  color: var(--fg-primary);
+}
+
+/* Texto do modelo: parágrafos, listas e código em vez de um bloco único. */
+.ai-message.ai-rich { white-space: normal; }
+.ai-rich p { margin: 0 0 8px; }
+.ai-rich p:last-child { margin-bottom: 0; }
+.ai-rich ul, .ai-rich ol { margin: 0 0 8px; padding-left: 18px; }
+.ai-rich li { margin: 2px 0; }
+.ai-rich strong { font-weight: 650; }
+.ai-rich code {
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: rgba(127, 127, 127, 0.18);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.94em;
+}
+.ai-rich pre {
+  margin: 0 0 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.28);
+  overflow-x: auto;
+  white-space: pre;
+}
+.ai-rich pre code { background: transparent; padding: 0; }
+.ai-rich h4 { margin: 0 0 6px; font-size: 13px; }
+
+.ai-jobs-banner { align-self: stretch; max-width: 100%; }
+.ai-jobs-banner p { margin: 4px 0 8px; font-size: 12px; color: var(--fg-secondary); }
+.ai-memory-list { margin: 6px 0 0; padding-left: 16px; }
+.ai-memory-item { display: flex; gap: 8px; align-items: flex-start; margin: 4px 0; }
+.ai-memory-item button { margin-left: auto; flex: none; }
+.ai-memory-empty { font-size: 12px; color: var(--fg-secondary); }

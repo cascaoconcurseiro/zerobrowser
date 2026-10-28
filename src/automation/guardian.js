@@ -65,7 +65,7 @@ function reviewAction({ name, args = {}, pageUrl = '', taskOrigin = '', authenti
     }
   }
 
-  if (name === 'transform') {
+  if (name === 'transform' || (name === 'module' && (args.action === 'save' || args.action === 'run'))) {
     const problem = checkCode(args.code);
     if (problem) deny(problem);
   }

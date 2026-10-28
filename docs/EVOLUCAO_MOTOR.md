@@ -922,3 +922,40 @@ o agente começa na aba atual e pode navegar para outro site antes de enviar o a
 passou a valer só quando a tarefa declara URL inicial (`run_task`/MCP); no painel, o upload continua exigindo a
 aprovação do usuário no diálogo, que é a fronteira real ali. Regra em `src/automation/service/index.js`
 (`taskOrigin = normalizeOrigin(taskStartUrl || '')`), coberta pelo teste do Guardian.
+
+### Painel: conversas, texto legível e memória — 0.1.15-dev
+
+Três problemas de uso, não de motor, e um de motor que eles expuseram.
+
+**Texto do modelo.** O painel fazia `textContent = resposta` e o CSS não tinha `pre-wrap`, então parágrafos e
+listas viravam um bloco único. Agora existe `src/renderer/markdown.js` (parser sem DOM, testável) que devolve
+blocos `p`/`ul`/`ol`/`heading`/`code` com trechos `text`/`strong`/`code`, e o renderer monta nós — **nunca**
+`innerHTML` com texto do modelo. Listas no meio de um parágrafo (rótulo seguido de bullets) também são separadas.
+
+**Conversas.** `localStorage` guarda até 50 conversas (título pela primeira mensagem, data, 200 mensagens por
+conversa); o seletor no topo alterna, **Nova** cria, e ao reabrir o app a última conversa volta renderizada.
+
+**Retomada.** `automation.jobs()` alimenta um cartão no topo do chat com modelo, hora, endereço e o botão
+**Continuar tarefa**; o botão chama o fluxo de `resumeId` que já existia. Se a tarefa veio de antes do reinício, o
+serviço recria a aba na última URL (ver 0.1.13).
+
+**Memória** (`src/automation/memory-store.js`): fatos curtos por origem e preferências globais, TTL de 30 dias,
+200 entradas/128 KB, deduplicados por hash. Recusa texto com cara de segredo (senha, token, cartão). Entra no
+system prompt como lista limitada a 8 itens, marcada como dado não confiável. A ferramenta `memory`
+(save/list/forget) deixa o agente gravar descobertas do site; tarefa verificada também registra uma linha de ação.
+Botão **Memória** lista e apaga.
+
+**Módulos de operação** (`src/automation/module-store.js`): codegen pequeno e real — o agente escreve o corpo de
+uma função, salva por origem (`module save`), executa no sandbox (`module run`) e pode reexecutar com um `code`
+corrigido antes de salvar de novo (iteração). Guardado em `<dados>/automation/modulos.json`, exposto por
+`module_list`/`module_run` no MCP. Não executa código na página; é cálculo determinístico sobre dados já lidos.
+
+**Receitas como artefato**: `recipe_export` devolve `{kind:"zero-recipe",version:1,...}` e `recipe_import` valida e
+grava de novo — a “biblioteca local” sem banco.
+
+Dois bugs antigos corrigidos no caminho: `transform` tinha handler mas nunca era oferecida ao modelo; e o bloco de
+memória era montado **antes** de `const messages`, o que quebraria qualquer tarefa com fato guardado (TDZ).
+
+Evidência: `npm test` 249/249; benchmark difícil 14/14 no build instalado; integração `status: PASS`.
+Limites: histórico é local ao perfil (não sincroniza), memória não é semântica (é lista recente), e módulos não
+têm DOM, então não substituem ferramentas de página.

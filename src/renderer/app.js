@@ -18,6 +18,9 @@ class ZeroBrowserApp {
     await this.loadSettings();
     await this.createInitialTab();
     this.initLibraryUi();
+    this.initChatSessions();
+    this.initAgentMemoryUi();
+    this.refreshJobsBanner();
   }
 
   bindElements() {
@@ -63,6 +66,9 @@ class ZeroBrowserApp {
       aiModelStatus: document.getElementById('ai-model-status'),
       aiPrivacyNote: document.getElementById('ai-privacy-note-settings'),
       aiReadyStatus: document.getElementById('ai-ready-status'),
+      aiSession: document.getElementById('ai-session'),
+      btnAiNewChat: document.getElementById('btn-ai-new-chat'),
+      btnAiMemory: document.getElementById('btn-ai-memory'),
       btnAiConnect: document.getElementById('btn-ai-connect'),
       aiChat: document.getElementById('ai-chat'),
       aiInput: document.getElementById('ai-input'),
@@ -1083,6 +1089,7 @@ class ZeroBrowserApp {
       await this.releasePageOverlay('panel');
       this.elements.aiInput.focus();
       this.loadAiSettings();
+      this.refreshJobsBanner();
     } else await this.releasePageOverlay('panel');
   }
 
@@ -1411,13 +1418,237 @@ class ZeroBrowserApp {
     return true;
   }
 
-  addAiMessage(role, content) {
+  // --- Conversas: histórico local, retomada e texto do modelo em parágrafos ---
+
+  initChatSessions() {
+    try {
+      const saved = JSON.parse(localStorage.getItem('zero.chat.sessions.v2') || '[]');
+      this.chatSessions = Array.isArray(saved) ? saved.filter((session) => session && Array.isArray(session.messages)) : [];
+    } catch {
+      this.chatSessions = [];
+    }
+    this.chatSession = this.chatSessions[0] || this.startChatSession({ render: false });
+    this.renderChatSessionSelect();
+    this.renderChatSession();
+
+    this.elements.aiSession?.addEventListener('change', () => {
+      const found = this.chatSessions.find((session) => session.id === this.elements.aiSession.value);
+      if (!found) return;
+      this.chatSession = found;
+      this.renderChatSession();
+    });
+    this.elements.btnAiNewChat?.addEventListener('click', () => {
+      this.startChatSession();
+      this.elements.aiInput.focus();
+    });
+  }
+
+  startChatSession({ render = true } = {}) {
+    const session = { id: `c${Date.now().toString(36)}`, title: 'Nova conversa', messages: [], updatedAt: Date.now() };
+    this.chatSessions = [session, ...(this.chatSessions || [])].slice(0, 50);
+    this.chatSession = session;
+    this.persistChatSessions();
+    if (render) {
+      this.renderChatSession();
+      this.renderChatSessionSelect();
+    }
+    return session;
+  }
+
+  persistChatSessions() {
+    try {
+      const trimmed = (this.chatSessions || []).slice(0, 50).map((session) => ({
+        ...session,
+        messages: (session.messages || []).slice(-200).map((message) => ({ role: message.role, content: String(message.content).slice(0, 20000), at: message.at }))
+      }));
+      localStorage.setItem('zero.chat.sessions.v2', JSON.stringify(trimmed));
+    } catch {}
+  }
+
+  recordChat(role, content) {
+    if (!this.chatSession) return;
+    const text = String(content ?? '');
+    this.chatSession.messages.push({ role, content: text, at: Date.now() });
+    this.chatSession.updatedAt = Date.now();
+    if (role === 'user' && this.chatSession.title === 'Nova conversa') {
+      this.chatSession.title = text.replace(/\s+/g, ' ').trim().slice(0, 42) || 'Nova conversa';
+      this.chatSessions.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+      this.renderChatSessionSelect();
+    }
+    this.persistChatSessions();
+  }
+
+  renderChatSessionSelect() {
+    const select = this.elements.aiSession;
+    if (!select) return;
+    select.replaceChildren();
+    for (const session of this.chatSessions || []) {
+      const option = document.createElement('option');
+      option.value = session.id;
+      const when = new Date(session.updatedAt || Date.now()).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+      option.textContent = `${session.title || 'Conversa'} · ${when}`;
+      select.appendChild(option);
+    }
+    if (this.chatSession) select.value = this.chatSession.id;
+  }
+
+  renderChatSession() {
+    const chat = this.elements.aiChat;
+    if (!chat) return;
+    chat.replaceChildren();
+    const messages = this.chatSession?.messages || [];
+    for (const message of messages) this.addAiMessage(message.role, message.content, { persist: false });
+    if (!messages.length) {
+      const hint = document.createElement('div');
+      hint.className = 'ai-message assistant ai-rich';
+      hint.textContent = 'Peça uma tarefa na aba atual. Cada conversa fica salva aqui e você pode voltar a ela depois.';
+      chat.appendChild(hint);
+    }
+    this.refreshJobsBanner();
+    chat.scrollTop = chat.scrollHeight;
+  }
+
+  // Monta os nos a partir dos blocos do parser; nada de innerHTML com texto do modelo.
+  renderRichText(container, text) {
+    container.classList.add('ai-rich');
+    container.replaceChildren();
+    const parser = window.ZeroMarkdown;
+    const blocks = parser ? parser.parseBlocks(text) : [{ type: 'p', lines: [[{ type: 'text', value: String(text ?? '') }]] }];
+    const appendTokens = (parent, tokens) => {
+      for (const token of tokens || []) {
+        if (token.type === 'text') {
+          parent.appendChild(document.createTextNode(token.value));
+          continue;
+        }
+        const node = document.createElement(token.type === 'strong' ? 'strong' : 'code');
+        node.textContent = token.value;
+        parent.appendChild(node);
+      }
+    };
+    for (const block of blocks) {
+      if (block.type === 'code') {
+        const pre = document.createElement('pre');
+        const code = document.createElement('code');
+        code.textContent = block.text;
+        pre.appendChild(code);
+        container.appendChild(pre);
+        continue;
+      }
+      if (block.type === 'ul' || block.type === 'ol') {
+        const list = document.createElement(block.type);
+        for (const item of block.items) {
+          const li = document.createElement('li');
+          appendTokens(li, item);
+          list.appendChild(li);
+        }
+        container.appendChild(list);
+        continue;
+      }
+      if (block.type === 'heading') {
+        const heading = document.createElement('h4');
+        appendTokens(heading, block.tokens);
+        container.appendChild(heading);
+        continue;
+      }
+      const paragraph = document.createElement('p');
+      (block.lines || []).forEach((tokens, index) => {
+        if (index) paragraph.appendChild(document.createElement('br'));
+        appendTokens(paragraph, tokens);
+      });
+      container.appendChild(paragraph);
+    }
+  }
+
+
+  addAiMessage(role, content, { persist = true } = {}) {
     const msg = document.createElement('div');
     msg.className = `ai-message ${role}`;
-    msg.textContent = content;
+    if (role === 'assistant' || role === 'system') this.renderRichText(msg, content);
+    else msg.textContent = String(content ?? '');
     this.elements.aiChat.appendChild(msg);
     this.elements.aiChat.scrollTop = this.elements.aiChat.scrollHeight;
+    if (persist) this.recordChat(role, content);
     return msg;
+  }
+
+  // Tarefa pausada (inclusive de antes de fechar o app): oferece retomar no topo do chat.
+  async refreshJobsBanner() {
+    const chat = this.elements.aiChat;
+    if (!chat) return;
+    chat.querySelectorAll('.ai-jobs-banner').forEach((node) => node.remove());
+    let jobs = [];
+    try {
+      jobs = await window.zeroBrowser.automation.jobs();
+    } catch {
+      jobs = [];
+    }
+    if (!Array.isArray(jobs) || !jobs.length) return;
+    const job = jobs[0];
+    const banner = document.createElement('div');
+    banner.className = 'ai-message assistant ai-jobs-banner';
+    const title = document.createElement('strong');
+    title.textContent = 'Tarefa pausada';
+    const detail = document.createElement('p');
+    const when = new Date(job.startedAt || Date.now()).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    detail.textContent = `${job.model || 'modelo'} · ${job.messages || 0} mensagens no histórico · iniciada às ${when}${job.lastUrl ? ` · ${job.lastUrl}` : ''}`;
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'btn-primary';
+    button.textContent = 'Continuar tarefa';
+    button.addEventListener('click', () => {
+      button.disabled = true;
+      this.sendAiMessage(job.id);
+    });
+    banner.append(title, detail, button);
+    chat.prepend(banner);
+  }
+
+  initAgentMemoryUi() {
+    this.elements.btnAiMemory?.addEventListener('click', () => this.showAgentMemory());
+  }
+
+  async showAgentMemory() {
+    let memories = [];
+    try {
+      memories = await window.zeroBrowser.automation.memory('list');
+    } catch (error) {
+      this.showToast(`Não foi possível ler a memória: ${error.message}`, 'error');
+      return;
+    }
+    const box = document.createElement('div');
+    box.className = 'ai-message assistant ai-rich';
+    const title = document.createElement('strong');
+    title.textContent = `Memória do agente (${memories.length})`;
+    box.appendChild(title);
+    if (!memories.length) {
+      const empty = document.createElement('p');
+      empty.className = 'ai-memory-empty';
+      empty.textContent = 'Nada guardado ainda. O agente salva fatos curtos por site e ações concluídas, com validade de 30 dias.';
+      box.appendChild(empty);
+    } else {
+      const list = document.createElement('ul');
+      list.className = 'ai-memory-list';
+      for (const memory of memories) {
+        const item = document.createElement('li');
+        item.className = 'ai-memory-item';
+        const label = document.createElement('span');
+        const when = new Date(memory.createdAt || Date.now()).toLocaleDateString('pt-BR');
+        label.textContent = `${memory.origin ? `${memory.origin}: ` : ''}${memory.text} (${when})`;
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'btn-ghost';
+        remove.textContent = 'Apagar';
+        remove.addEventListener('click', async () => {
+          await window.zeroBrowser.automation.memory('forget', memory.id);
+          item.remove();
+        });
+        item.append(label, remove);
+        list.appendChild(item);
+      }
+      box.appendChild(list);
+    }
+    this.elements.aiChat.appendChild(box);
+    this.elements.aiChat.scrollTop = this.elements.aiChat.scrollHeight;
   }
 
   async sendAiMessage(resumeId = null) {

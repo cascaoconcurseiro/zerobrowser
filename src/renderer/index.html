@@ -75,7 +75,13 @@
         <button id="btn-close-ai" class="panel-close" aria-label="Fechar agente"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
       </div>
       <div id="ai-ready-status" class="ai-ready-status" role="status">Carregando configuração do agente…</div>
-      <div id="ai-chat" class="ai-chat"></div>
+      <div class="ai-chat-toolbar">
+        <label class="sr-only" for="ai-session">Conversa</label>
+        <select id="ai-session" class="ai-session-select" aria-label="Histórico de conversas"></select>
+        <button id="btn-ai-new-chat" class="btn-ghost" type="button" title="Começar uma conversa nova">Nova</button>
+        <button id="btn-ai-memory" class="btn-ghost" type="button" title="Ver o que o agente memorizou">Memória</button>
+      </div>
+      <div id="ai-chat" class="ai-chat" aria-live="polite"></div>
       <div class="ai-input-area">
         <textarea id="ai-input" class="ai-textarea" placeholder="Descreva a tarefa para o agente… (Enter envia · Shift+Enter quebra linha)" aria-label="Comando para o agente"></textarea>
         <div class="ai-composer-footer">
@@ -223,6 +229,7 @@
     <div id="toast-container" class="toast-container"></div>
   </div>
 
+  <script src="markdown.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

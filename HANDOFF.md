@@ -26,7 +26,7 @@
   paginada agora é `complete` (antes era sempre falso), e uma leitura por `tabId` não conta as outras abas como
   omitidas. Regra em `src/automation/batch-coverage.js`; detalhe, conflitos e reversão em
   `docs/REGISTRO_INTEGRACAO_0.1.5.md`.
-- Versão: `package.json` e `package-lock.json` em 0.1.14-dev (o lock acompanha; teste `test/whats-new.test.js`).
+- Versão: `package.json` e `package-lock.json` em 0.1.15-dev (o lock acompanha; teste `test/whats-new.test.js`).
 - **Motor, salto 1 (2026-10-27):** `run_steps` aceita `expect {url,text,absent}` conferido pelo host (espera de até
   3 s, texto normalizado, parada quando a pós-condição não vem). Opt-in: só com `actionScripts`/`--scripts`.
   `npm test` 133/133; regra em `docs/EVOLUCAO_MOTOR.md`; restauração em `docs/PONTOS_DE_RESTAURACAO.md`
@@ -119,6 +119,14 @@
   volta a depender apenas da aprovação no diálogo. Instalador `Zero Browser Setup 0.1.14-dev.exe` (SHA-256
   `f0ad77fa…a2467`, 124.459.919 bytes); `app.asar` `24fb5659…570d81f` igual em build/produção; integração
   `status: PASS`; `npm test` 233/233. Backup do 0.1.13-dev em `backups/2026-10-28-before-guardian-upload/`.
+- **Checkpoint 14 instalado (2026-10-28):** versão **0.1.15-dev** com painel de conversas (histórico local por
+  conversa, seletor, nova conversa, cartão de retomada e memória com TTL de 30 dias), texto do modelo em
+  parágrafos/listas/código, módulos de operação (`module save/run/list/forget` no sandbox) e
+  `recipe_export`/`recipe_import`. Corrigidos dois bugs reais: `transform` não era oferecido ao modelo e o prompt de
+  memória era montado antes de `messages` existir (quebrava toda tarefa com fato guardado). Instalador
+  `Zero Browser Setup 0.1.15-dev.exe` (SHA-256 `c9477125…bed1b`, 124.466.370 bytes); `app.asar` `c6909e1a…df33`
+  igual em build/produção; integração `status: PASS`; `npm test` 249/249; benchmark difícil **14/14** com o build
+  instalado. Backup do 0.1.14-dev em `backups/2026-10-28-before-panel-history/`.
 - **Publicação (2026-10-28):** `main` em `c13447e` enviado a `origin/main` (26 commits desde 0.1.4); tag
   `motor-pre-leaps-2026-10-27` publicada. Nenhum build/instalador foi anexado a release no GitHub.
 - **Primeiras execuções reais (deepseek-flash, 1 por condição):** tarefa 44 padrão 13 passos/13,0 s/47.456 tokens;

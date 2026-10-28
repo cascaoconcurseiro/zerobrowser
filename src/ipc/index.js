@@ -110,6 +110,12 @@ function setupIpc() {
     return automationService.runAgent(tabId, prompt, apiKey, model, !testOnly, provider, Boolean(requireToolCall), { resumable: !testOnly, resumeId: testOnly ? null : resumeId });
   });
 
+  ipcMain.handle('automation:memory', async (_e, { action = 'list', id } = {}) => {
+    if (!automationService) return action === 'list' ? [] : false;
+    if (action === 'forget') return await automationService.forgetMemory(id);
+    return await automationService.listMemories();
+  });
+
   // Tarefas pausadas que sobreviveram ao reinício (TTL 20 min), para oferecer "Continuar".
   ipcMain.handle('automation:jobs', async () => {
     if (!automationService) return [];
