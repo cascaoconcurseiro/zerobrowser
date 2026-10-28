@@ -1,6 +1,10 @@
-# Novidades — Zero Browser 0.1.23-dev
+# Novidades — Zero Browser 0.1.24-dev
 
 Versão de desenvolvimento com foco no motor de IA e em sites difíceis (planilhas, canvas, editores).
+
+## Fallback visual
+
+- **Sugestão de captura quando o DOM é pobre**: se  encontra 3 controles ou menos (canvas, app visual), o resultado orienta uma única  e proíbe repetir inspeção — menos rodadas e menos token em sites que o DOM não descreve.
 
 ## Fluxos com login sob autorização explícita
 
