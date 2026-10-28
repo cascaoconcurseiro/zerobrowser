@@ -1,8 +1,10 @@
-# Novidades — Zero Browser 0.1.30-dev
+# Novidades — Zero Browser 0.1.31-dev
 
 Versão de desenvolvimento com foco no motor de IA e em sites difíceis (planilhas, canvas, editores).
 
 ## Painel mais legível
+
+- **Copiar**: cada resposta tem botão Copiar; a barra de conversas copia a conversa inteira em Markdown.
 
 - **Tempo e tokens da execução**: cada resposta termina com “Concluído em 8,3 s · 12.345 tokens”, vindo do evento de fim da tarefa.
 

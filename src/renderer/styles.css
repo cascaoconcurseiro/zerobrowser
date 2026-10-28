@@ -1329,3 +1329,7 @@ body.dark .ai-working-status-pill {
 
 /* Tempo e tokens da última execução. */
 .ai-run-stats { margin-top: 6px; font-size: 11px; color: var(--fg-secondary); }
+
+/* Ações da resposta e cópia da conversa. */
+.ai-message-actions { display: flex; gap: 6px; margin-top: 6px; }
+.ai-message-actions .btn-ghost { font-size: 11px; padding: 3px 8px; }

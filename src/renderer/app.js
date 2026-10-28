@@ -70,6 +70,7 @@ class ZeroBrowserApp {
       aiSession: document.getElementById('ai-session'),
       btnAiNewChat: document.getElementById('btn-ai-new-chat'),
       btnAiMemory: document.getElementById('btn-ai-memory'),
+      btnAiCopyChat: document.getElementById('btn-ai-copy-chat'),
       btnAiConnect: document.getElementById('btn-ai-connect'),
       aiChat: document.getElementById('ai-chat'),
       aiInput: document.getElementById('ai-input'),
@@ -1593,6 +1594,17 @@ class ZeroBrowserApp {
     msg.className = `ai-message ${role}`;
     if (role === 'assistant' || role === 'system') this.renderRichText(msg, content);
     else msg.textContent = String(content ?? '');
+    if (role === 'assistant') {
+      const acoes = document.createElement('div');
+      acoes.className = 'ai-message-actions';
+      const copiar = document.createElement('button');
+      copiar.type = 'button';
+      copiar.className = 'btn-ghost';
+      copiar.textContent = 'Copiar';
+      copiar.addEventListener('click', () => this.copiarTexto(content));
+      acoes.appendChild(copiar);
+      msg.appendChild(acoes);
+    }
     this.elements.aiChat.appendChild(msg);
     this.elements.aiChat.scrollTop = this.elements.aiChat.scrollHeight;
     if (persist) this.recordChat(role, content);
@@ -1651,8 +1663,27 @@ class ZeroBrowserApp {
     else if (event.type === 'tool') status.textContent = `Ação ${event.step} · ${event.name}${event.ok === false ? ' (falhou)' : ''}`;
   }
 
+  async copiarTexto(texto) {
+    try {
+      await navigator.clipboard.writeText(String(texto ?? ''));
+      this.showToast('Copiado', 'success');
+    } catch {
+      this.showToast('Não foi possível copiar', 'error');
+    }
+  }
+
+  conversaEmMarkdown() {
+    const linhas = (this.chatSession?.messages || []).map((message) => {
+      const quem = message.role === 'user' ? 'Voce' : message.role === 'assistant' ? 'Zero Browser' : 'Sistema';
+      return `**${quem}:** ` + String(message.content || '');
+    });
+    const titulo = this.chatSession?.title || 'Conversa';
+    return `# ${titulo}` + '\n\n' + linhas.join('\n\n');
+  }
+
   initAgentMemoryUi() {
     this.elements.btnAiMemory?.addEventListener('click', () => this.showAgentMemory());
+    this.elements.btnAiCopyChat?.addEventListener('click', () => this.copiarTexto(this.conversaEmMarkdown()));
   }
 
   async showAgentMemory() {
