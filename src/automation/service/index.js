@@ -57,6 +57,7 @@ class AutomationService {
     this.settingsProvider = null;
     this.agentConfigProvider = null;
     this.taskApprovalPolicies = new Map(); // tabId -> 'local-fixture' | 'deny', only while run_task owns the tab
+    this.taskAuthOrigins = new Map(); // tabId -> origens de login permitidas para credencial
     this.agentTabs = new Set(); // abas em que o agente está agindo agora (downloads delas não abrem a janela "Salvar")
     this.activeAgentRuns = new Map(); // root tab id -> AbortController da tarefa em andamento
     this.pausedAgentRuns = new Map(); // Histórico só em memória; nunca guarda chave API.
@@ -302,6 +303,7 @@ class AutomationService {
           return {name:(el.getAttribute('aria-label')||el.labels?.[0]?.innerText||el.alt||el.title||el.placeholder||el.innerText||(!sensitiveInput?el.value:'')||el.tagName).trim().slice(0,160),role:el.getAttribute('role')||el.tagName.toLowerCase(),href:el.closest('a[href]')?.href||'',formAction,formMethod:el.form?.method||'',inForm:!!el.form,isSubmitControl:!!(el.form&&el.matches('input[type=submit],input[type=image],button:not([type]),button[type=submit]')),sensitiveInput};
         })()`);
         targetName = String(node?.name || '').slice(0,160);
+        action.formAction = node?.formAction || '';
         const cuaRisk = riskOf([node?.name,node?.href,node?.formAction,node?.role].filter(Boolean).join(' '), node);
         sensitive = cuaRisk.level === 'credential';
         reason = cuaRisk.reason;
@@ -322,6 +324,7 @@ class AutomationService {
           ? snapshot.tree.nodes.find((item) => item.targetId === action.targetId)
           : index === null ? snapshot.tree.nodes.find((item) => item.focused) : snapshot.tree.nodes[index];
         targetName = String(node?.name || '').slice(0, 160);
+        action.formAction = node?.formAction || '';
         const context = [node?.name, node?.href, node?.formAction, node?.role, action.action].filter(Boolean).join(' ');
         const axRisk = riskOf(context, node);
         sensitive = axRisk.level === 'credential';
@@ -331,6 +334,21 @@ class AutomationService {
         if (!reason && action.kind === 'press_key' && (action.key === 'Enter' && (!node || (node.inForm && node.tag !== 'textarea')) || action.key === ' ' && (!node || node.isSubmitControl))) reason = 'A tecla pode enviar um formulário ou ativar um controle';
         if (!reason && ['type_text', 'set_value', 'paste'].includes(action.kind) && !node) reason = 'Não foi possível verificar o campo de destino';
         if (!reason && action.targetId && !node) reason = 'O campo inspecionado foi substituído; inspecione a página novamente';
+      }
+    }
+
+    // Credencial: só na origem da página ou em origens de autenticação declaradas; formulário cross-origin é recusado.
+    if (sensitive) {
+      let pageOrigin = '';
+      try { pageOrigin = new URL(tab?.webContents?.getURL?.() || tab?.state.url || '').origin; } catch {}
+      let formOrigin = '';
+      try { formOrigin = action.formAction ? new URL(action.formAction).origin : ''; } catch {}
+      const allowed = new Set([pageOrigin, ...(this.taskAuthOrigins?.get(tabId) || [])].filter(Boolean));
+      if (formOrigin && !allowed.has(formOrigin)) {
+        return {
+          approved: false, required: true, cancelled: true,
+          error: `Campo sensível recusado: o formulário envia para ${formOrigin}, fora da origem da página${pageOrigin ? ` (${pageOrigin})` : ''} e das origens de autenticação declaradas.`
+        };
       }
     }
 
@@ -914,6 +932,7 @@ class AutomationService {
         this.taskApprovalPolicies.set(id, taskPolicy);
         adoptedPolicies.push(id);
       }
+      if (this.taskAuthOrigins.has(rootTabId)) this.taskAuthOrigins.set(id, this.taskAuthOrigins.get(rootTabId));
       if (id !== tabId) {
         tabTrail.push(tabId);
         this.setAuroraActive(tab, false);
@@ -1085,11 +1104,11 @@ class AutomationService {
         if (!origin) throw new Error('Receitas exigem uma página HTTP/HTTPS');
         if (args.action === 'list') return { success: true, readOnly: true, origin, recipes: await this.recipeStore.list(origin) };
         if (args.action === 'save') {
-          const invalid = validateRecipe({ name: args.name, steps: args.steps, input: args.input });
+          const invalid = validateRecipe({ name: args.name, steps: args.steps, input: args.input, authority: args.authority });
           if (invalid) throw new Error(invalid);
-          const saved = await this.recipeStore.save(origin, args.name, args.steps, args.input || null);
+          const saved = await this.recipeStore.save(origin, args.name, args.steps, args.input || null, args.authority || 'write');
           return {
-            success: true, origin, name: saved.name, steps: saved.steps.length,
+            success: true, origin, name: saved.name, steps: saved.steps.length, authority: saved.authority,
             ...(saved.input ? { inputs: Object.keys(saved.input.properties || {}) } : {}),
             note: 'Receita gravada; ela só repete passos estáveis e verifica cada pós-condição.'
           };
@@ -1097,6 +1116,9 @@ class AutomationService {
         if (args.action === 'run') {
           const recipe = await this.recipeStore.get(origin, args.name);
           if (!recipe) throw new Error(`Receita "${args.name}" não existe para ${origin}`);
+          if ((recipe.authority || 'write') === 'read' && recipe.steps.some((step) => step.tool === 'click_text')) {
+            throw new Error('Receita de leitura não executa cliques; salve como write.');
+          }
           const missing = missingRequiredInputs(recipe.input, args.values);
           if (missing.length) throw new Error(`Faltam entradas obrigatórias: ${missing.join(', ')}`);
           let steps;
@@ -1107,7 +1129,7 @@ class AutomationService {
           }
           const result = await this.runRecipe(tabId, tab, steps, trace);
           if (trace) trace.recipeRuns = (trace.recipeRuns || 0) + 1;
-          return { ...result, name: recipe.name, origin, ...(recipe.input ? { input: Object.keys(recipe.input.properties || {}) } : {}) };
+          return { ...result, name: recipe.name, origin, authority: recipe.authority || 'write', ...(recipe.input ? { input: Object.keys(recipe.input.properties || {}) } : {}) };
         }
         throw new Error('Ação de receita inválida');
       }
@@ -2264,7 +2286,7 @@ class AutomationService {
     return { success: true, completed: steps.length, total: steps.length, results };
   }
 
-  async runTask({ startUrl, prompt, maxSteps = 20, approvalPolicy = 'ask', allowedHosts = [], keepTab = false, captureInitialText = false, captureInitialChecks = [], engine = 'navegante', maxDurationSec, observeAfterActions = true, captureReadEvidence = false, preInspect = false, actionScripts = false, diffSnapshots = false, cascadeModel = null, streaming = false, effectJournal = false, verify = null, requireVerification = false, correctionRounds = 0, structuredExtraction = false, recipes = false, advancedInput = true, saveRecipe = null }) {
+  async runTask({ startUrl, prompt, maxSteps = 20, approvalPolicy = 'ask', allowedHosts = [], keepTab = false, captureInitialText = false, captureInitialChecks = [], engine = 'navegante', maxDurationSec, observeAfterActions = true, captureReadEvidence = false, preInspect = false, actionScripts = false, diffSnapshots = false, cascadeModel = null, streaming = false, effectJournal = false, verify = null, requireVerification = false, correctionRounds = 0, structuredExtraction = false, recipes = false, advancedInput = true, saveRecipe = null, authenticationOrigins = [] }) {
     const maxDurationMs = maxDurationSec ? maxDurationSec * 1000 : undefined;
     if (approvalPolicy === 'public-sites' && engine === 'flame') return { success: false, error: 'A política public-sites ainda não vale para o Flame' };
     if (engine === 'flame') return this.runFlameTask({ startUrl, prompt, maxSteps, approvalPolicy, keepTab, maxDurationMs });
@@ -2283,6 +2305,10 @@ class AutomationService {
     const openBefore = new Set(this.tabs.keys());
     const { tabId } = await this.browserControls.createTab(startUrl);
     if (approvalPolicy !== 'ask') this.taskApprovalPolicies.set(tabId, policy);
+    const authOrigins = (Array.isArray(authenticationOrigins) ? authenticationOrigins : [])
+      .map((value) => { try { return new URL(String(value)).origin; } catch { return ''; } })
+      .filter(Boolean);
+    if (authOrigins.length) this.taskAuthOrigins.set(tabId, authOrigins);
       const trace = { modelCalls: 0, inputTokens: 0, outputTokens: 0, usageAvailable: true, toolCalls: [], requestMetrics: [], stopReason: null, ...(captureReadEvidence ? { pageReads: [] } : {}) };
     try {
       const tab = this.tabs.get(tabId);
@@ -2335,6 +2361,7 @@ class AutomationService {
       return { ...result, tabId, provider, model, finalUrl, ...(verification ? { verification } : {}), ...(captureInitialText ? { initialPageText } : {}), ...(captureInitialChecks.length ? { initialLocatorChecks } : {}), durationMs: Date.now() - startedAt, trace };
     } finally {
       this.taskApprovalPolicies.delete(tabId);
+      this.taskAuthOrigins.delete(tabId);
       if (!keepTab && this.browserControls.closeTab) {
         // Fecha também as abas que o agente abriu durante a tarefa.
         for (const id of [...this.tabs.keys()].filter((id) => id === tabId || !openBefore.has(id))) await this.browserControls.closeTab(id).catch(() => {});
@@ -2984,7 +3011,8 @@ class AutomationService {
           structuredExtraction: z.boolean().optional(),
           recipes: z.boolean().optional(),
           advancedInput: z.boolean().optional(),
-          saveRecipe: z.string().min(1).max(41).optional()
+          saveRecipe: z.string().min(1).max(41).optional(),
+          authenticationOrigins: z.array(z.string().url()).max(10).optional()
         }),
         handler: async (input) => this.runTask(input)
       },

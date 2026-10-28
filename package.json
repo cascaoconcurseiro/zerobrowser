@@ -1,6 +1,6 @@
 {
   "name": "zero-browser",
-  "version": "0.1.7-dev",
+  "version": "0.1.8-dev",
   "description": "Zero Browser: navegador com agente de IA e arquitetura própria baseada em REA",
   "main": "src/main/main.js",
   "scripts": {

@@ -39,10 +39,11 @@ function validateInputSchema(input) {
   return null;
 }
 
-function validateRecipe({ name, steps, input } = {}) {
+function validateRecipe({ name, steps, input, authority } = {}) {
   if (typeof name !== 'string' || !NAME_PATTERN.test(name)) return 'name deve ter 1–41 caracteres (letras, números, ponto, hífen ou _).';
   const inputProblem = validateInputSchema(input);
   if (inputProblem) return inputProblem;
+  if (authority !== undefined && !['read', 'write'].includes(authority)) return 'authority deve ser read ou write.';
   if (!Array.isArray(steps) || !steps.length) return 'Informe ao menos um passo.';
   if (steps.length > MAX_STEPS) return `No máximo ${MAX_STEPS} passos por receita.`;
   for (const [i, step] of steps.entries()) {
@@ -58,6 +59,9 @@ function validateRecipe({ name, steps, input } = {}) {
       return `${label}: toda receita exige expect (url, text ou absent).`;
     }
     if (Object.keys(step.expect).some((key) => !['url', 'text', 'absent'].includes(key))) return `${label}: expect aceita url, text ou absent.`;
+  }
+  if ((authority || 'write') === 'read' && steps.some((step) => step.tool === 'click_text')) {
+    return 'authority read não permite click_text; use write.';
   }
   return null;
 }
@@ -137,12 +141,12 @@ class RecipeStore {
     await fs.promises.rename(temporary, this.filePath);
   }
 
-  async save(origin, name, steps, input = null) {
+  async save(origin, name, steps, input = null, authority = 'write') {
     await this.load();
     const key = normalizeOrigin(origin);
     if (!key) throw new Error('Origem inválida para receita');
     this.data.recipes[key] = this.data.recipes[key] || {};
-    this.data.recipes[key][name] = { name, steps, ...(input ? { input } : {}), savedAt: this.now() };
+    this.data.recipes[key][name] = { name, steps, authority, ...(input ? { input } : {}), savedAt: this.now() };
     await this.persist();
     return this.data.recipes[key][name];
   }
@@ -157,7 +161,7 @@ class RecipeStore {
   async list(origin) {
     await this.load();
     const key = normalizeOrigin(origin);
-    return Object.values(this.data.recipes[key] || {}).map(({ name, steps, input, savedAt }) => ({ name, steps: steps.length, ...(input ? { inputs: Object.keys(input.properties || {}) } : {}), savedAt }));
+    return Object.values(this.data.recipes[key] || {}).map(({ name, steps, input, authority, savedAt }) => ({ name, steps: steps.length, authority: authority || 'write', ...(input ? { inputs: Object.keys(input.properties || {}) } : {}), savedAt }));
   }
 }
 
@@ -198,7 +202,8 @@ const RECIPE_TOOL = {
           },
           additionalProperties: false
         },
-        values: { type: 'object', description: 'Valores para os placeholders {{campo}} (run).' }
+        values: { type: 'object', description: 'Valores para os placeholders {{campo}} (run).' },
+        authority: { type: 'string', enum: ['read', 'write'], description: 'read só navega/espera; write pode clicar.' }
       },
       required: ['action'],
       additionalProperties: false

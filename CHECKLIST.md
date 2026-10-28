@@ -523,3 +523,6 @@
 - [x] Ferramenta `sheets`: read/write/goto por intervalo A1 via caixa de nome + clipboard + teclado, sem clicar em célula; fallback orientado. 5 testes; `npm test` 194/194.
 - [ ] Testar `sheets` numa planilha real (intervalo, valores, mescladas) e o mint numa tarefa real com run_steps.
 - [x] Checkpoint 6 / **0.1.7-dev** instalado: mint automático + `sheets` + receitas v2; instalador `6740ee31…903f19`, `app.asar` `a977bf32…8a59b2`, `status: PASS`, `npm test` 194/194; backup em `backups/2026-10-28-before-mint/`.
+- [x] Credencial com escopo de origem: campo sensível só aceita formulário na origem da página ou em `authenticationOrigins`; cross-origin é recusado antes de digitar. 3 testes; `npm test` 198/198.
+- [x] Autoridade de receita (`read`/`write`): leitura não executa clique, no save e na execução; `list` mostra a autoridade. Teste em `test/recipe-store.test.js`.
+- [ ] Cobrir `hidden_action` sensível sem `formAction` (hoje só aprovação) e formulário montado por script que envia para outra origem.

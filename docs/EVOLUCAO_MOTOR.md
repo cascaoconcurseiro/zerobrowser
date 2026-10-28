@@ -768,3 +768,34 @@ Limites honestos:
 - A ferramenta `sheets` depende do DOM da caixa de nome; idioma/layout diferente pode exigir o fallback visual.
 - Continua sem Guardian (revisor de ação), sem credencial com escopo de origem e sem nome acessível do Playwright —
   os três próximos itens do Pomerado que ainda não estão aqui.
+
+### Credencial com escopo de origem e autoridade de receita — 2026-10-28
+
+Dois P0 inspirados no Pomerado, implementados sem copiar código.
+
+**Credencial com escopo de origem.** O host passa a comparar a origem da página com a origem de envio do formulário
+(`formAction`) quando o alvo é campo sensível (senha/OTP/cartão). Regra:
+
+- envio para a **mesma origem** da página: permitido, com a aprovação normal;
+- envio para **outra origem**: recusado **antes de digitar**, mesmo com aprovação automática;
+- exceção explícita: origens listadas em `authenticationOrigins` no `run_task` (ex.: `https://login.provedor.com`),
+  copiadas para as abas que a tarefa adotar;
+- campo não sensível não é afetado.
+
+O `formAction` vem do snapshot AX (type_text/set_value/paste) e da inspeção por ponto (CUA). **Lacuna conhecida:**
+`hidden_action` em campo sensível não expõe formulário; continua só com aprovação.
+
+**Autoridade de receita.** `authority: read|write` no `recipe save`:
+
+- `read` aceita apenas `navigate` e `wait_for`; `click_text` é recusado no save **e** na execução;
+- `write` permite clique;
+- `list` mostra a autoridade de cada receita.
+
+Arquivos: `src/automation/service/index.js` (checagem de origem e mapa `taskAuthOrigins`, autoridade no save/run) e
+`src/automation/recipe-store.js`. Testes: `test/credential-origin.test.js` (3 casos: cross-origin recusado sem
+dispatch, mesma origem/allowlist liberados, campo comum intacto) e autoridade em `test/recipe-store.test.js`.
+`npm test` 198/198.
+
+Limites: a verificação depende de `formAction` estar no snapshot; um formulário montado por script que envia para
+outro host depois do preenchimento não é detectado por esta regra (só a de exfiltração por URL cobre parte). O
+Pomerado também revisa o código final; isso continua pendente (Guardian).

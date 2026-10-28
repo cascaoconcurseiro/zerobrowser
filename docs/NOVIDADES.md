@@ -1,9 +1,13 @@
-# Novidades — Zero Browser 0.1.7-dev
+# Novidades — Zero Browser 0.1.8-dev
 
 Versão de desenvolvimento com foco no motor de IA e em sites difíceis (planilhas, canvas, editores).
 
 ## Motor de IA
 
+- **Credencial com escopo de origem**: campo sensível só é preenchido quando o formulário envia para a origem da
+  página ou para uma origem de autenticação declarada; formulário cross-origin é recusado antes de digitar.
+- **Autoridade de receita**: `read` só navega e espera; `write` pode clicar. A receita recusa cliques quando é de
+  leitura.
 - **Mint automático**: tarefa verificada que usou passos estáveis vira receita sozinha, sem o modelo precisar salvar.
 - **Receitas v2**: schema de entrada (`{{campo}}`), validação de obrigatórios e `possibleCommit` com
   “leia antes de repetir”.

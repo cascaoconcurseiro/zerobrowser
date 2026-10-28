@@ -115,3 +115,18 @@ test('recipes accept an input schema and substitute placeholders without touchin
   const listed = await store.list('https://x.test');
   assert.deepEqual(listed[0].inputs, ['nome', 'qtd']);
 });
+
+test('recipe authority separates read-only flows from flows that click', async () => {
+  const navigate = passo('navigate', { url: 'https://x.test/a' }, { url: 'https://x.test/a' });
+  const click = passo('click_text', { text: 'Enviar' }, { text: 'Enviado' });
+  assert.equal(validateRecipe({ name: 'ler', steps: [navigate], authority: 'read' }), null);
+  assert.match(validateRecipe({ name: 'ler', steps: [navigate, click], authority: 'read' }), /read não permite/);
+  assert.equal(validateRecipe({ name: 'gravar', steps: [navigate, click], authority: 'write' }), null);
+  assert.match(validateRecipe({ name: 'x', steps: [navigate], authority: 'admin' }), /authority/);
+
+  const store = new RecipeStore();
+  await store.save('https://x.test', 'ler', [navigate], null, 'read');
+  assert.equal((await store.list('https://x.test'))[0].authority, 'read');
+  await store.save('https://x.test', 'gravar', [navigate, click], null, 'write');
+  assert.deepEqual((await store.list('https://x.test')).map((recipe) => [recipe.name, recipe.authority]).sort(), [['gravar', 'write'], ['ler', 'read']]);
+});

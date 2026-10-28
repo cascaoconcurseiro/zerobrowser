@@ -1,10 +1,10 @@
-# Como testar o Zero Browser (0.1.7-dev)
+# Como testar o Zero Browser (0.1.8-dev)
 
 Checklist manual para a versão instalada em 28/10/2026. O que depende de modelo/provedor está separado do que já
 pode ser conferido sem chave.
 
-**Build instalado:** `0.1.7-dev`, `app.asar` `a977bf32…8a59b2`; backup do estado anterior em
-`backups/2026-10-28-before-mint/`.
+**Build instalado:** `0.1.8-dev`, `app.asar` `55a0f841…33c52`; backup do estado anterior em
+`backups/2026-10-28-before-credential/`.
 
 ## 0. Novidades e versão
 
