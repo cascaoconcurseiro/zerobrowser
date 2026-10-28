@@ -1717,6 +1717,17 @@ class ZeroBrowserApp {
   }
 
   initAgentMemoryUi() {
+    const more = document.querySelector('.ai-chat-more');
+    more?.addEventListener('click', (event) => {
+      if (event.target.closest('button')) more.open = false;
+    });
+    more?.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && more.open) {
+        event.preventDefault();
+        more.open = false;
+        more.querySelector('summary')?.focus();
+      }
+    });
     this.elements.btnAiMemory?.addEventListener('click', () => this.showAgentMemory());
     this.elements.btnAiCopyChat?.addEventListener('click', () => this.copiarTexto(this.conversaEmMarkdown()));
     this.elements.btnAiRecipes?.addEventListener('click', () => this.showRecipes());

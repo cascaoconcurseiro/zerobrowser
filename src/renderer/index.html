@@ -80,6 +80,9 @@
         <label class="sr-only" for="ai-session">Conversa</label>
         <select id="ai-session" class="ai-session-select" aria-label="Histórico de conversas"></select>
         <button id="btn-ai-new-chat" class="btn-ghost" type="button" title="Começar uma conversa nova">Nova</button>
+        <details class="ai-chat-more">
+          <summary class="btn-ghost">Mais ações</summary>
+          <div class="ai-chat-more-menu" aria-label="Ações da conversa">
         <button id="btn-ai-memory" class="btn-ghost" type="button" title="Ver o que o agente memorizou">Memória</button>
         <button id="btn-ai-copy-chat" class="btn-ghost" type="button" title="Copiar a conversa em Markdown">Copiar</button>
         <button id="btn-ai-recipes" class="btn-ghost" type="button" title="Receitas salvas para este site">Receitas</button>
@@ -87,6 +90,8 @@
         <button id="btn-ai-rename-chat" class="btn-ghost" type="button" title="Renomear conversa">Renomear</button>
         <button id="btn-ai-pin-chat" class="btn-ghost" type="button" title="Fixar conversa no topo">Fixar</button>
         <button id="btn-ai-delete-chat" class="btn-ghost" type="button" title="Apagar conversa">Apagar</button>
+          </div>
+        </details>
       </div>
       <div id="ai-chat" class="ai-chat" aria-live="polite"></div>
       <div class="ai-input-area">

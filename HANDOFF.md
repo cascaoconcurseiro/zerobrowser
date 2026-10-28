@@ -1,5 +1,14 @@
 # Handoff — Zero Browser
 
+## Continuação de design e pendências — 28/10/2026
+
+- O usuário pediu redesign e UX de todo o Zero Browser, botão + de nova aba, melhoria dos pontos fracos frente ao mercado e conclusão/documentação do trabalho pendente do DeepSeek. O objetivo é amplo e continua aberto; equivalência com concorrentes ainda não foi medida.
+- Aplicadas orientações da skill Impeccable do repositório pbakaus/impeccable: modo Operate, sem instalar hooks nem rodar binário externo. O launcher de contexto não estava instalado; código e documentos existentes foram lidos diretamente.
+- No painel do agente, as ações secundárias foram agrupadas em Mais ações; Escape fecha e devolve o foco. Teste de UI confirmou que o botão + envia pedido de nova aba, menu não transborda e Escape funciona. `npm test`: 285/285; `npm run test:ui`: PASS. Captura visual ficou instável; não confundir teste de fixture com aceite visual.
+- Próximo passo concreto: abrir o aplicativo em perfil isolado visível e examinar `src/renderer/index.html`, `styles.css` e `app.js` em larguras e temas reais; validar menu e botão + ao vivo; continuar redesign do navegador, nova aba, painel e configurações. Revisar pendências do CHECKLIST uma a uma e registrar evidências; planilhas e serviços autenticados requerem ambiente de teste adequado.
+- Trabalho paralelo alterou a árvore para 0.1.41-dev antes desta sessão, com modificações pré-existentes em CSS, testes, versão e notas; preservá-las. Não instalar ou publicar sem validar o pacote final e coordenar com a atividade em andamento.
+
+
 
 ## Continuação da auditoria — 28/10/2026
 

@@ -7,6 +7,7 @@ const path = require('node:path');
 const rendererDir = path.join(__dirname, '..', 'src', 'renderer');
 const failures = [];
 const messages = [];
+let newTabCalls = 0;
 
 // O painel conversa com o main por IPC; aqui basta responder o suficiente para o init não travar.
 const stubs = {
@@ -19,7 +20,7 @@ const stubs = {
   'browser:set-side-panel-open': () => true,
   'automation:jobs': () => [],
   'automation:memory': () => [],
-  'browser:new-tab': () => ({ tabId: 'tab-smoke' }),
+  'browser:new-tab': () => ({ tabId: `tab-smoke-${++newTabCalls}` }),
   'browser:switch-tab': () => ({ tabId: 'tab-smoke' }),
   'browser:set-bookmarks-bar': () => true,
   'flame:status': () => ({ available: false }),
@@ -81,6 +82,7 @@ app.whenReady().then(async () => {
       manageChat: ['btn-ai-rename-chat','btn-ai-pin-chat','btn-ai-delete-chat','btn-ai-recipes','btn-ai-modules'].every((id) => !!document.getElementById(id)),
       headerHeight: Math.round(document.querySelector('#ai-panel .panel-header')?.getBoundingClientRect().height || 0),
       settingsIndex: document.querySelectorAll('#settings-index button').length,
+      tipografia: getComputedStyle(document.querySelector('.ai-message')).fontSize,
       newTab: (() => { const b = document.getElementById('btn-new-tab'); const t = document.querySelector('.tab'); if (!b) return null; const r = b.getBoundingClientRect(); return { width: Math.round(r.width), afterTab: t ? Math.round(r.left) >= Math.round(t.getBoundingClientRect().right) - 2 : true }; })()
     }); })()`);
 
@@ -100,7 +102,25 @@ app.whenReady().then(async () => {
     assert.ok(shell.newTab && shell.newTab.width >= 24, 'botão + de nova aba precisa estar visível');
     assert.equal(shell.newTab.afterTab, true, 'botão + deve ficar logo depois da última aba');
     assert.ok(shell.settingsIndex >= 8, `indice das configuracoes incompleto (${shell.settingsIndex})`);
+    assert.equal(shell.tipografia, '13px', `escala tipografica do chat fora do padrao (${shell.tipografia})`);
     assert.equal(shell.manageChat, true, 'ações de conversa ausentes');
+
+    const countBefore = newTabCalls;
+    await window.webContents.executeJavaScript("document.getElementById('btn-new-tab').click()");
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    assert.equal(newTabCalls, countBefore + 1, 'botão + deve solicitar uma nova aba');
+    const layout = await window.webContents.executeJavaScript(`(() => {
+      const more = document.querySelector('.ai-chat-more');
+      more.open = true;
+      const toolbar = document.querySelector('.ai-chat-toolbar');
+      const menu = more.querySelector('.ai-chat-more-menu').getBoundingClientRect();
+      const actions = [...more.querySelectorAll('button')].every((button) => button.getBoundingClientRect().width > 0);
+      more.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      return { fits: toolbar.scrollWidth <= toolbar.clientWidth + 1, menuVisible: menu.width > 0 && menu.height > 0, actions, closed: !more.open, focused: document.activeElement === more.querySelector('summary') };
+    })()`);
+    assert.equal(layout.fits, true, 'ações da conversa não devem transbordar a barra');
+    assert.equal(layout.menuVisible && layout.actions, true, 'ações devem estar acessíveis no menu');
+    assert.equal(layout.closed && layout.focused, true, 'Escape deve fechar o menu e devolver o foco');
 
     // Nova aba: script e estilo externos precisam rodar sob a CSP.
     const newtab = new BrowserWindow({ show: false, webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true } });

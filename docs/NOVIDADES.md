@@ -1,4 +1,4 @@
-# Novidades — Zero Browser 0.1.40-dev
+# Novidades — Zero Browser 0.1.41-dev
 
 Versão de desenvolvimento com foco no motor de IA e em sites difíceis (planilhas, canvas, editores).
 
@@ -7,6 +7,8 @@ Versão de desenvolvimento com foco no motor de IA e em sites difíceis (planilh
 - **Botão + ao lado da última aba**: nova aba com um clique, no lugar de sempre Ctrl+T; o resto da barra continua arrastável. O teste de UI exige o botão visível e encostado na última aba.
 
 ## Painel mais legível
+
+- **Escala tipográfica única**: 10,5 / 11,5 / 13 / 15 px, aplicada ao chat, rodapés, ações e textos secundários; o teste de UI mede 13 px no cartão do agente.
 
 - **Índice das configurações**: chips fixos no topo, um por seção, levam direto ao bloco (gerado do próprio conteúdo, sem desatualizar).
 

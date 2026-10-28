@@ -1254,6 +1254,31 @@ body.dark .ai-working-status-pill {
   background: var(--bg-secondary);
 }
 
+.ai-chat-more { position: relative; flex: 0 0 auto; }
+.ai-chat-more summary { list-style: none; white-space: nowrap; }
+.ai-chat-more summary::-webkit-details-marker { display: none; }
+.ai-chat-more[open] summary { border-color: var(--accent); color: var(--fg-primary); }
+.ai-chat-more-menu {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 6px);
+  right: 0;
+  width: 180px;
+  display: grid;
+  gap: 2px;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-secondary);
+  box-shadow: 0 8px 24px var(--shadow);
+}
+.ai-chat-more-menu .btn-ghost { border-color: transparent; text-align: left; }
+.ai-chat-more-menu .btn-ghost:hover { background: var(--bg-tertiary); }
+.ai-chat-more summary:focus-visible, .ai-chat-more-menu button:focus-visible, .tab-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 .ai-session-select {
   flex: 1;
   min-width: 0;
@@ -1369,3 +1394,10 @@ body.dark .ai-working-status-pill {
 .settings-index { position: sticky; top: 0; z-index: 2; display: flex; gap: 6px; overflow-x: auto; padding: 8px 0 10px; background: var(--bg-secondary); }
 .settings-index button { flex: none; padding: 5px 10px; border: 1px solid var(--border); border-radius: 999px; background: transparent; color: var(--fg-secondary); font-size: 11px; cursor: pointer; }
 .settings-index button:hover, .settings-index button:focus-visible { color: var(--fg-primary); border-color: var(--accent); }
+
+/* Escala tipografica unica (o painel usava 10/12/13 px sem criterio). */
+:root { --fs-xs: 10.5px; --fs-sm: 11.5px; --fs-md: 13px; --fs-lg: 15px; }
+.ai-message { font-size: var(--fs-md); }
+.ai-message .ai-rich code, .ai-message .ai-rich pre { font-size: var(--fs-sm); }
+.ai-tools-used, .ai-run-stats, .ai-timeline, .ai-message-actions .btn-ghost { font-size: var(--fs-sm); }
+.ai-privacy-note, .panel-subtitle, .ai-memory-empty, .ai-job-row span { font-size: var(--fs-xs); }

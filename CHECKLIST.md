@@ -559,3 +559,12 @@
 - [x] Validar pacote separado em fixture Electron; pacote final após alterações adicionais ainda precisa ser refeito.
 - [x] Corrigir publicação do token de pipe antes da ACL e falha aberta quando a restrição falha; teste com ACL real no Windows passou.
 - [ ] Atualizar e verificar instalação: 0.1.39-dev instalada ainda contém o sandbox vulnerável.
+
+## Continuação de UX — 28/10/2026
+
+- [x] Agrupar ações secundárias do painel do agente e verificar Escape/foco e ausência de transbordamento na fixture.
+- [x] Verificar no teste Electron que clicar no botão + solicita a criação de uma aba.
+- [ ] Validar visualmente o botão + e as alterações do painel em aplicativo real e perfil isolado.
+- [ ] Redesenhar e validar de forma consistente as superfícies do navegador, nova aba, painel e configurações.
+- [ ] Inventariar e concluir as pendências do DeepSeek com evidência para cada item; não marcar pendências históricas sem validação.
+- [ ] Comparar confiabilidade, velocidade, custo e segurança com concorrentes em condições equivalentes antes de alegar paridade.
