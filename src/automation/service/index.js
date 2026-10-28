@@ -1692,7 +1692,9 @@ class AutomationService {
         return {
           ...snapshot.tree, url: displayUrl, nodes, text,
           ...(headings.length ? { headings } : {}),
-          ...(contentSource && contentSource !== 'body' ? { contentSource } : {})
+          ...(contentSource && contentSource !== 'body' ? { contentSource } : {}),
+          // Fallback visual: DOM vazio/canvas não descreve o alvo; sugere UMA captura em vez de repetir inspeção.
+          ...(nodes.length <= 3 ? { visaoSugerida: `O DOM descreve apenas ${nodes.length} controle(s). Se o alvo não estiver na lista, use see_page uma vez; não repita inspect_page.` } : {})
         };
       }
       if (name === 'hidden_action') {
