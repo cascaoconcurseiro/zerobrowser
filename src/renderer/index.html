@@ -195,6 +195,22 @@
           </label>
         </section>
         <section class="settings-section">
+          <h3>Agente de IA · recursos</h3>
+          <label class="setting-item">
+            <input type="checkbox" id="setting-agent-recipes" checked>
+            <span>Receitas por site (repetir passos sem chamar o modelo)</span>
+          </label>
+          <label class="setting-item">
+            <input type="checkbox" id="setting-agent-transforms" checked>
+            <span>Cálculo e módulos no sandbox (sem acesso a rede ou disco)</span>
+          </label>
+          <label class="setting-item">
+            <input type="checkbox" id="setting-agent-prompt-cache">
+            <span>Cache de prefixo do provedor (só para OpenAI/OpenRouter/Claude)</span>
+          </label>
+          <p class="setting-description">Receitas e módulos só rodam sobre dados já lidos; nenhum deles executa código dentro da página. O cache é opt-in porque só rende quando o provedor devolve tokens cacheados.</p>
+        </section>
+        <section class="settings-section">
           <h3>Desenvolvedor</h3>
           <label class="setting-item">
             <input type="checkbox" id="setting-cdp-enabled">

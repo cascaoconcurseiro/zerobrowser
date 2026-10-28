@@ -1,4 +1,21 @@
-# Novidades — Zero Browser 0.1.16-dev
+# Novidades — Zero Browser 0.1.17-dev
+
+Versão de desenvolvimento com foco no motor de IA e em sites difíceis (planilhas, canvas, editores).
+
+## Auditoria e correções
+
+- **Pipe MCP autenticado**: o canal local que clientes como Claude Code e Codex usam agora exige um token criado a
+  cada início (arquivo `pipe-token` na pasta de dados do usuário). Antes, qualquer processo local podia dirigir o
+  navegador; agora a primeira linha da conexão precisa provar acesso à pasta do perfil.
+- **Retomada funcionando de verdade**: ao pausar no limite de ações na mesma sessão, a tarefa agora vai para a lista
+  com id; antes o cartão **Continuar tarefa** aparecia, mas o botão não fazia nada.
+- **Módulos voltaram a rodar**: o Guardian recusava `module run` sem `code` (que usa o código salvo) por engano.
+- **Contrato de saída com lote**: receita que lê dentro de `sheets batch` agora alimenta `output`/`outputValid`; antes
+  falhava com “nenhuma leitura”.
+- **Recursos ligados de verdade**: Receitas, cálculo/módulos no sandbox e cache de prefixo estavam no motor mas o
+  painel nunca os ativava. Agora há três opções em **Configurações → Agente de IA · recursos** (receitas e módulos
+  ligados por padrão; cache opt-in) e o IPC repassa as três.
+
 
 Versão de desenvolvimento com foco no motor de IA e em sites difíceis (planilhas, canvas, editores).
 

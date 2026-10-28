@@ -49,6 +49,9 @@ async function initStore() {
       defaults: {
         'automation.enabled': true,
         'automation.approvalMode': 'low-risk',
+        'automation.recipes': true,
+        'automation.transforms': true,
+        'automation.promptCache': false,
         'automation.provider': 'openrouter',
         'automation.model': 'openai/gpt-4o-mini',
         'automation.apiKey': '',

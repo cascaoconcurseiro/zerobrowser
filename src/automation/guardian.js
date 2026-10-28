@@ -65,9 +65,19 @@ function reviewAction({ name, args = {}, pageUrl = '', taskOrigin = '', authenti
     }
   }
 
-  if (name === 'transform' || (name === 'module' && (args.action === 'save' || args.action === 'run'))) {
+  if (name === 'transform') {
     const problem = checkCode(args.code);
     if (problem) deny(problem);
+  }
+  // Só valida o código quando ele veio na chamada; module run sem code usa o código já salvo.
+  if (name === 'module' && (args.action === 'save' || args.action === 'run')) {
+    const code = typeof args.code === 'string' ? args.code.trim() : '';
+    if (code) {
+      const problem = checkCode(code);
+      if (problem) deny(problem);
+    } else if (args.action === 'save') {
+      deny('módulo sem código');
+    }
   }
 
   if (name === 'clipboard' && args.action === 'write') flags.push('gravação na área de transferência');

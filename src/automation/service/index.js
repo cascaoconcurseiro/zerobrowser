@@ -7,7 +7,7 @@ const { Level } = require('level');
 const fs = require('fs');
 const path = require('path');
 const { performCuaInput, performKeySequence } = require('../cua-input');
-const { automationPipePath } = require('../pipe-path');
+const { automationPipePath, pipeTokenPath } = require('../pipe-path');
 const { scrollSearchInPage } = require('../scroll-search');
 const { summarizeBatchCoverage } = require('../batch-coverage');
 const { getAgentTools } = require('../tools/agent-tool-registry');
@@ -442,6 +442,11 @@ class AutomationService {
     if (process.platform === 'win32') {
       try {
         this.pipePath = automationPipePath();
+        // Token por execução: cliente local precisa provar que tem acesso à pasta de dados do usuário.
+        this.pipeToken = randomBytes(32).toString('hex');
+        const tokenFile = pipeTokenPath();
+        await fs.promises.mkdir(path.dirname(tokenFile), { recursive: true });
+        await fs.promises.writeFile(tokenFile, this.pipeToken, { mode: 0o600 });
         this.pipeServer = net.createServer((socket) => this.acceptMcpPipeClient(socket));
         await new Promise((resolve, reject) => {
           this.pipeServer.once('error', reject);
@@ -529,11 +534,15 @@ class AutomationService {
 
   acceptMcpPipeClient(socket) {
     let buffer = '';
+    // Primeira linha é o token; sem ele o socket morre antes de qualquer JSON-RPC.
+    let authenticated = false;
     socket.setEncoding('utf8');
+    // destroy() sem listener de erro derrubaria o processo; conexão recusada é rotina, não exceção.
+    socket.on('error', () => {});
     socket.on('data', async (chunk) => {
       buffer += chunk;
       if (buffer.length > 1024 * 1024) {
-        socket.destroy(new Error('MCP message exceeds 1 MiB'));
+        socket.destroy();
         return;
       }
       let newline;
@@ -541,6 +550,16 @@ class AutomationService {
         const line = buffer.slice(0, newline).trim();
         buffer = buffer.slice(newline + 1);
         if (!line) continue;
+        if (!authenticated) {
+          const expected = Buffer.from(String(this.pipeToken || ''));
+          const supplied = Buffer.from(line);
+          if (!expected.length || supplied.length !== expected.length || !timingSafeEqual(supplied, expected)) {
+            socket.destroy();
+            return;
+          }
+          authenticated = true;
+          continue;
+        }
         let request;
         try {
           request = JSON.parse(line);
@@ -601,9 +620,11 @@ class AutomationService {
   }
 
   // Pausa que precisa sobreviver ao reinício: grava no disco sem bloquear o fluxo da tarefa.
+  // O id vai dentro do estado porque listJobs() e o botão "Continuar" leem dele, não da chave do Map.
   rememberPausedRun(id, state) {
-    this.pausedAgentRuns.set(id, state);
-    this.jobStore?.save(id, state).catch(() => {});
+    const entry = { ...state, id };
+    this.pausedAgentRuns.set(id, entry);
+    this.jobStore?.save(id, entry).catch(() => {});
   }
 
   forgetPausedRun(id) {
@@ -2585,8 +2606,15 @@ class AutomationService {
           else output = { ...(await performCuaInput(tab.webContents, { kind: 'cua_click', x: target.x, y: target.y })), target: target.label };
         } else if (step.tool === 'sheets') {
           output = await this.sheetsAction(tabId, tab, { ...step.args }, trace);
-          if (output?.success && step.args.action === 'read' && Array.isArray(output.values)) {
-            lastRead = { grid: output.values, range: output.range };
+          const readFrom = (candidate) => (candidate?.success && Array.isArray(candidate.values) ? { grid: candidate.values, range: candidate.range } : null);
+          if (step.args.action === 'read') {
+            lastRead = readFrom(output) || lastRead;
+          } else if (step.args.action === 'batch' && Array.isArray(output?.results)) {
+            // O contrato de saída usa a última leitura do lote, não só um read isolado.
+            for (const item of output.results) {
+              const read = readFrom(item);
+              if (read) lastRead = read;
+            }
           }
         } else {
           output = { success: false, error: `Ferramenta não suportada em receita: ${step.tool}` };

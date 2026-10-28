@@ -452,20 +452,25 @@ test('automation service opens its Level database and accepts a WebSocket client
   assert.equal(result.success, true);
   assert.ok(Array.isArray(result.tools));
 
-  if (process.platform === 'win32') {
+  if (process.platform === 'win32' && service.pipeServer) {
+    const { pipeTokenPath } = require('../src/automation/pipe-path');
+    const pipeToken = fs.readFileSync(pipeTokenPath(dataDir), 'utf8').trim();
     const requestMcp = (request) => new Promise((resolve, reject) => {
       const socket = net.createConnection(service.pipePath);
       let response = '';
-      socket.once('error', reject);
+      const timer = setTimeout(() => { socket.destroy(); reject(new Error('pipe sem resposta')); }, 5000);
+      socket.once('error', (error) => { clearTimeout(timer); reject(error); });
       socket.on('data', (chunk) => {
         response += chunk.toString();
         const lineEnd = response.indexOf('\n');
         if (lineEnd !== -1) {
+          clearTimeout(timer);
           socket.end();
           resolve(JSON.parse(response.slice(0, lineEnd)));
         }
       });
-      socket.once('connect', () => socket.write(`${JSON.stringify(request)}\n`));
+      // Primeira linha autentica o pipe; o JSON-RPC vem depois.
+      socket.once('connect', () => socket.write(`${pipeToken}\n${JSON.stringify(request)}\n`));
     });
     const initialized = await requestMcp({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'test', version: '1' } } });
     assert.equal(initialized.result.serverInfo.name, 'zero-browser');

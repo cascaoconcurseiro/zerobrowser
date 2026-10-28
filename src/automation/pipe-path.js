@@ -15,4 +15,10 @@ function automationPipePath(dataDir = zeroEnv('DATA_DIR')) {
   return `\\\\.\\pipe\\navegante-automation-${suffix}`;
 }
 
-module.exports = { automationPipePath, defaultDataDir };
+module.exports = { automationPipePath, defaultDataDir, pipeTokenPath };
+
+// Token do pipe: fica ao lado dos dados do perfil, criado a cada início do serviço.
+// Sem ele, qualquer processo local poderia falar MCP com o navegador.
+function pipeTokenPath(dataDir = zeroEnv('DATA_DIR')) {
+  return path.join(dataDir || defaultDataDir(), 'automation', 'pipe-token');
+}

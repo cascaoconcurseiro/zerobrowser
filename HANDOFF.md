@@ -26,7 +26,7 @@
   paginada agora é `complete` (antes era sempre falso), e uma leitura por `tabId` não conta as outras abas como
   omitidas. Regra em `src/automation/batch-coverage.js`; detalhe, conflitos e reversão em
   `docs/REGISTRO_INTEGRACAO_0.1.5.md`.
-- Versão: `package.json` e `package-lock.json` em 0.1.16-dev (o lock acompanha; teste `test/whats-new.test.js`).
+- Versão: `package.json` e `package-lock.json` em 0.1.17-dev (o lock acompanha; teste `test/whats-new.test.js`).
 - **Motor, salto 1 (2026-10-27):** `run_steps` aceita `expect {url,text,absent}` conferido pelo host (espera de até
   3 s, texto normalizado, parada quando a pós-condição não vem). Opt-in: só com `actionScripts`/`--scripts`.
   `npm test` 133/133; regra em `docs/EVOLUCAO_MOTOR.md`; restauração em `docs/PONTOS_DE_RESTAURACAO.md`
@@ -133,6 +133,14 @@
   `Zero Browser Setup 0.1.16-dev.exe` (SHA-256 `ff3e6aae…bf7b8`, 124.467.439 bytes); `app.asar` `b72f59d3…a411`
   igual em build/produção; integração `status: PASS`; `npm test` 253/253; benchmark 44 e 33 passaram no build
   instalado. Backup do 0.1.15-dev em `backups/2026-10-28-before-sheets-batch/`.
+- **Checkpoint 16 instalado (2026-10-28):** versão **0.1.17-dev** após auditoria geral. Corrigidos: pipe MCP sem
+  autenticação (token por execução em `<dados>/automation/pipe-token`; `mcp-stdio.js` e bench atualizados),
+  `destroy(Error)` que derrubava o processo, retomada sem `id` (botão “Continuar” não agia), Guardian recusando
+  `module run` sem `code`, contrato de saída com leitura dentro de `sheets batch` e recursos do agente que nunca
+  chegavam ao painel (agora em Configurações → Agente · recursos). Relatório: `docs/AUDITORIA_2026-10-28.md`.
+  Instalador `Zero Browser Setup 0.1.17-dev.exe` (SHA-256 `61a9ef50…d61eb`, 124.468.721 bytes); `app.asar`
+  `389b4f7c…c36868` igual em build/produção; integração `status: PASS`; `npm test` **260/260**; benchmark 33 e 44
+  passaram no build instalado. Backup em `backups/2026-10-28-before-audit/`.
 - **Publicação (2026-10-28):** `main` em `c13447e` enviado a `origin/main` (26 commits desde 0.1.4); tag
   `motor-pre-leaps-2026-10-27` publicada. Nenhum build/instalador foi anexado a release no GitHub.
 - **Primeiras execuções reais (deepseek-flash, 1 por condição):** tarefa 44 padrão 13 passos/13,0 s/47.456 tokens;

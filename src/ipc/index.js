@@ -107,7 +107,15 @@ function setupIpc() {
     if (!automationService) return { success: false, error: 'Serviço de automação indisponível' };
     const { provider, apiKey, model } = await getAgentConfig();
     if (!model) return { success: false, error: 'Sincronize os modelos e escolha um modelo antes de conectar' };
-    return automationService.runAgent(tabId, prompt, apiKey, model, !testOnly, provider, Boolean(requireToolCall), { resumable: !testOnly, resumeId: testOnly ? null : resumeId });
+    // Recursos do agente vêm das configurações; sem isso eles existiam no serviço e nunca chegavam ao painel.
+    const recipes = (await store.get('automation.recipes')) !== false;
+    const transforms = (await store.get('automation.transforms')) !== false;
+    const promptCache = (await store.get('automation.promptCache')) === true;
+    return automationService.runAgent(tabId, prompt, apiKey, model, !testOnly, provider, Boolean(requireToolCall), {
+      resumable: !testOnly,
+      resumeId: testOnly ? null : resumeId,
+      ...(testOnly ? {} : { recipes, transforms, promptCache })
+    });
   });
 
   ipcMain.handle('automation:memory', async (_e, { action = 'list', id } = {}) => {

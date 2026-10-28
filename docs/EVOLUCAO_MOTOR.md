@@ -984,3 +984,32 @@ e 33 passaram no build instalado.
 
 Limites: `batch` não cria aba, não altera formatação e não lê intervalo protegido; cada operação ainda passa pela
 caixa de nome, então planilha com a caixa de nome quebrada continua exigindo `sheets_accessibility`/visual.
+
+### Auditoria geral — 0.1.17-dev
+
+Varredura completa (57 arquivos, ~12.200 linhas em `src/`) com checagem de sintaxe, suíte, comparação automática de
+IPC × preload, comparação de ids do DOM × renderer e leitura dirigida dos fluxos críticos. Relatório completo:
+`docs/AUDITORIA_2026-10-28.md`.
+
+Correções com impacto real:
+
+- **Pipe MCP autenticado.** O canal local aceitava JSON-RPC de qualquer processo. Agora cada início gera um token
+  (32 bytes) em `<dados>/automation/pipe-token`, e a primeira linha da conexão precisa ser esse token; sem ele o
+  socket é derrubado. `scripts/mcp-stdio.js` e `bench/avaliar.js` leem o arquivo e autenticam antes do handshake.
+- **`socket.destroy(error)` sem listener** derrubava o processo no primeiro cliente não autenticado; agora há
+  handler de erro e o descarte é silencioso (rotina, não exceção).
+- **Retomada sem id.** `rememberPausedRun` guardava o estado sem `id`; `listJobs()` devolvia `id: ''` e o botão
+  “Continuar tarefa” chamava `sendAiMessage('')`, que retornava sem fazer nada. O estado passou a carregar o id.
+- **Guardian × módulos.** `module run` sem `code` (usa o salvo) era recusado porque `checkCode(undefined)` retorna
+  “código obrigatório”. A validação agora só roda quando há código na chamada; `save` sem código continua recusado.
+- **Contrato de saída × batch.** Receita com `sheets batch` contendo `read` não preenchia `lastRead`; o contrato
+  falhava com “nenhuma leitura”. O runner percorre `results` e usa a última leitura do lote.
+- **Recursos invisíveis no painel.** `recipes`, `transforms` e `promptCache` existiam no serviço, mas o IPC do
+  painel chamava `runAgent` só com `resumable`/`resumeId`. Há três opções em Configurações → Agente · recursos
+  (receitas e módulos ligados por padrão), persistidas no store e repassadas na chamada.
+
+Verificado sem defeito: sintaxe 57/57; 57 handlers IPC sem `invoke` órfão; 74 ids de DOM todos existentes;
+`contextIsolation`/`sandbox`/`nodeIntegration:false`; credenciais em AES-256-GCM com chave via `safeStorage`;
+SQL com prepared statements e rollback. Riscos deixados abertos e conscientes: sem CSP nas páginas locais (testar
+antes de aplicar em `file://`), script inline no `newtab.html`, token do pipe protegido pela ACL da pasta no
+Windows, `automation:list-tools` sem consumidor e cliente WS sem rejeição imediata no disconnect.

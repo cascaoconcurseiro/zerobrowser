@@ -1,10 +1,20 @@
-# Como testar o Zero Browser (0.1.16-dev)
+# Como testar o Zero Browser (0.1.17-dev)
 
 Checklist manual para a versão instalada em 28/10/2026. O que depende de modelo/provedor está separado do que já
 pode ser conferido sem chave.
 
-**Build instalado:** `0.1.16-dev`, `app.asar` `b72f59d3…a411`; backup do estado anterior em
-`backups/2026-10-28-before-sheets-batch/`.
+**Build instalado:** `0.1.17-dev`, `app.asar` `389b4f7c…c36868`; backup do estado anterior em
+`backups/2026-10-28-before-audit/`.
+
+## 0.3 Auditoria (o que conferir)
+
+- [ ] **Configurações → Agente de IA · recursos**: as três opções aparecem (receitas e módulos ligados, cache
+      desligado) e sobrevivem a fechar/reabrir.
+- [ ] Pausar uma tarefa no limite de ações e clicar **Continuar tarefa** no cartão do topo: deve retomar (antes o
+      botão não fazia nada).
+- [ ] Com a extensão MCP (Claude Code/Codex) configurada por `scripts/mcp-stdio.js`, `tools/list` deve responder;
+      um cliente que conecte no pipe sem o token deve ser derrubado.
+- [ ] Nenhum diálogo ou tela deve quebrar por causa das opções novas.
 
 ## 0.2 Planilhas com poucas ações
 

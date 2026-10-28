@@ -13,7 +13,7 @@ const { tarefasStress } = require('./tarefas-stress');
 // "todos" fica só com as páginas locais; os sites reais dependem da internet e rodam à parte.
 const CONJUNTOS = { basico: basicas, dificeis: tarefasDificeis, stress: tarefasStress, todos: [...basicas, ...tarefasDificeis, ...tarefasStress], reais: tarefasReais };
 const { iniciarServidor } = require('./servidor');
-const { automationPipePath, defaultDataDir } = require('../src/automation/pipe-path');
+const { automationPipePath, defaultDataDir, pipeTokenPath } = require('../src/automation/pipe-path');
 
 const { compararRelatorios, comparacaoMarkdown } = require('./comparador');
 const RESULTADOS = path.join(__dirname, 'resultados');
@@ -46,9 +46,12 @@ function lerArgumentos(argv) {
   return opcoes;
 }
 
-function conectarMcp(caminho) {
+function conectarMcp(caminho, token) {
   return new Promise((resolve, reject) => {
     const socket = net.connect(caminho);
+    // Primeira linha autentica o pipe; sem ela o serviço derruba a conexão.
+    socket.on('connect', () => { if (token) socket.write(`${token}
+`); });
     const pendentes = new Map();
     let proximoId = 1;
     let buffer = '';
@@ -262,7 +265,10 @@ async function principal() {
   const selecionadas = opcoes.tarefas ? tarefas.filter((t) => opcoes.tarefas.some((p) => t.id.startsWith(p))) : tarefas;
   if (!selecionadas.length) throw new Error('Nenhuma tarefa corresponde ao filtro --tarefas.');
 
-  const mcp = await conectarMcp(automationPipePath(opcoes.dataDir || defaultDataDir())).catch(async (erro) => {
+  const dataDir = opcoes.dataDir || defaultDataDir();
+  let pipeToken = '';
+  try { pipeToken = require('fs').readFileSync(pipeTokenPath(dataDir), 'utf8').trim(); } catch {}
+  const mcp = await conectarMcp(automationPipePath(dataDir), pipeToken).catch(async (erro) => {
     await servidor.fechar();
     throw erro;
   });

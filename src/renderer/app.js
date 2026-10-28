@@ -76,7 +76,6 @@ class ZeroBrowserApp {
       settingsPanel: document.getElementById('settings-panel'),
       btnCloseSettings: document.getElementById('btn-close-settings'),
       btnChangeDownload: document.getElementById('btn-change-download'),
-      browserView: document.getElementById('browser-view'),
       toastContainer: document.getElementById('toast-container')
     };
   }
@@ -154,7 +153,10 @@ class ZeroBrowserApp {
       'setting-do-not-track': 'privacy.doNotTrack',
       'setting-cdp-enabled': 'developer.cdpEnabled',
       'setting-webmcp-enabled': 'developer.webMcpEnabled',
-      'setting-download-prompt': 'downloads.prompt'
+      'setting-download-prompt': 'downloads.prompt',
+      'setting-agent-recipes': 'automation.recipes',
+      'setting-agent-transforms': 'automation.transforms',
+      'setting-agent-prompt-cache': 'automation.promptCache'
     };
     for (const [id, key] of Object.entries(settingKeys)) {
       const element = document.getElementById(id);
@@ -1022,6 +1024,9 @@ class ZeroBrowserApp {
     document.getElementById('setting-webmcp-enabled').checked = settings['developer.webMcpEnabled'] || false;
     document.getElementById('setting-download-path').value = settings['downloads.path'] || '';
     document.getElementById('setting-download-prompt').checked = settings['downloads.prompt'] !== false;
+    document.getElementById('setting-agent-recipes').checked = settings['automation.recipes'] !== false;
+    document.getElementById('setting-agent-transforms').checked = settings['automation.transforms'] !== false;
+    document.getElementById('setting-agent-prompt-cache').checked = settings['automation.promptCache'] === true;
   }
 
   async renderImportSources() {
@@ -1727,6 +1732,8 @@ class ZeroBrowserApp {
       this.elements.btnAiSend.disabled = false;
       this.elements.btnAiSend.textContent = 'Enviar';
       this.elements.btnAiSend.setAttribute('aria-label', 'Enviar comando');
+      // Um novo pausa/fim muda a lista de tarefas: o cartão do topo precisa acompanhar.
+      this.refreshJobsBanner();
     }
   }
 
