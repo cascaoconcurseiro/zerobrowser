@@ -7,7 +7,8 @@
   sobre o `main` — 2 conflitos resolvidos — e aplicada por fast-forward. Histórico linear, sem merge commit e sem push.
 - Verificação desta integração: `npm test` **177/177**; `node --check` em todo `src/`, `scripts/`, `bench/`, `test/`;
   `git diff --check` limpo; `npm audit --omit=dev` zero. Integrações Electron na árvore instalada:
-  `test:electron` exit 0, `test:bench-store` PASS, `test:agent-download` PASS. Falta apenas benchmark com modelo real.
+  `test:electron` exit 0, `test:bench-store` PASS, `test:agent-download` PASS. Benchmark real: 44 e 33 passaram,
+  com 5×5 na 44 depois do ajuste do journal (ver abaixo).
 - **Build e instalação (2026-10-27):** `dist\Zero Browser Setup 0.1.5-dev.exe` (124.430.162 bytes,
   SHA-256 `4769f4eb2905f7710a4cd426fd1d9121d49603a821596e289ab8bdc5ce82bcc4`) foi instalado em
   `%LOCALAPPDATA%\Programs\navegante` após validação do `win-unpacked` em perfil isolado. O `app.asar` do build e
@@ -73,6 +74,8 @@
   `app.asar` `92940a8c…02b720`, `status: PASS`); backup em `backups/2026-10-27-before-journal-fix/`.
   Medição 5×5 na tarefa 44: 5/5 das duas condições, journal com −16,1% passos, −15,1% chamadas e −10,1% tokens;
   regressão do journal removida (prova estatística ainda requer 14 tarefas e outro modelo).
+- **Publicação (2026-10-28):** `main` em `c13447e` enviado a `origin/main` (26 commits desde 0.1.4); tag
+  `motor-pre-leaps-2026-10-27` publicada. Nenhum build/instalador foi anexado a release no GitHub.
 - **Primeiras execuções reais (deepseek-flash, 1 por condição):** tarefa 44 padrão 13 passos/13,0 s/47.456 tokens;
   44 `--journal` 18/28,5 s/117.753 (piorou — não promover sem 5 repetições); 33 padrão 12/13,7 s/52.871;
   33 `--scripts` 5/10,3 s/33.065. Todas 1/1. Detalhe e ressalvas em `docs/EVOLUCAO_MOTOR.md`.

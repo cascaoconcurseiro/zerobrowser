@@ -76,7 +76,7 @@ Estes itens não são bug do build; são gates que faltam:
       `test:agent-download` PASS.
 - Benchmark pareado 0.1.4 × 0.1.5-dev em suíte difícil + básica, com dois modelos.
 - Grounding visual (clicar por elemento visto) não foi implementado; depende de modelo com visão.
-- Nada foi enviado ao `origin`; o `main` está 20 commits à frente.
+- Publicado em `origin/main` em 28/10/2026 (`c13447e`); a tag `motor-pre-leaps-2026-10-27` também está no remoto.
 
 ## 5. Se algo der errado
 
