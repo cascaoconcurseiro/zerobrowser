@@ -10,9 +10,11 @@ const { tarefas: basicas } = require('./tarefas');
 const { tarefasDificeis } = require('./tarefas-dificeis');
 const { tarefasReais } = require('./tarefas-reais');
 const { tarefasReaisDificeis } = require('./tarefas-reais-dificeis');
+const { tarefasReaisExtras } = require('./tarefas-reais-extras');
+const { tarefasEmail } = require('./tarefas-email');
 const { tarefasStress } = require('./tarefas-stress');
 // "todos" fica só com as páginas locais; os sites reais dependem da internet e rodam à parte.
-const CONJUNTOS = { basico: basicas, dificeis: tarefasDificeis, stress: tarefasStress, todos: [...basicas, ...tarefasDificeis, ...tarefasStress], reais: tarefasReais, 'reais-dificeis': tarefasReaisDificeis };
+const CONJUNTOS = { basico: basicas, dificeis: tarefasDificeis, stress: tarefasStress, todos: [...basicas, ...tarefasDificeis, ...tarefasStress], reais: tarefasReais, 'reais-dificeis': tarefasReaisDificeis, 'reais-extras': tarefasReaisExtras, email: tarefasEmail };
 const { iniciarServidor } = require('./servidor');
 const { automationPipePath, defaultDataDir, pipeTokenPath } = require('../src/automation/pipe-path');
 
@@ -269,7 +271,7 @@ async function principal() {
   }
 
   const tarefas = CONJUNTOS[opcoes.conjunto];
-  if (!tarefas) throw new Error('Use --conjunto=basico, dificeis, stress, todos, reais ou reais-dificeis.');
+  if (!tarefas) throw new Error('Use --conjunto=basico, dificeis, stress, todos, reais, reais-dificeis, reais-extras ou email.');
   const selecionadas = opcoes.tarefas ? tarefas.filter((t) => opcoes.tarefas.some((p) => t.id.startsWith(p))) : tarefas;
   if (!selecionadas.length) throw new Error('Nenhuma tarefa corresponde ao filtro --tarefas.');
 
@@ -297,7 +299,7 @@ async function principal() {
         try {
           const resposta = await mcp.chamar('tools/call', {
             name: 'run_task',
-            arguments: { startUrl: tarefa.startUrl || servidor.urlDa(tarefa.id), prompt: tarefa.pedido, maxSteps: opcoes.maxPassos, ...(tarefa.hosts ? { approvalPolicy: 'public-sites', allowedHosts: tarefa.hosts } : { approvalPolicy: 'local-fixture' }), ...(tarefa.id === '44-estoque-filiais' ? { captureReadEvidence: true } : {}), ...(tarefa.verificarPagina ? { keepTab: true } : {}), ...(tarefa.capturarTextoInicial ? { captureInitialText: true } : {}), ...(tarefa.captureInitialChecks ? { captureInitialChecks: tarefa.captureInitialChecks.map(({ esperado, ...check }) => check) } : {}), engine: opcoes.motor, observeAfterActions: opcoes.observeAfterActions, ...(opcoes.preInspect ? { preInspect: true } : {}), ...(opcoes.scripts ? { actionScripts: true } : {}), ...(opcoes.diff ? { diffSnapshots: true } : {}), ...(opcoes.cascade ? { cascadeModel: opcoes.cascade } : {}), ...(opcoes.stream ? { streaming: true } : {}), ...(opcoes.journal ? { effectJournal: true } : {}), ...(opcoes.tempo ? { maxDurationSec: opcoes.tempo } : {}) }
+            arguments: { startUrl: tarefa.startUrl || servidor.urlDa(tarefa.id), prompt: tarefa.pedido, maxSteps: opcoes.maxPassos, ...(tarefa.hosts ? { approvalPolicy: 'public-sites', allowedHosts: tarefa.hosts, ...(tarefa.credenciais ? { allowCredentials: true } : {}) } : { approvalPolicy: 'local-fixture' }), ...(tarefa.id === '44-estoque-filiais' ? { captureReadEvidence: true } : {}), ...(tarefa.verificarPagina ? { keepTab: true } : {}), ...(tarefa.capturarTextoInicial ? { captureInitialText: true } : {}), ...(tarefa.captureInitialChecks ? { captureInitialChecks: tarefa.captureInitialChecks.map(({ esperado, ...check }) => check) } : {}), engine: opcoes.motor, observeAfterActions: opcoes.observeAfterActions, ...(opcoes.preInspect ? { preInspect: true } : {}), ...(opcoes.scripts ? { actionScripts: true } : {}), ...(opcoes.diff ? { diffSnapshots: true } : {}), ...(opcoes.cascade ? { cascadeModel: opcoes.cascade } : {}), ...(opcoes.stream ? { streaming: true } : {}), ...(opcoes.journal ? { effectJournal: true } : {}), ...(opcoes.tempo ? { maxDurationSec: opcoes.tempo } : {}) }
           }, opcoes.tempo ? (opcoes.tempo + 60) * 1000 : TEMPO_POR_TAREFA_MS);
           resultado = resposta?.structuredContent || {};
         } catch (erro) {

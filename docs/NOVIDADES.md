@@ -1,6 +1,17 @@
-# Novidades — Zero Browser 0.1.22-dev
+# Novidades — Zero Browser 0.1.23-dev
 
 Versão de desenvolvimento com foco no motor de IA e em sites difíceis (planilhas, canvas, editores).
+
+## Fluxos com login sob autorização explícita
+
+- **`allowCredentials` em tarefas de QA**: uma tarefa pode liberar campos de senha **apenas** nos hosts declarados
+  e somente quando o chamador passa essa opção. Sem ela, senha/código continuam recusados — nada muda no uso normal.
+- **Motivo real da recusa**: quando uma ação é negada por política, a mensagem agora traz o motivo específico
+  (antes mostrava só “cancelada pelo usuário”).
+- **Suíte `--conjunto=reais-extras`**: carrinho (SauceDemo), cadastro e carrinho (Automation Exercise), app de RH
+  (OrangeHRM demo), e-mail descartável (Yopmail) e Google Planilhas.
+- **Suíte `--conjunto=email`** com fixture local: mover mensagem para pasta, marcar como lida, salvar rascunho e
+  enviar.
 
 ## Sites reais difíceis
 

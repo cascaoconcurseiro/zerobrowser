@@ -369,8 +369,15 @@ class AutomationService {
     if (!reason) return { approved: true, required: false };
     if (taskPolicy) {
       const pageUrl = tab?.webContents?.getURL?.() || tab?.state.url || '';
-      if (!sensitive && taskPolicyAllows(taskPolicy, pageUrl)) return { approved: true, required: true };
-      return { approved: false, required: true, cancelled: true, error: sensitive ? 'Ação recusada: campos de senha, código ou pagamento nunca são aprovados automaticamente' : 'Ação recusada pela política da tarefa de avaliação' };
+      const allowedHost = taskPolicyAllows(taskPolicy, pageUrl);
+      // Credencial só é liberada quando a tarefa declara isso E o host está na lista (demo/QA sob pedido do usuário).
+      if ((!sensitive || taskPolicy.allowsCredentials === true) && allowedHost) return { approved: true, required: true };
+      return {
+        approved: false, required: true, cancelled: true,
+        error: sensitive
+          ? 'Ação recusada: campo de senha, código ou pagamento não é liberado para esta tarefa de avaliação'
+          : 'Ação recusada pela política da tarefa de avaliação'
+      };
     }
     if (typeof this.approvalHandler !== 'function') {
       return { approved: false, required: true, error: 'Ação bloqueada: a confirmação do usuário não está disponível' };
@@ -2226,7 +2233,7 @@ class AutomationService {
                 trace.stopReason = 'denied';
               }
               if (resumeId) this.forgetPausedRun(resumeId);
-              return { success: false, cancelled: true, error: 'A ação foi cancelada pelo usuário; a tarefa foi interrompida.' };
+              return { success: false, cancelled: true, error: error.message || 'A ação foi cancelada pelo usuário; a tarefa foi interrompida.' };
             }
             output = { success: false, error: error.message };
           }
@@ -2698,14 +2705,16 @@ class AutomationService {
     return { success: true, completed: steps.length, total: steps.length, results, output: verdict.output, outputValid: true };
   }
 
-  async runTask({ startUrl, prompt, maxSteps = 20, approvalPolicy = 'ask', allowedHosts = [], keepTab = false, captureInitialText = false, captureInitialChecks = [], engine = 'navegante', maxDurationSec, observeAfterActions = true, captureReadEvidence = false, preInspect = false, actionScripts = false, diffSnapshots = false, cascadeModel = null, streaming = false, effectJournal = false, verify = null, requireVerification = false, correctionRounds = 0, structuredExtraction = false, recipes = false, advancedInput = true, saveRecipe = null, authenticationOrigins = [], promptCache = false, transforms = false }) {
+  async runTask({ startUrl, prompt, maxSteps = 20, approvalPolicy = 'ask', allowedHosts = [], allowCredentials = false, keepTab = false, captureInitialText = false, captureInitialChecks = [], engine = 'navegante', maxDurationSec, observeAfterActions = true, captureReadEvidence = false, preInspect = false, actionScripts = false, diffSnapshots = false, cascadeModel = null, streaming = false, effectJournal = false, verify = null, requireVerification = false, correctionRounds = 0, structuredExtraction = false, recipes = false, advancedInput = true, saveRecipe = null, authenticationOrigins = [], promptCache = false, transforms = false }) {
     const maxDurationMs = maxDurationSec ? maxDurationSec * 1000 : undefined;
     if (approvalPolicy === 'public-sites' && engine === 'flame') return { success: false, error: 'A política public-sites ainda não vale para o Flame' };
     if (engine === 'flame') return this.runFlameTask({ startUrl, prompt, maxSteps, approvalPolicy, keepTab, maxDurationMs });
     if (approvalPolicy === 'local-fixture' && !isLoopbackUrl(startUrl)) {
       return { success: false, error: 'A política local-fixture só aceita URL inicial em 127.0.0.1, localhost ou [::1]' };
     }
-    const policy = approvalPolicy === 'public-sites' ? { kind: 'public-sites', hosts: allowedHosts.map((host) => String(host).toLowerCase()) } : approvalPolicy;
+    const policy = approvalPolicy === 'public-sites'
+      ? { kind: 'public-sites', hosts: allowedHosts.map((host) => String(host).toLowerCase()), allowsCredentials: allowCredentials === true }
+      : approvalPolicy;
     if (approvalPolicy === 'public-sites' && !taskPolicyAllows(policy, startUrl)) {
       return { success: false, error: 'A política public-sites exige URL inicial HTTPS num dos allowedHosts' };
     }
@@ -3395,6 +3404,7 @@ class AutomationService {
           maxSteps: z.number().int().min(1).max(40).optional(),
           approvalPolicy: z.enum(['ask', 'local-fixture', 'public-sites', 'deny']).optional(),
           allowedHosts: z.array(z.string().regex(/^[a-z0-9-]+(\.[a-z0-9-]+)+$/i, 'Use só o nome do site, como pt.wikipedia.org')).max(10).optional(),
+          allowCredentials: z.boolean().optional(),
           keepTab: z.boolean().optional(),
           captureInitialText: z.boolean().optional(),
           captureReadEvidence: z.boolean().optional(),

@@ -5,9 +5,10 @@ const path = require('path');
 const { tarefas } = require('./tarefas');
 const { tarefasDificeis } = require('./tarefas-dificeis');
 const { tarefasStress } = require('./tarefas-stress');
+const { tarefasEmail } = require('./tarefas-email');
 
 const PAGINAS = path.join(__dirname, 'paginas');
-const IDS = new Set([...tarefas, ...tarefasDificeis, ...tarefasStress].map((t) => t.id));
+const IDS = new Set([...tarefas, ...tarefasDificeis, ...tarefasStress, ...tarefasEmail].map((t) => t.id));
 const TASKS_WITH_INITIAL_STATE = new Map(tarefasStress.filter((t) => t.estadoInicial).map((t) => [t.id, t]));
 const ARQUIVOS_COMUNS = { '/_comum.js': 'text/javascript', '/_comum.css': 'text/css' };
 

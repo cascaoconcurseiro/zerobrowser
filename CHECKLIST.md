@@ -532,6 +532,7 @@
 - [x] Nome acessível padrão (accname W3C, implementação própria): `aria-labelledby`, `aria-label`, rótulo nativo, title, placeholder, conteúdo e valor; usado no snapshot e no locator; oculto e ciclo protegidos. 3 testes; `npm test` 202/202.
 - [ ] Completar accname com “name from content” excluindo descendentes ocultos e `aria-describedby`; comparar com o Playwright num conjunto de fixtures.
 - [x] Checkpoint 9 / **0.1.10-dev** instalado com accname: instalador `e2f06273…2d27c6c`, `app.asar` `bf495150…5e045`, `status: PASS`, `npm test` 202/202; backup em `backups/2026-10-28-before-accname/`.
+- [x] Checkpoint 22 / **0.1.23-dev** instalado com allowCredentials para QA, suites extras/email e mensagem de recusa específica: instalador `71e86885…edb8`, `app.asar` `8c18eba0…b4a9`, `status: PASS`, `npm test` 280/280; backup em `backups/2026-10-28-before-extras/`.
 - [x] Checkpoint 21 / **0.1.22-dev** instalado com conteúdo principal no snapshot e suíte de sites reais difíceis: instalador `6eed528f…750d2`, `app.asar` `04c2bbaf…276f`, `status: PASS`, `npm test` 280/280; backup em `backups/2026-10-28-before-realsites/`.
 - [x] Checkpoint 20 / **0.1.21-dev** instalado com ACL do token do pipe: instalador `bd606f71…27209c`, `app.asar` `ba103cba…c0878`, `status: PASS`, `npm test` 273/273; backup em `backups/2026-10-28-before-pipe-acl/`.
 - [x] Checkpoint 19 / **0.1.20-dev** instalado com `run_steps` ligado no painel: instalador `72648c4a…e8680`, `app.asar` `6f318904…6d92d`, `status: PASS`, `npm test` 269/269; backup em `backups/2026-10-28-before-runsteps/`.

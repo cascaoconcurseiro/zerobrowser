@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <title>Correio Zero — caixa de teste</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 0; background: #f4f5f7; color: #1f2430; }
+    header { background: #1f2430; color: white; padding: 12px 18px; font-weight: 600; }
+    main { display: flex; gap: 18px; padding: 18px; flex-wrap: wrap; }
+    nav { background: white; border-radius: 10px; padding: 12px; min-width: 190px; }
+    nav button { display: block; width: 100%; text-align: left; margin: 4px 0; padding: 8px; border: 0; border-radius: 6px; background: transparent; cursor: pointer; font-size: 14px; }
+    nav button.ativo, nav button:hover { background: #e8eefc; }
+    section { flex: 1; min-width: 460px; display: flex; flex-direction: column; gap: 12px; }
+    .painel { background: white; border-radius: 10px; padding: 14px; }
+    .mensagem { border-bottom: 1px solid #e6e8ee; padding: 10px 0; display: flex; gap: 10px; align-items: center; }
+    .mensagem:last-child { border-bottom: 0; }
+    .mensagem .assunto { flex: 1; font-weight: 600; }
+    .mensagem.lida .assunto { font-weight: 400; color: #5d6475; }
+    select, input, textarea { padding: 7px; border: 1px solid #ccd1dc; border-radius: 6px; font: inherit; width: 100%; box-sizing: border-box; }
+    label { display: block; margin: 8px 0 4px; font-size: 13px; color: #4b5160; }
+    button.acao { padding: 8px 12px; border: 0; border-radius: 6px; background: #2f6fed; color: white; cursor: pointer; }
+    button.secundaria { background: #e8eefc; color: #1f3b73; }
+    #status { padding: 8px 18px; color: #4b5160; font-size: 13px; }
+    #aviso { position: fixed; right: 18px; bottom: 18px; background: #16351f; color: #d7ffe5; padding: 10px 14px; border-radius: 8px; opacity: 0; transition: opacity .2s; }
+    #aviso.visivel { opacity: 1; }
+    ul { margin: 6px 0 0; padding-left: 18px; }
+  </style>
+</head>
+<body>
+  <header>Correio Zero — ambiente de teste</header>
+  <div id="status">Trabalho: 0 · Pessoal: 0 · Rascunhos: 0 · Enviados: 0 · Lixeira: 0</div>
+  <main>
+    <nav aria-label="Pastas">
+      <button data-pasta="Caixa de entrada" class="ativo">Caixa de entrada (<span id="contagem-entrada">3</span>)</button>
+      <button data-pasta="Trabalho">Trabalho</button>
+      <button data-pasta="Pessoal">Pessoal</button>
+      <button data-pasta="Rascunhos">Rascunhos</button>
+      <button data-pasta="Enviados">Enviados</button>
+      <button data-pasta="Lixeira">Lixeira</button>
+    </nav>
+    <section>
+      <div class="painel" id="lista-painel">
+        <h2 id="titulo-pasta" style="margin:0 0 8px;font-size:16px">Caixa de entrada</h2>
+        <div id="lista"></div>
+      </div>
+      <div class="painel">
+        <h2 style="margin:0 0 8px;font-size:16px">Escrever</h2>
+        <label for="para">Para</label>
+        <input id="para" type="email" placeholder="destinatario@exemplo.com">
+        <label for="assunto">Assunto</label>
+        <input id="assunto" placeholder="Assunto do e-mail">
+        <label for="corpo">Mensagem</label>
+        <textarea id="corpo" rows="3" placeholder="Escreva aqui…"></textarea>
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <button class="acao" id="btn-enviar">Enviar</button>
+          <button class="acao secundaria" id="btn-rascunho">Salvar rascunho</button>
+        </div>
+      </div>
+    </section>
+  </main>
+  <div id="aviso" role="status"></div>
+  <script>
+    const pastas = { 'Caixa de entrada': [], Trabalho: [], Pessoal: [], Rascunhos: [], Enviados: [], Lixeira: [] };
+    pastas['Caixa de entrada'] = [
+      { id: 'm1', assunto: 'Relatório mensal', de: 'financeiro@exemplo.com', lida: false },
+      { id: 'm2', assunto: 'Nota fiscal', de: 'fiscal@exemplo.com', lida: false },
+      { id: 'm3', assunto: 'Convite reunião', de: 'equipe@exemplo.com', lida: false }
+    ];
+    let pastaAtual = 'Caixa de entrada';
+
+    const status = document.getElementById('status');
+    const lista = document.getElementById('lista');
+    const titulo = document.getElementById('titulo-pasta');
+    const aviso = document.getElementById('aviso');
+
+    function contar() {
+      const naoLidas = pastas['Caixa de entrada'].filter((item) => !item.lida).length;
+      status.textContent = `Trabalho: ${pastas.Trabalho.length} · Pessoal: ${pastas.Pessoal.length} · Rascunhos: ${pastas.Rascunhos.length} · Enviados: ${pastas.Enviados.length} · Lixeira: ${pastas.Lixeira.length} · Não lidas: ${naoLidas}`;
+      document.getElementById('contagem-entrada').textContent = pastas['Caixa de entrada'].length;
+    }
+
+    function mostrar(texto) {
+      aviso.textContent = texto;
+      aviso.classList.add('visivel');
+      setTimeout(() => aviso.classList.remove('visivel'), 1800);
+    }
+
+    function render() {
+      titulo.textContent = pastaAtual;
+      lista.replaceChildren();
+      const itens = pastas[pastaAtual];
+      if (!itens.length) {
+        const vazio = document.createElement('p');
+        vazio.textContent = 'Nenhuma mensagem nesta pasta.';
+        lista.appendChild(vazio);
+      }
+      for (const item of itens) {
+        const linha = document.createElement('div');
+        linha.className = `mensagem${item.lida ? ' lida' : ''}`;
+        linha.dataset.mensagem = item.id;
+        const assunto = document.createElement('span');
+        assunto.className = 'assunto';
+        assunto.textContent = item.assunto;
+        const de = document.createElement('span');
+        de.style.color = '#6b7280';
+        de.style.fontSize = '12px';
+        de.textContent = item.de || '';
+        const ler = document.createElement('button');
+        ler.className = 'acao secundaria';
+        ler.textContent = 'Marcar como lida';
+        ler.addEventListener('click', () => { item.lida = true; render(); mostrar('Marcada como lida'); });
+        const seletor = document.createElement('select');
+        seletor.setAttribute('aria-label', `Mover ${item.assunto}`);
+        for (const destino of ['Trabalho', 'Pessoal', 'Lixeira']) {
+          const opcao = document.createElement('option');
+          opcao.value = destino;
+          opcao.textContent = destino;
+          seletor.appendChild(opcao);
+        }
+        const mover = document.createElement('button');
+        mover.className = 'acao';
+        mover.textContent = 'Mover';
+        mover.addEventListener('click', () => {
+          const destino = seletor.value;
+          const indice = pastas[pastaAtual].indexOf(item);
+          if (indice >= 0) pastas[pastaAtual].splice(indice, 1);
+          pastas[destino].push(item);
+          render();
+          mostrar(`Movida para ${destino}`);
+        });
+        linha.append(assunto, de, ler, seletor, mover);
+        lista.appendChild(linha);
+      }
+      contar();
+    }
+
+    document.querySelectorAll('nav button').forEach((botao) => {
+      botao.addEventListener('click', () => {
+        pastaAtual = botao.dataset.pasta;
+        document.querySelectorAll('nav button').forEach((outro) => outro.classList.toggle('ativo', outro === botao));
+        render();
+      });
+    });
+
+    document.getElementById('btn-rascunho').addEventListener('click', () => {
+      const assunto = document.getElementById('assunto').value.trim() || '(sem assunto)';
+      pastas.Rascunhos.push({ id: `r${Date.now()}`, assunto, de: document.getElementById('para').value.trim() });
+      document.getElementById('assunto').value = '';
+      document.getElementById('corpo').value = '';
+      render();
+      mostrar(`Rascunho salvo: ${assunto}`);
+    });
+
+    document.getElementById('btn-enviar').addEventListener('click', () => {
+      const assunto = document.getElementById('assunto').value.trim() || '(sem assunto)';
+      pastas.Enviados.push({ id: `s${Date.now()}`, assunto, de: document.getElementById('para').value.trim(), lida: true });
+      document.getElementById('assunto').value = '';
+      document.getElementById('corpo').value = '';
+      render();
+      mostrar(`Mensagem enviada: ${assunto}`);
+    });
+
+    contar();
+    render();
+  </script>
+</body>
+</html>

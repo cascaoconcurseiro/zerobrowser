@@ -24,6 +24,8 @@ Opções:
   Duas fontes conhecidas ficaram fora por bloqueio do próprio site: **Stack Overflow** entrega CAPTCHA e
   **Mercado Livre** redireciona para `account-verification`; o motor pausa corretamente, mas sem humano a tarefa não
   conclui.
+- `--conjunto=reais-extras`: carrinho (SauceDemo), cadastro e carrinho (Automation Exercise), RH (OrangeHRM demo), e-mail (Yopmail) e Planilhas (docs.google.com). Tarefas com `credenciais: true` liberam campo de senha **apenas** nos hosts declarados, via `allowCredentials`; sem essa opção a política public-sites continua recusando credencial.
+- `--conjunto=email`: fixture local de correio (pasta 48) para mover mensagem, marcar como lida, salvar rascunho e enviar sem tocar em conta real.
 - `--conjunto=stress --tarefas=47 --repeticoes=3`: roda a loja de demonstração SPA em `127.0.0.1`, sem compras reais. A busca usa debounce e latência variável para respostas fora de ordem; filtros, modal de variantes, rerender e carrinho são validados por um endpoint de estado separado. O sucesso exige SKU, variante, quantidade e preço/subtotal exatos; a mensagem final não conta como prova.
 - `npm run test:bench-store`: integração Electron da fixture 47, cobrindo busca, filtros, seleção de variantes, carrinho e verificador de estado local sem chamar um modelo.
 - Observação automática após ações suportadas fica ligada por padrão. Use `--no-observe` para comparar sem ela; `--observe` continua aceito para deixar a opção explícita.
