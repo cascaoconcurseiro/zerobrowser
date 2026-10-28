@@ -74,7 +74,8 @@ app.whenReady().then(async () => {
       richChat: typeof window.app?.renderRichText === 'function',
       examples: document.querySelectorAll('.ai-examples .btn-ghost').length,
       runEvents: typeof window.zeroBrowser?.automation?.onRunEvent === 'function',
-      copyChat: !!document.getElementById('btn-ai-copy-chat')
+      copyChat: !!document.getElementById('btn-ai-copy-chat'),
+      approval: typeof window.zeroBrowser?.automation?.onApprovalRequest === 'function'
     }))()`);
 
     assert.equal(shell.app, true, 'app.js não executou (CSP ou erro)');
@@ -88,6 +89,7 @@ app.whenReady().then(async () => {
     assert.ok(shell.examples >= 3, 'estado vazio precisa de exemplos acionáveis');
     assert.equal(shell.runEvents, true, 'preload precisa expor onRunEvent');
     assert.equal(shell.copyChat, true, 'botão de copiar conversa ausente');
+    assert.equal(shell.approval, true, 'preload precisa expor onApprovalRequest');
 
     // Nova aba: script e estilo externos precisam rodar sob a CSP.
     const newtab = new BrowserWindow({ show: false, webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true } });

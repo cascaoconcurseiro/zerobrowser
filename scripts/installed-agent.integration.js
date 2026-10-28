@@ -463,7 +463,9 @@ async function main() {
     const formTab = JSON.parse(await evaluate(mainTarget, `(async()=>{const tab=await window.navegante.browser.newTab(${JSON.stringify(formUrl)});await window.navegante.browser.switchTab(tab.tabId);return JSON.stringify(tab)})()`));
     const formTarget = await waitForTarget(endpoint, (target) => target.type === 'page' && target.url === formUrl);
     const resultPromise = evaluate(mainTarget, `window.navegante.automation.runAgent(${JSON.stringify(formTab.tabId)},'Clique em Place order na fixture.',false).then(JSON.stringify)`, 45000);
-    await clickNativeApprovalButton(approvalButton);
+    // Com o painel aberto a aprovação é um cartão no chat; o diálogo nativo é o fallback.
+    const clicouNoPainel = await evaluate(mainTarget, `(async()=>{const alvo=${JSON.stringify(approvalButton === 'Cancelar' ? 'Negar' : approvalButton)};for(let i=0;i<60;i++){const b=[...document.querySelectorAll('.ai-approval button')].find((x)=>x.textContent.trim()===alvo);if(b){b.click();return true}await new Promise((r)=>setTimeout(r,100))}return false})()`).catch(() => false);
+    if (!clicouNoPainel) await clickNativeApprovalButton(approvalButton);
     const result = JSON.parse(await resultPromise);
     const submitted = await evaluate(formTarget, `document.body.dataset.submitted || ''`);
     assert.equal(submitted === 'yes', expectSubmitted, `${scenario}: resultado do formulário deve corresponder à decisão; submitted=${submitted}, result=${JSON.stringify(result)}, providerCalls=${requestCount}, appOutput=${appOutput}, UIA=${uiAutomationOutput}`);

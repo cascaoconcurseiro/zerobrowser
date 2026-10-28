@@ -73,6 +73,12 @@ const browserApi = {
     runAgent: (tabId, prompt, testOnly = false, requireToolCall = false, resumeId = null) => ipcRenderer.invoke('automation:run-agent', { tabId, prompt, testOnly, requireToolCall, resumeId }),
     cancelAgent: (tabId) => ipcRenderer.invoke('automation:cancel-agent', tabId),
     jobs: () => ipcRenderer.invoke('automation:jobs'),
+    approvalReply: (id, decision) => ipcRenderer.invoke('automation:approval-reply', { id, decision }),
+    onApprovalRequest: (callback) => {
+      const handler = (_event, data) => callback(data);
+      ipcRenderer.on('automation:approval-request', handler);
+      return () => ipcRenderer.removeListener('automation:approval-request', handler);
+    },
     onRunEvent: (callback) => {
       const handler = (_event, data) => callback(data);
       ipcRenderer.on('automation:run-event', handler);

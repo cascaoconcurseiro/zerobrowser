@@ -1333,3 +1333,7 @@ body.dark .ai-working-status-pill {
 /* Ações da resposta e cópia da conversa. */
 .ai-message-actions { display: flex; gap: 6px; margin-top: 6px; }
 .ai-message-actions .btn-ghost { font-size: 11px; padding: 3px 8px; }
+
+/* Aprovação no chat: cartão destacado, botões desabilitados depois da resposta. */
+.ai-approval { border-color: var(--accent); }
+.ai-approval.respondido { opacity: 0.7; }

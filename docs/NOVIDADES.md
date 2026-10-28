@@ -1,8 +1,10 @@
-# Novidades — Zero Browser 0.1.31-dev
+# Novidades — Zero Browser 0.1.33-dev
 
 Versão de desenvolvimento com foco no motor de IA e em sites difíceis (planilhas, canvas, editores).
 
 ## Painel mais legível
+
+- **Aprovação no chat (opt-in)**: com  ligado e o painel aberto, a confirmação de ação aparece como cartão (Permitir uma vez / Sempre neste site / Negar). Painel fechado continua usando o diálogo do sistema; sem resposta em 60 s, a ação é negada.
 
 - **Copiar**: cada resposta tem botão Copiar; a barra de conversas copia a conversa inteira em Markdown.
 

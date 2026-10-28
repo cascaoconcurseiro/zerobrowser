@@ -1647,9 +1647,39 @@ class ZeroBrowserApp {
     this.runEvents = [];
     try {
       this.offRunEvent = window.zeroBrowser.automation.onRunEvent((event) => this.handleRunEvent(event));
+      this.offApproval = window.zeroBrowser.automation.onApprovalRequest((request) => this.showApprovalCard(request));
     } catch {
       this.offRunEvent = null;
     }
+  }
+
+  showApprovalCard(request) {
+    const cartao = document.createElement('div');
+    cartao.className = 'ai-message assistant ai-approval';
+    const titulo = document.createElement('strong');
+    titulo.textContent = 'Precisa da sua aprovação';
+    const detalhe = document.createElement('p');
+    detalhe.textContent = [request.reason, request.origin ? `Origem: ${request.origin}` : '', request.targetName ? `Alvo: ${String(request.targetName).slice(0, 120)}` : ''].filter(Boolean).join(' · ');
+    cartao.append(titulo, detalhe);
+    const acoes = document.createElement('div');
+    acoes.className = 'ai-message-actions';
+    const responder = async (decisao, rotulo) => {
+      acoes.querySelectorAll('button').forEach((botao) => { botao.disabled = true; });
+      await window.zeroBrowser.automation.approvalReply(request.id, decisao).catch(() => {});
+      cartao.classList.add('respondido');
+      detalhe.textContent = `${detalhe.textContent} — ${rotulo}`;
+    };
+    for (const [decisao, rotulo] of [['allow', 'Permitir uma vez'], ['allow-site', 'Sempre neste site'], ['deny', 'Negar']]) {
+      const botao = document.createElement('button');
+      botao.type = 'button';
+      botao.className = 'btn-ghost';
+      botao.textContent = rotulo;
+      botao.addEventListener('click', () => responder(decisao, rotulo));
+      acoes.appendChild(botao);
+    }
+    cartao.appendChild(acoes);
+    this.elements.aiChat.appendChild(cartao);
+    this.elements.aiChat.scrollTop = this.elements.aiChat.scrollHeight;
   }
 
   handleRunEvent(event) {

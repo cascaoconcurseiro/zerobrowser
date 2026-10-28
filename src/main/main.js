@@ -126,8 +126,37 @@ async function initializeApp() {
       return runFlameTask({ panel: panel.webContents, prompt, timeoutMs, allowLocalFixture });
     }
   });
-  automationService.setApprovalHandler(async ({ origin, reason, targetName, method }) => {
+  const pendingApprovals = new Map();
+  const approvalOrigins = new Set();
+  ipcMain.handle('automation:approval-reply', (event, { id, decision } = {}) => {
+    const entry = pendingApprovals.get(String(id));
+    if (!entry) return false;
+    pendingApprovals.delete(String(id));
+    const allowed = decision === 'allow' || decision === 'allow-site';
+    if (decision === 'allow-site' && entry.origin) approvalOrigins.add(entry.origin);
+    entry.resolve(allowed);
+    return true;
+  });
+
+  automationService.setApprovalHandler(async ({ origin, reason, targetName, method, tabId }) => {
     if (!mainWindow || mainWindow.isDestroyed()) return false;
+    if (origin && approvalOrigins.has(origin)) return true;
+    // Painel aberto: a aprovação vira cartão no chat. Painel fechado: diálogo nativo.
+    // Cartão no chat é opt-in (automation.approvalInPanel); o padrão continua o diálogo do sistema.
+    const approvalInPanel = await store.get('automation.approvalInPanel').catch(() => false);
+    if (approvalInPanel === true && sidePanelOpen && mainWindow.webContents && !mainWindow.webContents.isDestroyed()) {
+      const id = `ap-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      mainWindow.webContents.send('automation:approval-request', { id, origin, reason, targetName, tabId, method });
+      return await new Promise((resolve) => {
+        pendingApprovals.set(id, { resolve, origin });
+        setTimeout(() => {
+          if (!pendingApprovals.has(id)) return;
+          pendingApprovals.delete(id);
+          mainWindow?.webContents?.send?.('automation:approval-end', { id });
+          resolve(false);
+        }, 60000);
+      });
+    }
     const details = [
       `Origem: ${origin}`,
       `Ação: ${reason}`,
