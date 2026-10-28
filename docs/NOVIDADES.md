@@ -1,8 +1,10 @@
-# Novidades — Zero Browser 0.1.26-dev
+# Novidades — Zero Browser 0.1.27-dev
 
 Versão de desenvolvimento com foco no motor de IA e em sites difíceis (planilhas, canvas, editores).
 
 ## Painel mais legível
+
+- **Transparência da resposta**: cada resposta mostra quais ferramentas consumiram rodadas (), no rodapé do cartão. É o primeiro item do lote 1 do plano de UX.
 
 - **Estado vazio acionável**: três exemplos clicáveis (ler planilha, preencher formulário, resumir página) preenchem a caixa de comando com um clique. O smoke de UI passou a exigir isso.
 

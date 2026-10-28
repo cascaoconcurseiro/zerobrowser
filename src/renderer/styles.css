@@ -1318,3 +1318,6 @@ body.dark .ai-working-status-pill {
 /* Estado vazio acionável: exemplos clicáveis preenchem a caixa de comando. */
 .ai-examples { display: flex; flex-direction: column; gap: 8px; border: 0; background: transparent; padding: 0; }
 .ai-examples .btn-ghost { text-align: left; white-space: normal; line-height: 1.4; padding: 10px 12px; }
+
+/* Rodapé discreto da resposta: quais ferramentas consumiram rodadas. */
+.ai-tools-used { margin-top: 8px; padding-top: 6px; border-top: 1px solid var(--border); font-size: 11px; color: var(--fg-secondary); }

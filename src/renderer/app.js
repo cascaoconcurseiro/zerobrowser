@@ -1726,6 +1726,12 @@ class ZeroBrowserApp {
 
       if (result.success) {
         const message = this.addAiMessage('assistant', result.message);
+        if (result.toolsUsed && Object.keys(result.toolsUsed).length) {
+          const resumo = document.createElement('div');
+          resumo.className = 'ai-tools-used';
+          resumo.textContent = `Ferramentas: ${Object.entries(result.toolsUsed).map(([nome, total]) => `${nome}×${total}`).join(' · ')}`;
+          message.appendChild(resumo);
+        }
         if (result.paused && result.resumeId) {
           const button = document.createElement('button');
           button.type = 'button';

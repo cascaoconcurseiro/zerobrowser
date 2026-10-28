@@ -2124,6 +2124,8 @@ class AutomationService {
             message: message.content || 'Tarefa concluída.',
             ...(verification ? { verification } : {}),
             ...(finalReview.decision !== 'ok' ? { guardian: finalReview } : {}),
+            // Transparência para o painel: quais ferramentas gastaram as rodadas.
+            ...(toolUse.size ? { toolsUsed: Object.fromEntries(toolUse) } : {}),
             ...(minted ? { minted } : {}),
             ...(mintSkipped ? { mintSkipped } : {}),
             ...(promptCache ? { promptCache: cacheSummary(trace) } : {})
