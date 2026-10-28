@@ -1,8 +1,10 @@
-# Novidades — Zero Browser 0.1.36-dev
+# Novidades — Zero Browser 0.1.37-dev
 
 Versão de desenvolvimento com foco no motor de IA e em sites difíceis (planilhas, canvas, editores).
 
 ## Painel mais legível
+
+- **Módulos no painel**: executar módulos salvos com JSON de entrada. **Memória editável**: botão Editar em cada fato.
 
 - **Tarefas pausadas**: o painel lista até três, cada uma com Continuar e Descartar (sem reiniciar o app).
 

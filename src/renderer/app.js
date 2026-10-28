@@ -72,6 +72,7 @@ class ZeroBrowserApp {
       btnAiMemory: document.getElementById('btn-ai-memory'),
       btnAiCopyChat: document.getElementById('btn-ai-copy-chat'),
       btnAiRecipes: document.getElementById('btn-ai-recipes'),
+      btnAiModules: document.getElementById('btn-ai-modules'),
       btnAiRenameChat: document.getElementById('btn-ai-rename-chat'),
       btnAiPinChat: document.getElementById('btn-ai-pin-chat'),
       btnAiDeleteChat: document.getElementById('btn-ai-delete-chat'),
@@ -1691,6 +1692,57 @@ class ZeroBrowserApp {
     this.elements.btnAiMemory?.addEventListener('click', () => this.showAgentMemory());
     this.elements.btnAiCopyChat?.addEventListener('click', () => this.copiarTexto(this.conversaEmMarkdown()));
     this.elements.btnAiRecipes?.addEventListener('click', () => this.showRecipes());
+    this.elements.btnAiModules?.addEventListener('click', () => this.showModules());
+  }
+
+  async showModules() {
+    const url = this.tabs.get(this.activeTabId)?.url || '';
+    let origin = '';
+    try { origin = new URL(url).origin; } catch {}
+    if (!origin) { this.showToast('Abra uma página do site para ver módulos', 'warning'); return; }
+    const resposta = await window.zeroBrowser.automation.modules(origin).catch(() => ({ modules: [] }));
+    const modulos = Array.isArray(resposta?.modules) ? resposta.modules : [];
+    const caixa = document.createElement('div');
+    caixa.className = 'ai-message assistant ai-rich';
+    const titulo = document.createElement('strong');
+    titulo.textContent = `Módulos em ${origin} (${modulos.length})`;
+    caixa.appendChild(titulo);
+    if (!modulos.length) {
+      const vazio = document.createElement('p');
+      vazio.textContent = 'Nenhum módulo salvo. Com cálculo ligado, peça ao agente para salvar um módulo.';
+      caixa.appendChild(vazio);
+    } else {
+      const ul = document.createElement('ul');
+      ul.className = 'ai-memory-list';
+      for (const modulo of modulos) {
+        const li = document.createElement('li');
+        li.className = 'ai-memory-item';
+        const nome = document.createElement('span');
+        nome.textContent = `${modulo.name}${modulo.description ? ` — ${modulo.description}` : ''}`;
+        const rodar = document.createElement('button');
+        rodar.type = 'button';
+        rodar.className = 'btn-ghost';
+        rodar.textContent = 'Executar';
+        rodar.addEventListener('click', async () => {
+          rodar.disabled = true;
+          const texto = window.prompt('JSON de entrada (opcional)', '') || '';
+          let entrada = null;
+          if (texto.trim()) {
+            try { entrada = JSON.parse(texto); } catch { this.showToast('JSON inválido', 'error'); rodar.disabled = false; return; }
+          }
+          const resultado = await window.zeroBrowser.automation.runModule(origin, modulo.name, entrada);
+          this.addAiMessage('assistant', resultado.success
+            ? `Módulo ${modulo.name}: ${JSON.stringify(resultado.result)}`
+            : `Módulo ${modulo.name} falhou: ${resultado.error || 'sem detalhe'}`);
+          rodar.disabled = false;
+        });
+        li.append(nome, rodar);
+        ul.appendChild(li);
+      }
+      caixa.appendChild(ul);
+    }
+    this.elements.aiChat.appendChild(caixa);
+    this.elements.aiChat.scrollTop = this.elements.aiChat.scrollHeight;
   }
 
   async showRecipes() {
@@ -1765,6 +1817,21 @@ class ZeroBrowserApp {
         const label = document.createElement('span');
         const when = new Date(memory.createdAt || Date.now()).toLocaleDateString('pt-BR');
         label.textContent = `${memory.origin ? `${memory.origin}: ` : ''}${memory.text} (${when})`;
+        const editar = document.createElement('button');
+        editar.type = 'button';
+        editar.className = 'btn-ghost';
+        editar.textContent = 'Editar';
+        editar.addEventListener('click', async () => {
+          const novo = window.prompt('Editar fato', memory.text);
+          if (!novo || !novo.trim()) return;
+          const salvo = await window.zeroBrowser.automation.saveMemory({ origin: memory.origin, text: novo.trim(), kind: memory.kind, replaceId: memory.id });
+          if (salvo?.success) {
+            label.textContent = `${memory.origin ? `${memory.origin}: ` : ''}${novo.trim()} (${when})`;
+            this.showToast('Fato atualizado', 'success');
+          } else {
+            this.showToast(salvo?.error || 'Não foi possível editar', 'error');
+          }
+        });
         const remove = document.createElement('button');
         remove.type = 'button';
         remove.className = 'btn-ghost';
@@ -1773,7 +1840,7 @@ class ZeroBrowserApp {
           await window.zeroBrowser.automation.memory('forget', memory.id);
           item.remove();
         });
-        item.append(label, remove);
+        item.append(label, editar, remove);
         list.appendChild(item);
       }
       box.appendChild(list);

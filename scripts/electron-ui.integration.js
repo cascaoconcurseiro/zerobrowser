@@ -76,7 +76,7 @@ app.whenReady().then(async () => {
       runEvents: typeof window.zeroBrowser?.automation?.onRunEvent === 'function',
       copyChat: !!document.getElementById('btn-ai-copy-chat'),
       approval: typeof window.zeroBrowser?.automation?.onApprovalRequest === 'function',
-      manageChat: ['btn-ai-rename-chat','btn-ai-pin-chat','btn-ai-delete-chat','btn-ai-recipes'].every((id) => !!document.getElementById(id))
+      manageChat: ['btn-ai-rename-chat','btn-ai-pin-chat','btn-ai-delete-chat','btn-ai-recipes','btn-ai-modules'].every((id) => !!document.getElementById(id))
     }))()`);
 
     assert.equal(shell.app, true, 'app.js não executou (CSP ou erro)');

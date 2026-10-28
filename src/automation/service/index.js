@@ -681,6 +681,17 @@ class AutomationService {
     }
   }
 
+  async saveMemory({ origin = '', text, kind = 'fact', replaceId = null } = {}) {
+    if (!this.memoryStore) return { success: false, error: 'Memória indisponível' };
+    try {
+      if (replaceId) await this.memoryStore.forget(String(replaceId));
+      const entry = await this.memoryStore.add({ origin, text, kind });
+      return { success: true, memory: entry };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
   async forgetMemory(id) {
     if (!this.memoryStore) return false;
     try {

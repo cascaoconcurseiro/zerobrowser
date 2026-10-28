@@ -139,6 +139,24 @@ function setupIpc() {
     return await automationService.dropJob(id);
   });
 
+  ipcMain.handle('automation:memory-save', async (_e, { origin, text, kind, replaceId } = {}) => {
+    if (!automationService) return { success: false, error: 'Serviço de automação indisponível' };
+    return await automationService.saveMemory({ origin, text, kind, replaceId });
+  });
+
+  ipcMain.handle('automation:modules', async (_e, { origin } = {}) => {
+    if (!automationService?.moduleStore) return { success: false, error: 'Módulos indisponíveis' };
+    try {
+      const list = await automationService.moduleStore.list(origin || null);
+      return { success: true, modules: list };
+    } catch (error) { return { success: false, error: error.message }; }
+  });
+
+  ipcMain.handle('automation:module-run', async (_e, { origin, name, input } = {}) => {
+    if (!automationService) return { success: false, error: 'Serviço de automação indisponível' };
+    try { return await automationService.callTool('module_run', { origin, name, input }); } catch (error) { return { success: false, error: error.message }; }
+  });
+
   ipcMain.handle('automation:memory', async (_e, { action = 'list', id } = {}) => {
     if (!automationService) return action === 'list' ? [] : false;
     if (action === 'forget') return await automationService.forgetMemory(id);
