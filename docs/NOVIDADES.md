@@ -1,6 +1,14 @@
-# Novidades — Zero Browser 0.1.21-dev
+# Novidades — Zero Browser 0.1.22-dev
 
 Versão de desenvolvimento com foco no motor de IA e em sites difíceis (planilhas, canvas, editores).
+
+## Sites reais difíceis
+
+- **Conteúdo principal no snapshot**: `inspect_page` passou a extrair o texto de `main`/`article`/`#content` em vez
+  do `body` inteiro. Em portais pesados, menu e rodapé ocupavam o limite de texto e a manchete ficava de fora.
+- **Títulos da página**: o snapshot agora traz até 12 títulos (`headings`) para o modelo se orientar sem gastar uma
+  rodada extra de leitura.
+- **Aceita string ou objeto**: a leitura continua compatível com páginas que devolvem texto simples.
 
 ## Segurança do canal local
 

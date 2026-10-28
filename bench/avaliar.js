@@ -9,9 +9,10 @@ const path = require('path');
 const { tarefas: basicas } = require('./tarefas');
 const { tarefasDificeis } = require('./tarefas-dificeis');
 const { tarefasReais } = require('./tarefas-reais');
+const { tarefasReaisDificeis } = require('./tarefas-reais-dificeis');
 const { tarefasStress } = require('./tarefas-stress');
 // "todos" fica só com as páginas locais; os sites reais dependem da internet e rodam à parte.
-const CONJUNTOS = { basico: basicas, dificeis: tarefasDificeis, stress: tarefasStress, todos: [...basicas, ...tarefasDificeis, ...tarefasStress], reais: tarefasReais };
+const CONJUNTOS = { basico: basicas, dificeis: tarefasDificeis, stress: tarefasStress, todos: [...basicas, ...tarefasDificeis, ...tarefasStress], reais: tarefasReais, 'reais-dificeis': tarefasReaisDificeis };
 const { iniciarServidor } = require('./servidor');
 const { automationPipePath, defaultDataDir, pipeTokenPath } = require('../src/automation/pipe-path');
 
@@ -159,10 +160,17 @@ async function lerTextoVisivelEFecharAba(mcp, tabId, limpeza = null, initialPage
   let cleanupBeforeChecks = [];
   let cleanupAfterChecks = [];
   try {
-    const response = await mcp.chamar('tools/call', { name: 'browser_get_text', arguments: { tabId } });
-    const result = response?.structuredContent || {};
-    if (response?.isError || result.success === false) throw new Error(result.error || 'Leitura do texto visível falhou');
-    pageText = String(result.text || '');
+    // Conteúdo principal primeiro: em portal pesado o body começa com menu e a manchete fica fora do recorte.
+    const ler = async (selector) => {
+      const response = await mcp.chamar('tools/call', { name: 'browser_get_text', arguments: { tabId, ...(selector ? { selector } : {}) } });
+      const result = response?.structuredContent || {};
+      if (response?.isError || result.success === false) throw new Error(result.error || 'Leitura do texto visível falhou');
+      return String(result.text || '');
+    };
+    let mainError = null;
+    const main = await ler('main').catch((error) => { mainError = error; return ''; });
+    if (mainError) throw mainError;
+    pageText = main.trim() ? main : await ler(null);
   } catch (error) {
     readError = error.message || 'Leitura do texto visível falhou';
   }
@@ -261,7 +269,7 @@ async function principal() {
   }
 
   const tarefas = CONJUNTOS[opcoes.conjunto];
-  if (!tarefas) throw new Error('Use --conjunto=basico, dificeis, stress, todos ou reais.');
+  if (!tarefas) throw new Error('Use --conjunto=basico, dificeis, stress, todos, reais ou reais-dificeis.');
   const selecionadas = opcoes.tarefas ? tarefas.filter((t) => opcoes.tarefas.some((p) => t.id.startsWith(p))) : tarefas;
   if (!selecionadas.length) throw new Error('Nenhuma tarefa corresponde ao filtro --tarefas.');
 

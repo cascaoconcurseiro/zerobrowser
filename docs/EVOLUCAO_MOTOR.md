@@ -1088,3 +1088,41 @@ Dois detalhes que só aparecem testando de verdade:
 Falha de `icacls` nunca impede o app de subir (`{ ok:false, reason }` e segue). Evidência no app instalado:
 `icacls` mostra apenas `NT AUTHORITY\SYSTEM` e `WESLEY\Wesley`, sem entradas `(I)`. Testes: `test/file-acl.test.js`
 (4, incluindo ACL real no Windows). `npm test` 273/273.
+
+### Sites reais difíceis: o que falhou e o que foi corrigido — 0.1.22-dev
+
+Criei `bench/tarefas-reais-dificeis.js` (conjunto `--conjunto=reais-dificeis`) com seis sites públicos sem login,
+verificação por **citação do texto final da página** (a resposta precisa conter um trecho real, não só parecer
+plausível): Hacker News, GitHub Releases, G1, UOL, gov.br e MDN.
+
+Primeira rodada: **1/6**. Diagnóstico, separando motor de sites:
+
+- **x01 HN e x05 gov.br falharam no verificador, não no motor.** O modelo acertou o título no primeiro turno
+  (pré-inspeção). O verificador exigia 5 palavras e rejeitava títulos curtos/bold; e a página não tinha texto final
+  por causa do recorte. Corrigido: aceita negrito/aspas e n-gramas de 2–6 palavras, colapsa espaços, e o bench lê
+  `main` (fallback body).
+- **x05 gov.br**: o body tem 5.770 caracteres, quase todos de menu; a manchete fica no carrossel, que não entra no
+  `innerText`. A tarefa foi trocada por uma leitura real da seção “MAIS ACESSADOS” (5º serviço), que também é
+  conteúdo de portal e não depende de slide oculto.
+- **x03 Stack Overflow e x04 Mercado Livre** eram bloqueio do site: CAPTCHA e `account-verification`. O motor pausa
+  corretamente; sem humano, não conclui. Saíram da suíte e ficaram documentadas no `bench/README.md`.
+- **x06 MDN** falhava porque o pedido não exigia citação (resposta traduzida). O pedido passou a pedir a primeira
+  frase em inglês + explicação.
+
+Correção de motor que veio daí: `inspect_page` extrai **conteúdo principal** (`main`, `article`, `#content`, …) em vez
+do body inteiro e devolve até 12 `headings` — em portal pesado o menu consumia o limite de 3.200 caracteres. O
+retorno aceita string ou objeto, então mocks/versões antigas continuam funcionando.
+
+Resultado final (build instalado, 3ª rodada): **6/6**, com 1 a 4 rodadas por tarefa e 3–10 s:
+
+| tarefa | rodadas | tempo | tokens |
+|---|---|---|---|
+| HN newest | 1 | 3 s | 20.754 |
+| GitHub releases | 1 | 6 s | 25.215 |
+| G1 + LGPD | 2 | 10 s | 44.601 |
+| UOL manchete | 3 | 8 s | 53.960 |
+| gov.br serviços | 4 | 9 s | 61.170 |
+| MDN closures | 1 | 3 s | 22.269 |
+
+Testes: `test/page-text.test.js` (4), `test/bench-reais-dificeis.test.js` (3), `bench.test.js` 22. `npm test` 280/280;
+`test:ui` PASS.

@@ -20,6 +20,7 @@ const { cachedInputTokens, compactHref } = require('../usage-metrics');
 const { cacheSeed, cacheRequestFields, cacheSummary } = require('../prompt-cache');
 const { reviewAction, reviewFinal } = require('../guardian');
 const { createProgressGuard } = require('../progress-guard');
+const { mainContentScript } = require('../page-text');
 const { TRANSFORM_TOOL, checkCode, runTransform } = require('../sandbox');
 const { zeroEnv } = require('../../env');
 const { approvalInstructionsFor, buildBasePrompt } = require('./prompt');
@@ -1660,7 +1661,12 @@ class AutomationService {
         const snapshot = await this.getAccessibilityTree(tabId, { maxNodes: 250, pierce: true });
         if (!snapshot.success) throw new Error(snapshot.error || 'Accessibility snapshot failed');
         const textLimit = snapshot.tree.nodes.length > 25 ? 3200 : 7000;
-        const text = await wc.executeJavaScript(`(document.body?.innerText||'').slice(0,${textLimit})`);
+        // Conteúdo principal primeiro: em portal/heavy page, o body começa com menu e o alvo fica fora do limite.
+        const rawText = await wc.executeJavaScript(mainContentScript(textLimit)).catch(() => null);
+        // Aceita string (mocks/versões antigas) ou o objeto { text, headings, source } do script novo.
+        const text = typeof rawText === 'string' ? rawText : String(rawText?.text || '');
+        const headings = Array.isArray(rawText?.headings) ? rawText.headings : [];
+        const contentSource = typeof rawText?.source === 'string' ? rawText.source : '';
         const urlAfterRead = typeof wc.getURL === 'function' ? wc.getURL() : null;
         if (revisionAtStart !== snapshotRevision || (urlAtStart && urlAfterRead && urlAtStart !== urlAfterRead)) {
           snapshotRequired = true;
@@ -1676,7 +1682,11 @@ class AutomationService {
         lastSnapshotUrl = tab.axCache?.url || snapshot.tree.url || null;
         snapshotRequired = false;
         const displayUrl = (() => { try { const url = new URL(snapshot.tree.url); if (url.protocol === 'data:') return 'data:'; url.search = ''; url.hash = ''; return url.href; } catch { return ''; } })();
-        return { ...snapshot.tree, url: displayUrl, nodes, text };
+        return {
+          ...snapshot.tree, url: displayUrl, nodes, text,
+          ...(headings.length ? { headings } : {}),
+          ...(contentSource && contentSource !== 'body' ? { contentSource } : {})
+        };
       }
       if (name === 'hidden_action') {
         const target = tab.hiddenNodes?.get(String(args.id));

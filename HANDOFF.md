@@ -26,7 +26,7 @@
   paginada agora é `complete` (antes era sempre falso), e uma leitura por `tabId` não conta as outras abas como
   omitidas. Regra em `src/automation/batch-coverage.js`; detalhe, conflitos e reversão em
   `docs/REGISTRO_INTEGRACAO_0.1.5.md`.
-- Versão: `package.json` e `package-lock.json` em 0.1.21-dev (o lock acompanha; teste `test/whats-new.test.js`).
+- Versão: `package.json` e `package-lock.json` em 0.1.22-dev (o lock acompanha; teste `test/whats-new.test.js`).
 - **Motor, salto 1 (2026-10-27):** `run_steps` aceita `expect {url,text,absent}` conferido pelo host (espera de até
   3 s, texto normalizado, parada quando a pós-condição não vem). Opt-in: só com `actionScripts`/`--scripts`.
   `npm test` 133/133; regra em `docs/EVOLUCAO_MOTOR.md`; restauração em `docs/PONTOS_DE_RESTAURACAO.md`

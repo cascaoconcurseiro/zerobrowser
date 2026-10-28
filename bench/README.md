@@ -18,6 +18,12 @@ Opções:
 - `--motor=flame`: quem faz as tarefas é o Flame (a extensão carregada dentro do Zero Browser), para comparar com o agente do Zero Browser (padrão legado `navegante`). O Flame não informa tokens.
 - `--conjunto=dificeis`: só as 14 tarefas difíceis (31 a 44; 42 e 43 baixam e enviam arquivos de `paginas/arquivos/`). `basico` roda as originais; o padrão `todos` roda as duas.
 - `--conjunto=reais`: tarefas públicas sem autenticação em `tarefas-reais.js`; hoje inclui Wikipédia, Books/Quotes to Scrape, The Internet, httpbin, demos JavaScript de loja/TodoMVC/tabela dinâmica e controles assíncronos. Precisa de internet. Cada tarefa só pode abrir HTTPS nos hosts permitidos (`public-sites`); credenciais e dados de pagamento não são aprovados. Demos e sites de prática não representam sites de produção. Se uma falhar, confira primeiro se o site mudou.
+- `--conjunto=reais-dificeis`: seis sites públicos difíceis, sem login — Hacker News (listagem), GitHub (release),
+  G1 e UOL (portal pesado + banner de cookies/LGPD), gov.br (portal) e MDN (documentação densa). A verificação exige
+  que a resposta cite um trecho real do texto final da página (`pageText`), não só que pareça plausível.
+  Duas fontes conhecidas ficaram fora por bloqueio do próprio site: **Stack Overflow** entrega CAPTCHA e
+  **Mercado Livre** redireciona para `account-verification`; o motor pausa corretamente, mas sem humano a tarefa não
+  conclui.
 - `--conjunto=stress --tarefas=47 --repeticoes=3`: roda a loja de demonstração SPA em `127.0.0.1`, sem compras reais. A busca usa debounce e latência variável para respostas fora de ordem; filtros, modal de variantes, rerender e carrinho são validados por um endpoint de estado separado. O sucesso exige SKU, variante, quantidade e preço/subtotal exatos; a mensagem final não conta como prova.
 - `npm run test:bench-store`: integração Electron da fixture 47, cobrindo busca, filtros, seleção de variantes, carrinho e verificador de estado local sem chamar um modelo.
 - Observação automática após ações suportadas fica ligada por padrão. Use `--no-observe` para comparar sem ela; `--observe` continua aceito para deixar a opção explícita.

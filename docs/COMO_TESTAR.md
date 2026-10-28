@@ -1,10 +1,12 @@
-# Como testar o Zero Browser (0.1.21-dev)
+# Como testar o Zero Browser (0.1.22-dev)
 
 Checklist manual para a versão instalada em 28/10/2026. O que depende de modelo/provedor está separado do que já
 pode ser conferido sem chave.
 
-**Build instalado:** `0.1.21-dev`, `app.asar` `ba103cba…c0878`; backup do estado anterior em
-`backups/2026-10-28-before-pipe-acl/`.
+**Build instalado:** `0.1.22-dev`, `app.asar` `04c2bbaf…276f`; backup do estado anterior em
+`backups/2026-10-28-before-realsites/`.
+
+- [ ] Portal pesado (gov.br, G1): o snapshot de `inspect_page` deve começar pelo conteúdo e trazer `headings`.
 
 - [ ] Com o app aberto, `icacls "%APPDATA%\navegante\automation\pipe-token"` deve mostrar só SYSTEM e o seu usuário.
 - [ ] Formulário com vários campos: o agente deve resolver com **uma** chamada `run_steps` em vez de uma rodada por campo.
