@@ -937,10 +937,16 @@ class AutomationService {
     // Journal de efeitos: só entra quando a tarefa pede; a chave mistura ferramenta, alvo e origem+caminho.
     const journal = effectJournal ? this.effectJournal : null;
     const effectDescriptor = (name, args) => {
-      if (!journal || !isConsequential(name, args)) return null;
+      if (!journal) return null;
+      // Nível de risco do alvo: só efeito crítico (envio/compra/exclusão/credencial/upload) entra no journal.
+      let node = null;
+      if (name === 'click') node = lastNodes?.[args.index] || null;
+      else if (name === 'hidden_action') node = tab.hiddenNodes?.get(String(args.id)) || null;
+      const context = [node?.name, args.text, args.action].filter(Boolean).join(' ');
+      const level = classifyRisk({ node, context }).level;
+      if (!isConsequential(name, args, { level })) return null;
       let target = '';
-      if (name === 'navigate') target = normalizeUrl(args.url);
-      else if (name === 'click') target = lastNodes?.[args.index]?.targetId || `index:${args.index}`;
+      if (name === 'click') target = lastNodes?.[args.index]?.targetId || `index:${args.index}`;
       else if (name === 'click_text') target = `text:${String(args.text || '')}`;
       else if (name === 'hidden_action') target = `hidden:${tab.hiddenNodes?.get(String(args.id))?.name || args.id}`;
       else if (name === 'upload_file') target = `file:${String(args.file || '')}`;

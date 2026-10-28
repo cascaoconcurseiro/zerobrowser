@@ -9,13 +9,16 @@ const fs = require('fs');
 const path = require('path');
 
 const CONSEQUENTIAL = Object.freeze({
-  navigate: () => true,
+  navigate: () => false, // navegar de novo é inofensivo; o risco de duplicar está no efeito, não na visita
   upload_file: () => true,
   click: () => true,
   click_text: () => true,
-  press_key: (args) => ['Enter', ' ', 'Space'].includes(String(args.key || '')),
+  press_key: (args) => ['Enter', 'Return', ' ', 'Space'].includes(String(args.key || '')),
   hidden_action: (args) => ['click', 'check', 'uncheck', 'select'].includes(String(args.action || ''))
 });
+
+// Só entra no journal o que pode duplicar de forma cara: envio, compra, exclusão, credencial, upload.
+const CRITICAL_LEVELS = new Set(['commitment', 'destructive', 'credential']);
 
 // Erros que acontecem antes de qualquer efeito: pode descartar a tentativa sem pedir verificação.
 const PRE_DISPATCH_FAILURE = /não existe|não encontrad|Element not found|snapshot|página mudou|indisponível|aba indisponível|inválid|não é uma lista|não aceita/i;
@@ -29,9 +32,12 @@ function normalizeUrl(value) {
   }
 }
 
-function isConsequential(tool, args = {}) {
+// `level` vem de classifyRisk; cliques comuns (navegar, filtrar, abrir) não entram no journal.
+function isConsequential(tool, args = {}, { level = 'none' } = {}) {
   const check = CONSEQUENTIAL[tool];
-  return Boolean(check && check(args));
+  if (!check || !check(args)) return false;
+  if (tool === 'upload_file' || tool === 'press_key') return true;
+  return CRITICAL_LEVELS.has(level);
 }
 
 function effectKey({ tool, args = {}, url = '', target = '' }) {

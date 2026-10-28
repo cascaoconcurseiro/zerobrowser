@@ -70,15 +70,16 @@ function isSensitiveField({ type = '', autocomplete = '', name = '', label = '' 
   return SENSITIVE_HINT.test(`${autocomplete} ${name} ${label}`);
 }
 
-function classifyRisk({ node = {}, context = '' } = {}) {
-  if (node.sensitiveInput === true || isSensitiveField(node)) {
+function classifyRisk({ node, context = '' } = {}) {
+  const target = node && typeof node === 'object' ? node : {};
+  if (target.sensitiveInput === true || isSensitiveField(target)) {
     return { level: 'credential', reason: 'Campo de senha, código de verificação ou pagamento' };
   }
   const intent = classifyIntent(context);
   if (intent?.level === 'destructive') return { level: 'destructive', reason: `Ação destrutiva: ${intent.term}` };
   if (intent?.level === 'commitment') return { level: 'commitment', reason: `Ação de compromisso: ${intent.term}` };
   if (intent?.level === 'write') return { level: 'write', reason: `Alteração de dados: ${intent.term}` };
-  if (node.isSubmitControl === true || String(node.formMethod || '').toLowerCase() === 'post') {
+  if (target.isSubmitControl === true || String(target.formMethod || '').toLowerCase() === 'post') {
     return { level: 'commitment', reason: 'Envio de formulário' };
   }
   return { level: 'none', reason: null };

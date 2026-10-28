@@ -16,14 +16,18 @@ test('effect key is stable for the same action and separates target, tool and pa
   assert.notEqual(effectKey({ ...base, tool: 'navigate' }), effectKey(base));
 });
 
-test('only consequential tools produce an effect key', () => {
-  assert.equal(isConsequential('navigate', { url: 'http://x' }), true);
-  assert.equal(isConsequential('click', {}), true);
+test('only critical consequential tools produce an effect key', () => {
+  assert.equal(isConsequential('navigate', { url: 'http://x' }), false, 'navegar de novo não duplica efeito');
+  assert.equal(isConsequential('click', {}, { level: 'none' }), false);
+  assert.equal(isConsequential('click', {}, { level: 'commitment' }), true);
+  assert.equal(isConsequential('click', {}, { level: 'destructive' }), true);
+  assert.equal(isConsequential('click', {}, { level: 'write' }), false, 'salvar/filtrar não entra no journal');
   assert.equal(isConsequential('type_text', {}), false);
   assert.equal(isConsequential('press_key', { key: 'Enter' }), true);
   assert.equal(isConsequential('press_key', { key: 'a' }), false);
-  assert.equal(isConsequential('hidden_action', { action: 'click' }), true);
-  assert.equal(isConsequential('hidden_action', { action: 'fill' }), false);
+  assert.equal(isConsequential('hidden_action', { action: 'click' }, { level: 'commitment' }), true);
+  assert.equal(isConsequential('hidden_action', { action: 'fill' }, { level: 'commitment' }), false);
+  assert.equal(isConsequential('upload_file', {}), true);
 });
 
 test('planEffect executes a new action, blocks an unattempted verification and skips a confirmed one', async () => {
