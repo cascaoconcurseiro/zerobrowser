@@ -1,4 +1,20 @@
-# Novidades — Zero Browser 0.1.18-dev
+# Novidades — Zero Browser 0.1.19-dev
+
+Versão de desenvolvimento com foco no motor de IA e em sites difíceis (planilhas, canvas, editores).
+
+## Menos rodadas, mais progresso
+
+- **Guardião de progresso**: se o agente só lê por 3 rodadas, o host injeta um aviso para agir ou concluir; na 5ª,
+  manda parar de inspecionar. No meio e no fim do orçamento, lembra quantas ações restam e pede para agrupar
+  ferramentas no mesmo turno.
+- **Pré-inspeção ligada por padrão no painel**: a primeira leitura da página chega pronta antes do primeiro turno do
+  modelo, economizando uma rodada inteira em toda tarefa.
+- **Limite de ações configurável**: 20, 40 (padrão) ou 60 em Configurações → Agente · recursos.
+- **Pausa com diagnóstico**: ao parar no limite, a mensagem diz quais ferramentas gastaram as rodadas e qual foi o
+  último erro, além do botão **Continuar** com o histórico.
+- **Planilhas em uma chamada**: o exemplo de `sheets batch` (ler intervalo e gravar total) entrou no prompt, junto da
+  proibição de inspecionar antes numa planilha.
+
 
 Versão de desenvolvimento com foco no motor de IA e em sites difíceis (planilhas, canvas, editores).
 

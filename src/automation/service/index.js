@@ -18,6 +18,7 @@ const { createRepeatGuard } = require('../repeat-guard');
 const { cachedInputTokens, compactHref } = require('../usage-metrics');
 const { cacheSeed, cacheRequestFields, cacheSummary } = require('../prompt-cache');
 const { reviewAction, reviewFinal } = require('../guardian');
+const { createProgressGuard } = require('../progress-guard');
 const { TRANSFORM_TOOL, checkCode, runTransform } = require('../sandbox');
 const { zeroEnv } = require('../../env');
 const { approvalInstructionsFor, buildBasePrompt } = require('./prompt');
@@ -1023,7 +1024,7 @@ class AutomationService {
     if (verificationChecks.length) messages[0].content += ' O host confere o resultado final contra um contrato; chame check_task para conferir o estado antes de concluir e, se o host recusar, corrija a página antes de encerrar.';
     if (structuredExtraction) messages[0].content += ' Para tabelas, use extract_table com as colunas do cabeçalho em vez de copiar texto; confira missingColumns, totalRows e truncated antes de concluir.';
     if (recipes && this.recipeStore) messages[0].content += ' Receitas: recipe list mostra as da origem; recipe save grava passos estáveis (navigate, click_text, wait_for, sheets) com expect obrigatório — passo sheets dispensa expect — e pode declarar output (campos tipados por célula A1, validados pelo host no run); recipe run repete sem modelo, para na primeira pós-condição que falhar e devolve output/outputValid. Só grave depois de a tarefa ter sido verificada.';
-    if (advancedInput) messages[0].content += ' Em planilhas do Google, use sheets (read/write/goto com intervalo A1) — não clique em célula e não chame inspect_page antes: numa planilha ele só devolve a seleção e as abas. Agrupe o trabalho numa única chamada sheets com action "batch" (até 12 operações: ler, gravar, ler de novo) e confira o resultado no próprio retorno; só use sheets_accessibility se a caixa de nome não existir, e see_page + visual_click para o que só existe na imagem. Em outros editores em canvas, use clipboard write/read e key_sequence (setas, Tab).';
+    if (advancedInput) messages[0].content += ' Em planilhas do Google, use sheets (read/write/goto com intervalo A1) — não clique em célula e não chame inspect_page antes: numa planilha ele só devolve a seleção e as abas. Agrupe o trabalho numa única chamada sheets com action "batch" (até 12 operações: ler, gravar, ler de novo; ex.: ler A1:C50 e gravar o total em E1) e confira o resultado no próprio retorno; só use sheets_accessibility se a caixa de nome não existir, e see_page + visual_click para o que só existe na imagem. Em outros editores em canvas, use clipboard write/read e key_sequence (setas, Tab).';
     if (this.memoryStore) {
       try {
         const facts = await this.memoryStore.list({ origin: normalizeOrigin(tab?.webContents?.getURL?.() || '') || taskOrigin, limit: 8 });
@@ -1050,6 +1051,9 @@ class AutomationService {
     const cascade = createModelCascade({ cheapModel: cascadeModel, strongModel: model });
     if (trace && cascade.enabled) trace.cascade = cascade.stats;
     let lastNodes = null;
+    const toolUse = new Map(); // diagnostico da pausa: quais ferramentas consumiram rodadas
+    let lastError = '';
+    const progressGuard = createProgressGuard({ maxSteps });
     let mintCandidate = null; // último run_steps estável com expect, usado pelo mint ao final
     let lastSnapshotUrl = null;
     let snapshotRequired = false;
@@ -2101,6 +2105,7 @@ class AutomationService {
           };
         }
         if (!allowTools) return { success: true, message: message.content || 'Conexão com o modelo confirmada.' };
+        const turnTools = [];
         for (const call of message.tool_calls) {
           if (runController.signal.aborted) throw Object.assign(new Error('Tarefa interrompida pelo usuário.'), { name: 'AbortError' });
           let output;
@@ -2231,6 +2236,9 @@ class AutomationService {
               }
             }
           }
+          turnTools.push({ name: call.function.name, args, ok: output?.success !== false });
+          toolUse.set(call.function.name, (toolUse.get(call.function.name) || 0) + 1);
+          if (output?.success === false) lastError = String(output.error || '').slice(0, 160);
           const repeatNote = repeatGuard.record(call.function.name, args, output);
           if (repeatNote && output && typeof output === 'object') output = { ...output, avisoRepeticao: repeatNote };
           cascade.record({ success: output?.success !== false, repeated: Boolean(repeatNote) });
@@ -2289,6 +2297,8 @@ class AutomationService {
           dropImages(messages, 'captura antiga omitida');
           messages.push({ role: 'user', content: [{ type: 'text', text: '[Zero Browser] Captura da área visível da aba:' }, ...pendingImages.splice(0).map((url) => ({ type: 'image_url', image_url: { url } }))] });
         }
+        const progressNote = progressGuard.record({ tools: turnTools, budgetLeft: Math.max(0, maxSteps - (step + 1)) });
+        if (progressNote) messages.push({ role: 'user', content: '[Zero Browser] ' + progressNote });
         if (resumeId && resumable && !taskPolicy) {
           this.rememberPausedRun(resumeId, { messages, tabId, rootTabId, model, provider, taskStartedAt, knownDownloads: [...knownDownloads], knownTabs: [...knownTabs], tabTrail, lastUrl: tab?.webContents?.getURL?.() || '', expiresAt: Date.now() + 20 * 60 * 1000 });
         }
@@ -2300,7 +2310,14 @@ class AutomationService {
         for (const [oldId, state] of this.pausedAgentRuns) if (state.rootTabId === rootTabId) this.forgetPausedRun(oldId);
         while (this.pausedAgentRuns.size >= 8) this.forgetPausedRun(this.pausedAgentRuns.keys().next().value);
         this.rememberPausedRun(id, { messages, tabId, rootTabId, model, provider, taskStartedAt, knownDownloads: [...knownDownloads], knownTabs: [...knownTabs], tabTrail, lastUrl: tab?.webContents?.getURL?.() || '', expiresAt: Date.now() + 20 * 60 * 1000 });
-        return { success: true, paused: true, resumeId: id, tabId, message: `Parei após ${maxSteps} rodadas. Clique em Continuar para retomar esta tarefa com o histórico preservado.` };
+        const usage = [...toolUse.entries()].sort((a, b) => b[1] - a[1]).map(([name, count]) => `${name}×${count}`).slice(0, 6).join(', ');
+        const diagnosis = [usage ? `Ferramentas usadas: ${usage}.` : '', lastError ? `Último erro: ${lastError}.` : ''].filter(Boolean).join(' ');
+        return {
+          success: true, paused: true, resumeId: id, tabId,
+          message: `Parei após ${maxSteps} rodadas. Clique em Continuar para retomar esta tarefa com o histórico preservado.${diagnosis ? ` ${diagnosis}` : ''}`,
+          ...(usage ? { toolUse: Object.fromEntries(toolUse) } : {}),
+          ...(lastError ? { lastError } : {})
+        };
       }
       return { success: true, message: `Parei após ${maxSteps} ações para manter a tarefa sob controle. Confira a página e envie a próxima instrução.` };
     } catch (error) {

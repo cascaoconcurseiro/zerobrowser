@@ -197,6 +197,15 @@
         </section>
         <section class="settings-section">
           <h3>Agente de IA · recursos</h3>
+          <label class="setting-field" for="setting-agent-max-steps">
+            <span>Limite de ações por tarefa</span>
+            <select id="setting-agent-max-steps">
+              <option value="20">20 (mais rápido, tarefas curtas)</option>
+              <option value="40" selected>40 (padrão)</option>
+              <option value="60">60 (tarefas longas)</option>
+            </select>
+          </label>
+          <p class="setting-description">Cada ação é uma chamada ao modelo. Se a tarefa pausar no limite, use <strong>Continuar</strong> no painel; receitas e planilhas em lote gastam menos ações.</p>
           <label class="setting-item">
             <input type="checkbox" id="setting-agent-recipes" checked>
             <span>Receitas por site (repetir passos sem chamar o modelo)</span>

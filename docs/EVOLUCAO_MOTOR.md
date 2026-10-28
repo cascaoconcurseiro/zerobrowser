@@ -1035,3 +1035,28 @@ extensão de terceiros (reativar é pelo menu; `uninstall` orienta o menu em vez
 WebSocket rejeita promessas pendentes no `close`/`disconnect`; o IPC morto `automation:list-tools` foi removido.
 
 Limite remanescente: o token do pipe depende da ACL da pasta do perfil no Windows (`0600` é POSIX).
+
+### Menos rodadas: guardião de progresso e pré-inspeção — 0.1.19-dev
+
+O sintoma “parei após 40 rodadas” tem três causas, e as três foram atacadas no host (não no prompt do modelo).
+
+1. **Rodadas gastas só lendo.** Modelos fracos alternam `inspect_page`/`see_page`/`scroll` sem alterar nada.
+   `src/automation/progress-guard.js` conta rodadas consecutivas sem ação que mude estado (mutação real, não falha):
+   na 3ª injeta “aja com o que já sabe ou conclua”; na 5ª “pare de inspecionar”. No meio do orçamento e a 5 ações do
+   fim, lembra quantas restam e pede para agrupar ferramentas no mesmo turno. A mensagem entra como `user` com
+   prefixo `[Zero Browser]`, então não vira ferramenta nem gasta chamada extra.
+2. **Uma rodada perdida no começo.** Toda tarefa começava com o modelo pedindo `inspect_page`. O painel agora liga
+   `preInspect`: o host lê a página e entrega o snapshot no mesmo formato de uma chamada de ferramenta, antes do
+   primeiro turno. Em planilha, essa leitura é o snapshot compacto.
+3. **Limite fixo sem diagnóstico.** O teto agora é 20/40/60 (Configurações → Agente · recursos) e, ao pausar, a
+   resposta traz `Ferramentas usadas: inspect_page×12, sheets×3…` e o último erro, para saber o que consumiu as
+   rodadas em vez de só “parei”.
+
+Para planilhas, além do `sheets batch` da 0.1.16, o prompt passou a trazer o exemplo concreto (ler A1:C50 e gravar o
+total em E1) e a proibição de `inspect_page` antes.
+
+Testes: `test/progress-guard.test.js` (5), `test/agent-budget.test.js` (3 — pré-inspeção entrega o snapshot no
+primeiro request; aviso aparece após leituras repetidas; pausa reporta uso). `npm test` 269/269; `test:ui` PASS.
+
+Limites: o guardião conta rodadas, não qualidade — se o modelo alterna leitura e ação inútil, ele não detecta; e
+`preInspect` não roda quando a tarefa captura evidência de leitura nem no modo “sempre perguntar”.

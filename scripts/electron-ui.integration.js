@@ -69,7 +69,7 @@ app.whenReady().then(async () => {
       sessions: !!document.getElementById('ai-session'),
       newChat: !!document.getElementById('btn-ai-new-chat'),
       memory: !!document.getElementById('btn-ai-memory'),
-      resourceToggles: ['setting-agent-recipes','setting-agent-transforms','setting-agent-prompt-cache'].every((id) => !!document.getElementById(id)),
+      resourceToggles: ['setting-agent-recipes','setting-agent-transforms','setting-agent-prompt-cache','setting-agent-max-steps'].every((id) => !!document.getElementById(id)),
       cssApplied: getComputedStyle(document.body).fontFamily.length > 0,
       richChat: typeof window.app?.renderRichText === 'function'
     }))()`);

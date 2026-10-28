@@ -26,7 +26,7 @@
   paginada agora é `complete` (antes era sempre falso), e uma leitura por `tabId` não conta as outras abas como
   omitidas. Regra em `src/automation/batch-coverage.js`; detalhe, conflitos e reversão em
   `docs/REGISTRO_INTEGRACAO_0.1.5.md`.
-- Versão: `package.json` e `package-lock.json` em 0.1.18-dev (o lock acompanha; teste `test/whats-new.test.js`).
+- Versão: `package.json` e `package-lock.json` em 0.1.19-dev (o lock acompanha; teste `test/whats-new.test.js`).
 - **Motor, salto 1 (2026-10-27):** `run_steps` aceita `expect {url,text,absent}` conferido pelo host (espera de até
   3 s, texto normalizado, parada quando a pós-condição não vem). Opt-in: só com `actionScripts`/`--scripts`.
   `npm test` 133/133; regra em `docs/EVOLUCAO_MOTOR.md`; restauração em `docs/PONTOS_DE_RESTAURACAO.md`
@@ -148,6 +148,13 @@
   disconnect e remoção do IPC morto `automation:list-tools`. Instalador `Zero Browser Setup 0.1.18-dev.exe`
   (SHA-256 `c659c7a3…36da8`, 124.469.373 bytes); `app.asar` `ab0b381c…1b9f1` igual em build/produção; integração
   `status: PASS`; `npm test` 261/261; benchmark 44 passou. Backup em `backups/2026-10-28-before-csp/`.
+- **Checkpoint 18 instalado (2026-10-28):** versão **0.1.19-dev** atacando “para depois de 40 rodadas”: guardião de
+  progresso (`src/automation/progress-guard.js`) injeta aviso após 3 rodadas só de leitura, na 5ª manda parar de
+  inspecionar e lembra o orçamento no meio/fim; pré-inspeção ligada por padrão no painel (economiza uma rodada por
+  tarefa); limite de ações configurável (20/40/60); pausa devolve `toolUse` + último erro na mensagem. Instalador
+  `Zero Browser Setup 0.1.19-dev.exe` (SHA-256 `618f6d3d…b9f7`, 124.471.111 bytes); `app.asar` `439fe807…3749`
+  igual em build/produção; integração `status: PASS`; `npm test` **269/269**; `test:ui` PASS; benchmark 44 passou.
+  Backup em `backups/2026-10-28-before-progress/`.
 - **Publicação (2026-10-28):** `main` em `c13447e` enviado a `origin/main` (26 commits desde 0.1.4); tag
   `motor-pre-leaps-2026-10-27` publicada. Nenhum build/instalador foi anexado a release no GitHub.
 - **Primeiras execuções reais (deepseek-flash, 1 por condição):** tarefa 44 padrão 13 passos/13,0 s/47.456 tokens;

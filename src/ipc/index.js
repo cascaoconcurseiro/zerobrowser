@@ -111,10 +111,13 @@ function setupIpc() {
     const recipes = (await store.get('automation.recipes')) !== false;
     const transforms = (await store.get('automation.transforms')) !== false;
     const promptCache = (await store.get('automation.promptCache')) === true;
+    const configuredSteps = Number(await store.get('automation.maxSteps'));
+    const maxSteps = [20, 40, 60].includes(configuredSteps) ? configuredSteps : 40;
     return automationService.runAgent(tabId, prompt, apiKey, model, !testOnly, provider, Boolean(requireToolCall), {
       resumable: !testOnly,
       resumeId: testOnly ? null : resumeId,
-      ...(testOnly ? {} : { recipes, transforms, promptCache })
+      // A pré-inspeção entrega a primeira leitura pronta e economiza uma rodada do modelo.
+      ...(testOnly ? {} : { recipes, transforms, promptCache, maxSteps, preInspect: true })
     });
   });
 

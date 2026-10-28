@@ -156,7 +156,8 @@ class ZeroBrowserApp {
       'setting-download-prompt': 'downloads.prompt',
       'setting-agent-recipes': 'automation.recipes',
       'setting-agent-transforms': 'automation.transforms',
-      'setting-agent-prompt-cache': 'automation.promptCache'
+      'setting-agent-prompt-cache': 'automation.promptCache',
+      'setting-agent-max-steps': 'automation.maxSteps'
     };
     for (const [id, key] of Object.entries(settingKeys)) {
       const element = document.getElementById(id);
@@ -1027,6 +1028,8 @@ class ZeroBrowserApp {
     document.getElementById('setting-agent-recipes').checked = settings['automation.recipes'] !== false;
     document.getElementById('setting-agent-transforms').checked = settings['automation.transforms'] !== false;
     document.getElementById('setting-agent-prompt-cache').checked = settings['automation.promptCache'] === true;
+    const steps = Number(settings['automation.maxSteps']);
+    document.getElementById('setting-agent-max-steps').value = String([20, 40, 60].includes(steps) ? steps : 40);
   }
 
   async renderImportSources() {
