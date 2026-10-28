@@ -1,9 +1,15 @@
-# Novidades — Zero Browser 0.1.10-dev
+# Novidades — Zero Browser 0.1.11-dev
 
 Versão de desenvolvimento com foco no motor de IA e em sites difíceis (planilhas, canvas, editores).
 
 ## Motor de IA
 
+- **Saída com contrato por receita**: a receita declara `output` — cada campo aponta para uma célula A1 do
+  intervalo lido. O host valida os valores lidos (não o que o modelo diz ter lido), converte número no padrão
+  brasileiro (`R$ 1.234,56` → `1234.56`), booleano e lista, e devolve `output` + `outputValid`. Contrato quebrado
+  devolve `OUTPUT_INVALID` com os problemas por campo, em vez de texto solto.
+- **`sheets` como passo de receita**: ler/gravar intervalo A1 agora faz parte das receitas determinísticas
+  (`read`, `write`, `goto`), com a mesma autoridade `read`/`write` e sem clique em célula.
 - **Nome acessível padrão**: snapshot e locators usam a ordem do accname (labelledby, aria-label, rótulo nativo,
   title, placeholder, conteúdo), o que reduz clique no controle errado em qualquer site.
 

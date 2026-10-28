@@ -28,6 +28,7 @@ const { classifyRisk, approvalReasonForMode } = require('../risk');
 const { validateChecks, evaluateChecks, CHECK_TASK_TOOL } = require('../task-verifier');
 const { EXTRACT_TABLE_TOOL, validateRequest: validateTableRequest, shapeRows, buildTableScript } = require('../table-extractor');
 const { RecipeStore, RECIPE_TOOL, validateRecipe, applyRecipeInputs, missingRequiredInputs, normalizeOrigin } = require('../recipe-store');
+const { validateOutput } = require('../output-schema');
 const { CLIPBOARD_TOOL, validateClipboardRequest, shapeClipboardRead } = require('../clipboard');
 const { KEY_SEQUENCE_TOOL, validateSequence, flattenKeys, needsFormApproval } = require('../key-sequence');
 const { VISUAL_CLICK_TOOL, validateVisualClick, pointFromNormalized } = require('../visual-click');
@@ -873,7 +874,7 @@ class AutomationService {
     if (effectJournal) messages[0].content += ' O journal de efeitos impede repetir uma ação consequente sem confirmação: se a resposta trouxer alreadyDone ou needsVerification, inspecione a página e confirme o estado em vez de repetir às cegas.';
     if (verificationChecks.length) messages[0].content += ' O host confere o resultado final contra um contrato; chame check_task para conferir o estado antes de concluir e, se o host recusar, corrija a página antes de encerrar.';
     if (structuredExtraction) messages[0].content += ' Para tabelas, use extract_table com as colunas do cabeçalho em vez de copiar texto; confira missingColumns, totalRows e truncated antes de concluir.';
-    if (recipes && this.recipeStore) messages[0].content += ' Receitas: recipe list mostra as da origem; recipe save grava passos estáveis (navigate, click_text, wait_for) com expect obrigatório; recipe run repete sem modelo e para na primeira pós-condição que falhar. Só grave depois de a tarefa ter sido verificada.';
+    if (recipes && this.recipeStore) messages[0].content += ' Receitas: recipe list mostra as da origem; recipe save grava passos estáveis (navigate, click_text, wait_for, sheets) com expect obrigatório — passo sheets dispensa expect — e pode declarar output (campos tipados por célula A1, validados pelo host no run); recipe run repete sem modelo, para na primeira pós-condição que falhar e devolve output/outputValid. Só grave depois de a tarefa ter sido verificada.';
     if (advancedInput) messages[0].content += ' Em planilhas do Google, use sheets (read/write/goto com intervalo A1) — não clique em célula. Se sheets disser que a caixa de nome não foi encontrada, tente sheets_accessibility e inspecione; para o que só existe na imagem, use see_page + visual_click com x,y de 0 a 1000. Em outros editores em canvas, use clipboard write/read e key_sequence (setas, Tab).';
     if (diffSnapshots) messages[0].content += ' Depois de uma ação, o snapshot pode vir como diferença (campo diff): os nodes listados substituem os de mesmo índice e os índices em diff.iguais continuam valendo como no snapshot anterior.';
     if (observeAfterActions) messages[0].content += ' A última ação de um lote pode devolver nodes e text atualizados (autoObserved): use esses índices e dados, sem pedir inspect_page de novo se já bastarem.';
@@ -1045,89 +1046,7 @@ class AutomationService {
         return { success: true, ...result, note: 'Modo alternado. Inspecione a página: se as células aparecerem nos nodes, use-as; senão volte ao clipboard.' };
       }
       if (name === 'sheets') {
-        const pageUrl = tab?.webContents?.getURL?.() || '';
-        if (!isSheetsUrl(pageUrl)) throw new Error('A ferramenta sheets só funciona em docs.google.com/spreadsheets');
-        const invalid = validateSheetsRequest(args);
-        if (invalid) throw new Error(invalid);
-        if (!this.clipboard) throw new Error('Área de transferência indisponível neste processo');
-        const wc = tab.webContents;
-        const range = String(args.range).trim().toUpperCase();
-        if (args.action === 'write') {
-          const approval = await this.confirmConsequentialAction(tabId, { kind: 'sheets_write', readOnly: false, targetName: range });
-          if (!approval.approved) throw denied(approval, 'A gravação na planilha foi cancelada');
-          this.clipboard.writeText(valuesToTsv(args.values));
-        }
-        const focus = await wc.executeJavaScript(focusNameBoxScript()).catch(() => null);
-        if (!focus?.found) {
-          return {
-            success: false, code: 'NAME_BOX_NOT_FOUND', range,
-            error: 'Caixa de nome não encontrada nesta planilha; tente sheets_accessibility ou visual_click.',
-            diagnostics: { nameBoxFound: false, url: pageUrl }
-          };
-        }
-        let typed = false;
-        try {
-          if (typeof wc.insertText === 'function') {
-            await wc.insertText(range);
-            typed = true;
-          }
-        } catch {}
-        if (!typed) {
-          typed = await wc.executeJavaScript(`(() => {
-            const box = document.querySelector('#t-name-box, input.waffle-name-box') || document.activeElement;
-            if (!box) return false;
-            const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
-            setter.call(box, ${JSON.stringify(range)});
-            box.dispatchEvent(new Event('input', { bubbles: true }));
-            return true;
-          })()`).catch(() => false);
-        }
-        await performKeySequence(wc, [{ keys: ['Enter'] }], { delayMs: 0 });
-        await new Promise((resolve) => setTimeout(resolve, 350));
-        tab.axCache = null;
-        const selectionInfo = await wc.executeJavaScript(readNameBoxScript()).catch(() => null);
-        const selection = String(selectionInfo?.value || '');
-        const diagnostics = {
-          nameBoxFound: true,
-          selector: focus.selector || '',
-          typed: typed === true,
-          selection,
-          rangeApplied: selection.replace(/\s+/g, '').toUpperCase() === range
-        };
-        if (args.action === 'goto') {
-          if (trace) trace.sheetsGotos = (trace.sheetsGotos || 0) + 1;
-          return {
-            success: true, range, diagnostics,
-            note: diagnostics.rangeApplied ? 'Intervalo selecionado.' : 'O Enter pode não ter aplicado o intervalo; confira diagnostics.selection.'
-          };
-        }
-        if (args.action === 'write') {
-          await performKeySequence(wc, [{ keys: ['Control', 'v'] }], { delayMs: 0 });
-          await new Promise((resolve) => setTimeout(resolve, 400));
-          if (trace) trace.sheetsWrites = (trace.sheetsWrites || 0) + 1;
-          const columns = args.values.reduce((max, row) => Math.max(max, row.length), 0);
-          return { success: true, range, rows: args.values.length, columns, diagnostics, note: 'Intervalo colado. Use sheets read para confirmar se precisar.' };
-        }
-        await performKeySequence(wc, [{ keys: ['Control', 'c'] }], { delayMs: 0 });
-        await new Promise((resolve) => setTimeout(resolve, 250));
-        const text = this.clipboard.readText?.() ?? '';
-        if (!text) {
-          return {
-            success: false, code: 'CLIPBOARD_EMPTY', range, diagnostics,
-            error: 'A cópia voltou vazia; confira diagnostics.selection e se a planilha está em foco.'
-          };
-        }
-        const summary = readRangeSummary(text, { maxRows: args.maxRows, maxColumns: args.maxColumns });
-        if (trace) {
-          trace.sheetsReads = (trace.sheetsReads || 0) + 1;
-          trace.sheetsCells = (trace.sheetsCells || 0) + summary.cells;
-        }
-        return {
-          success: true, range, ...summary, diagnostics,
-          note: summary.truncated
-            ? 'Intervalo maior que o limite devolvido; reduza o range.'
-            : diagnostics.rangeApplied ? 'Valores copiados e lidos pelo host.' : 'Valores lidos, mas a caixa de nome não confirmou o intervalo; confira diagnostics.selection.'
-        };
+        return this.sheetsAction(tabId, tab, args, trace);
       }
       if (name === 'recipe') {
         if (!recipes || !this.recipeStore) throw new Error('Receitas não estão ligadas nesta tarefa');
@@ -1135,13 +1054,14 @@ class AutomationService {
         if (!origin) throw new Error('Receitas exigem uma página HTTP/HTTPS');
         if (args.action === 'list') return { success: true, readOnly: true, origin, recipes: await this.recipeStore.list(origin) };
         if (args.action === 'save') {
-          const invalid = validateRecipe({ name: args.name, steps: args.steps, input: args.input, authority: args.authority });
+          const invalid = validateRecipe({ name: args.name, steps: args.steps, input: args.input, authority: args.authority, output: args.output });
           if (invalid) throw new Error(invalid);
-          const saved = await this.recipeStore.save(origin, args.name, args.steps, args.input || null, args.authority || 'write');
+          const saved = await this.recipeStore.save(origin, args.name, args.steps, args.input || null, args.authority || 'write', args.output || null);
           return {
             success: true, origin, name: saved.name, steps: saved.steps.length, authority: saved.authority,
             ...(saved.input ? { inputs: Object.keys(saved.input.properties || {}) } : {}),
-            note: 'Receita gravada; ela só repete passos estáveis e verifica cada pós-condição.'
+            ...(saved.output ? { outputs: Object.keys(saved.output.properties || {}) } : {}),
+            note: 'Receita gravada; ela só repete passos estáveis, verifica cada pós-condição e valida o contrato de saída.'
           };
         }
         if (args.action === 'run') {
@@ -1149,6 +1069,9 @@ class AutomationService {
           if (!recipe) throw new Error(`Receita "${args.name}" não existe para ${origin}`);
           if ((recipe.authority || 'write') === 'read' && recipe.steps.some((step) => step.tool === 'click_text')) {
             throw new Error('Receita de leitura não executa cliques; salve como write.');
+          }
+          if ((recipe.authority || 'write') === 'read' && recipe.steps.some((step) => step.tool === 'sheets' && step.args.action === 'write')) {
+            throw new Error('Receita de leitura não grava na planilha; salve como write.');
           }
           const missing = missingRequiredInputs(recipe.input, args.values);
           if (missing.length) throw new Error(`Faltam entradas obrigatórias: ${missing.join(', ')}`);
@@ -1158,9 +1081,13 @@ class AutomationService {
           } catch (error) {
             throw new Error(error.message);
           }
-          const result = await this.runRecipe(tabId, tab, steps, trace);
+          const result = await this.runRecipe(tabId, tab, steps, trace, recipe.output || null);
           if (trace) trace.recipeRuns = (trace.recipeRuns || 0) + 1;
-          return { ...result, name: recipe.name, origin, authority: recipe.authority || 'write', ...(recipe.input ? { input: Object.keys(recipe.input.properties || {}) } : {}) };
+          return {
+            ...result, name: recipe.name, origin, authority: recipe.authority || 'write',
+            ...(recipe.input ? { input: Object.keys(recipe.input.properties || {}) } : {}),
+            ...(recipe.output ? { outputFields: Object.keys(recipe.output.properties || {}) } : {})
+          };
         }
         throw new Error('Ação de receita inválida');
       }
@@ -2210,6 +2137,93 @@ class AutomationService {
     return evaluateChecks(checks, { url, text: String(text || ''), downloads });
   }
 
+  // Leitura/gravação determinística de intervalo A1; usada pela ferramenta sheets e por receitas.
+  async sheetsAction(tabId, tab, args, trace = null) {
+    const pageUrl = tab?.webContents?.getURL?.() || '';
+    if (!isSheetsUrl(pageUrl)) throw new Error('A ferramenta sheets só funciona em docs.google.com/spreadsheets');
+    const invalid = validateSheetsRequest(args);
+    if (invalid) throw new Error(invalid);
+    if (!this.clipboard) throw new Error('Área de transferência indisponível neste processo');
+    const wc = tab.webContents;
+    const range = String(args.range).trim().toUpperCase();
+    if (args.action === 'write') {
+      const approval = await this.confirmConsequentialAction(tabId, { kind: 'sheets_write', readOnly: false, targetName: range });
+      if (!approval.approved) throw denied(approval, 'A gravação na planilha foi cancelada');
+      this.clipboard.writeText(valuesToTsv(args.values));
+    }
+    const focus = await wc.executeJavaScript(focusNameBoxScript()).catch(() => null);
+    if (!focus?.found) {
+      return {
+        success: false, code: 'NAME_BOX_NOT_FOUND', range,
+        error: 'Caixa de nome não encontrada nesta planilha; tente sheets_accessibility ou visual_click.',
+        diagnostics: { nameBoxFound: false, url: pageUrl }
+      };
+    }
+    let typed = false;
+    try {
+      if (typeof wc.insertText === 'function') {
+        await wc.insertText(range);
+        typed = true;
+      }
+    } catch {}
+    if (!typed) {
+      typed = await wc.executeJavaScript(`(() => {
+        const box = document.querySelector('#t-name-box, input.waffle-name-box') || document.activeElement;
+        if (!box) return false;
+        const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+        setter.call(box, ${JSON.stringify(range)});
+        box.dispatchEvent(new Event('input', { bubbles: true }));
+        return true;
+      })()`).catch(() => false);
+    }
+    await performKeySequence(wc, [{ keys: ['Enter'] }], { delayMs: 0 });
+    await new Promise((resolve) => setTimeout(resolve, 350));
+    tab.axCache = null;
+    const selectionInfo = await wc.executeJavaScript(readNameBoxScript()).catch(() => null);
+    const selection = String(selectionInfo?.value || '');
+    const diagnostics = {
+      nameBoxFound: true,
+      selector: focus.selector || '',
+      typed: typed === true,
+      selection,
+      rangeApplied: selection.replace(/\s+/g, '').toUpperCase() === range
+    };
+    if (args.action === 'goto') {
+      if (trace) trace.sheetsGotos = (trace.sheetsGotos || 0) + 1;
+      return {
+        success: true, range, diagnostics,
+        note: diagnostics.rangeApplied ? 'Intervalo selecionado.' : 'O Enter pode não ter aplicado o intervalo; confira diagnostics.selection.'
+      };
+    }
+    if (args.action === 'write') {
+      await performKeySequence(wc, [{ keys: ['Control', 'v'] }], { delayMs: 0 });
+      await new Promise((resolve) => setTimeout(resolve, 400));
+      if (trace) trace.sheetsWrites = (trace.sheetsWrites || 0) + 1;
+      const columns = args.values.reduce((max, row) => Math.max(max, row.length), 0);
+      return { success: true, range, rows: args.values.length, columns, diagnostics, note: 'Intervalo colado. Use sheets read para confirmar se precisar.' };
+    }
+    await performKeySequence(wc, [{ keys: ['Control', 'c'] }], { delayMs: 0 });
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    const text = this.clipboard.readText?.() ?? '';
+    if (!text) {
+      return {
+        success: false, code: 'CLIPBOARD_EMPTY', range, diagnostics,
+        error: 'A cópia voltou vazia; confira diagnostics.selection e se a planilha está em foco.'
+      };
+    }
+    const summary = readRangeSummary(text, { maxRows: args.maxRows, maxColumns: args.maxColumns });
+    if (trace) {
+      trace.sheetsReads = (trace.sheetsReads || 0) + 1;
+      trace.sheetsCells = (trace.sheetsCells || 0) + summary.cells;
+    }
+    return {
+      success: true, range, ...summary, diagnostics,
+      note: summary.truncated
+        ? 'Intervalo maior que o limite devolvido; reduza o range.'
+        : diagnostics.rangeApplied ? 'Valores copiados e lidos pelo host.' : 'Valores lidos, mas a caixa de nome não confirmou o intervalo; confira diagnostics.selection.'
+    };
+  }
+
   // Pós-condição de uma receita: lê a aba e espera até o limite, como no run_steps.
   async expectationOnTab(tab, expect, timeoutMs = 3000) {
     const deadline = Date.now() + Math.max(0, timeoutMs);
@@ -2229,13 +2243,15 @@ class AutomationService {
   }
 
   // Receita: passos estáveis, sem modelo. Cada passo passa por aprovação e tem pós-condição obrigatória.
-  async runRecipe(tabId, tab, steps, trace = null) {
+  async runRecipe(tabId, tab, steps, trace = null, outputSchema = null) {
     const commitPossible = (step, output) => {
       if (step.tool === 'wait_for') return false;
+      if (step.tool === 'sheets' && step.args.action !== 'write') return false;
       if (step.tool === 'click_text' && /não encontrado/i.test(String(output?.error || ''))) return false;
       return true;
     };
     const results = [];
+    let lastRead = null;
     for (const [i, step] of steps.entries()) {
       let output;
       try {
@@ -2280,6 +2296,11 @@ class AutomationService {
           })()`);
           if (!target) output = { success: false, error: `Texto "${step.args.text}" não encontrado` };
           else output = { ...(await performCuaInput(tab.webContents, { kind: 'cua_click', x: target.x, y: target.y })), target: target.label };
+        } else if (step.tool === 'sheets') {
+          output = await this.sheetsAction(tabId, tab, { ...step.args }, trace);
+          if (output?.success && step.args.action === 'read' && Array.isArray(output.values)) {
+            lastRead = { grid: output.values, range: output.range };
+          }
         } else {
           output = { success: false, error: `Ferramenta não suportada em receita: ${step.tool}` };
         }
@@ -2314,7 +2335,19 @@ class AutomationService {
       }
     }
     if (trace) trace.recipeSteps = (trace.recipeSteps || 0) + steps.length;
-    return { success: true, completed: steps.length, total: steps.length, results };
+    if (!outputSchema) return { success: true, completed: steps.length, total: steps.length, results };
+    const verdict = validateOutput(outputSchema, lastRead || {});
+    if (!verdict.ok) {
+      if (trace) trace.recipeOutputInvalid = (trace.recipeOutputInvalid || 0) + 1;
+      return {
+        success: false, code: 'OUTPUT_INVALID', completed: steps.length, total: steps.length, results,
+        mayHaveReadButInvalid: true,
+        problems: verdict.problems,
+        output: verdict.output,
+        error: `A receita executou, mas a saída não bateu com o contrato: ${verdict.problems.join('; ')}.`
+      };
+    }
+    return { success: true, completed: steps.length, total: steps.length, results, output: verdict.output, outputValid: true };
   }
 
   async runTask({ startUrl, prompt, maxSteps = 20, approvalPolicy = 'ask', allowedHosts = [], keepTab = false, captureInitialText = false, captureInitialChecks = [], engine = 'navegante', maxDurationSec, observeAfterActions = true, captureReadEvidence = false, preInspect = false, actionScripts = false, diffSnapshots = false, cascadeModel = null, streaming = false, effectJournal = false, verify = null, requireVerification = false, correctionRounds = 0, structuredExtraction = false, recipes = false, advancedInput = true, saveRecipe = null, authenticationOrigins = [] }) {

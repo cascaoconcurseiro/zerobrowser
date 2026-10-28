@@ -3,8 +3,10 @@
 
 const fs = require('fs');
 const path = require('path');
+const { validateOutputSchema, parseRange } = require('./output-schema');
 
-const ALLOWED_TOOLS = Object.freeze(['navigate', 'click_text', 'wait_for']);
+// sheets entra como passo determinístico: lê/grava intervalo A1 sem clique e alimenta o schema de saída.
+const ALLOWED_TOOLS = Object.freeze(['navigate', 'click_text', 'wait_for', 'sheets']);
 const MAX_STEPS = 15;
 const MAX_RECIPES_PER_ORIGIN = 50;
 const MAX_STORED = 200;
@@ -39,10 +41,12 @@ function validateInputSchema(input) {
   return null;
 }
 
-function validateRecipe({ name, steps, input, authority } = {}) {
+function validateRecipe({ name, steps, input, authority, output } = {}) {
   if (typeof name !== 'string' || !NAME_PATTERN.test(name)) return 'name deve ter 1–41 caracteres (letras, números, ponto, hífen ou _).';
   const inputProblem = validateInputSchema(input);
   if (inputProblem) return inputProblem;
+  const outputProblem = validateOutputSchema(output);
+  if (outputProblem) return outputProblem;
   if (authority !== undefined && !['read', 'write'].includes(authority)) return 'authority deve ser read ou write.';
   if (!Array.isArray(steps) || !steps.length) return 'Informe ao menos um passo.';
   if (steps.length > MAX_STEPS) return `No máximo ${MAX_STEPS} passos por receita.`;
@@ -54,7 +58,20 @@ function validateRecipe({ name, steps, input, authority } = {}) {
     if (step.tool === 'navigate' && (typeof step.args.url !== 'string' || !['http:', 'https:'].includes((() => { try { return new URL(step.args.url).protocol; } catch { return ''; } })()))) {
       return `${label}: navigate exige URL HTTP/HTTPS.`;
     }
-    if (step.tool !== 'navigate' && (typeof step.args.text !== 'string' || !step.args.text.trim())) return `${label}: ${step.tool} exige args.text.`;
+    if (step.tool === 'sheets') {
+      if (!['read', 'write', 'goto'].includes(step.args.action)) return `${label}: sheets exige action read, write ou goto.`;
+      if (!parseRange(step.args.range)) return `${label}: sheets exige range A1 (ex.: A1:C20).`;
+    } else if (step.tool !== 'navigate' && (typeof step.args.text !== 'string' || !step.args.text.trim())) {
+      return `${label}: ${step.tool} exige args.text.`;
+    }
+    // Para passo sheets o contrato real é o schema de saída; os demais exigem pós-condição declarada.
+    if (step.tool === 'sheets') {
+      if (step.expect !== undefined) {
+        if (!step.expect || typeof step.expect !== 'object' || Array.isArray(step.expect)) return `${label}: expect inválido.`;
+        if (Object.keys(step.expect).some((key) => !['url', 'text', 'absent'].includes(key))) return `${label}: expect aceita url, text ou absent.`;
+      }
+      continue;
+    }
     if (!step.expect || typeof step.expect !== 'object' || Array.isArray(step.expect) || !Object.keys(step.expect).length) {
       return `${label}: toda receita exige expect (url, text ou absent).`;
     }
@@ -62,6 +79,9 @@ function validateRecipe({ name, steps, input, authority } = {}) {
   }
   if ((authority || 'write') === 'read' && steps.some((step) => step.tool === 'click_text')) {
     return 'authority read não permite click_text; use write.';
+  }
+  if ((authority || 'write') === 'read' && steps.some((step) => step.tool === 'sheets' && step.args.action === 'write')) {
+    return 'authority read não permite sheets write.';
   }
   return null;
 }
@@ -141,12 +161,17 @@ class RecipeStore {
     await fs.promises.rename(temporary, this.filePath);
   }
 
-  async save(origin, name, steps, input = null, authority = 'write') {
+  async save(origin, name, steps, input = null, authority = 'write', output = null) {
     await this.load();
     const key = normalizeOrigin(origin);
     if (!key) throw new Error('Origem inválida para receita');
     this.data.recipes[key] = this.data.recipes[key] || {};
-    this.data.recipes[key][name] = { name, steps, authority, ...(input ? { input } : {}), savedAt: this.now() };
+    this.data.recipes[key][name] = {
+      name, steps, authority,
+      ...(input ? { input } : {}),
+      ...(output ? { output } : {}),
+      savedAt: this.now()
+    };
     await this.persist();
     return this.data.recipes[key][name];
   }
@@ -161,7 +186,12 @@ class RecipeStore {
   async list(origin) {
     await this.load();
     const key = normalizeOrigin(origin);
-    return Object.values(this.data.recipes[key] || {}).map(({ name, steps, input, authority, savedAt }) => ({ name, steps: steps.length, authority: authority || 'write', ...(input ? { inputs: Object.keys(input.properties || {}) } : {}), savedAt }));
+    return Object.values(this.data.recipes[key] || {}).map(({ name, steps, input, output, authority, savedAt }) => ({
+      name, steps: steps.length, authority: authority || 'write',
+      ...(input ? { inputs: Object.keys(input.properties || {}) } : {}),
+      ...(output ? { outputs: Object.keys(output.properties || {}) } : {}),
+      savedAt
+    }));
   }
 }
 
@@ -169,7 +199,7 @@ const RECIPE_TOOL = {
   type: 'function',
   function: {
     name: 'recipe',
-    description: 'Receitas determinísticas por site (sem modelo). list mostra as da origem; save grava passos estáveis (navigate, click_text, wait_for) com expect e schema de entrada opcional; run executa com values, sem chamar o modelo, e para na primeira pós-condição que falhar.',
+    description: 'Receitas determinísticas por site (sem modelo). list mostra as da origem; save grava passos estáveis (navigate, click_text, wait_for, sheets) com expect — sheets dispensa expect e usa o schema de saída — mais schema de entrada e de saída opcionais; run executa com values, sem chamar o modelo, para na primeira pós-condição que falhar e valida output contra a leitura.',
     parameters: {
       type: 'object',
       properties: {
@@ -203,7 +233,16 @@ const RECIPE_TOOL = {
           additionalProperties: false
         },
         values: { type: 'object', description: 'Valores para os placeholders {{campo}} (run).' },
-        authority: { type: 'string', enum: ['read', 'write'], description: 'read só navega/espera; write pode clicar.' }
+        output: {
+          type: 'object',
+          description: 'Contrato de saída (save): cada campo aponta para uma célula A1 do último sheets read. O host valida os valores lidos e devolve output + outputValid.',
+          properties: {
+            properties: { type: 'object' },
+            required: { type: 'array', items: { type: 'string' } }
+          },
+          additionalProperties: false
+        },
+        authority: { type: 'string', enum: ['read', 'write'], description: 'read só navega/espera/lê; write pode clicar e gravar.' }
       },
       required: ['action'],
       additionalProperties: false

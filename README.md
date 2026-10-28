@@ -6,11 +6,11 @@ Navegador Electron para Windows com agente integrado à OpenRouter ou DeepSeek.
 
 ## Estado atual (2026-10-27)
 
-O **0.1.10-dev** é o que está instalado em produção no Windows desde 28/10/2026, instalado por cima do 0.1.9-dev após backup verificável e validação do executável empacotado. O `app.asar` do build e da instalação coincide (`bf495150…5e045`), e a integração do executável instalado passou. É um build `-dev`: não passou por todos os gates de release (benchmark pareado completo e inspeção visual), então trate como candidato. O menu ⋮ tem **Novidades** com o resumo desta versão. Testes com provider local e fixtures confirmam fluxos de integração, mas não comprovam desempenho ou acerto em Planilhas autenticadas, lojas com conta ou todos os sites complexos. O estado e os próximos passos estão em `HANDOFF.md`, `docs/EVOLUCAO_MOTOR.md` e `docs/NOVIDADES.md`.
+O **0.1.11-dev** é o que está instalado em produção no Windows desde 28/10/2026, instalado por cima do 0.1.10-dev após backup verificável e validação do executável empacotado. O `app.asar` do build e da instalação coincide (`0d46e9db…b043a`), e a integração do executável instalado passou. É um build `-dev`: não passou por todos os gates de release (benchmark pareado completo e inspeção visual), então trate como candidato. O menu ⋮ tem **Novidades** com o resumo desta versão. Testes com provider local e fixtures confirmam fluxos de integração, mas não comprovam desempenho ou acerto em Planilhas autenticadas, lojas com conta ou todos os sites complexos. O estado e os próximos passos estão em `HANDOFF.md`, `docs/EVOLUCAO_MOTOR.md` e `docs/NOVIDADES.md`.
 
-A instalação anterior (0.1.9-dev) está preservada em `backups/2026-10-28-before-accname/`; a 0.1.8-dev, em `backups/2026-10-28-before-diagnostics/`; a 0.1.7-dev, em `backups/2026-10-28-before-credential/`; a 0.1.6-dev, em `backups/2026-10-28-before-mint/`; o release 0.1.4, em `backups/2026-10-27-before-0.1.5-dev/` — com instruções de restauração no `LEIA-ME.md` de cada pasta.
+A instalação anterior (0.1.10-dev) está preservada em `backups/2026-10-28-before-output-schema/`; a 0.1.9-dev, em `backups/2026-10-28-before-accname/`; a 0.1.8-dev, em `backups/2026-10-28-before-diagnostics/`; a 0.1.7-dev, em `backups/2026-10-28-before-credential/`; a 0.1.6-dev, em `backups/2026-10-28-before-mint/`; o release 0.1.4, em `backups/2026-10-27-before-0.1.5-dev/` — com instruções de restauração no `LEIA-ME.md` de cada pasta.
 
-### Em desenvolvimento (0.1.10-dev)
+### Em desenvolvimento (0.1.11-dev)
 
 - `tabs read_batch` pagina abas (`tabOffset`/`tabVersion`) e texto (`contentOffset`/`contentVersion`), reiniciando a leitura quando a página muda; `coverage.complete` agora fica `true` no último trecho.
 - Perfis locais pelo menu ⋮ (abrir, criar, excluir), cada um como processo próprio via `ZERO_USER_DATA`; sem renomear e sem migrar o perfil atual.

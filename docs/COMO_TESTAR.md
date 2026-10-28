@@ -1,15 +1,22 @@
-# Como testar o Zero Browser (0.1.10-dev)
+# Como testar o Zero Browser (0.1.11-dev)
 
 Checklist manual para a versão instalada em 28/10/2026. O que depende de modelo/provedor está separado do que já
 pode ser conferido sem chave.
 
-**Build instalado:** `0.1.10-dev`, `app.asar` `bf495150…5e045`; backup do estado anterior em
-`backups/2026-10-28-before-accname/`.
+**Build instalado:** `0.1.11-dev`, `app.asar` `0d46e9db…b043a`; backup do estado anterior em
+`backups/2026-10-28-before-output-schema/`.
 
 ## 0. Novidades e versão
 
-- [ ] Menu ⋮ mostra **0.1.6-dev** e abre **Novidades** com o resumo (motor, sites difíceis, limites).
+- [ ] Menu ⋮ mostra **0.1.11-dev** e abre **Novidades** com o resumo (motor, sites difíceis, limites).
 - [ ] O diálogo fecha em **Fechar** e não altera a página.
+
+## 0.1 Contrato de saída (sem provedor)
+
+- [ ] Numa planilha de teste, peça “leia A1:C3 e devolva produto e total” com `recipes` ligado: o resultado traz
+      `output` e `outputValid: true`, e o total vem como número (não texto).
+- [ ] Peça o mesmo com uma célula fora do intervalo lido: a resposta traz `OUTPUT_INVALID` com o campo e o motivo,
+      em vez de inventar valor.
 
 ## 1. Casca do navegador (não depende de provedor)
 

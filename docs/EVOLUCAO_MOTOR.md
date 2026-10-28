@@ -831,3 +831,26 @@ autocontida. Testes: `test/accessible-name.test.js` (3 casos: precedência, fall
 Limites: não implementa o cálculo completo de “name from content” com exclusão de descendentes ocultos nem
 `aria-describedby`; cobre a maioria dos controles reais. CSS `display:none` só é considerado quando há
 `defaultView` (no navegador, sim).
+
+### Contrato de saída por receita — 2026-10-28 (0.1.11-dev)
+
+Segundo item da fase de precisão, e o que ataca o “devolve texto solto, às vezes errado”. A receita passa a poder
+declarar `output`: cada campo aponta para **uma célula A1** e um tipo (`string`, `number`, `boolean`, `array`).
+No `recipe run`, o host guarda a última leitura feita por um passo `sheets read` (grade TSV + intervalo) e valida
+os campos sobre essa grade — nunca sobre o que o modelo diz ter lido.
+
+- Conversão numérica no padrão brasileiro: `R$ 1.234,56` → `1234.56`, `1.234` → `1234`, `1,5` → `1.5`, `(12)` → `-12`.
+- Booleano: `sim/não`, `true/false`, `1/0`, `verdadeiro/falso`; lista: quebra de linha, `;` ou `,`.
+- Célula vazia não vira `0`: campo `number` obrigatório falha; `string`/`array` viram `''`/`[]`.
+- Contrato quebrado → `success: false`, `code: OUTPUT_INVALID`, `problems` por campo. Não há valor inventado.
+- `sheets` entrou como passo determinístico (`read`/`write`/`goto`), então uma receita pode “abrir a planilha,
+  ler A1:C3 e devolver 3 campos” sem nenhum modelo no caminho.
+- Autoridade continua valendo: receita `read` recusa `sheets write` (assim como recusa `click_text`).
+
+Arquivos: `src/automation/output-schema.js`, `src/automation/recipe-store.js`, `src/automation/service/index.js`
+(método `sheetsAction` extraído para ser reutilizado pela ferramenta e pelo runner). Testes:
+`test/output-schema.test.js` (6 casos, incluindo `runRecipe` com leitura stub e contrato inválido). `npm test`
+208/208.
+
+Limites: o contrato só vale para o que veio de `sheets read`; para HTML genérico ainda não existe schema de saída
+(próximo passo é validar sobre `extract_table`). Não há tipagem de data nem de moeda separada de número.

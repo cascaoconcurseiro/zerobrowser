@@ -532,3 +532,4 @@
 - [x] Nome acessível padrão (accname W3C, implementação própria): `aria-labelledby`, `aria-label`, rótulo nativo, title, placeholder, conteúdo e valor; usado no snapshot e no locator; oculto e ciclo protegidos. 3 testes; `npm test` 202/202.
 - [ ] Completar accname com “name from content” excluindo descendentes ocultos e `aria-describedby`; comparar com o Playwright num conjunto de fixtures.
 - [x] Checkpoint 9 / **0.1.10-dev** instalado com accname: instalador `e2f06273…2d27c6c`, `app.asar` `bf495150…5e045`, `status: PASS`, `npm test` 202/202; backup em `backups/2026-10-28-before-accname/`.
+- [x] Checkpoint 10 / **0.1.11-dev** instalado com schema de saída por receita (`output`/`outputValid`/`OUTPUT_INVALID`) e `sheets` como passo determinístico: instalador `229ee406…a901e2`, `app.asar` `0d46e9db…b043a`, `status: PASS`, `npm test` 208/208; backup em `backups/2026-10-28-before-output-schema/`.
