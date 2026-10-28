@@ -511,4 +511,5 @@
 - [x] `sheets_accessibility`: alterna o modo de acessibilidade do Planilhas (Ctrl+Alt+Z) só em docs.google.com/spreadsheets e manda inspecionar. Hipótese não validada em conta real.
 - [ ] Validar `sheets_accessibility` numa planilha real (células aparecem no snapshot?) e ajustar o fluxo conforme o resultado.
 - [ ] Benchmark pareado com provedor real (tarefa 44 e 33) usando `--journal`, `--scripts` e `--preinspect`.
-- [x] Primeiras execuções reais pós-saltos (deepseek-flash, 1 por condição): 44 padrão 1/1; 44 `--journal` 1/1 mas 18 passos/2,2× tempo; 33 padrão 1/1; 33 `--scripts` 1/1 com −58% passos e −37% tokens. Evidência em `bench/resultados/`; journal precisa de 5 repetições antes de promover.
+- [x] Primeiras execuções reais pós-saltos (deepseek-flash, 1 por condição): 44 padrão 1/1; 44 `--journal` 1/1 mas 18 passos/2,2× tempo; 33 padrão 1/1; 33 `--scripts` 1/1 com −58% passos e −37% tokens. Evidência em `bench/resultados/`.
+- [x] Estreitar o journal a efeito crítico (commitment/destructive/credential + upload/Enter; navegação fora) e medir 5×5 na tarefa 44: 5/5 em ambas, −16,1% passos, −15,1% chamadas e −10,1% tokens contra a base. Regressão removida; prova estatística ainda exige o conjunto difícil completo e outro modelo.

@@ -666,3 +666,41 @@ Leitura:
 
 Arquivos de evidência em `bench/resultados/`: `visual-check__*`, `journal-check__*`, `scripts-base__*`,
 `scripts-check__*`.
+
+### Journal estreitado a efeito crítico — 2026-10-27
+
+A execução real de 44 com `--journal` (18 passos, 28,5 s, 117.753 tokens contra 13/13,0 s/47.456) mostrou que o
+journal estava caro demais: ele cobria **todo** clique, inclusive abrir aba, filtrar e navegar. Bloqueio por "efeito
+desconhecido" nesses cliques força releitura sem proteger nada.
+
+Correção:
+
+- `isConsequential` agora exige **nível de risco crítico** (`commitment`, `destructive` ou `credential`) para clique,
+  `click_text` e `hidden_action`; upload e tecla Enter continuam cobertos;
+- **navegação saiu do journal** — visitar de novo não duplica efeito;
+- o nível vem de `classifyRisk` com o nó do snapshot (nome/href/tipo), então "Enviar pedido" entra e "Filtrar" não;
+- `classifyRisk` passou a aceitar nó nulo sem lançar.
+
+Isso preserva a proteção onde importa (envio/compra/exclusão/credencial) e remove o custo de ações comuns. A medição
+pareada 5×5 está registrada abaixo (ou pendente, se o build ainda não tiver rodado).
+
+#### Medição 5×5 depois do estreitamento (2026-10-28)
+
+Tarefa 44, deepseek-flash, 5 repetições por condição, mesma máquina e mesmo app instalado
+(`bench/resultados/par-base-5__*` e `par-journal-5__*`):
+
+| Métrica | Base | Journal | Variação |
+|---|---:|---:|---:|
+| Acerto | 5/5 | 5/5 | 0 |
+| Passos | 17,4 | 14,6 | **−16,1%** |
+| Tempo | 17,1 s | 16,5 s | −3,1% |
+| Chamadas ao modelo | 10,6 | 9,0 | **−15,1%** |
+| Tokens de entrada | 371.023 | 333.574 | **−10,1%** |
+| Tokens não cacheados | 11.766 | 10.523 | −10,6% |
+
+O comparador marca "inconclusivo" porque há **uma tarefa** pareada (o IC é degenerado), então isto não é prova
+estatística. O que a medição mostra com clareza é que a regressão desapareceu: antes o journal custava +5 passos e
++2,5× tokens; agora ele acompanha ou melhora a base, mantendo 100%.
+
+Conclusão prática: o journal pode continuar **opt-in** sem medo de custo, e a decisão de ligá-lo por padrão ainda
+exige o conjunto difícil completo (14 tarefas) e outro modelo.

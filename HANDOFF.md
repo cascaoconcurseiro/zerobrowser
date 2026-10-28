@@ -69,6 +69,10 @@
 - **Checkpoint 3 instalado (2026-10-27):** build com `visual_click` e `sheets_accessibility`
   (instalador `a2339c55…ad151c`, `app.asar` `39cb96e1…7494f8`, integração `status: PASS`); backup em
   `backups/2026-10-27-before-visual/`. `npm test` 185/185.
+- **Checkpoint 4 instalado (2026-10-28):** journal estreitado a efeito crítico (instalador `36104023…effaff`,
+  `app.asar` `92940a8c…02b720`, `status: PASS`); backup em `backups/2026-10-27-before-journal-fix/`.
+  Medição 5×5 na tarefa 44: 5/5 das duas condições, journal com −16,1% passos, −15,1% chamadas e −10,1% tokens;
+  regressão do journal removida (prova estatística ainda requer 14 tarefas e outro modelo).
 - **Primeiras execuções reais (deepseek-flash, 1 por condição):** tarefa 44 padrão 13 passos/13,0 s/47.456 tokens;
   44 `--journal` 18/28,5 s/117.753 (piorou — não promover sem 5 repetições); 33 padrão 12/13,7 s/52.871;
   33 `--scripts` 5/10,3 s/33.065. Todas 1/1. Detalhe e ressalvas em `docs/EVOLUCAO_MOTOR.md`.
