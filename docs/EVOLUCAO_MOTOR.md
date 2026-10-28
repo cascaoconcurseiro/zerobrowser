@@ -959,3 +959,28 @@ memória era montado **antes** de `const messages`, o que quebraria qualquer tar
 Evidência: `npm test` 249/249; benchmark difícil 14/14 no build instalado; integração `status: PASS`.
 Limites: histórico é local ao perfil (não sincroniza), memória não é semântica (é lista recente), e módulos não
 têm DOM, então não substituem ferramentas de página.
+
+### Planilhas com menos ações — 0.1.16-dev
+
+O sintoma (“lento e diz toda hora 30 ações”) tinha duas causas medidas no código, não no modelo.
+
+1. **Uma ação por intervalo.** `sheets` só fazia read/write/goto isolados; ler, calcular e gravar custava três
+   rodadas de modelo, cada uma com o histórico inteiro. Agora existe `action: "batch"`: até 12 operações
+   (`read`/`write`/`goto`) executadas em ordem pelo host, com **uma** aprovação para todas as escritas, parando na
+   primeira falha e devolvendo `results[i]` (as leituras voltam com `values`). O modelo gasta uma rodada para o
+   trabalho todo.
+2. **Inspeção caríssima.** Em `docs.google.com/spreadsheets`, `inspect_page` gerava árvore AX + até 7.000
+   caracteres de `innerText` — e nenhum dos dois contém célula. O modelo então “procurava” a planilha, gastando
+   rodadas e tokens, e acabava no teto. Agora o host detecta a planilha e devolve só `{title, sheet:{selection,
+   tabs}}` (script `sheetsSnapshotScript`), com nota explícita: célula não está no DOM, use `sheets` com `batch`,
+   não clique em célula. Nenhum snapshot AX é calculado nesse caminho.
+
+Também: o prompt do agente passou a dizer “não chame inspect_page antes numa planilha” e a recomendação de
+`batch`; o teto padrão do painel subiu de 30 para 40 apenas como folga — com batch o caso normal cabe em 4–6.
+
+Testes: `test/sheets-mode.test.js` (4) cobrindo validação do batch, execução read→write→read com uma aprovação,
+parada na primeira falha e o snapshot compacto sem chamar `getAccessibilityTree`. `npm test` 253/253; benchmark 44
+e 33 passaram no build instalado.
+
+Limites: `batch` não cria aba, não altera formatação e não lê intervalo protegido; cada operação ainda passa pela
+caixa de nome, então planilha com a caixa de nome quebrada continua exigindo `sheets_accessibility`/visual.

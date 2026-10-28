@@ -1,8 +1,15 @@
-# Novidades — Zero Browser 0.1.15-dev
+# Novidades — Zero Browser 0.1.16-dev
 
 Versão de desenvolvimento com foco no motor de IA e em sites difíceis (planilhas, canvas, editores).
 
 ## Painel e conversas
+
+- **Planilhas com menos ações**: `sheets` ganhou `action: "batch"` (até 12 operações — ler, gravar, ler de novo —
+  numa única chamada, com uma só aprovação de escrita). O agente não precisa mais gastar uma rodada por intervalo.
+- **Inspeção barata no Planilhas**: `inspect_page` numa planilha devolve só título, seleção e abas (célula não
+  existe no DOM) em vez de uma árvore de acessibilidade inútil; o retorno já orienta a usar `batch` e proíbe
+  clique em célula. É isso que fazia a tarefa “demorar e pedir 30 ações”.
+- **Orçamento maior**: o padrão do painel subiu de 30 para 40 ações; com batch, o caso normal cabe em 4–6.
 
 - **Histórico de conversas**: cada conversa fica salva com título e data; você alterna pelo seletor no topo do
   painel, cria uma **Nova** e continua de onde parou depois de fechar o app.

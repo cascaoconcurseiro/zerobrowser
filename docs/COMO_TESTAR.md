@@ -1,10 +1,18 @@
-# Como testar o Zero Browser (0.1.15-dev)
+# Como testar o Zero Browser (0.1.16-dev)
 
 Checklist manual para a versão instalada em 28/10/2026. O que depende de modelo/provedor está separado do que já
 pode ser conferido sem chave.
 
-**Build instalado:** `0.1.15-dev`, `app.asar` `c6909e1a…df33`; backup do estado anterior em
-`backups/2026-10-28-before-panel-history/`.
+**Build instalado:** `0.1.16-dev`, `app.asar` `b72f59d3…a411`; backup do estado anterior em
+`backups/2026-10-28-before-sheets-batch/`.
+
+## 0.2 Planilhas com poucas ações
+
+- [ ] Abrir uma planilha e pedir “leia A1:C5, some a coluna C e grave o total em D1”.
+      O esperado é **uma ou duas** chamadas `sheets` (a segunda com `action: "batch"`), não uma por intervalo.
+- [ ] O `inspect_page` numa planilha deve devolver só abas/seleção (`sheet`) e um aviso para usar `batch`.
+- [ ] A tarefa deve terminar bem antes do limite de ações (o teto do painel agora é 40).
+- [ ] Se ele insistir em clicar em célula ou usar `see_page` sem motivo, isso é bug: anotar a resposta exata.
 
 ## 0.1 Painel do agente (sem provedor)
 

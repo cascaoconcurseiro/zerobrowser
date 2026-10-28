@@ -39,7 +39,7 @@ const { CLIPBOARD_TOOL, validateClipboardRequest, shapeClipboardRead } = require
 const { KEY_SEQUENCE_TOOL, validateSequence, flattenKeys, needsFormApproval } = require('../key-sequence');
 const { VISUAL_CLICK_TOOL, validateVisualClick, pointFromNormalized } = require('../visual-click');
 const { SHEETS_ACCESSIBILITY_TOOL, isSheetsUrl, toggleSteps } = require('../sheets');
-const { SHEETS_TOOL, validateSheetsRequest, valuesToTsv, readRangeSummary, focusNameBoxScript, readNameBoxScript } = require('../sheets-tool');
+const { SHEETS_TOOL, validateSheetsRequest, valuesToTsv, readRangeSummary, focusNameBoxScript, readNameBoxScript, sheetsSnapshotScript } = require('../sheets-tool');
 const { accessibleName } = require('../accessible-name');
 const {
   taskPolicyAllows, isLoopbackUrl, HUMAN_CHECK_GUARDED_TOOLS, compactScreenshot, dropImages,
@@ -905,7 +905,7 @@ class AutomationService {
   }
 
   // `trace`, when given, is filled in place with model calls, token usage and every tool call (used by run_task).
-  async runAgent(tabId, prompt, apiKey, model, allowTools = true, provider = 'openrouter', requireToolCall = false, { maxSteps = 30, trace = null, maxDurationMs = 5 * 60 * 1000, resumable = false, resumeId = null, observeAfterActions = true, captureReadEvidence = false, preInspect = false, actionScripts = false, diffSnapshots = false, cascadeModel = null, streaming = false, effectJournal = false, verify = null, correctionRounds = 0, structuredExtraction = false, recipes = false, advancedInput = true, saveRecipe = null, promptCache = false, taskStartUrl = null, transforms = false } = {}) {
+  async runAgent(tabId, prompt, apiKey, model, allowTools = true, provider = 'openrouter', requireToolCall = false, { maxSteps = 40, trace = null, maxDurationMs = 5 * 60 * 1000, resumable = false, resumeId = null, observeAfterActions = true, captureReadEvidence = false, preInspect = false, actionScripts = false, diffSnapshots = false, cascadeModel = null, streaming = false, effectJournal = false, verify = null, correctionRounds = 0, structuredExtraction = false, recipes = false, advancedInput = true, saveRecipe = null, promptCache = false, taskStartUrl = null, transforms = false } = {}) {
     for (const [id, state] of this.pausedAgentRuns) {
       if (state.expiresAt <= Date.now()) this.forgetPausedRun(id);
     }
@@ -1002,7 +1002,7 @@ class AutomationService {
     if (verificationChecks.length) messages[0].content += ' O host confere o resultado final contra um contrato; chame check_task para conferir o estado antes de concluir e, se o host recusar, corrija a página antes de encerrar.';
     if (structuredExtraction) messages[0].content += ' Para tabelas, use extract_table com as colunas do cabeçalho em vez de copiar texto; confira missingColumns, totalRows e truncated antes de concluir.';
     if (recipes && this.recipeStore) messages[0].content += ' Receitas: recipe list mostra as da origem; recipe save grava passos estáveis (navigate, click_text, wait_for, sheets) com expect obrigatório — passo sheets dispensa expect — e pode declarar output (campos tipados por célula A1, validados pelo host no run); recipe run repete sem modelo, para na primeira pós-condição que falhar e devolve output/outputValid. Só grave depois de a tarefa ter sido verificada.';
-    if (advancedInput) messages[0].content += ' Em planilhas do Google, use sheets (read/write/goto com intervalo A1) — não clique em célula. Se sheets disser que a caixa de nome não foi encontrada, tente sheets_accessibility e inspecione; para o que só existe na imagem, use see_page + visual_click com x,y de 0 a 1000. Em outros editores em canvas, use clipboard write/read e key_sequence (setas, Tab).';
+    if (advancedInput) messages[0].content += ' Em planilhas do Google, use sheets (read/write/goto com intervalo A1) — não clique em célula e não chame inspect_page antes: numa planilha ele só devolve a seleção e as abas. Agrupe o trabalho numa única chamada sheets com action "batch" (até 12 operações: ler, gravar, ler de novo) e confira o resultado no próprio retorno; só use sheets_accessibility se a caixa de nome não existir, e see_page + visual_click para o que só existe na imagem. Em outros editores em canvas, use clipboard write/read e key_sequence (setas, Tab).';
     if (this.memoryStore) {
       try {
         const facts = await this.memoryStore.list({ origin: normalizeOrigin(tab?.webContents?.getURL?.() || '') || taskOrigin, limit: 8 });
@@ -1595,6 +1595,29 @@ class AutomationService {
         }
       }
       if (name === 'inspect_page') {
+        const currentUrl = tab?.webContents?.getURL?.() || '';
+        // Planilha não tem célula no DOM: AX e innerText só gastam tokens e fazem o modelo procurar célula.
+        if (isSheetsUrl(currentUrl)) {
+          const approval = await this.confirmConsequentialAction(tabId, { kind: 'inspect_page', readOnly: true });
+          if (!approval.approved) {
+            const error = new Error(approval.error || 'A leitura da página foi cancelada');
+            if (approval.cancelled) error.code = 'USER_DENIED';
+            throw error;
+          }
+          const info = await tab.webContents.executeJavaScript(sheetsSnapshotScript()).catch(() => null);
+          if (trace) trace.sheetsSnapshots = (trace.sheetsSnapshots || 0) + 1;
+          snapshotRequired = false;
+          return {
+            success: true,
+            readOnly: true,
+            url: currentUrl.replace(/[?#].*$/, ''),
+            title: String(info?.title || ''),
+            sheet: { selection: String(info?.selection || ''), tabs: Array.isArray(info?.tabs) ? info.tabs : [] },
+            nodes: [],
+            text: '',
+            note: 'Planilha: células não existem no DOM. Use sheets (read/write/goto) por intervalo A1; para várias operações use action "batch" numa só chamada. Não use see_page nem clique em célula.'
+          };
+        }
         const revisionAtStart = snapshotRevision;
         const urlAtStart = typeof wc.getURL === 'function' ? wc.getURL() : null;
         const approval = await this.confirmConsequentialAction(tabId, { kind: 'inspect_page', readOnly: true });
@@ -2371,17 +2394,48 @@ class AutomationService {
   }
 
   // Leitura/gravação determinística de intervalo A1; usada pela ferramenta sheets e por receitas.
-  async sheetsAction(tabId, tab, args, trace = null) {
+  async sheetsAction(tabId, tab, args, trace = null, { writeApproved = false } = {}) {
     const pageUrl = tab?.webContents?.getURL?.() || '';
     if (!isSheetsUrl(pageUrl)) throw new Error('A ferramenta sheets só funciona em docs.google.com/spreadsheets');
     const invalid = validateSheetsRequest(args);
     if (invalid) throw new Error(invalid);
     if (!this.clipboard) throw new Error('Área de transferência indisponível neste processo');
     const wc = tab.webContents;
+    if (args.action === 'batch') {
+      const operations = args.operations;
+      const writes = operations.filter((operation) => operation.action === 'write');
+      if (writes.length && !writeApproved) {
+        const approval = await this.confirmConsequentialAction(tabId, {
+          kind: 'sheets_write', readOnly: false,
+          targetName: writes.map((operation) => String(operation.range).toUpperCase()).join(', ')
+        });
+        if (!approval.approved) throw denied(approval, 'A gravação na planilha foi cancelada');
+      }
+      const results = [];
+      for (const [index, operation] of operations.entries()) {
+        const output = await this.sheetsAction(tabId, tab, {
+          ...operation,
+          maxRows: args.maxRows,
+          maxColumns: args.maxColumns
+        }, trace, { writeApproved: true });
+        results.push({ step: index + 1, action: operation.action, range: String(operation.range).toUpperCase(), ...output });
+        if (!output.success) {
+          if (trace) trace.sheetsBatchFailures = (trace.sheetsBatchFailures || 0) + 1;
+          return {
+            success: false, code: 'BATCH_FAILED', failedAt: index + 1, completed: index, total: operations.length, results,
+            error: `Operação ${index + 1} (${operation.action} ${operation.range}) falhou: ${output.error || 'sem detalhe'}`
+          };
+        }
+      }
+      if (trace) trace.sheetsBatches = (trace.sheetsBatches || 0) + 1;
+      return { success: true, completed: operations.length, total: operations.length, results, note: 'Operações executadas em ordem; leituras voltam em results[i].values.' };
+    }
     const range = String(args.range).trim().toUpperCase();
     if (args.action === 'write') {
-      const approval = await this.confirmConsequentialAction(tabId, { kind: 'sheets_write', readOnly: false, targetName: range });
-      if (!approval.approved) throw denied(approval, 'A gravação na planilha foi cancelada');
+      if (!writeApproved) {
+        const approval = await this.confirmConsequentialAction(tabId, { kind: 'sheets_write', readOnly: false, targetName: range });
+        if (!approval.approved) throw denied(approval, 'A gravação na planilha foi cancelada');
+      }
       this.clipboard.writeText(valuesToTsv(args.values));
     }
     const focus = await wc.executeJavaScript(focusNameBoxScript()).catch(() => null);
