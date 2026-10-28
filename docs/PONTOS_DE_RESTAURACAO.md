@@ -51,6 +51,7 @@ O `LEIA-ME.md` da pasta traz os hashes esperados e como restaurar o perfil.
 | 2026-10-28 | Checkpoint 8 / **0.1.9-dev**: instalador `fd752acc…1b09e`, `app.asar` `1a769d28…c3033`, diagnóstico do `sheets`; backup em `backups/2026-10-28-before-diagnostics/` | build, não commit | 199/199 | copiar `backups/2026-10-28-before-diagnostics/app` |
 | 2026-10-28 | Checkpoint 9 / **0.1.10-dev**: instalador `e2f06273…2d27c6c`, `app.asar` `bf495150…5e045`, nome acessível padrão (accname); backup em `backups/2026-10-28-before-accname/` | build, não commit | 202/202 | copiar `backups/2026-10-28-before-accname/app` |
 
+| 2026-10-28 | Checkpoint 32 / **0.1.34-dev**: renomear/fixar/apagar conversa + teste de módulo menos sensível a carga, `app.asar` `25a714cc…0948` | build + instalado | 284/284 | reinstalar anterior se necessário |
 | 2026-10-28 | Checkpoint 31 / **0.1.33-dev**: aprovação no chat opt-in + correção do harness de aceitação, `app.asar` `a91796a4…cd8e` | build + instalado | 284/284 | reinstalar 0.1.32 se necessário |
 | 2026-10-28 | Checkpoint 30 / **0.1.31-dev**: copiar resposta e conversa em Markdown, `app.asar` `08710899…6464`; backup em `backups/2026-10-28-before-copy/` | build + instalado | 284/284 | copiar `backups/2026-10-28-before-copy/app` |
 | 2026-10-28 | Checkpoint 29 / **0.1.30-dev**: tempo e tokens por resposta (evento done), `app.asar` `dcf8c8d1…2bb75`; backup em `backups/2026-10-28-before-stats/` | build + instalado | 284/284 | copiar `backups/2026-10-28-before-stats/app` |

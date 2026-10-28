@@ -71,6 +71,9 @@ class ZeroBrowserApp {
       btnAiNewChat: document.getElementById('btn-ai-new-chat'),
       btnAiMemory: document.getElementById('btn-ai-memory'),
       btnAiCopyChat: document.getElementById('btn-ai-copy-chat'),
+      btnAiRenameChat: document.getElementById('btn-ai-rename-chat'),
+      btnAiPinChat: document.getElementById('btn-ai-pin-chat'),
+      btnAiDeleteChat: document.getElementById('btn-ai-delete-chat'),
       btnAiConnect: document.getElementById('btn-ai-connect'),
       aiChat: document.getElementById('ai-chat'),
       aiInput: document.getElementById('ai-input'),
@@ -1451,6 +1454,32 @@ class ZeroBrowserApp {
       this.startChatSession();
       this.elements.aiInput.focus();
     });
+    this.elements.btnAiRenameChat?.addEventListener('click', () => {
+      if (!this.chatSession) return;
+      const novo = window.prompt('Novo título da conversa', this.chatSession.title || '');
+      if (!novo || !novo.trim()) return;
+      this.chatSession.title = novo.trim().slice(0, 60);
+      this.chatSession.updatedAt = Date.now();
+      this.persistChatSessions();
+      this.renderChatSessionSelect();
+    });
+    this.elements.btnAiPinChat?.addEventListener('click', () => {
+      if (!this.chatSession) return;
+      this.chatSession.pinned = !this.chatSession.pinned;
+      this.chatSessions.sort((a, b) => (Number(b.pinned) - Number(a.pinned)) || ((b.updatedAt || 0) - (a.updatedAt || 0)));
+      this.persistChatSessions();
+      this.renderChatSessionSelect();
+      this.showToast(this.chatSession.pinned ? 'Conversa fixada' : 'Conversa desafixada', 'success');
+    });
+    this.elements.btnAiDeleteChat?.addEventListener('click', () => {
+      if (!this.chatSession) return;
+      if (!window.confirm(`Apagar a conversa “${this.chatSession.title || 'sem título'}”?`)) return;
+      this.chatSessions = this.chatSessions.filter((session) => session.id !== this.chatSession.id);
+      this.chatSession = this.chatSessions[0] || this.startChatSession({ render: false });
+      this.persistChatSessions();
+      this.renderChatSessionSelect();
+      this.renderChatSession();
+    });
   }
 
   startChatSession({ render = true } = {}) {
@@ -1492,11 +1521,12 @@ class ZeroBrowserApp {
     const select = this.elements.aiSession;
     if (!select) return;
     select.replaceChildren();
-    for (const session of this.chatSessions || []) {
+    const ordenadas = [...(this.chatSessions || [])].sort((a, b) => (Number(b.pinned) - Number(a.pinned)) || ((b.updatedAt || 0) - (a.updatedAt || 0)));
+    for (const session of ordenadas) {
       const option = document.createElement('option');
       option.value = session.id;
       const when = new Date(session.updatedAt || Date.now()).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-      option.textContent = `${session.title || 'Conversa'} · ${when}`;
+      option.textContent = `${session.pinned ? '★ ' : ''}${session.title || 'Conversa'} · ${when}`;
       select.appendChild(option);
     }
     if (this.chatSession) select.value = this.chatSession.id;

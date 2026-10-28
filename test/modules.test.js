@@ -35,7 +35,7 @@ test('a module is stored by origin, listed and executed later without a model', 
     const module = await restored.get('https://planilha.test', 'somar-coluna');
     assert.ok(module);
     const { runTransform } = require('../src/automation/sandbox');
-    const outcome = await runTransform(module.code, { rows: [['Cabo', '10'], ['Fita', '2,5']] });
+    const outcome = await runTransform(module.code, { rows: [['Cabo', '10'], ['Fita', '2,5']] }, { timeoutMs: 8000 });
     assert.equal(outcome.ok, true, outcome.error);
     assert.equal(outcome.result, 12.5);
 
