@@ -80,6 +80,7 @@ app.whenReady().then(async () => {
       approval: typeof window.zeroBrowser?.automation?.onApprovalRequest === 'function',
       manageChat: ['btn-ai-rename-chat','btn-ai-pin-chat','btn-ai-delete-chat','btn-ai-recipes','btn-ai-modules'].every((id) => !!document.getElementById(id)),
       headerHeight: Math.round(document.querySelector('#ai-panel .panel-header')?.getBoundingClientRect().height || 0),
+      settingsIndex: document.querySelectorAll('#settings-index button').length,
       newTab: (() => { const b = document.getElementById('btn-new-tab'); const t = document.querySelector('.tab'); if (!b) return null; const r = b.getBoundingClientRect(); return { width: Math.round(r.width), afterTab: t ? Math.round(r.left) >= Math.round(t.getBoundingClientRect().right) - 2 : true }; })()
     }); })()`);
 
@@ -98,6 +99,7 @@ app.whenReady().then(async () => {
     assert.ok(shell.headerHeight > 0 && shell.headerHeight < 70, `cabeçalho do painel precisa ser compacto (${shell.headerHeight}px)`);
     assert.ok(shell.newTab && shell.newTab.width >= 24, 'botão + de nova aba precisa estar visível');
     assert.equal(shell.newTab.afterTab, true, 'botão + deve ficar logo depois da última aba');
+    assert.ok(shell.settingsIndex >= 8, `indice das configuracoes incompleto (${shell.settingsIndex})`);
     assert.equal(shell.manageChat, true, 'ações de conversa ausentes');
 
     // Nova aba: script e estilo externos precisam rodar sob a CSP.

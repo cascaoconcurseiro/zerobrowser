@@ -97,9 +97,11 @@ test('memory and module guidance reach the prompt without breaking the run', asy
   await service.memoryStore.add({ origin: url, text: 'A aba Dados fica depois de Resumo' });
   const originalFetch = global.fetch;
   let system = '';
+  let offeredTools = [];
   global.fetch = async (_u, options) => {
     const body = JSON.parse(options.body);
     system = body.messages[0].content;
+    offeredTools = body.tools || [];
     return { ok: true, json: async () => ({ choices: [{ message: { role: 'assistant', content: 'Feito.' } }] }) };
   };
   try {
@@ -107,7 +109,8 @@ test('memory and module guidance reach the prompt without breaking the run', asy
     assert.equal(result.success, true, result.error);
     assert.match(system, /Memória recente/);
     assert.match(system, /aba Dados/);
-    assert.match(system, /Módulos:/);
+    assert.doesNotMatch(system, /Módulos:|Transform: use/);
+    assert.equal(offeredTools.some((tool) => ['module', 'transform'].includes(tool.function?.name)), false);
   } finally {
     global.fetch = originalFetch;
   }

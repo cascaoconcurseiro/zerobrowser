@@ -142,7 +142,7 @@ class RecipeStore {
     for (const origin of origins) {
       for (const [name, recipe] of Object.entries(this.data.recipes[origin])) flat.push([origin, name, recipe]);
     }
-    flat.sort((a, b) => (b[1]?.savedAt || 0) - (a[1]?.savedAt || 0));
+    flat.sort((a, b) => (b[2]?.savedAt || 0) - (a[2]?.savedAt || 0));
     const keep = new Set(flat.slice(0, MAX_STORED).map(([origin, name]) => `${origin}\u0000${name}`));
     for (const origin of origins) {
       for (const name of Object.keys(this.data.recipes[origin])) {

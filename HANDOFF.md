@@ -1,5 +1,15 @@
 # Handoff — Zero Browser
 
+
+## Continuação da auditoria — 28/10/2026
+
+- Corrigida a seleção das 200 receitas mais recentes em `src/automation/recipe-store.js`, com teste de retenção entre origens. O agente deixou de receber ferramentas e instruções de transformações indisponíveis; a interface não sugere executá-las. Corrigida a barra invertida do caminho de reserva Windows em `src/automation/file-acl.js`.
+- `npm test`: 283/283; `npm run test:ui`: PASS; teste de integração do pacote separado `dist-audit-local/win-unpacked/Zero Browser.exe`: PASS com perfil isolado e provedor simulado. O pacote anterior foi substituído pela validação do build em `dist-audit-final`.
+- A instalação mudou externamente para 0.1.39-dev, `app.asar` SHA-256 `ef1c4873f3bee5db723c82029163054176a4f28cf7ae8476e33eb60a59cbd74b`. Inspeção direta do `sandbox.js` no pacote instalado confirmou `spawn(process.execPath...)` e ausência do bloqueio: continua vulnerável, apesar de o commit local `0db18c6` já conter o bloqueio.
+- Token do pipe corrigido: arquivo temporário vazio recebe ACL antes do segredo e é renomeado; falha de ACL fecha o pipe. Testes incluem ACL real no Windows. `npm test` 284/284 antes do último teste adicional; teste adicional passou isoladamente. `dist-audit-final/win-unpacked/Zero Browser.exe` passou integração em perfil isolado com provedor simulado. Próximo: coordenar atualização da instalação com a outra atividade em curso e verificar o `app.asar` instalado; continuar auditoria abrangente.
+- Outra atividade alterou a versão para 0.1.40-dev e o checkout durante a sessão; preservar essas mudanças compartilhadas.
+
+
 ## Auditoria de 28/10/2026 — estado atual
 
 - Confirmado escape do sandbox: `input.constructor.constructor` consegue alcançar o processo hospedeiro apesar da filtragem. A execução de `transform` e `module run` foi bloqueada em `src/automation/sandbox.js`; dados e módulos salvos são preservados. A configuração informa a indisponibilidade.

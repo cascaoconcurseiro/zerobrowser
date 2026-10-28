@@ -553,3 +553,9 @@
 - [ ] Substituir o sandbox por isolamento de sistema validado e testar ataques antes de reativar módulos.
 - [ ] Validar e instalar a correção no aplicativo; a instalação 0.1.38-dev continua vulnerável.
 - [ ] Concluir auditoria abrangente e benchmark pareado com concorrentes e sites reais.
+
+- [x] Corrigir retenção global de receitas e testar preservação das mais recentes.
+- [x] Remover ferramentas de transformação indisponíveis do catálogo do agente e corrigir apresentação no painel.
+- [x] Validar pacote separado em fixture Electron; pacote final após alterações adicionais ainda precisa ser refeito.
+- [x] Corrigir publicação do token de pipe antes da ACL e falha aberta quando a restrição falha; teste com ACL real no Windows passou.
+- [ ] Atualizar e verificar instalação: 0.1.39-dev instalada ainda contém o sandbox vulnerável.

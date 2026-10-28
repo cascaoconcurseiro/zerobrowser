@@ -1364,3 +1364,8 @@ body.dark .ai-working-status-pill {
 }
 @keyframes zskeleton { 0% { background-position: 100% 0; } 100% { background-position: 0 0; } }
 @media (prefers-reduced-motion: reduce) { .carregando::after { animation: none; } }
+
+/* Indice horizontal e fixo das configuracoes: gera um chip por secao. */
+.settings-index { position: sticky; top: 0; z-index: 2; display: flex; gap: 6px; overflow-x: auto; padding: 8px 0 10px; background: var(--bg-secondary); }
+.settings-index button { flex: none; padding: 5px 10px; border: 1px solid var(--border); border-radius: 999px; background: transparent; color: var(--fg-secondary); font-size: 11px; cursor: pointer; }
+.settings-index button:hover, .settings-index button:focus-visible { color: var(--fg-primary); border-color: var(--accent); }

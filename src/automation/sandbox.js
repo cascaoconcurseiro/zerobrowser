@@ -5,7 +5,7 @@ const MAX_INPUT_BYTES = 256000;
 const MAX_OUTPUT_BYTES = 256000;
 const DEFAULT_TIMEOUT_MS = 2000;
 
-// Padrões que, se aceitos, dariam acesso ao processo, ao disco, à rede ou a código dinâmico.
+// Filtro de conveniência, não uma proteção de segurança contra código arbitrário.
 const FORBIDDEN = [
   [/\brequire\s*\(/, 'require'],
   [/\bimport\s*\(/, 'import()'],

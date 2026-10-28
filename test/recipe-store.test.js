@@ -7,6 +7,22 @@ const { RecipeStore, RECIPE_TOOL, validateRecipe, normalizeOrigin, applyRecipeIn
 
 const passo = (tool, args, expect) => ({ tool, args, expect });
 
+test('retention removes the oldest recipe across origins', async () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'zero-retention-'));
+  try {
+    const store = new RecipeStore({ filePath: path.join(directory, 'recipes.json') });
+    store.loaded = true;
+    for (let i = 0; i < 201; i++) {
+      store.data.recipes[`https://site${i}.test`] = { item: { name: 'item', steps: [], savedAt: 201 - i } };
+    }
+    await store.persist();
+    assert.ok(await store.get('https://site0.test', 'item'));
+    assert.equal(await store.get('https://site200.test', 'item'), null);
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
+
 test('recipes accept only stable steps with a mandatory expectation', () => {
   assert.equal(validateRecipe({ name: 'login', steps: [passo('navigate', { url: 'https://a.test/in' }, { url: 'https://a.test/painel' })] }), null);
   assert.equal(validateRecipe({ name: 'x', steps: [passo('wait_for', { text: 'Pronto' }, { text: 'Pronto' })] }), null);

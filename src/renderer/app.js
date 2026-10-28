@@ -18,6 +18,7 @@ class ZeroBrowserApp {
     await this.loadSettings();
     await this.createInitialTab();
     this.initLibraryUi();
+    this.initSettingsIndex();
     this.initChatSessions();
     this.initAgentMemoryUi();
     this.initRunEvents();
@@ -1027,6 +1028,23 @@ class ZeroBrowserApp {
     }
   }
 
+  initSettingsIndex() {
+    const indice = document.getElementById('settings-index');
+    const conteudo = document.querySelector('.settings-content');
+    if (!indice || !conteudo) return;
+    const secoes = [...conteudo.querySelectorAll('.settings-section')];
+    indice.replaceChildren();
+    for (const secao of secoes) {
+      const titulo = secao.querySelector('h3');
+      if (!titulo) continue;
+      const botao = document.createElement('button');
+      botao.type = 'button';
+      botao.textContent = titulo.textContent.trim();
+      botao.addEventListener('click', () => secao.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+      indice.appendChild(botao);
+    }
+  }
+
   async loadSettingsToUI() {
     const settings = await window.zeroBrowser.store.getAll();
     document.getElementById('setting-show-full-url').checked = settings['browser.showFullUrl'] || false;
@@ -1043,7 +1061,7 @@ class ZeroBrowserApp {
     document.getElementById('setting-download-path').value = settings['downloads.path'] || '';
     document.getElementById('setting-download-prompt').checked = settings['downloads.prompt'] !== false;
     document.getElementById('setting-agent-recipes').checked = settings['automation.recipes'] !== false;
-    document.getElementById('setting-agent-transforms').checked = settings['automation.transforms'] !== false;
+    document.getElementById('setting-agent-transforms').checked = false;
     document.getElementById('setting-agent-prompt-cache').checked = settings['automation.promptCache'] === true;
     const steps = Number(settings['automation.maxSteps']);
     document.getElementById('setting-agent-max-steps').value = String([20, 40, 60].includes(steps) ? steps : 40);
@@ -1719,7 +1737,7 @@ class ZeroBrowserApp {
     caixa.appendChild(titulo);
     if (!modulos.length) {
       const vazio = document.createElement('p');
-      vazio.textContent = 'Nenhum módulo salvo. Com cálculo ligado, peça ao agente para salvar um módulo.';
+      vazio.textContent = 'Nenhum módulo salvo. A execução de módulos está desativada por segurança.';
       caixa.appendChild(vazio);
     } else {
       const ul = document.createElement('ul');
@@ -1732,7 +1750,8 @@ class ZeroBrowserApp {
         const rodar = document.createElement('button');
         rodar.type = 'button';
         rodar.className = 'btn-ghost';
-        rodar.textContent = 'Executar';
+        rodar.textContent = 'Execução desativada';
+        rodar.disabled = true;
         rodar.addEventListener('click', async () => {
           rodar.disabled = true;
           const texto = window.prompt('JSON de entrada (opcional)', '') || '';

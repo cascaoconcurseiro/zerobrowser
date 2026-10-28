@@ -4,12 +4,13 @@
 const { execFileSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const { randomBytes } = require('crypto');
 
 const SID_PATTERN = /^S-1-\d+(-\d+)+$/i;
 
 // PATH do usuário pode ter o whoami do Git/MSYS antes do do Windows; usa sempre o binário do sistema.
 function systemBin(name) {
-  const root = process.env.SystemRoot || process.env.windir || 'C:\Windows';
+  const root = process.env.SystemRoot || process.env.windir || 'C:\\Windows';
   const candidate = path.join(root, 'System32', `${name}.exe`);
   try {
     if (fs.existsSync(candidate)) return candidate;
@@ -52,6 +53,21 @@ function restrictFileToCurrentUser(filePath, { execFile = execFileSync, sid = nu
   }
 }
 
+async function publishProtectedToken(filePath, token, { restrict = restrictFileToCurrentUser } = {}) {
+  const temporary = `${filePath}.${randomBytes(16).toString('hex')}.tmp`;
+  await fs.promises.mkdir(path.dirname(filePath), { recursive: true });
+  try {
+    await fs.promises.writeFile(temporary, '', { flag: 'wx', mode: 0o600 });
+    const acl = restrict(temporary);
+    if (!acl.ok) throw new Error(`ACL do token indisponível: ${acl.reason}`);
+    await fs.promises.writeFile(temporary, token);
+    await fs.promises.rename(temporary, filePath);
+    return acl;
+  } finally {
+    await fs.promises.unlink(temporary).catch(() => {});
+  }
+}
+
 // Leitura da ACL efetiva, para teste/diagnóstico (uma linha por entrada).
 function describeAcl(filePath, { execFile = execFileSync } = {}) {
   if (process.platform !== 'win32') return '';
@@ -62,4 +78,4 @@ function describeAcl(filePath, { execFile = execFileSync } = {}) {
   }
 }
 
-module.exports = { parseWhoamiSid, currentUserSid, aclArgs, restrictFileToCurrentUser, describeAcl, systemBin };
+module.exports = { parseWhoamiSid, currentUserSid, aclArgs, restrictFileToCurrentUser, publishProtectedToken, describeAcl, systemBin };

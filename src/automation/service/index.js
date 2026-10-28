@@ -8,7 +8,7 @@ const fs = require('fs');
 const path = require('path');
 const { performCuaInput, performKeySequence } = require('../cua-input');
 const { automationPipePath, pipeTokenPath } = require('../pipe-path');
-const { restrictFileToCurrentUser } = require('../file-acl');
+const { publishProtectedToken } = require('../file-acl');
 const { scrollSearchInPage } = require('../scroll-search');
 const { summarizeBatchCoverage } = require('../batch-coverage');
 const { getAgentTools } = require('../tools/agent-tool-registry');
@@ -464,11 +464,9 @@ class AutomationService {
         });
         // Só depois de possuir o pipe: uma segunda instância no mesmo perfil não pode sobrescrever o token da primeira.
         const tokenFile = pipeTokenPath();
-        await fs.promises.mkdir(path.dirname(tokenFile), { recursive: true });
-        await fs.promises.writeFile(tokenFile, this.pipeToken, { mode: 0o600 });
-        // Só o dono lê: sem isso, a ACL herdada da pasta decidiria quem pode falar com o navegador.
-        this.pipeTokenAcl = restrictFileToCurrentUser(tokenFile);
+        this.pipeTokenAcl = await publishProtectedToken(tokenFile, this.pipeToken);
       } catch {
+        if (this.pipeServer?.listening) await new Promise((resolve) => this.pipeServer.close(resolve));
         this.pipeServer = null;
       }
     }
@@ -1039,8 +1037,6 @@ class AutomationService {
     if (verificationChecks.length) tools.push(structuredClone(CHECK_TASK_TOOL));
     if (recipes && this.recipeStore) tools.push(structuredClone(RECIPE_TOOL));
     if (this.memoryStore) tools.push(structuredClone(MEMORY_TOOL));
-    if (transforms) tools.push(structuredClone(TRANSFORM_TOOL));
-    if (transforms && this.moduleStore) tools.push(structuredClone(MODULE_TOOL));
     if (advancedInput) tools.push(structuredClone(CLIPBOARD_TOOL), structuredClone(KEY_SEQUENCE_TOOL), structuredClone(VISUAL_CLICK_TOOL), structuredClone(SHEETS_ACCESSIBILITY_TOOL), structuredClone(SHEETS_TOOL));
     const approvalMode = this.settingsProvider?.().automationApprovalMode || 'low-risk';
     const approvalInstructions = approvalInstructionsFor(approvalMode);
@@ -1062,8 +1058,6 @@ class AutomationService {
         if (facts.length) messages[0].content += memoryPrompt(facts);
       } catch {}
     }
-    if (transforms && this.moduleStore) messages[0].content += ' Módulos: module save guarda um código curto para repetir um cálculo por site; module run executa com input; se falhar, corrija code e rode de novo antes de salvar.';
-    if (transforms) messages[0].content += ' Transform: use transform(code, input) para calcular sobre dados já lidos (somar coluna, normalizar data) em processo isolado; sem require, rede ou disco, e sem nova chamada ao modelo.';
     if (diffSnapshots) messages[0].content += ' Depois de uma ação, o snapshot pode vir como diferença (campo diff): os nodes listados substituem os de mesmo índice e os índices em diff.iguais continuam valendo como no snapshot anterior.';
     if (observeAfterActions) messages[0].content += ' A última ação de um lote pode devolver nodes e text atualizados (autoObserved): use esses índices e dados, sem pedir inspect_page de novo se já bastarem.';
     if (resumed) {
@@ -3478,7 +3472,7 @@ class AutomationService {
       },
       {
         name: 'module_run',
-        description: 'Executa um módulo salvo no sandbox (sem require, rede ou disco) sobre um input JSON e devolve o resultado.',
+        description: 'Execução de módulos temporariamente desativada por segurança.',
         inputSchema: z.object({ origin: z.string().url(), name: z.string().min(1).max(41), input: z.any().optional() }),
         handler: async ({ origin, name, input }) => {
           if (!this.moduleStore) return { success: false, error: 'Armazenamento de módulos indisponível' };
