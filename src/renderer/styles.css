@@ -1341,3 +1341,20 @@ body.dark .ai-working-status-pill {
 /* Lista de tarefas pausadas. */
 .ai-job-row { display: flex; gap: 8px; align-items: center; margin-top: 6px; font-size: 12px; }
 .ai-job-row span { flex: 1; color: var(--fg-secondary); }
+
+/* Cabecalho enxuto do painel: uma linha, sem kicker/subtitulo redundantes. */
+#ai-panel .panel-header { padding: 5px 12px; min-height: 0; }
+#ai-panel .panel-heading { flex-direction: row; align-items: center; gap: 8px; }
+#ai-panel .panel-kicker, #ai-panel .panel-subtitle { display: none; }
+#ai-panel .panel-heading strong { font-size: 12px; letter-spacing: 0.02em; line-height: 1.2; }
+
+/* Esqueleto de carregamento para status/modelos. */
+.carregando { position: relative; color: transparent !important; }
+.carregando::after {
+  content: ''; position: absolute; inset: 2px 0; border-radius: 4px;
+  background: linear-gradient(90deg, rgba(127,127,127,0.12) 25%, rgba(127,127,127,0.24) 37%, rgba(127,127,127,0.12) 63%);
+  background-size: 400% 100%;
+  animation: zskeleton 1.4s ease infinite;
+}
+@keyframes zskeleton { 0% { background-position: 100% 0; } 100% { background-position: 0 0; } }
+@media (prefers-reduced-motion: reduce) { .carregando::after { animation: none; } }

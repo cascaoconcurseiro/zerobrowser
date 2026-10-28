@@ -963,6 +963,12 @@ class ZeroBrowserApp {
     }
   }
 
+  marcarCarregando(elemento, ativo) {
+    if (!elemento) return;
+    elemento.classList.toggle('carregando', Boolean(ativo));
+    elemento.setAttribute('aria-busy', ativo ? 'true' : 'false');
+  }
+
   async refreshAiModels({ quiet = false, preferredModel } = {}) {
     const provider = this.elements.aiProvider.value;
     const config = this.aiProviderConfigs.get(provider) || await window.zeroBrowser.ai.getConfig(provider);
@@ -973,6 +979,8 @@ class ZeroBrowserApp {
       return;
     }
     this.elements.aiRefreshModels.disabled = true;
+    this.marcarCarregando(this.elements.aiModelStatus, true);
+    setTimeout(() => this.marcarCarregando(this.elements.aiModelStatus, false), 15000);
     this.elements.aiModelStatus.textContent = 'Sincronizando catálogo…';
     try {
       const models = await window.zeroBrowser.ai.listModels(provider, key || undefined);
@@ -1007,9 +1015,11 @@ class ZeroBrowserApp {
       }
       select.value = chosen?.id || (currentModel && !models.some((model) => model.id === currentModel) ? currentModel : '');
       this.syncQuickModel();
+      this.marcarCarregando(this.elements.aiModelStatus, false);
       this.elements.aiModelStatus.textContent = `${models.length} modelos sincronizados; ${enabledCount} selecionáveis para o agente.`;
       if (!quiet) this.showToast(`Catálogo ${provider === 'deepseek' ? 'DeepSeek' : 'OpenRouter'} atualizado: ${models.length} modelos.`, 'success');
     } catch (error) {
+      this.marcarCarregando(this.elements.aiModelStatus, false);
       this.elements.aiModelStatus.textContent = `Falha ao sincronizar: ${error.message}`;
       if (!quiet) this.showToast(`Não foi possível carregar modelos: ${error.message}`, 'error');
     } finally {

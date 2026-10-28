@@ -63,7 +63,9 @@ app.whenReady().then(async () => {
     await loaded;
     await new Promise((resolve) => setTimeout(resolve, 800));
 
-    const shell = await window.webContents.executeJavaScript(`(() => ({
+    const shell = await window.webContents.executeJavaScript(`(() => {
+      document.getElementById('ai-panel')?.classList.remove('hidden');
+      return ({
       app: typeof window.app === 'object' && window.app !== null,
       markdown: typeof window.ZeroMarkdown?.parseBlocks === 'function',
       sessions: !!document.getElementById('ai-session'),
@@ -76,8 +78,9 @@ app.whenReady().then(async () => {
       runEvents: typeof window.zeroBrowser?.automation?.onRunEvent === 'function',
       copyChat: !!document.getElementById('btn-ai-copy-chat'),
       approval: typeof window.zeroBrowser?.automation?.onApprovalRequest === 'function',
-      manageChat: ['btn-ai-rename-chat','btn-ai-pin-chat','btn-ai-delete-chat','btn-ai-recipes','btn-ai-modules'].every((id) => !!document.getElementById(id))
-    }))()`);
+      manageChat: ['btn-ai-rename-chat','btn-ai-pin-chat','btn-ai-delete-chat','btn-ai-recipes','btn-ai-modules'].every((id) => !!document.getElementById(id)),
+      headerHeight: Math.round(document.querySelector('#ai-panel .panel-header')?.getBoundingClientRect().height || 0)
+    }); })()`);
 
     assert.equal(shell.app, true, 'app.js não executou (CSP ou erro)');
     assert.equal(shell.markdown, true, 'markdown.js não carregou');
@@ -91,6 +94,7 @@ app.whenReady().then(async () => {
     assert.equal(shell.runEvents, true, 'preload precisa expor onRunEvent');
     assert.equal(shell.copyChat, true, 'botão de copiar conversa ausente');
     assert.equal(shell.approval, true, 'preload precisa expor onApprovalRequest');
+    assert.ok(shell.headerHeight > 0 && shell.headerHeight < 70, `cabeçalho do painel precisa ser compacto (${shell.headerHeight}px)`);
     assert.equal(shell.manageChat, true, 'ações de conversa ausentes');
 
     // Nova aba: script e estilo externos precisam rodar sob a CSP.

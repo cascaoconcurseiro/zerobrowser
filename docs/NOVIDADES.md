@@ -1,8 +1,11 @@
-# Novidades — Zero Browser 0.1.37-dev
+# Novidades — Zero Browser 0.1.38-dev
 
 Versão de desenvolvimento com foco no motor de IA e em sites difíceis (planilhas, canvas, editores).
 
 ## Painel mais legível
+
+- **Cabeçalho compacto**: uma linha, sem kicker e subtítulo redundantes (medido no teste de UI).
+- **Skeleton ao sincronizar modelos**: barra de carregamento no status em vez de texto estático.
 
 - **Módulos no painel**: executar módulos salvos com JSON de entrada. **Memória editável**: botão Editar em cada fato.
 
