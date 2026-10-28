@@ -1509,8 +1509,27 @@ class ZeroBrowserApp {
     if (!messages.length) {
       const hint = document.createElement('div');
       hint.className = 'ai-message assistant ai-rich';
-      hint.textContent = 'Peça uma tarefa na aba atual. Cada conversa fica salva aqui e você pode voltar a ela depois.';
+      hint.textContent = 'Comece com uma tarefa nesta aba ou use um exemplo:';
       chat.appendChild(hint);
+      const exemplos = document.createElement('div');
+      exemplos.className = 'ai-message assistant ai-examples';
+      const sugestoes = [
+        'Leia o intervalo A1:C5 desta planilha e diga o total da coluna C.',
+        'Preencha o formulário desta página com os dados que eu passar.',
+        'Resuma esta página em cinco tópicos e cite os números.'
+      ];
+      for (const texto of sugestoes) {
+        const botao = document.createElement('button');
+        botao.type = 'button';
+        botao.className = 'btn-ghost';
+        botao.textContent = texto;
+        botao.addEventListener('click', () => {
+          this.elements.aiInput.value = texto;
+          this.elements.aiInput.focus();
+        });
+        exemplos.appendChild(botao);
+      }
+      chat.appendChild(exemplos);
     }
     this.refreshJobsBanner();
     chat.scrollTop = chat.scrollHeight;

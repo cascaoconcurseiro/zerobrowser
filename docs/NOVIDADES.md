@@ -1,8 +1,10 @@
-# Novidades — Zero Browser 0.1.25-dev
+# Novidades — Zero Browser 0.1.26-dev
 
 Versão de desenvolvimento com foco no motor de IA e em sites difíceis (planilhas, canvas, editores).
 
 ## Painel mais legível
+
+- **Estado vazio acionável**: três exemplos clicáveis (ler planilha, preencher formulário, resumir página) preenchem a caixa de comando com um clique. O smoke de UI passou a exigir isso.
 
 - **Foco visível em toda a casca**: botões, selects, abas e caixa de texto ganham anel de foco — navegação por teclado deixa de ser às cegas.
 - **Respostas mais largas**: mensagens do agente usam até 96% da largura; as suas ficam em 78%, separando quem falou.

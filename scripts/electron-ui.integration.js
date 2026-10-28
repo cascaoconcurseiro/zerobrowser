@@ -71,7 +71,8 @@ app.whenReady().then(async () => {
       memory: !!document.getElementById('btn-ai-memory'),
       resourceToggles: ['setting-agent-recipes','setting-agent-transforms','setting-agent-prompt-cache','setting-agent-max-steps'].every((id) => !!document.getElementById(id)),
       cssApplied: getComputedStyle(document.body).fontFamily.length > 0,
-      richChat: typeof window.app?.renderRichText === 'function'
+      richChat: typeof window.app?.renderRichText === 'function',
+      examples: document.querySelectorAll('.ai-examples .btn-ghost').length
     }))()`);
 
     assert.equal(shell.app, true, 'app.js não executou (CSP ou erro)');
@@ -82,6 +83,7 @@ app.whenReady().then(async () => {
     assert.equal(shell.memory, true, 'botão Memória ausente');
     assert.equal(shell.resourceToggles, true, 'opções de recursos do agente ausentes');
     assert.equal(shell.cssApplied, true, 'CSS não aplicado');
+    assert.ok(shell.examples >= 3, 'estado vazio precisa de exemplos acionáveis');
 
     // Nova aba: script e estilo externos precisam rodar sob a CSP.
     const newtab = new BrowserWindow({ show: false, webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true } });
