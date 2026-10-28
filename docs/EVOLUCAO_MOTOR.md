@@ -1060,3 +1060,13 @@ primeiro request; aviso aparece após leituras repetidas; pausa reporta uso). `n
 
 Limites: o guardião conta rodadas, não qualidade — se o modelo alterna leitura e ação inútil, ele não detecta; e
 `preInspect` não roda quando a tarefa captura evidência de leitura nem no modo “sempre perguntar”.
+
+### `run_steps` no painel — 0.1.20-dev
+
+A ferramenta que mais reduz rodadas já existia, mas só era oferecida com `actionScripts` (opt-in que o IPC não
+passava). Agora o painel a liga por padrão: até 12 passos (clicar, digitar, escolher opção, hover, esperar) numa
+**única** chamada, com `expect` verificado pelo host em cada passo e parada no primeiro problema. Cada passo
+consequente continua passando pela aprovação normal — o que muda é o número de idas ao modelo, não a política.
+
+Efeito esperado: formulário de 6 campos passa de ~7 rodadas para 1–2; junto com a pré-inspeção e o guardião de
+progresso, o teto de 40 deixa de ser atingido em tarefas normais.

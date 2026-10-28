@@ -1,10 +1,12 @@
-# Como testar o Zero Browser (0.1.19-dev)
+# Como testar o Zero Browser (0.1.20-dev)
 
 Checklist manual para a versão instalada em 28/10/2026. O que depende de modelo/provedor está separado do que já
 pode ser conferido sem chave.
 
-**Build instalado:** `0.1.19-dev`, `app.asar` `439fe807…3749`; backup do estado anterior em
-`backups/2026-10-28-before-progress/`.
+**Build instalado:** `0.1.20-dev`, `app.asar` `6f318904…6d92d`; backup do estado anterior em
+`backups/2026-10-28-before-runsteps/`.
+
+- [ ] Formulário com vários campos: o agente deve resolver com **uma** chamada `run_steps` em vez de uma rodada por campo.
 
 - [ ] Configurações → Agente · recursos: **Limite de ações** com 20/40/60.
 - [ ] Tarefa que começa lendo: o painel deve gastar uma rodada menos (pré-inspeção).

@@ -1,4 +1,4 @@
-# Novidades — Zero Browser 0.1.19-dev
+# Novidades — Zero Browser 0.1.20-dev
 
 Versão de desenvolvimento com foco no motor de IA e em sites difíceis (planilhas, canvas, editores).
 
@@ -7,6 +7,8 @@ Versão de desenvolvimento com foco no motor de IA e em sites difíceis (planilh
 - **Guardião de progresso**: se o agente só lê por 3 rodadas, o host injeta um aviso para agir ou concluir; na 5ª,
   manda parar de inspecionar. No meio e no fim do orçamento, lembra quantas ações restam e pede para agrupar
   ferramentas no mesmo turno.
+- **`run_steps` ligado por padrão no painel**: até 12 passos conhecidos (preencher campos, marcar itens, clicar)
+  numa única rodada, com pós-condição conferida pelo host em cada passo. É o maior corte de rodadas em formulários.
 - **Pré-inspeção ligada por padrão no painel**: a primeira leitura da página chega pronta antes do primeiro turno do
   modelo, economizando uma rodada inteira em toda tarefa.
 - **Limite de ações configurável**: 20, 40 (padrão) ou 60 em Configurações → Agente · recursos.

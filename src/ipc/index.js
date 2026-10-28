@@ -117,7 +117,8 @@ function setupIpc() {
       resumable: !testOnly,
       resumeId: testOnly ? null : resumeId,
       // A pré-inspeção entrega a primeira leitura pronta e economiza uma rodada do modelo.
-      ...(testOnly ? {} : { recipes, transforms, promptCache, maxSteps, preInspect: true })
+      // run_steps executa até 12 passos conhecidos numa única rodada (cada passo ainda pede aprovação quando precisa).
+      ...(testOnly ? {} : { recipes, transforms, promptCache, maxSteps, preInspect: true, actionScripts: true })
     });
   });
 
