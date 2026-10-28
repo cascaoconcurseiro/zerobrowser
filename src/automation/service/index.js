@@ -16,6 +16,8 @@ const { navigationLeakReason } = require('../exfiltration-guard');
 const { calculate } = require('../calculator');
 const { createRepeatGuard } = require('../repeat-guard');
 const { cachedInputTokens, compactHref } = require('../usage-metrics');
+const { cacheSeed, cacheRequestFields, cacheSummary } = require('../prompt-cache');
+const { reviewAction, reviewFinal } = require('../guardian');
 const { zeroEnv } = require('../../env');
 const { approvalInstructionsFor, buildBasePrompt } = require('./prompt');
 const { diffNodes } = require('../snapshot-diff');
@@ -796,7 +798,7 @@ class AutomationService {
   }
 
   // `trace`, when given, is filled in place with model calls, token usage and every tool call (used by run_task).
-  async runAgent(tabId, prompt, apiKey, model, allowTools = true, provider = 'openrouter', requireToolCall = false, { maxSteps = 30, trace = null, maxDurationMs = 5 * 60 * 1000, resumable = false, resumeId = null, observeAfterActions = true, captureReadEvidence = false, preInspect = false, actionScripts = false, diffSnapshots = false, cascadeModel = null, streaming = false, effectJournal = false, verify = null, correctionRounds = 0, structuredExtraction = false, recipes = false, advancedInput = true, saveRecipe = null } = {}) {
+  async runAgent(tabId, prompt, apiKey, model, allowTools = true, provider = 'openrouter', requireToolCall = false, { maxSteps = 30, trace = null, maxDurationMs = 5 * 60 * 1000, resumable = false, resumeId = null, observeAfterActions = true, captureReadEvidence = false, preInspect = false, actionScripts = false, diffSnapshots = false, cascadeModel = null, streaming = false, effectJournal = false, verify = null, correctionRounds = 0, structuredExtraction = false, recipes = false, advancedInput = true, saveRecipe = null, promptCache = false, taskStartUrl = null } = {}) {
     for (const [id, state] of this.pausedAgentRuns) {
       if (state.expiresAt <= Date.now()) this.pausedAgentRuns.delete(id);
     }
@@ -810,6 +812,7 @@ class AutomationService {
     const deadline = Date.now() + maxDurationMs;
     // A aba em que o agente age muda com a ferramenta tabs; a política do run_task acompanha as abas que ele adota.
     let tab = this.tabs.get(tabId);
+    const taskOrigin = normalizeOrigin(taskStartUrl || '') || normalizeOrigin(tab?.webContents?.getURL?.() || '');
     const taskPolicy = this.taskApprovalPolicies.get(tabId);
     const diagnosticFile = taskPolicy === 'local-fixture' ? (zeroEnv('AGENT_DIAGNOSTICS') || null) : null;
     const stage = (name, step = null) => {
@@ -1660,6 +1663,9 @@ class AutomationService {
         if (trace) trace.stopReason = 'human_check';
         return { success: false, humanCheck: true, error: 'A página pediu uma verificação humana (CAPTCHA). Resolva e mande a tarefa de novo.' };
       };
+      const cacheSeedValue = promptCache
+        ? cacheSeed({ origin: normalizeOrigin(tab?.webContents?.getURL?.() || ''), prompt, model })
+        : '';
       for (let step = 0; step < maxSteps; step++) {
         if (runController.signal.aborted) throw Object.assign(new Error('Tarefa interrompida pelo usuário.'), { name: 'AbortError' });
         stage('human-check', step);
@@ -1704,7 +1710,16 @@ class AutomationService {
               }
               return m;
             });
-            const requestBody = JSON.stringify({ model: requestModel, messages: requestMessages, tools, tool_choice: 'auto', temperature: 0.2, ...(streaming ? { stream: true, stream_options: { include_usage: true } } : {}) });
+            const cacheRequest = cacheRequestFields({ provider, model: requestModel, messages: requestMessages, enabled: promptCache, seed: cacheSeedValue });
+            const requestBody = JSON.stringify({
+              model: requestModel,
+              messages: cacheRequest.messages,
+              tools,
+              tool_choice: 'auto',
+              temperature: 0.2,
+              ...(cacheRequest.prompt_cache_key ? { prompt_cache_key: cacheRequest.prompt_cache_key } : {}),
+              ...(streaming ? { stream: true, stream_options: { include_usage: true } } : {})
+            });
             if (trace) {
               trace.requestMetrics ||= [];
               requestMetric = {
@@ -1837,7 +1852,17 @@ class AutomationService {
           }
           if (trace) trace.stopReason = 'final_answer';
           if (requireToolCall) return { success: false, error: `O modelo ${model} não confirmou suporte a chamadas de ferramenta` };
-          return { success: true, message: message.content || 'Tarefa concluída.', ...(verification ? { verification } : {}), ...(minted ? { minted } : {}), ...(mintSkipped ? { mintSkipped } : {}) };
+          // Só revisa o que o modelo disse; o texto padrão do host não é afirmação do agente.
+          const finalReview = message.content ? reviewFinal({ message: message.content, verification }) : { decision: 'ok', reasons: [] };
+          return {
+            success: true,
+            message: message.content || 'Tarefa concluída.',
+            ...(verification ? { verification } : {}),
+            ...(finalReview.decision !== 'ok' ? { guardian: finalReview } : {}),
+            ...(minted ? { minted } : {}),
+            ...(mintSkipped ? { mintSkipped } : {}),
+            ...(promptCache ? { promptCache: cacheSummary(trace) } : {})
+          };
         }
         if (!allowTools) return { success: true, message: message.content || 'Conexão com o modelo confirmada.' };
         for (const call of message.tool_calls) {
@@ -1866,16 +1891,32 @@ class AutomationService {
                 }
                 stage(`tool-skipped:${call.function.name}`, step);
               } else {
-                if (effect) await journal.markAttempted(effect.key, { tool: effect.tool, target: effect.target, url: tab?.webContents?.getURL?.() || '', tabId });
-                await this.setAuroraActive(tab, true, `Chefe, executando: ${call.function.name}`);
-                try {
-                  output = await callTool(call.function.name, args);
-                  if (effect) await settleEffect(journal, effect.key, output);
-                } catch (error) {
-                  if (effect) await settleEffect(journal, effect.key, { success: false, error: String(error?.message || error) });
-                  throw error;
+                const guard = reviewAction({
+                  name: call.function.name, args,
+                  pageUrl: tab?.webContents?.getURL?.() || '',
+                  taskOrigin,
+                  authenticationOrigins: this.taskAuthOrigins?.get(tabId) || []
+                });
+                if (guard.decision === 'deny') {
+                  output = { success: false, code: 'GUARDIAN_DENIED', error: `Guardian recusou a ação: ${guard.reasons.join('; ')}` };
+                  if (trace) {
+                    trace.guardianDenied = (trace.guardianDenied || 0) + 1;
+                    trace.guardianReasons = [...(trace.guardianReasons || []), ...guard.reasons];
+                  }
+                  stage(`tool-denied:${call.function.name}`, step);
+                } else {
+                  if (guard.flags.length && trace) trace.guardianFlags = [...(trace.guardianFlags || []), ...guard.flags];
+                  if (effect) await journal.markAttempted(effect.key, { tool: effect.tool, target: effect.target, url: tab?.webContents?.getURL?.() || '', tabId });
+                  await this.setAuroraActive(tab, true, `Chefe, executando: ${call.function.name}`);
+                  try {
+                    output = await callTool(call.function.name, args);
+                    if (effect) await settleEffect(journal, effect.key, output);
+                  } catch (error) {
+                    if (effect) await settleEffect(journal, effect.key, { success: false, error: String(error?.message || error) });
+                    throw error;
+                  }
+                  stage(`tool-complete:${call.function.name}`, step);
                 }
-                stage(`tool-complete:${call.function.name}`, step);
               }
               // Link com target=_blank ou pop-up abre outra aba: o agente fica sabendo e decide se troca para ela.
               const opened = [...this.tabs.keys()].filter((id) => !knownTabs.has(id));
@@ -2350,7 +2391,7 @@ class AutomationService {
     return { success: true, completed: steps.length, total: steps.length, results, output: verdict.output, outputValid: true };
   }
 
-  async runTask({ startUrl, prompt, maxSteps = 20, approvalPolicy = 'ask', allowedHosts = [], keepTab = false, captureInitialText = false, captureInitialChecks = [], engine = 'navegante', maxDurationSec, observeAfterActions = true, captureReadEvidence = false, preInspect = false, actionScripts = false, diffSnapshots = false, cascadeModel = null, streaming = false, effectJournal = false, verify = null, requireVerification = false, correctionRounds = 0, structuredExtraction = false, recipes = false, advancedInput = true, saveRecipe = null, authenticationOrigins = [] }) {
+  async runTask({ startUrl, prompt, maxSteps = 20, approvalPolicy = 'ask', allowedHosts = [], keepTab = false, captureInitialText = false, captureInitialChecks = [], engine = 'navegante', maxDurationSec, observeAfterActions = true, captureReadEvidence = false, preInspect = false, actionScripts = false, diffSnapshots = false, cascadeModel = null, streaming = false, effectJournal = false, verify = null, requireVerification = false, correctionRounds = 0, structuredExtraction = false, recipes = false, advancedInput = true, saveRecipe = null, authenticationOrigins = [], promptCache = false }) {
     const maxDurationMs = maxDurationSec ? maxDurationSec * 1000 : undefined;
     if (approvalPolicy === 'public-sites' && engine === 'flame') return { success: false, error: 'A política public-sites ainda não vale para o Flame' };
     if (engine === 'flame') return this.runFlameTask({ startUrl, prompt, maxSteps, approvalPolicy, keepTab, maxDurationMs });
@@ -2393,7 +2434,7 @@ class AutomationService {
           error: result?.success === false ? String(result.error || 'Leitura inicial falhou') : ''
         });
       }
-      const result = await this.runAgent(tabId, prompt, apiKey, model, true, provider, false, { maxSteps, trace, maxDurationMs, observeAfterActions, captureReadEvidence, preInspect, actionScripts, diffSnapshots, cascadeModel, streaming, effectJournal, verify, correctionRounds, structuredExtraction, recipes, advancedInput, saveRecipe });
+      const result = await this.runAgent(tabId, prompt, apiKey, model, true, provider, false, { maxSteps, trace, maxDurationMs, observeAfterActions, captureReadEvidence, preInspect, actionScripts, diffSnapshots, cascadeModel, streaming, effectJournal, verify, correctionRounds, structuredExtraction, recipes, advancedInput, saveRecipe, promptCache, taskStartUrl: startUrl });
       const finalUrl = tab.webContents.isDestroyed() ? '' : tab.webContents.getURL();
       let verification = result.verification || null;
       if (!verification && Array.isArray(verify) && verify.length) {
@@ -3078,6 +3119,7 @@ class AutomationService {
           recipes: z.boolean().optional(),
           advancedInput: z.boolean().optional(),
           saveRecipe: z.string().min(1).max(41).optional(),
+          promptCache: z.boolean().optional(),
           authenticationOrigins: z.array(z.string().url()).max(10).optional()
         }),
         handler: async (input) => this.runTask(input)

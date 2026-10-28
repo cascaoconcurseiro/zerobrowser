@@ -26,7 +26,7 @@
   paginada agora é `complete` (antes era sempre falso), e uma leitura por `tabId` não conta as outras abas como
   omitidas. Regra em `src/automation/batch-coverage.js`; detalhe, conflitos e reversão em
   `docs/REGISTRO_INTEGRACAO_0.1.5.md`.
-- Versão: `package.json` e `package-lock.json` em 0.1.11-dev (o lock acompanha; teste `test/whats-new.test.js`).
+- Versão: `package.json` e `package-lock.json` em 0.1.12-dev (o lock acompanha; teste `test/whats-new.test.js`).
 - **Motor, salto 1 (2026-10-27):** `run_steps` aceita `expect {url,text,absent}` conferido pelo host (espera de até
   3 s, texto normalizado, parada quando a pós-condição não vem). Opt-in: só com `actionScripts`/`--scripts`.
   `npm test` 133/133; regra em `docs/EVOLUCAO_MOTOR.md`; restauração em `docs/PONTOS_DE_RESTAURACAO.md`
@@ -102,6 +102,12 @@
   Instalador `Zero Browser Setup 0.1.11-dev.exe` (SHA-256 `229ee406…a901e2`, 124.454.153 bytes); `app.asar`
   `0d46e9db…b043a` igual em build/produção; integração `status: PASS`; `npm test` 208/208. Backup do 0.1.10-dev em
   `backups/2026-10-28-before-output-schema/`.
+- **Checkpoint 11 instalado (2026-10-28):** versão **0.1.12-dev** com **Guardian determinístico** (recusa
+  navegação não-HTTP, upload para origem estranha, formulário cross-site, receita de leitura que grava; revisa
+  afirmação de efeito sem prova) e **cache de prefixo opt-in** (`promptCache`, `promptCache.cacheHitRate`).
+  Instalador `Zero Browser Setup 0.1.12-dev.exe` (SHA-256 `cf33b29d…c53f3f`, 124.456.756 bytes); `app.asar`
+  `aee7ee6e…ae91e21` igual em build/produção; integração `status: PASS`; `npm test` 218/218. Backup do 0.1.11-dev
+  em `backups/2026-10-28-before-guardian/`.
 - **Publicação (2026-10-28):** `main` em `c13447e` enviado a `origin/main` (26 commits desde 0.1.4); tag
   `motor-pre-leaps-2026-10-27` publicada. Nenhum build/instalador foi anexado a release no GitHub.
 - **Primeiras execuções reais (deepseek-flash, 1 por condição):** tarefa 44 padrão 13 passos/13,0 s/47.456 tokens;

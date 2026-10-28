@@ -1,9 +1,17 @@
-# Novidades — Zero Browser 0.1.11-dev
+# Novidades — Zero Browser 0.1.12-dev
 
 Versão de desenvolvimento com foco no motor de IA e em sites difíceis (planilhas, canvas, editores).
 
 ## Motor de IA
 
+- **Guardian independente**: cada ação passa por um revisor determinístico antes de executar. Ele recusa navegação
+  fora de HTTP/HTTPS, URL com usuário e senha, envio de arquivo para origem diferente da tarefa (ou de uma origem
+  de login declarada), formulário cross-site e receita que grava em modo leitura. A resposta final também é
+  revisada: se o agente afirma um efeito específico (salvei, enviei, apaguei) sem contrato de verificação, o
+  resultado traz `guardian` com o motivo.
+- **Cache de prefixo opt-in**: `promptCache` envia `prompt_cache_key` só a provedores que têm esse campo
+  (OpenAI/OpenRouter) e um breakpoint `cache_control` no system para modelos Claude. O resultado traz
+  `promptCache.cacheHitRate` e diz para desligar quando o provedor não devolve token cacheado.
 - **Saída com contrato por receita**: a receita declara `output` — cada campo aponta para uma célula A1 do
   intervalo lido. O host valida os valores lidos (não o que o modelo diz ter lido), converte número no padrão
   brasileiro (`R$ 1.234,56` → `1234.56`), booleano e lista, e devolve `output` + `outputValid`. Contrato quebrado
@@ -41,7 +49,7 @@ Versão de desenvolvimento com foco no motor de IA e em sites difíceis (planilh
 
 - Perfis locais no menu ⋮, menu de contexto das abas, histórico de downloads persistente e atalhos com foco na
   página.
-- Build `0.1.6-dev`; o perfil e a instalação anterior permanecem recuperáveis pelos backups em `backups/`.
+- Build `0.1.6-dev` (histórico); o perfil e a instalação anterior permanecem recuperáveis pelos backups em `backups/`.
 
 ## Limites conhecidos
 

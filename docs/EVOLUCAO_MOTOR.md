@@ -854,3 +854,34 @@ Arquivos: `src/automation/output-schema.js`, `src/automation/recipe-store.js`, `
 
 Limites: o contrato só vale para o que veio de `sheets read`; para HTML genérico ainda não existe schema de saída
 (próximo passo é validar sobre `extract_table`). Não há tipagem de data nem de moeda separada de número.
+
+### Guardian determinístico e cache de prefixo opt-in — 2026-10-28 (0.1.12-dev)
+
+**Guardian** (`src/automation/guardian.js`) é um revisor independente, sem modelo, que roda **antes** de cada
+ferramenta e no fim da tarefa. Ele não substitui a aprovação do usuário: só recusa o que a política proíbe sozinha.
+
+Recusa (deny):
+- navegação (ou aba nova) fora de HTTP/HTTPS e URL com usuário/senha;
+- `upload_file` quando a página não é a origem da tarefa nem uma origem de login declarada — arquivo local indo
+  para outra origem é exfiltração;
+- `formAction` para outro site;
+- receita que navega fora de HTTP/HTTPS ou que grava em planilha com autoridade `read`.
+
+Sinaliza sem bloquear (`flags` no trace): gravação na área de transferência, clique por coordenada, sequência que
+termina em Enter. Saída negada vira `{ success: false, code: 'GUARDIAN_DENIED', error }` e o agente recebe o motivo.
+
+Revisão final: afirmação **específica** de efeito (“salvei”, “enviei”, “apaguei”, “comprei”, “baixei”…) sem contrato
+de verificação vira `guardian: { decision: 'warn' }`; contra contrato reprovado, `contradiction`. Frases genéricas
+(“tarefa concluída”) não contam — evita ruído.
+
+**Cache de prefixo** (`src/automation/prompt-cache.js`, opt-in `promptCache`): envia `prompt_cache_key` só para
+OpenAI/OpenRouter (chave estável por origem + prompt + modelo) e injeta `cache_control: ephemeral` no system quando
+o modelo é Claude. DeepSeek não recebe campo nenhum — ele já cacheia sozinho. O resultado traz
+`promptCache: { cachedInputTokens, cacheHitRate, cacheUseful, note }`; com zero cache o próprio texto manda desligar.
+Sem a flag, o corpo da requisição é idêntico ao anterior.
+
+Testes: `test/guardian.test.js` (5) e `test/prompt-cache.test.js` (5). `npm test` 218/218.
+
+Limites: o Guardian não lê o código gerado (ainda não há codegen) nem julga semântica de página; a política é
+estática e conservadora. O cache depende de o provedor devolver `usage` com tokens cacheados; não foi medido ainda
+num provedor real.

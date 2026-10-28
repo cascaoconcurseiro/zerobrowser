@@ -51,6 +51,7 @@ O `LEIA-ME.md` da pasta traz os hashes esperados e como restaurar o perfil.
 | 2026-10-28 | Checkpoint 8 / **0.1.9-dev**: instalador `fd752acc…1b09e`, `app.asar` `1a769d28…c3033`, diagnóstico do `sheets`; backup em `backups/2026-10-28-before-diagnostics/` | build, não commit | 199/199 | copiar `backups/2026-10-28-before-diagnostics/app` |
 | 2026-10-28 | Checkpoint 9 / **0.1.10-dev**: instalador `e2f06273…2d27c6c`, `app.asar` `bf495150…5e045`, nome acessível padrão (accname); backup em `backups/2026-10-28-before-accname/` | build, não commit | 202/202 | copiar `backups/2026-10-28-before-accname/app` |
 
+| 2026-10-28 | Checkpoint 11 / **0.1.12-dev**: instalador `cf33b29d…c53f3f`, `app.asar` `aee7ee6e…ae91e21`, Guardian determinístico + cache de prefixo opt-in; backup em `backups/2026-10-28-before-guardian/` | build + instalado | 218/218 | copiar `backups/2026-10-28-before-guardian/app` |
 | 2026-10-28 | Checkpoint 10 / **0.1.11-dev**: instalador `229ee406…a901e2`, `app.asar` `0d46e9db…b043a`, schema de saída por receita + `sheets` como passo determinístico; backup em `backups/2026-10-28-before-output-schema/` | build + instalado | 208/208 | copiar `backups/2026-10-28-before-output-schema/app` |
 
 Ao adicionar um salto, acrescente a linha aqui **no mesmo commit** da mudança.
@@ -64,8 +65,8 @@ Ao adicionar um salto, acrescente a linha aqui **no mesmo commit** da mudança.
 
 ## Builds e instaladores
 
-- O build instalado hoje é `0.1.11-dev` (`dist/Zero Browser Setup 0.1.11-dev.exe`, SHA-256
-  `229ee4067142bd7cd3cbe6b64be6fbb8b5b83ef1156afb8ae274a7bc6da901e2`).
+- O build instalado hoje é `0.1.12-dev` (`dist/Zero Browser Setup 0.1.12-dev.exe`, SHA-256
+  `cf33b29da16b413a86cef190c7f157d9256ab1806021504938a297ae7bc53f3f`).
 - Mudanças de motor em `src/` **não** alteram o app instalado até um novo build. Enquanto isso, o código mais novo
   só existe no repositório; o app em produção continua no build de 27/10.
 - Antes de qualquer novo build: `npm test`, `npm run build`, validação do `win-unpacked` em perfil isolado, backup
