@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { RecipeStore, RECIPE_TOOL, validateRecipe, normalizeOrigin } = require('../src/automation/recipe-store');
+const { RecipeStore, RECIPE_TOOL, validateRecipe, normalizeOrigin, applyRecipeInputs, missingRequiredInputs } = require('../src/automation/recipe-store');
 
 const passo = (tool, args, expect) => ({ tool, args, expect });
 
@@ -85,4 +85,33 @@ test('runRecipe executes stable steps and stops on the first unmet expectation',
   assert.equal(bad.failedAt, 1);
   assert.match(bad.error, /pós-condição/);
   assert.equal(badTrace.recipeFailures, 1);
+  assert.equal(bad.possibleCommit, true, 'navegação despachada pode ter tido efeito');
+  assert.match(bad.readBeforeRetry, /leia a página/);
+  const waitFail = await service.runRecipe('tab-recipe', service.tabs.get('tab-recipe'), [
+    passo('wait_for', { text: 'Nunca aparece' }, { text: 'Nunca aparece' })
+  ]);
+  assert.equal(waitFail.success, false);
+  assert.equal(waitFail.possibleCommit, false, 'esperar não altera a página');
+});
+
+test('recipes accept an input schema and substitute placeholders without touching the stored recipe', async () => {
+  const schema = { type: 'object', properties: { nome: { type: 'string' }, qtd: { type: 'number' } }, required: ['nome'] };
+  const steps = [passo('wait_for', { text: 'Olá {{nome}}' }, { text: 'Olá {{nome}}' })];
+  assert.equal(validateRecipe({ name: 'saudar', steps, input: schema }), null);
+  assert.match(validateRecipe({ name: 'x', steps, input: { properties: { a: { type: 'date' } } } }), /type/);
+  assert.match(validateRecipe({ name: 'x', steps, input: { properties: { a: { type: 'string' } }, required: ['b'] } }), /required/);
+  assert.deepEqual(missingRequiredInputs(schema, { nome: 'Ana' }), []);
+  assert.deepEqual(missingRequiredInputs(schema, {}), ['nome']);
+
+  const applied = applyRecipeInputs([passo('navigate', { url: 'https://x/{{nome}}' }, { url: 'https://x/{{nome}}' })], { nome: 'ana' });
+  assert.equal(applied[0].args.url, 'https://x/ana');
+  assert.equal(applied[0].expect.url, 'https://x/ana');
+  assert.equal(steps[0].args.text, 'Olá {{nome}}', 'a receita guardada continua genérica');
+  assert.throws(() => applyRecipeInputs([passo('wait_for', { text: '{{outro}}' }, { text: 'x' })], {}), /ausente/);
+
+  const store = new RecipeStore();
+  await store.save('https://x.test', 'saudar', steps, schema);
+  assert.deepEqual(Object.keys((await store.get('https://x.test', 'saudar')).input.properties), ['nome', 'qtd']);
+  const listed = await store.list('https://x.test');
+  assert.deepEqual(listed[0].inputs, ['nome', 'qtd']);
 });

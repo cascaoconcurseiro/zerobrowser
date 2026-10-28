@@ -27,7 +27,7 @@ const { isConsequential, effectKey, normalizeUrl, planEffect, settleEffect } = r
 const { classifyRisk, approvalReasonForMode } = require('../risk');
 const { validateChecks, evaluateChecks, CHECK_TASK_TOOL } = require('../task-verifier');
 const { EXTRACT_TABLE_TOOL, validateRequest: validateTableRequest, shapeRows, buildTableScript } = require('../table-extractor');
-const { RecipeStore, RECIPE_TOOL, validateRecipe, normalizeOrigin } = require('../recipe-store');
+const { RecipeStore, RECIPE_TOOL, validateRecipe, applyRecipeInputs, missingRequiredInputs, normalizeOrigin } = require('../recipe-store');
 const { CLIPBOARD_TOOL, validateClipboardRequest, shapeClipboardRead } = require('../clipboard');
 const { KEY_SEQUENCE_TOOL, validateSequence, flattenKeys, needsFormApproval } = require('../key-sequence');
 const { VISUAL_CLICK_TOOL, validateVisualClick, pointFromNormalized } = require('../visual-click');
@@ -1026,17 +1026,29 @@ class AutomationService {
         if (!origin) throw new Error('Receitas exigem uma página HTTP/HTTPS');
         if (args.action === 'list') return { success: true, readOnly: true, origin, recipes: await this.recipeStore.list(origin) };
         if (args.action === 'save') {
-          const invalid = validateRecipe({ name: args.name, steps: args.steps });
+          const invalid = validateRecipe({ name: args.name, steps: args.steps, input: args.input });
           if (invalid) throw new Error(invalid);
-          const saved = await this.recipeStore.save(origin, args.name, args.steps);
-          return { success: true, origin, name: saved.name, steps: saved.steps.length, note: 'Receita gravada; ela só repete passos estáveis e verifica cada pós-condição.' };
+          const saved = await this.recipeStore.save(origin, args.name, args.steps, args.input || null);
+          return {
+            success: true, origin, name: saved.name, steps: saved.steps.length,
+            ...(saved.input ? { inputs: Object.keys(saved.input.properties || {}) } : {}),
+            note: 'Receita gravada; ela só repete passos estáveis e verifica cada pós-condição.'
+          };
         }
         if (args.action === 'run') {
           const recipe = await this.recipeStore.get(origin, args.name);
           if (!recipe) throw new Error(`Receita "${args.name}" não existe para ${origin}`);
-          const result = await this.runRecipe(tabId, tab, recipe.steps, trace);
+          const missing = missingRequiredInputs(recipe.input, args.values);
+          if (missing.length) throw new Error(`Faltam entradas obrigatórias: ${missing.join(', ')}`);
+          let steps;
+          try {
+            steps = applyRecipeInputs(recipe.steps, args.values || {});
+          } catch (error) {
+            throw new Error(error.message);
+          }
+          const result = await this.runRecipe(tabId, tab, steps, trace);
           if (trace) trace.recipeRuns = (trace.recipeRuns || 0) + 1;
-          return { ...result, name: recipe.name, origin };
+          return { ...result, name: recipe.name, origin, ...(recipe.input ? { input: Object.keys(recipe.input.properties || {}) } : {}) };
         }
         throw new Error('Ação de receita inválida');
       }
@@ -2082,6 +2094,11 @@ class AutomationService {
 
   // Receita: passos estáveis, sem modelo. Cada passo passa por aprovação e tem pós-condição obrigatória.
   async runRecipe(tabId, tab, steps, trace = null) {
+    const commitPossible = (step, output) => {
+      if (step.tool === 'wait_for') return false;
+      if (step.tool === 'click_text' && /não encontrado/i.test(String(output?.error || ''))) return false;
+      return true;
+    };
     const results = [];
     for (const [i, step] of steps.entries()) {
       let output;
@@ -2144,13 +2161,20 @@ class AutomationService {
           if (trace) trace.recipeFailures = (trace.recipeFailures || 0) + 1;
           return {
             success: false, failedAt: i + 1, completed: i, total: steps.length, results,
+            possibleCommit: commitPossible(step, output),
+            ...(commitPossible(step, output) ? { readBeforeRetry: 'A ação foi executada; leia a página e confirme o estado antes de repetir a receita.' } : {}),
             error: `O passo ${i + 1} (${step.tool}) executou, mas a pós-condição falhou: ${verdict.detail}.`
           };
         }
       }
       results.push({ step: i + 1, tool: step.tool, ok: output?.success !== false, ...(output?.error ? { error: String(output.error).slice(0, 200) } : {}) });
       if (output?.success === false) {
-        return { success: false, failedAt: i + 1, completed: i, total: steps.length, results, error: `O passo ${i + 1} (${step.tool}) falhou: ${output.error || 'sem detalhe'}.` };
+        return {
+          success: false, failedAt: i + 1, completed: i, total: steps.length, results,
+          possibleCommit: commitPossible(step, output),
+          ...(commitPossible(step, output) ? { readBeforeRetry: 'A ação pode ter tido efeito; leia a página antes de repetir a receita.' } : {}),
+          error: `O passo ${i + 1} (${step.tool}) falhou: ${output.error || 'sem detalhe'}.`
+        };
       }
     }
     if (trace) trace.recipeSteps = (trace.recipeSteps || 0) + steps.length;

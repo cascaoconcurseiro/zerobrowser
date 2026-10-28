@@ -19,8 +19,30 @@ function normalizeOrigin(value) {
   }
 }
 
-function validateRecipe({ name, steps } = {}) {
+function validateInputSchema(input) {
+  if (input === undefined || input === null) return null;
+  if (typeof input !== 'object' || Array.isArray(input)) return 'input deve ser um objeto de schema.';
+  const properties = input.properties;
+  if (!properties || typeof properties !== 'object' || Array.isArray(properties)) return 'input.properties é obrigatório.';
+  const names = Object.keys(properties);
+  if (names.length > 20) return 'No máximo 20 entradas.';
+  for (const name of names) {
+    if (!/^[A-Za-z_][A-Za-z0-9_]{0,40}$/.test(name)) return `Entrada inválida: ${name}.`;
+    const property = properties[name];
+    if (!property || !['string', 'number', 'boolean'].includes(property.type)) return `Entrada ${name}: type deve ser string, number ou boolean.`;
+  }
+  if (input.required !== undefined) {
+    if (!Array.isArray(input.required) || input.required.some((name) => typeof name !== 'string' || !names.includes(name))) {
+      return 'input.required deve listar propriedades existentes.';
+    }
+  }
+  return null;
+}
+
+function validateRecipe({ name, steps, input } = {}) {
   if (typeof name !== 'string' || !NAME_PATTERN.test(name)) return 'name deve ter 1–41 caracteres (letras, números, ponto, hífen ou _).';
+  const inputProblem = validateInputSchema(input);
+  if (inputProblem) return inputProblem;
   if (!Array.isArray(steps) || !steps.length) return 'Informe ao menos um passo.';
   if (steps.length > MAX_STEPS) return `No máximo ${MAX_STEPS} passos por receita.`;
   for (const [i, step] of steps.entries()) {
@@ -38,6 +60,34 @@ function validateRecipe({ name, steps } = {}) {
     if (Object.keys(step.expect).some((key) => !['url', 'text', 'absent'].includes(key))) return `${label}: expect aceita url, text ou absent.`;
   }
   return null;
+}
+
+function missingRequiredInputs(input, values = {}) {
+  const required = Array.isArray(input?.required) ? input.required : [];
+  return required.filter((name) => values?.[name] === undefined || values?.[name] === null || values[name] === '');
+}
+
+function renderTemplate(value, values) {
+  return String(value).replace(/\{\{\s*([A-Za-z_][A-Za-z0-9_]*)\s*\}\}/g, (_, key) => {
+    if (!values || values[key] === undefined || values[key] === null) throw new Error(`Entrada ausente: ${key}`);
+    return String(values[key]);
+  });
+}
+
+// Substitui {{campo}} em args e expect por valores da chamada; a receita guardada continua genérica.
+function applyRecipeInputs(steps, values = {}) {
+  return (Array.isArray(steps) ? steps : []).map((step) => {
+    const cloned = JSON.parse(JSON.stringify(step));
+    const walk = (object) => {
+      for (const [key, value] of Object.entries(object)) {
+        if (typeof value === 'string') object[key] = renderTemplate(value, values);
+        else if (value && typeof value === 'object') walk(value);
+      }
+    };
+    walk(cloned.args);
+    if (cloned.expect) walk(cloned.expect);
+    return cloned;
+  });
 }
 
 class RecipeStore {
@@ -87,12 +137,12 @@ class RecipeStore {
     await fs.promises.rename(temporary, this.filePath);
   }
 
-  async save(origin, name, steps) {
+  async save(origin, name, steps, input = null) {
     await this.load();
     const key = normalizeOrigin(origin);
     if (!key) throw new Error('Origem inválida para receita');
     this.data.recipes[key] = this.data.recipes[key] || {};
-    this.data.recipes[key][name] = { name, steps, savedAt: this.now() };
+    this.data.recipes[key][name] = { name, steps, ...(input ? { input } : {}), savedAt: this.now() };
     await this.persist();
     return this.data.recipes[key][name];
   }
@@ -107,7 +157,7 @@ class RecipeStore {
   async list(origin) {
     await this.load();
     const key = normalizeOrigin(origin);
-    return Object.values(this.data.recipes[key] || {}).map(({ name, steps, savedAt }) => ({ name, steps: steps.length, savedAt }));
+    return Object.values(this.data.recipes[key] || {}).map(({ name, steps, input, savedAt }) => ({ name, steps: steps.length, ...(input ? { inputs: Object.keys(input.properties || {}) } : {}), savedAt }));
   }
 }
 
@@ -115,7 +165,7 @@ const RECIPE_TOOL = {
   type: 'function',
   function: {
     name: 'recipe',
-    description: 'Receitas determinísticas por site (sem modelo). list mostra as da origem atual; save grava passos estáveis (navigate, click_text, wait_for) com expect obrigatório; run executa a receita na aba atual e para no primeiro passo cuja pós-condição falhar.',
+    description: 'Receitas determinísticas por site (sem modelo). list mostra as da origem; save grava passos estáveis (navigate, click_text, wait_for) com expect e schema de entrada opcional; run executa com values, sem chamar o modelo, e para na primeira pós-condição que falhar.',
     parameters: {
       type: 'object',
       properties: {
@@ -138,7 +188,17 @@ const RECIPE_TOOL = {
             required: ['tool', 'args', 'expect'],
             additionalProperties: false
           }
-        }
+        },
+        input: {
+          type: 'object',
+          description: 'Schema de entradas (save): properties com type string/number/boolean e required.',
+          properties: {
+            properties: { type: 'object' },
+            required: { type: 'array', items: { type: 'string' } }
+          },
+          additionalProperties: false
+        },
+        values: { type: 'object', description: 'Valores para os placeholders {{campo}} (run).' }
       },
       required: ['action'],
       additionalProperties: false
@@ -147,5 +207,6 @@ const RECIPE_TOOL = {
 };
 
 module.exports = {
-  RecipeStore, RECIPE_TOOL, validateRecipe, normalizeOrigin, ALLOWED_TOOLS, MAX_STEPS
+  RecipeStore, RECIPE_TOOL, validateRecipe, validateInputSchema, applyRecipeInputs, missingRequiredInputs,
+  normalizeOrigin, ALLOWED_TOOLS, MAX_STEPS
 };
