@@ -1149,12 +1149,15 @@ async function startExtensionHost() {
 }
 
 function extensionRecordForUI(record) {
-  return { id: record.id, name: record.name, version: record.version, permissions: record.permissions || [], enabled: record.enabled === true, error: record.error || '', managed: false };
+  const manifest = extensionHost?.extensions.get(record.id)?.manifest;
+  const action = manifest?.action || manifest?.browser_action;
+  return { id: record.id, name: record.name, version: record.version, permissions: record.permissions || [], enabled: record.enabled === true, error: record.error || '', hasAction: Boolean(action && !action.default_popup), managed: false };
 }
 
 function visibleExtensionRecords() {
   const primary = extensionHost?.primary;
-  const base = primary ? [{ id: primary.id, name: primary.name, version: primary.version, permissions: primary.manifest.permissions || [], enabled: true, error: '', managed: true }] : [];
+  const primaryAction = primary?.manifest.action || primary?.manifest.browser_action;
+  const base = primary ? [{ id: primary.id, name: primary.name, version: primary.version, permissions: primary.manifest.permissions || [], enabled: true, error: '', hasAction: Boolean(primaryAction && !primaryAction.default_popup), managed: true }] : [];
   const records = store.getStore().get('extensions.user', []);
   return [...base, ...(Array.isArray(records) ? records.map(extensionRecordForUI) : [])];
 }
@@ -1166,6 +1169,13 @@ function requireMainWindowSender(event) {
 handleMainUiIpc('browser:extensions:list', (event) => {
   requireMainWindowSender(event);
   return visibleExtensionRecords();
+});
+
+handleMainUiIpc('browser:extensions:invoke-action', (event, extensionId) => {
+  requireMainWindowSender(event);
+  if (typeof extensionId !== 'string') throw new Error('Extensão inválida.');
+  if (!extensionHost) throw new Error('O host de extensões não está disponível.');
+  return extensionHost.invokeActionForActiveTab(extensionId);
 });
 
 handleMainUiIpc('browser:extensions:add', async (event) => {

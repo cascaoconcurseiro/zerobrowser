@@ -1339,6 +1339,29 @@ class ZeroBrowserApp {
         actions.append(label, remove);
         row.appendChild(actions);
       }
+      if (extension.enabled && extension.hasAction) {
+        const invokeAction = document.createElement('button');
+        invokeAction.type = 'button';
+        invokeAction.className = 'btn-secondary';
+        invokeAction.textContent = 'Executar';
+        invokeAction.setAttribute('aria-label', `Executar ação de ${extension.name} na aba atual`);
+        invokeAction.title = 'Executar a ação da extensão na aba atual';
+        invokeAction.addEventListener('click', async (event) => {
+          if (!event.isTrusted) return;
+          invokeAction.disabled = true;
+          try {
+            const result = await window.zeroBrowser.extensions.invokeAction(extension.id);
+            this.showToast(result?.activeTabGranted ? 'Ação executada com acesso temporário à aba atual.' : 'Ação da extensão executada.', 'success');
+          } catch (error) {
+            this.showToast(error.message, 'error');
+          } finally {
+            invokeAction.disabled = false;
+          }
+        });
+        const actions = row.querySelector('.extension-actions');
+        if (actions) actions.appendChild(invokeAction);
+        else row.appendChild(invokeAction);
+      }
       list.appendChild(row);
     }
   }

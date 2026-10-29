@@ -1,5 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const { EventEmitter } = require('node:events');
 const fs = require('node:fs');
 const path = require('node:path');
 const { matchPatternToRegExp } = require('../src/main/extensions/extension-host');
@@ -158,34 +159,116 @@ test('URL-bearing extension events are delivered only to recipients with the nam
   assert.equal(received.allowedPage[0].args[0].url, 'https://private.example/account');
 });
 
-test('tabs.captureVisibleTab requires all-URLs host access instead of capturing for any extension', async () => {
+test('activeTab is scoped to the clicked extension, tab, and origin, and survives same-origin navigation', async () => {
   let captures = 0;
-  let activeUrl = 'https://allowed.example/page';
-  const webContents = { getURL: () => activeUrl, capturePage: async () => ({ toDataURL: () => { captures += 1; return 'data:image/png;base64,fixture'; } }) };
-  const host = new ExtensionHost({ session: {}, browser: { activeWebContents: () => webContents } });
+  const createWebContents = (id, url) => {
+    const wc = new EventEmitter();
+    wc.id = id;
+    wc.url = url;
+    wc.getURL = () => wc.url;
+    wc.getTitle = () => `Title ${id}`;
+    wc.isCurrentlyAudible = () => false;
+    wc.isAudioMuted = () => false;
+    wc.isLoading = () => false;
+    wc.isDestroyed = () => false;
+    wc.capturePage = async () => ({ toDataURL: () => { captures += 1; return 'data:image/png;base64,fixture'; } });
+    return wc;
+  };
+  const firstTab = createWebContents(21, 'https://allowed.example/page');
+  const secondTab = createWebContents(22, 'https://allowed.example/other');
+  let activeTab = firstTab;
+  const events = [];
+  const legacyEvents = [];
+  const worker = {
+    scope: 'chrome-extension://active-tab-id/', versionId: 91,
+    ipc: { removeHandler() {}, handle() {} },
+    send: (_channel, name, args) => events.push({ name, args })
+  };
+  const session = { extensions: { removeExtension() {} }, serviceWorkers: {
+    startWorkerForScope: async (scope) => {
+      assert.equal(scope, 'chrome-extension://active-tab-id/');
+      return worker;
+    }
+  } };
+  const host = new ExtensionHost({ session, browser: {
+    activeWebContents: () => activeTab,
+    listTabs: () => [firstTab, secondTab],
+    extensionPages: () => [{
+      getURL: () => 'chrome-extension://mv2-id/background.html',
+      isDestroyed: () => false,
+      send: (_channel, name, args) => legacyEvents.push({ name, args })
+    }],
+    faviconOf: () => null,
+    viewBounds: () => ({ width: 900, height: 700 })
+  } });
   host.extensions = new Map([
     ['no-host-id', { id: 'no-host-id', manifest: { permissions: [] } }],
-    ['active-tab-id', { id: 'active-tab-id', manifest: { permissions: ['activeTab'] } }],
+    ['active-tab-id', { id: 'active-tab-id', manifest: { permissions: ['activeTab'], action: {}, background: { service_worker: 'worker.js' } } }],
+    ['mv2-id', { id: 'mv2-id', manifest: { permissions: ['activeTab'], browser_action: {}, background: { page: 'background.html' } } }],
+    ['popup-id', { id: 'popup-id', manifest: { permissions: ['activeTab'], action: { default_popup: 'popup.html' } } }],
     ['site-host-id', { id: 'site-host-id', manifest: { host_permissions: ['https://allowed.example/*'] } }],
     ['all-host-id', { id: 'all-host-id', manifest: { host_permissions: ['<all_urls>'] } }]
   ]);
+  host.registerTab(firstTab);
+  host.registerTab(secondTab);
+  legacyEvents.length = 0;
 
-  const denied = await host.dispatch('tabs.captureVisibleTab', [{ format: 'png' }], { extensionId: 'no-host-id' });
+  const denied = await host.dispatch('tabs.captureVisibleTab', [{ format: 'png' }], { extensionId: 'active-tab-id' });
   assert.match(denied.error, /permissão host/);
-  const unsupportedActiveTab = await host.dispatch('tabs.captureVisibleTab', [{ format: 'png' }], { extensionId: 'active-tab-id' });
-  assert.match(unsupportedActiveTab.error, /activeTab ainda não são suportados/);
-  assert.equal(captures, 0, 'screenshots are not captured without an effective host grant');
+  assert.equal(captures, 0, 'an activeTab declaration alone does not grant access');
 
+  const action = await host.invokeActionForActiveTab('active-tab-id');
+  assert.deepEqual(action, { success: true, activeTabGranted: true });
+  assert.deepEqual(events.map((event) => event.name), ['action.onClicked']);
+  assert.equal(events[0].args[0].url, 'https://allowed.example/page', 'the action event receives the clicked tab details');
+  const activeDetails = await host.dispatch('tabs.get', [firstTab.id], { extensionId: 'active-tab-id' });
+  assert.equal(activeDetails.value.url, firstTab.getURL());
+  const otherExtensionDetails = await host.dispatch('tabs.get', [firstTab.id], { extensionId: 'no-host-id' });
+  assert.equal(otherExtensionDetails.value.url, undefined, 'the grant is not shared with another extension');
+
+  const legacyAction = await host.invokeActionForActiveTab('mv2-id');
+  assert.deepEqual(legacyAction, { success: true, activeTabGranted: true });
+  assert.deepEqual(legacyEvents.map((event) => event.name), ['browserAction.onClicked'], 'Manifest V2 receives its browserAction event');
+  await assert.rejects(host.invokeActionForActiveTab('popup-id'), /popup.*não disponível/);
+  assert.equal(host.activeTabGrants.has('popup-id'), false, 'popup actions do not receive an onClicked event or grant');
+
+  const captured = await host.dispatch('tabs.captureVisibleTab', [{ format: 'png' }], { extensionId: 'active-tab-id' });
+  assert.equal(captured.value, 'data:image/png;base64,fixture');
+  activeTab = secondTab;
+  const otherTabCapture = await host.dispatch('tabs.captureVisibleTab', [{ format: 'png' }], { extensionId: 'active-tab-id' });
+  assert.match(otherTabCapture.error, /permissão host/);
+  activeTab = firstTab;
+
+  firstTab.emit('did-navigate', {}, 'https://allowed.example/next');
+  firstTab.url = 'https://allowed.example/next';
+  const afterSameOriginNavigation = await host.dispatch('tabs.captureVisibleTab', [{ format: 'png' }], { extensionId: 'active-tab-id' });
+  assert.equal(afterSameOriginNavigation.value, 'data:image/png;base64,fixture', 'same-origin navigation keeps the temporary grant');
+  firstTab.emit('did-navigate', {}, 'https://other.example/next');
+  firstTab.url = 'https://other.example/next';
+  const afterCrossOriginNavigation = await host.dispatch('tabs.captureVisibleTab', [{ format: 'png' }], { extensionId: 'active-tab-id' });
+  assert.match(afterCrossOriginNavigation.error, /permissão host/);
+  assert.equal(captures, 2, 'the grant is revoked after a cross-origin navigation commits');
+
+  firstTab.url = 'https://allowed.example/next';
   const siteAllowed = await host.dispatch('tabs.captureVisibleTab', [{ format: 'png' }], { extensionId: 'site-host-id' });
   assert.equal(siteAllowed.value, 'data:image/png;base64,fixture', 'matching required host permission permits capture of the active tab');
-  activeUrl = 'https://secret.example/account';
+  firstTab.url = 'https://secret.example/account';
   const siteDenied = await host.dispatch('tabs.captureVisibleTab', [{ format: 'png' }], { extensionId: 'site-host-id' });
   assert.match(siteDenied.error, /permissão host/);
-  assert.equal(captures, 1, 'a host grant for another site cannot capture the active tab');
+  assert.equal(captures, 3, 'a host grant for another site cannot capture the active tab');
 
   const allowed = await host.dispatch('tabs.captureVisibleTab', [{ format: 'png' }], { extensionId: 'all-host-id' });
   assert.equal(allowed.value, 'data:image/png;base64,fixture');
-  assert.equal(captures, 2);
+  assert.equal(captures, 4);
+
+  const forgedAction = await host.dispatch('action.onClicked', [], { extensionId: 'active-tab-id' });
+  assert.match(forgedAction.error, /não está disponível/);
+  assert.equal(events.filter((event) => event.name === 'action.onClicked').length, 1, 'extension IPC cannot trigger the trusted host action event');
+  firstTab.url = 'https://allowed.example/last';
+  await host.invokeActionForActiveTab('mv2-id');
+  assert.equal(host.hasActiveTabGrant('mv2-id', firstTab.id, firstTab.getURL()), true);
+  firstTab.emit('destroyed');
+  assert.equal(host.hasActiveTabGrant('mv2-id', firstTab.id, firstTab.getURL()), false, 'closing a tab revokes its temporary grants');
 });
 
 test('management.getSelf does not require the management permission', async () => {
@@ -269,7 +352,8 @@ test('tabs.get, tabs.query and populated windows redact sensitive fields by requ
 
 test('service worker IPC keeps its own scoped handler and extension-scope validation', () => {
   const source = fs.readFileSync(path.join(__dirname, '../src/main/extensions/extension-host.js'), 'utf8');
-  assert.match(source, /if \(!worker \|\| !this\.isExtensionUrl\(worker\.scope\)\) return;/);
+  assert.match(source, /this\.registerServiceWorker\(worker\);/);
+  assert.match(source, /registerServiceWorker\(worker\) \{[\s\S]*if \(!worker \|\| !this\.isExtensionUrl\(worker\.scope\)/);
   assert.match(source, /const extensionId = this\.extensionIdForUrl\(worker\.scope\);[\s\S]*worker\.ipc\.handle\('navegante-ext:call', \(_event, method, args\) => this\.dispatch\(method, args, \{ extensionId \}\)\)/);
 });
 

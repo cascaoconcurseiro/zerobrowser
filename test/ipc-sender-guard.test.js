@@ -54,6 +54,7 @@ test('all UI IPC registrations in main.js and ipc/index.js use the trusted wrapp
   assert.ok(ipcChannels.length >= 20, `expected all ipc/index.js UI channels to use the guard, found ${ipcChannels.length}`);
   assert.equal(new Set(mainChannels).size, mainChannels.length, 'main.js channel registration must remain unique');
   assert.equal(new Set(ipcChannels).size, ipcChannels.length, 'ipc/index.js channel registration must remain unique');
+  assert.match(main, /handleMainUiIpc\('browser:extensions:invoke-action', \(event, extensionId\) => \{\s*requireMainWindowSender\(event\);/);
 });
 
 test('the obsolete sandbox worker is absent and transforms remain fail-closed', async () => {

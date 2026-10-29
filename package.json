@@ -13,6 +13,7 @@
     "test:bench-store": "electron scripts/electron-bench-store.integration.js",
     "test:agent-download": "electron scripts/electron-agent-download.integration.js",
     "test:installed": "node scripts/installed-agent.integration.js",
+    "test:active-tab": "electron scripts/electron-extension-active-tab.integration.js",
     "bench": "node bench/avaliar.js",
     "mcp": "node scripts/mcp-stdio.js",
     "test:ui": "electron scripts/electron-ui.integration.js"

@@ -3,7 +3,9 @@
 ## Registro da instalação 0.1.43-dev — 29/10/2026
 
 - [x] Corrigir abertura automática pós-instalação: configurar `build.nsis.runAfterFinish: false` e gerar NSIS em pasta isolada; `builder-debug.yml` confirma ausência de `RUN_AFTER_FINISH`. Não executar o instalador nesta etapa nem alterar o perfil pessoal.
-- [ ] Implementar grant temporário `activeTab` a partir de gesto confiável do host; escopo restrito a extensão/aba/origem e revogação em navegação/fechamento. Cobrir tentativa de forjar gesto via IPC da extensão.
+- [x] Implementar ação temporária `activeTab` via botão acessível do host; escopo extensão/aba/origem, revogação após navegação confirmada para outra origem, fechamento e unload; teste cobre IPC forjado. Revisão corrigiu preservação em navegação same-origin.
+- [x] Testar service worker MV3 no Electron e a UI do gerenciador; captura usa fixture, sem evidência de captura nativa/visual.
+- [ ] Gerar pacote QA atualizado e validar manualmente; cobrir MV2 em Electron, Flame real, scripting/optional permissions e auditoria adversarial.
 
 - [x] Gerar e instalar o NSIS 0.1.43-dev autorizado; confirmar versão, hashes do executável/ASAR, atalhos e código de saída do instalador. O pacote é local e não assinado.
 - [x] Criar e conferir por hash backup pré-instalação completo do executável, perfil, atalhos e registro em `backups/2026-10-28-before-0.1.43-install/`.

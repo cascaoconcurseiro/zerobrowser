@@ -9,6 +9,7 @@ const failures = [];
 const messages = [];
 let newTabCalls = 0;
 let downloads = [];
+let extensionActionCalls = 0;
 let delayNextHistory = false;
 let deferredHistoryResolve = null;
 
@@ -29,9 +30,12 @@ const stubs = {
   'browser:switch-tab': () => ({ tabId: 'tab-smoke' }),
   'browser:set-bookmarks-bar': () => true,
   'browser:get-downloads': () => downloads,
+  'browser:extensions:list': () => [{ id: 'fixture-action', name: 'Ação Fixture', version: '1.0', permissions: ['activeTab'], enabled: true, hasAction: true }],
+  'browser:extensions:invoke-action': () => { extensionActionCalls += 1; return { success: true, activeTabGranted: true }; },
   'ai:get-config': () => ({ provider: 'openrouter', model: '', hasApiKey: false, keyHint: '' }),
   'flame:status': () => ({ available: false }),
   'library:bookmarks': () => [],
+  'library:import-sources': () => [],
   'library:history': () => {
     if (!delayNextHistory) return [];
     delayNextHistory = false;
@@ -277,6 +281,20 @@ app.whenReady().then(async () => {
     assert.equal(appMenuFocus.opened, true, 'abrir o menu move o foco para um item do menu');
     assert.equal(appMenuFocus.closed && appMenuFocus.focusedTrigger, true, 'Escape fecha o menu e devolve o foco ao acionador');
     assert.equal(appMenuFocus.expanded, 'false', 'aria-expanded acompanha o fechamento do menu');
+
+    await window.webContents.executeJavaScript('window.app.openExtensionsManager()');
+    const actionControl = await window.webContents.executeJavaScript(`(() => {
+      const button = document.querySelector('#extensions-list button[aria-label="Executar ação de Ação Fixture na aba atual"]');
+      button?.focus();
+      button?.click();
+      return { tag: button?.tagName, label: button?.getAttribute('aria-label'), focused: document.activeElement === button,
+        liveStatus: document.getElementById('toast-container')?.getAttribute('aria-live'), disabled: button?.disabled };
+    })()`);
+    assert.equal(actionControl.tag, 'BUTTON', 'extension action is a native button');
+    assert.equal(actionControl.label, 'Executar ação de Ação Fixture na aba atual', 'the action has a descriptive accessible name');
+    assert.equal(actionControl.focused && actionControl.disabled === false, true, 'the action remains keyboard-focusable');
+    assert.equal(actionControl.liveStatus, 'polite', 'action feedback is announced to assistive technology');
+    assert.equal(extensionActionCalls, 0, 'a synthetic DOM click cannot grant temporary activeTab access');
 
     // Nova aba: script e estilo externos precisam rodar sob a CSP.
     const newtab = new BrowserWindow({ width: 1024, height: 768, show: Boolean(process.env.ZERO_UI_CAPTURE_DIR), webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true } });

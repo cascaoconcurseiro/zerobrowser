@@ -54,6 +54,10 @@ class ExtensionHost {
     this.debuggerAttachedHere = new Set();
     this.debuggerHooked = new WeakSet();
     this.workers = new Map(); // versionId -> ServiceWorkerMain
+    this.startingWorkers = new Map(); // versionId -> extensionId
+    this.workerReadyWaiters = new Map(); // extensionId -> Set(resolve)
+    this.serviceWorkerScopes = new Map(); // extensionId -> registered scope URL
+    this.activeTabGrants = new Map(); // extensionId -> Map(webContents.id -> origin)
     this.recentlyClosed = [];
     this.nextDownloadId = 1;
     this.contextMenus = new Map();
@@ -63,6 +67,12 @@ class ExtensionHost {
   async start(extensionPaths) {
     this.session.registerPreloadScript({ type: 'frame', id: 'navegante-chrome-shim-frame', filePath: SHIM });
     this.session.registerPreloadScript({ type: 'service-worker', id: 'navegante-chrome-shim-sw', filePath: SHIM });
+    this.session.serviceWorkers?.on?.('registration-completed', (_event, details) => {
+      try {
+        const scope = new URL(details?.scope);
+        if (scope.protocol === 'chrome-extension:' && scope.hostname) this.serviceWorkerScopes.set(scope.hostname, scope.href);
+      } catch {}
+    });
 
     ipcMain.handle('navegante-ext:call', (event, method, args) => {
       if (!this.isAuthorizedExtensionFrame(event)) return { error: 'Origem não autorizada' };
@@ -72,15 +82,19 @@ class ExtensionHost {
     this.session.serviceWorkers.on('running-status-changed', ({ versionId, runningStatus }) => {
       if (runningStatus === 'stopped') {
         this.workers.delete(versionId);
+        this.startingWorkers.delete(versionId);
         return;
       }
-      if (this.workers.has(versionId)) return;
       const worker = this.session.serviceWorkers.getWorkerFromVersionID(versionId);
-      if (!worker || !this.isExtensionUrl(worker.scope)) return;
-      this.workers.set(versionId, worker);
-      worker.ipc.removeHandler('navegante-ext:call');
-      const extensionId = this.extensionIdForUrl(worker.scope);
-      worker.ipc.handle('navegante-ext:call', (_event, method, args) => this.dispatch(method, args, { extensionId }));
+      const extensionId = this.extensionIdForUrl(worker?.scope);
+      if (runningStatus === 'starting') {
+        if (extensionId) this.startingWorkers.set(versionId, extensionId);
+        return;
+      }
+      if (runningStatus !== 'running') return;
+      if (this.workers.has(versionId)) return;
+      this.startingWorkers.delete(versionId);
+      this.registerServiceWorker(worker);
     });
 
     const loaded = [];
@@ -107,11 +121,51 @@ class ExtensionHost {
     return extension;
   }
 
+  registerServiceWorker(worker) {
+    if (!worker || !this.isExtensionUrl(worker.scope) || this.workers.has(worker.versionId)) return false;
+    this.workers.set(worker.versionId, worker);
+    worker.ipc.removeHandler('navegante-ext:call');
+    const extensionId = this.extensionIdForUrl(worker.scope);
+    worker.ipc.handle('navegante-ext:call', (_event, method, args) => this.dispatch(method, args, { extensionId }));
+    this.resolveWorkerReady(extensionId, worker);
+    return true;
+  }
+
+  resolveWorkerReady(extensionId, worker) {
+    const waiters = this.workerReadyWaiters.get(extensionId);
+    if (!waiters) return;
+    this.workerReadyWaiters.delete(extensionId);
+    for (const resolve of waiters) resolve(worker);
+  }
+
+  waitForWorkerReady(extensionId, timeoutMs = 5000) {
+    const existing = [...this.workers.values()].find((worker) => this.extensionIdForUrl(worker.scope) === extensionId);
+    if (existing) return Promise.resolve(existing);
+    return new Promise((resolve, reject) => {
+      const waiters = this.workerReadyWaiters.get(extensionId) || new Set();
+      this.workerReadyWaiters.set(extensionId, waiters);
+      const finish = (worker) => {
+        clearTimeout(timer);
+        waiters.delete(finish);
+        if (!waiters.size) this.workerReadyWaiters.delete(extensionId);
+        resolve(worker);
+      };
+      waiters.add(finish);
+      const timer = setTimeout(() => {
+        waiters.delete(finish);
+        if (!waiters.size) this.workerReadyWaiters.delete(extensionId);
+        reject(new Error('Tempo esgotado ao iniciar o worker da extensão.'));
+      }, timeoutMs);
+    });
+  }
+
   unloadExtension(extensionId) {
     if (extensionId === this.primaryId) throw new Error('A extensão principal do Zero Browser não pode ser removida.');
     if (!this.extensions.has(extensionId)) return false;
     this.session.extensions.removeExtension(extensionId);
     this.extensions.delete(extensionId);
+    this.activeTabGrants?.delete(extensionId);
+    this.serviceWorkerScopes?.delete(extensionId);
     return true;
   }
 
@@ -188,9 +242,76 @@ class ExtensionHost {
     ));
   }
 
+  originForTabUrl(url) {
+    try {
+      const parsed = new URL(url);
+      return ['http:', 'https:'].includes(parsed.protocol) ? parsed.origin : null;
+    } catch {
+      return null;
+    }
+  }
+
+  hasActiveTabGrant(extensionId, tabId, url) {
+    const origin = this.originForTabUrl(url);
+    const grant = this.activeTabGrants?.get(extensionId)?.get(tabId);
+    return Boolean(origin && grant === origin);
+  }
+
   hasHostPermissionForActiveTab(extensionId) {
     const active = this.browser.activeWebContents();
-    return Boolean(active && this.hasHostPermissionForUrl(extensionId, active.getURL()));
+    if (!active || active.isDestroyed?.()) return false;
+    return this.hasHostPermissionForUrl(extensionId, active.getURL())
+      || this.hasActiveTabGrant(extensionId, active.id, active.getURL());
+  }
+
+  async invokeActionForActiveTab(extensionId) {
+    const extension = this.extensions.get(extensionId);
+    if (!extension) throw new Error('Extensão não está carregada.');
+    if (!extension.manifest?.action && !extension.manifest?.browser_action) {
+      throw new Error('Esta extensão não declara uma ação de navegador.');
+    }
+    if (extension.manifest.action?.default_popup || extension.manifest.browser_action?.default_popup) {
+      throw new Error('A ação desta extensão usa uma janela popup, ainda não disponível no gerenciador do Zero Browser.');
+    }
+    const active = this.browser.activeWebContents();
+    if (!active || active.isDestroyed?.()) throw new Error('Nenhuma aba ativa.');
+    const origin = this.originForTabUrl(active.getURL());
+    if (origin && this.hasExtensionPermission(extensionId, 'activeTab')) {
+      let grants = this.activeTabGrants.get(extensionId);
+      if (!grants) this.activeTabGrants.set(extensionId, grants = new Map());
+      grants.set(active.id, origin);
+    }
+    if (extension.manifest?.background?.service_worker) {
+      let worker = [...this.workers.values()].find((candidate) => this.extensionIdForUrl(candidate.scope) === extensionId);
+      if (!worker) {
+        const starting = [...this.startingWorkers.values()].includes(extensionId);
+        if (starting) worker = await this.waitForWorkerReady(extensionId);
+        else {
+          const scope = this.serviceWorkerScopes.get(extensionId) || `chrome-extension://${extensionId}/`;
+          try {
+            worker = await this.session.serviceWorkers.startWorkerForScope(scope);
+          } catch (error) {
+            if (![...this.startingWorkers.values()].includes(extensionId)) throw error;
+            worker = await this.waitForWorkerReady(extensionId);
+          }
+          if (!this.workers.has(worker?.versionId)) this.registerServiceWorker(worker);
+        }
+      }
+      if (!worker) throw new Error('Não foi possível iniciar o worker da ação da extensão.');
+    }
+    const eventName = extension.manifest.action ? 'action.onClicked' : 'browserAction.onClicked';
+    this.emitToExtension(extensionId, eventName, this.tabInfo(active, extensionId));
+    return { success: true, activeTabGranted: Boolean(origin && this.hasExtensionPermission(extensionId, 'activeTab')) };
+  }
+
+  revokeActiveTabGrants(tabId, keepOrigin = null) {
+    if (!this.activeTabGrants) return;
+    for (const [extensionId, grants] of this.activeTabGrants) {
+      const origin = grants.get(tabId);
+      if (keepOrigin && origin === keepOrigin) continue;
+      grants.delete(tabId);
+      if (!grants.size) this.activeTabGrants.delete(extensionId);
+    }
   }
 
   hasHostPermissionForUrl(extensionId, url) {
@@ -205,12 +326,15 @@ class ExtensionHost {
     });
   }
 
-  canReadTabDetails(extensionId, url) {
-    return this.hasExtensionPermission(extensionId, 'tabs') || this.hasHostPermissionForUrl(extensionId, url);
+  canReadTabDetails(extensionId, url, tabId) {
+    return this.hasExtensionPermission(extensionId, 'tabs')
+      || this.hasHostPermissionForUrl(extensionId, url)
+      || this.hasActiveTabGrant(extensionId, tabId, url);
   }
 
   projectTabDetails(tab, extensionId, url = tab.url) {
-    if (extensionId == null || this.canReadTabDetails(extensionId, url)) return tab;
+    if (extensionId == null || this.canReadTabDetails(extensionId, url)
+      || this.hasActiveTabGrant(extensionId, tab.id, url)) return tab;
     return { ...tab, url: undefined, pendingUrl: undefined, title: undefined, favIconUrl: undefined };
   }
 
@@ -224,7 +348,7 @@ class ExtensionHost {
 
   async dispatch(method, args = [], context) {
     if (method === 'tabs.captureVisibleTab' && !this.hasHostPermissionForActiveTab(context?.extensionId)) {
-      return { error: 'tabs.captureVisibleTab exige permissão host para a aba ativa; grants temporários activeTab ainda não são suportados.' };
+      return { error: 'tabs.captureVisibleTab exige permissão host para a aba ativa ou acesso temporário activeTab concedido por uma ação do usuário.' };
     }
     const permission = this.requiredPermission(method);
     if (permission && !this.hasExtensionPermission(context?.extensionId, permission)) {
@@ -253,6 +377,18 @@ class ExtensionHost {
     }
   }
 
+  emitToExtension(extensionId, name, ...args) {
+    const projected = this.projectEventArgs(name, args, extensionId);
+    for (const worker of this.workers.values()) {
+      if (this.extensionIdForUrl(worker.scope) !== extensionId) continue;
+      try { worker.send('navegante-ext:event', name, projected); } catch {}
+    }
+    for (const webContents of this.browser.extensionPages()) {
+      if (this.extensionIdForUrl(webContents.getURL()) !== extensionId || webContents.isDestroyed()) continue;
+      webContents.send('navegante-ext:event', name, projected);
+    }
+  }
+
   projectEventArgs(name, args, extensionId) {
     if (!name.startsWith('tabs.')) return args;
     const projected = [...args];
@@ -261,7 +397,7 @@ class ExtensionHost {
     } else if (name === 'tabs.onUpdated') {
       const tab = projected[2];
       const url = tab?.url || this.browser.listTabs().find((wc) => wc.id === projected[0])?.getURL();
-      if (projected[1] && !this.canReadTabDetails(extensionId, url)) {
+      if (projected[1] && !this.canReadTabDetails(extensionId, url, projected[0])) {
         projected[1] = { ...projected[1] };
         for (const field of ['url', 'title', 'favIconUrl']) delete projected[1][field];
       }
@@ -298,13 +434,21 @@ class ExtensionHost {
     };
     webContents.on('did-start-loading', () => changed({ status: 'loading' }));
     webContents.on('did-stop-loading', () => changed({ status: 'complete' }));
-    webContents.on('did-navigate', (_e, url) => changed({ url }));
-    webContents.on('did-navigate-in-page', (_e, url, isMainFrame) => { if (isMainFrame) changed({ url }); });
+    webContents.on('did-navigate', (_e, url) => {
+      this.revokeActiveTabGrants(id, this.originForTabUrl(url));
+      changed({ url });
+    });
+    webContents.on('did-navigate-in-page', (_e, url, isMainFrame) => {
+      if (!isMainFrame) return;
+      this.revokeActiveTabGrants(id, this.originForTabUrl(url));
+      changed({ url });
+    });
     webContents.on('page-title-updated', (_e, title) => changed({ title }));
     webContents.on('page-favicon-updated', (_e, favicons) => changed({ favIconUrl: favicons[0] }));
     webContents.on('media-started-playing', () => changed({ audible: true }));
     webContents.on('media-paused', () => changed({ audible: false }));
     webContents.once('destroyed', () => {
+      this.revokeActiveTabGrants(id);
       const meta = this.tabMeta.get(id);
       this.tabMeta.delete(id);
       this.panelOptions.delete(id);
@@ -367,7 +511,7 @@ class ExtensionHost {
     const sensitiveFilter = filter.title !== undefined || filter.url !== undefined;
     return this.browser.listTabs().map((wc) => ({
       webContents: wc,
-      canRead: extensionId == null || this.canReadTabDetails(extensionId, wc.getURL()),
+      canRead: extensionId == null || this.canReadTabDetails(extensionId, wc.getURL(), wc.id),
       tab: this.tabInfo(wc, extensionId)
     })).filter(({ canRead }) => !sensitiveFilter || canRead).map(({ tab }) => tab).filter((tab) => {
       if (filter.active !== undefined && tab.active !== filter.active) return false;

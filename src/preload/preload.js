@@ -53,6 +53,7 @@ const browserApi = {
 
   extensions: {
     list: () => ipcRenderer.invoke('browser:extensions:list'),
+    invokeAction: (id) => ipcRenderer.invoke('browser:extensions:invoke-action', id),
     chooseAndInstall: () => ipcRenderer.invoke('browser:extensions:add'),
     setEnabled: (id, enabled) => ipcRenderer.invoke('browser:extensions:set-enabled', id, enabled),
     remove: (id) => ipcRenderer.invoke('browser:extensions:remove', id)

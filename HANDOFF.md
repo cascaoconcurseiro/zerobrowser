@@ -1,3 +1,10 @@
+## Ação temporária de extensões activeTab — 29/10/2026
+
+- Implementado botão “Executar” no gerenciador para extensões com `action`/`browser_action` sem popup. O gesto parte do botão nativo acessível; a UI exige evento confiável, e o IPC principal só aceita a janela principal autorizada. Eventos MV3 acordam o service worker e esperam `running`; MV2 recebe `browserAction.onClicked`.
+- Grant limitado a extensão + aba + origem HTTP(S). URL/título e `captureVisibleTab` usam o grant; recarga/rota na mesma origem o preserva, navegação principal confirmada para outra origem, fechamento da aba e unload o revogam. Popups, `scripting.executeScript` e optional host permissions continuam não suportados.
+- Revisão independente encontrou e corrigiu revogação prematura em qualquer navegação: agora revoga após commit de origem diferente. `npm test` 302/302; testes focados de extensão/IPC 16/16; `npm run test:ui` PASS; `npm run test:active-tab` PASS com service worker Electron MV3 real e perfil temporário. A captura de imagem do teste é fixture determinística; não prova captura nativa/visual. MV2 segue teste unitário, sem integração Electron real. Nenhum teste com Flame real.
+- Estado competitivo permanece sem posição numérica confiável: essa etapa reduz uma lacuna de compatibilidade, mas o Zero continua atrás dos concorrentes em UX geral, ecossistema, distribuição e validação. Pacote QA/instalado não foi atualizado nesta etapa.
+- Próximo passo concreto: gerar pacote unpacked QA a partir deste commit e validar o fluxo em perfil descartável com extensão fixture; depois exercício com Flame somente se o usuário fornecer/autorizar o pacote apropriado. Manter pendentes captura nativa, MV2 Electron, scripting/optional permissions, segurança adversarial e aceite visual amplo.
 # Handoff — Zero Browser
 
 ## Instalador sem abertura automática — 29/10/2026

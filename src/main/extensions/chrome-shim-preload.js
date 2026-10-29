@@ -124,5 +124,8 @@ function installChromeShim(bridge) {
     chromeApi.action.onClicked = makeEvent('action.onClicked');
     for (const m of ['setBadgeText', 'setBadgeBackgroundColor', 'setTitle', 'setIcon']) chromeApi.action[m] = method(`action.${m}`);
   }
+  if (chromeApi.browserAction) {
+    try { chromeApi.browserAction.onClicked = makeEvent('browserAction.onClicked'); } catch {}
+  }
   chromeApi.runtime.openOptionsPage = method('runtime.openOptionsPage');
 }
