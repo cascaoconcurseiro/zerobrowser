@@ -1,5 +1,11 @@
 # Handoff — Zero Browser
 
+## Instalador sem abertura automática — 29/10/2026
+
+- Corrigida a configuração `build.nsis.runAfterFinish: false` em `package.json`. Causa confirmada: o `electron-builder` 26.15.7 documenta `runAfterFinish` com default `true`; no alvo one-click ele só define `RUN_AFTER_FINISH` quando a opção não é `false`. O template NSIS só chama o app na conclusão normal quando essa macro está definida; `--force-run` continua sendo exceção explícita.
+- Build isolado concluído: `dist-nsis-no-autolaunch-20261029/Zero Browser Setup 0.1.43-dev.exe`, SHA-256 `929b020b125b00b420638d4f84d86e111e5760b08e0badc84c71f3ee0653ebfa`. `builder-debug.yml` contém o script gerado e confirma que `RUN_AFTER_FINISH` está ausente. O instalador não foi executado; a configuração instalada e o perfil pessoal não foram tocados nesta etapa.
+- Próximo gap de produto priorizado: grant temporário `activeTab` para extensão apenas após gesto confiável no host, vinculado a extensão/aba/origem e revogado ao navegar/fechar. Não aceitar IPC originado pela extensão como prova do gesto; ver testes e requisitos listados no `CHECKLIST.md`.
+
 ## Instalação 0.1.43-dev e status competitivo — 29/10/2026
 
 - O usuário autorizou instalar a versão mais nova. O instalador NSIS local `dist-nsis-qa-20261028/Zero Browser Setup 0.1.43-dev.exe` terminou com código 0. Executável instalado em `%LOCALAPPDATA%/Programs/navegante/Zero Browser.exe`, versão confirmada `0.1.43-dev`; SHA-256 do exe `09500e83e556859e888679392d92e7f3ad4d1204854c8404ff052e4236d27e11` e do `resources/app.asar` `c04a29dd9e1159c8c242f36114571640509cb4ebbad34451b7b598dfee477c20`. Instalador SHA-256 `f6982bbcd351ed9b993a6c02f5ade038c844c3b3d0201393bfd42a28f18b4e56`; não assinado. Atalhos do Desktop e Menu Iniciar apontam para a instalação.

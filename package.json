@@ -65,6 +65,9 @@
     "win": {
       "icon": "assets/zero-browser.ico",
       "target": "nsis"
+    },
+    "nsis": {
+      "runAfterFinish": false
     }
   }
 }

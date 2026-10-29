@@ -10,6 +10,8 @@ O executável instalado foi atualizado para **0.1.43-dev**. O exe tem SHA-256 `0
 
 O instalador foi gerado localmente e não tem assinatura Authenticode. Versão/hash não comprovam segurança geral. A comparação de mercado em `docs/COMPARATIVO_CONCORRENTES_2026-10-28.md` conclui que o Zero segue em estágio de protótipo avançado, abaixo dos concorrentes maduros, sem base para ranking numérico. Backups de versões anteriores e instruções de restauração estão nos arquivos `LEIA-ME.md` das respectivas pastas em `backups/`.
 
+O NSIS foi configurado para não abrir o navegador automaticamente ao concluir a instalação (`build.nsis.runAfterFinish: false`). O script do instalador isolado confirma que a macro de execução normal não foi gerada; esse pacote ainda não foi executado.
+
 ### Build instalado (0.1.43-dev; também disponível como artefato QA)
 
 - `tabs read_batch` pagina abas (`tabOffset`/`tabVersion`) e texto (`contentOffset`/`contentVersion`), reiniciando a leitura quando a página muda; `coverage.complete` agora fica `true` no último trecho.
