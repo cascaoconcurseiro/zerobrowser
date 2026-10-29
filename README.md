@@ -4,13 +4,13 @@ Marca visível: **Zero Browser**. O identificador interno `navegante` e o `appId
 
 Navegador Electron para Windows com agente integrado à OpenRouter, DeepSeek e, em modo opcional, Ollama local.
 
-## Estado atual (2026-10-28)
+## Estado atual (2026-10-29)
 
-O executável encontrado instalado no Windows é o **0.1.42-dev** (SHA-256 do executável `934CC8A06612702768C49FEFF37B27083F05D1D74018B33EBE76B1EC320F3412`; `app.asar` `4F8280C44B868EFBBB45CBCB723E4B6D37C0930FDB37C9A1E33B5F91E8F7420B`). Essa leitura foi somente de versão e hashes: não comprova segurança ou funcionamento da instalação. A árvore de trabalho está na versão **0.1.43-dev**; o candidato mais recente é `dist-ollama-20261028` com smoke UX e integração empacotada aprovados em perfil temporário. Os resultados desse candidato não descrevem automaticamente o executável instalado. Nenhuma atualização da instalação foi feita. O candidato ainda não passou por benchmark pareado completo nem inspeção visual ampla. O menu ⋮ tem **Novidades** com o resumo da versão instalada. Testes com provider local e fixtures confirmam fluxos específicos, mas não comprovam desempenho ou acerto em Planilhas autenticadas, lojas com conta ou todos os sites complexos. O estado e os próximos passos estão em `HANDOFF.md`, `docs/EVOLUCAO_MOTOR.md` e `docs/NOVIDADES.md`.
+O executável instalado foi atualizado para **0.1.43-dev**. O exe tem SHA-256 `09500e83e556859e888679392d92e7f3ad4d1204854c8404ff052e4236d27e11` e `app.asar` `c04a29dd9e1159c8c242f36114571640509cb4ebbad34451b7b598dfee477c20`. Integrações do executável instalado passaram em perfis temporários (smoke UX 9 verificações, agente e biblioteca após reinício); isso não é aceite amplo do perfil real. O backup pré-instalação verificável está em `backups/2026-10-28-before-0.1.43-install/`. O instalador iniciou o app automaticamente no perfil padrão e houve uma diferença de uma linha no banco de cookies (293 para 292); integridade SQLite passou, mas a linha removida não estava expirada e sua identidade não foi determinada. Consulte o registro detalhado em `HANDOFF.md` e `manifest.json`; não restaure o backup sem decidir, pois isso reverteria o perfil inteiro.
 
-A instalação atual (0.1.42-dev) não foi alterada. Backups de versões anteriores e instruções de restauração estão nos arquivos `LEIA-ME.md` das respectivas pastas em `backups/`.
+O instalador foi gerado localmente e não tem assinatura Authenticode. Versão/hash não comprovam segurança geral. A comparação de mercado em `docs/COMPARATIVO_CONCORRENTES_2026-10-28.md` conclui que o Zero segue em estágio de protótipo avançado, abaixo dos concorrentes maduros, sem base para ranking numérico. Backups de versões anteriores e instruções de restauração estão nos arquivos `LEIA-ME.md` das respectivas pastas em `backups/`.
 
-### Candidato atual compilado (0.1.43-dev; ainda não instalado)
+### Build instalado (0.1.43-dev; também disponível como artefato QA)
 
 - `tabs read_batch` pagina abas (`tabOffset`/`tabVersion`) e texto (`contentOffset`/`contentVersion`), reiniciando a leitura quando a página muda; `coverage.complete` agora fica `true` no último trecho.
 - Perfis locais pelo menu ⋮ (abrir, criar, excluir), cada um como processo próprio via `ZERO_USER_DATA`; sem renomear e sem migrar o perfil atual.
@@ -19,7 +19,7 @@ A instalação atual (0.1.42-dev) não foi alterada. Backups de versões anterio
 - Ferramenta `calculate` (aritmética exata, sem `eval`), nova tentativa em 429/5xx, aviso de repetição e `href` curto no snapshot.
 - Guardas: aviso de injeção de prompt vindo da página e aprovação extra para navegação a outro site com dados na URL.
 - Motor opt-in, desligado por padrão: `preInspect`, `run_steps` (com pós-condições), journal de efeitos (idempotência), snapshot por diferença, cascata de modelos e streaming. Só `preInspect` tem A/B registrado.
-- Verificação em 28/10/2026: `npm test` 302/302, `npm run test:ui` PASS; auditoria npm reportou 0 vulnerabilidades; segurança das extensões 12/12; smoke UX 9/9, integração empacotada completa e persistência da biblioteca após reinício PASS. Candidato compilado: `dist-ollama-20261028/win-unpacked/Zero Browser.exe` (0.1.43-dev; SHA-256 `D2AF83B1F36BD8EBAD919682EEDCE5797DADC7EB80C774BF10DF7452BD7CDF93`), disponível para aceite manual com `NAVEGANTE_USER_DATA` apontando a uma pasta nova. Isso não valida o instalado 0.1.42-dev, o uso autenticado do DeepSeek nem benchmark pareado.
+- Verificação em 29/10/2026: no executável instalado, smoke UX 9 verificações, integração completa com provedores mockados e biblioteca após reinício passaram em perfis temporários. A suíte da árvore reportada para esta versão: `npm test` 302/302, `npm run test:ui` PASS, auditoria npm sem vulnerabilidades reportadas e testes de extensão 12/12. Isso não valida uso autenticado do DeepSeek, conexão Ollama real, benchmark pareado nem aceite amplo do perfil real.
 
 ### Fluxos ligados
 

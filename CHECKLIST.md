@@ -1,5 +1,15 @@
 # Checklist — Zero Browser
 
+## Registro da instalação 0.1.43-dev — 29/10/2026
+
+- [x] Gerar e instalar o NSIS 0.1.43-dev autorizado; confirmar versão, hashes do executável/ASAR, atalhos e código de saída do instalador. O pacote é local e não assinado.
+- [x] Criar e conferir por hash backup pré-instalação completo do executável, perfil, atalhos e registro em `backups/2026-10-28-before-0.1.43-install/`.
+- [x] Rodar smoke UX (9 verificações), integração instalada completa e persistência/busca da biblioteca após reinício em perfis temporários; todos PASS.
+- [x] Registrar o efeito colateral observado: NSIS abriu o app automaticamente no perfil padrão; SQLite integrity_check passou, mas a contagem principal de cookies mudou 293→292 e a linha removida não estava expirada. O conteúdo/identidade não foi consultado; backup intacto e sem restauração automática.
+- [x] Atualizar README, handoff, comparativo competitivo e manifesto do backup com o estado instalado real e limites de evidência.
+- [ ] Aceite manual amplo em perfil de QA isolado (tema claro, Enter/Espaço, viewports menores, fluxos completos); não confundir smoke automatizado com aceite visual.
+- [ ] Validar Ollama real, provedor autenticado, benchmark pareado, exercício adversarial com extensão Flame real, atualização assinada e sincronização.
+
 ## Estado canônico dos 10 fluxos — 28/10/2026
 
 Para evitar duplicar tarefas e confundir implementação com aceite, a tabela de reconciliação em [`docs/COMPARATIVO_CONCORRENTES_2026-10-28.md`](docs/COMPARATIVO_CONCORRENTES_2026-10-28.md#reconciliacao-dos-10-fluxos-essenciais-do-zero) é a fonte atual para navegação/busca, abas, biblioteca, perfis, extensões, agente, takeover/aprovação, segurança e atualizações/sync. Os itens abaixo mantêm decisões e histórico; não devem ser contados como tarefas independentes quando cobrem o mesmo fluxo. Estado do executável instalado não foi inferido do código da árvore.
