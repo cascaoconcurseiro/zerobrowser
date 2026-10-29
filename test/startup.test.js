@@ -6,8 +6,8 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 const WebSocket = require('ws');
 const net = require('node:net');
-const { shouldAutoGrantGooglePermission } = require('../src/main/permissions');
-const { isSameSite, rewriteRequestHeaders, rewriteResponseHeaders, makeUniqueDownloadPath } = require('../src/main/browser-policy');
+const { permissionGrantsForSession, permissionOrigin, isTopLevelPermissionRequest } = require('../src/main/permissions');
+const { isSameSite, isAllowedRendererNavigation, rewriteRequestHeaders, rewriteResponseHeaders, makeUniqueDownloadPath } = require('../src/main/browser-policy');
 const { endpointFor, listModels } = require('../src/automation/model-catalog');
 const { isSecretKey } = require('../src/store');
 const { saveProviderKey, maskApiKey } = require('../src/ipc');
@@ -57,16 +57,29 @@ test('saved key hints reveal only the final four characters', () => {
   assert.equal(maskApiKey(''), '');
 });
 
-test('Google geolocation is automatic and other permissions or origins are not', () => {
-  assert.equal(shouldAutoGrantGooglePermission('geolocation', 'https://www.google.com/search?q=weather'), true);
-  assert.equal(shouldAutoGrantGooglePermission('geolocation', 'https://maps.google.com/'), true);
-  assert.equal(shouldAutoGrantGooglePermission('geolocation', 'https://www.google.com.br/'), true);
-  assert.equal(shouldAutoGrantGooglePermission('geolocation', 'https://www.google.co.uk/'), true);
-  assert.equal(shouldAutoGrantGooglePermission('media', 'https://www.google.com/'), false);
-  assert.equal(shouldAutoGrantGooglePermission('geolocation', 'https://google.com.example.org/'), false);
-  assert.equal(shouldAutoGrantGooglePermission('geolocation', 'https://googleusercontent.com/'), false);
-  assert.equal(shouldAutoGrantGooglePermission('geolocation', 'http://www.google.com/'), false);
-  assert.equal(shouldAutoGrantGooglePermission('geolocation', 'not a URL'), false);
+test('permission grants are explicit, per origin and scoped to one session', () => {
+  const firstPartition = {};
+  const secondPartition = {};
+  const firstSession = permissionGrantsForSession(firstPartition);
+  const secondSession = permissionGrantsForSession(secondPartition);
+  assert.equal(firstSession.has('geolocation', 'https://www.google.com/'), false);
+  assert.equal(firstSession.grant('geolocation', 'https://www.google.com/maps', { isMainFrame: true }), true);
+  assert.equal(firstSession.has('geolocation', 'https://www.google.com/search', { isMainFrame: true }), true);
+  assert.equal(firstSession.has('media', 'https://www.google.com/'), false);
+  assert.equal(firstSession.has('geolocation', 'https://maps.google.com/'), false);
+  assert.equal(secondSession.has('geolocation', 'https://www.google.com/'), false);
+  assert.equal(firstSession.grant('geolocation', 'file:///tmp/page'), false);
+  assert.equal(firstSession.has('geolocation', 'not a URL'), false);
+  assert.equal(firstSession.grant('geolocation', 'https://maps.google.com/', { isMainFrame: false }), false);
+  assert.equal(firstSession.has('geolocation', 'https://www.google.com/', { isMainFrame: false }), false);
+  assert.equal(firstSession.has('geolocation', 'https://www.google.com/', { isMainFrame: true, embeddingOrigin: 'https://news.example' }), false);
+  assert.equal(permissionGrantsForSession(firstPartition), firstSession, 'reconfigurar a mesma sessão preserva aprovações explícitas');
+  assert.equal(permissionOrigin('https://www.google.com/path'), 'https://www.google.com');
+  assert.equal(permissionOrigin('file:///tmp/page'), null);
+  assert.equal(isTopLevelPermissionRequest({ isMainFrame: true }), true);
+  assert.equal(isTopLevelPermissionRequest({ isMainFrame: false }), false);
+  assert.equal(isTopLevelPermissionRequest({}), false, 'requisição sem metadado de frame deve falhar fechada');
+  assert.equal(isTopLevelPermissionRequest(undefined), false, 'permissão sem frame associado não herda aprovação');
 });
 
 test('browser privacy policy adds DNT and strips third-party cookies schemefully', () => {
@@ -98,6 +111,15 @@ test('browser privacy policy adds DNT and strips third-party cookies schemefully
     url: 'https://shop.example.com/', pageUrl: 'https://other.example.net/', resourceType: 'mainFrame',
     responseHeaders: { 'Set-Cookie': ['session=id'] }
   }, { blockThirdPartyCookies: true }), { 'Set-Cookie': ['session=id'] });
+});
+
+test('top-level browser navigation allows web and internal new-tab URLs but blocks privileged schemes', () => {
+  for (const url of ['https://example.com/path', 'http://localhost:3000/', 'about:blank', 'zero://newtab', 'navegante://newtab']) {
+    assert.equal(isAllowedRendererNavigation(url), true, `${url} should be allowed`);
+  }
+  for (const url of ['file:///C:/Users/test/secret.txt', 'javascript:alert(1)', 'data:text/html,test', 'blob:https://example.com/id', 'chrome://settings', 'https://', null]) {
+    assert.equal(isAllowedRendererNavigation(url), false, `${url} should be blocked`);
+  }
 });
 
 test('automatic download names stay inside the chosen directory and avoid overwrites', () => {
@@ -132,6 +154,14 @@ test('provider catalogs normalize OpenRouter and DeepSeek metadata without expos
   assert.equal(calls[1].options.headers.Authorization, 'Bearer deepseek-fixture-key');
   assert.equal(deepseekModels[0].id, 'deepseek-flash');
   assert.equal(deepseekModels[0].supportsTools, null, 'compatibilidade individual não publicada não é presumida');
+  const localModels = await listModels('ollama', '', async (url, options) => {
+    calls.push({ url, options });
+    return { ok: true, json: async () => ({ models: [{ name: 'qwen3:8b', model: 'qwen3:8b' }] }) };
+  }, { NAVEGANTE_TEST_OPENROUTER_MODELS_URL: 'http://127.0.0.1:4567/redirect' });
+  assert.equal(calls[2].url, 'http://127.0.0.1:11434/api/tags', 'endpoint Ollama permanece fixo em loopback');
+  assert.equal(calls[2].options.headers.Authorization, undefined, 'Ollama não recebe credenciais');
+  assert.deepEqual(localModels.map(({ id, provider, supportsTools }) => [id, provider, supportsTools]), [['qwen3:8b', 'ollama', null]]);
+  assert.equal(endpointFor('ollama', 'completion', { NAVEGANTE_TEST_OLLAMA_URL: 'http://example.com' }), 'http://127.0.0.1:11434/api/chat');
   assert.throws(() => endpointFor('openrouter', 'models', { NAVEGANTE_TEST_OPENROUTER_MODELS_URL: 'http://example.com/models' }), /loopback/);
   assert.throws(() => endpointFor('unknown', 'models', {}), /inválido/);
 });
@@ -206,6 +236,32 @@ test('the browser agent calls the provider and returns its final response', asyn
     assert.equal(requests[0].messages.at(-1).content, 'Resuma esta página');
   } finally {
     global.fetch = originalFetch;
+  }
+});
+
+test('Ollama chat stays on its fixed loopback endpoint and sends no credentials or cloud fallback', async () => {
+  const { AutomationService } = require('../src/automation/service');
+  const service = new AutomationService();
+  service.tabs.set('tab-ollama', { webContents: { isDestroyed: () => false, executeJavaScript: async () => 'Fixture page' } });
+  const calls = [];
+  service.fetch = async (url, options) => {
+    calls.push({ url, options });
+    return options.method === 'GET'
+      ? { ok: true, json: async () => ({ models: [{ name: 'qwen3:8b' }] }) }
+      : { ok: true, json: async () => ({ message: { role: 'assistant', content: 'Resposta local.' }, done: true }) };
+  };
+  try {
+    const result = await service.runAgent('tab-ollama', 'Resuma', '', 'qwen3:8b', true, 'ollama');
+    assert.deepEqual(result, { success: true, message: 'Resposta local.' });
+    assert.equal(calls.length, 2);
+    assert.equal(calls[0].url, 'http://127.0.0.1:11434/api/tags');
+    assert.equal(calls[1].url, 'http://127.0.0.1:11434/api/chat');
+    assert.equal(calls[0].options.headers.Authorization, undefined);
+    assert.equal(calls[1].options.headers.Authorization, undefined);
+    assert.equal(JSON.parse(calls[1].options.body).model, 'qwen3:8b');
+    assert.equal(JSON.parse(calls[1].options.body).stream, false);
+  } finally {
+    service.fetch = global.fetch;
   }
 });
 

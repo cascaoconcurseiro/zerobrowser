@@ -332,37 +332,6 @@ body {
   -webkit-app-region: drag;
 }
 
-#window-controls {
-  display: flex;
-  gap: 4px;
-  -webkit-app-region: no-drag;
-}
-
-.window-btn {
-  width: 28px;
-  height: 28px;
-  border: none;
-  background: transparent;
-  color: var(--fg-secondary);
-  font-size: 14px;
-  border-radius: var(--radius);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background var(--transition), color var(--transition);
-}
-
-.window-btn:hover {
-  background: var(--bg-tertiary);
-  color: var(--fg-primary);
-}
-
-#btn-close:hover {
-  background: var(--danger);
-  color: white;
-}
-
 /* Tab Bar */
 .tab-bar {
   flex: 1;
@@ -386,8 +355,6 @@ body {
 .tab {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
   background: var(--bg-secondary);
   border: 1px solid var(--border);
   border-bottom: none;
@@ -395,7 +362,6 @@ body {
   margin-right: 2px;
   min-width: 160px;
   max-width: 240px;
-  cursor: pointer;
   transition: background var(--transition);
   -webkit-app-region: no-drag;
 }
@@ -409,11 +375,33 @@ body {
   border-color: var(--accent);
 }
 
-.tab.favicon {
+.tab-favicon {
   width: 16px;
   height: 16px;
   border-radius: 2px;
   flex-shrink: 0;
+}
+
+.tab-select {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+  padding: 6px 0 6px 12px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  -webkit-app-region: no-drag;
+}
+
+.tab-select:focus-visible,
+.tab-close:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
 }
 
 .tab-title {
@@ -1401,3 +1389,8 @@ body.dark .ai-working-status-pill {
 .ai-message .ai-rich code, .ai-message .ai-rich pre { font-size: var(--fs-sm); }
 .ai-tools-used, .ai-run-stats, .ai-timeline, .ai-message-actions .btn-ghost { font-size: var(--fs-sm); }
 .ai-privacy-note, .panel-subtitle, .ai-memory-empty, .ai-job-row span { font-size: var(--fs-xs); }
+
+/* Abas da biblioteca: histórico, favoritos e downloads no mesmo painel. */
+.library-tabs { display: flex; gap: 6px; padding: 8px 16px 0; }
+.library-tab { flex: 1; padding: 6px 8px; border: 1px solid var(--border); border-radius: 8px; background: transparent; color: var(--fg-secondary); font-size: var(--fs-sm); cursor: pointer; }
+.library-tab.ativo { color: var(--fg-primary); border-color: var(--accent); background: var(--bg-tertiary); }

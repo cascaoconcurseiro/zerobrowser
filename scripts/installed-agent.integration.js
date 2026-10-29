@@ -125,6 +125,12 @@ function evaluate(target, expression, timeoutMs = 10000) {
     const id = Math.floor(Math.random() * 1e9);
     const timer = setTimeout(() => { socket.terminate(); reject(new Error(`CDP Runtime.evaluate timeout (${timeoutMs} ms; stage=${currentStage}; target=${target.url})`)); }, timeoutMs);
     socket.once('error', (error) => { clearTimeout(timer); reject(error); });
+    socket.once('unexpected-response', (_request, response) => {
+      let body = '';
+      socket.once('error', () => {});
+      response.on('data', (chunk) => { body += chunk; });
+      response.on('end', () => { clearTimeout(timer); reject(new Error(`CDP HTTP ${response.statusCode} (${currentStage}; target=${target.id}; ${body.slice(0, 300)})`)); });
+    });
     socket.on('message', (raw) => {
       const message = JSON.parse(raw.toString());
       if (message.id !== id) return;
@@ -151,6 +157,26 @@ async function waitForTarget(endpoint, predicate) {
     await new Promise((resolve) => setTimeout(resolve, 150));
   }
   throw new Error('Aba fixture não apareceu no CDP');
+}
+
+async function waitForResponsiveTarget(endpoint, predicate, timeoutMs = 15000) {
+  const deadline = Date.now() + timeoutMs;
+  let lastError = null;
+  while (Date.now() < deadline) {
+    const targets = await getJson(`${endpoint}/json/list`);
+    const found = targets.find(predicate);
+    if (found) {
+      try {
+        await evaluate(found, 'document.readyState');
+        return found;
+      } catch (error) {
+        lastError = error;
+      }
+    }
+    await new Promise((resolve) => setTimeout(resolve, 150));
+  }
+  const targets = await getJson(`${endpoint}/json/list`);
+  throw new Error(`Alvo CDP não permaneceu responsivo; encontrados=${JSON.stringify(targets.map(({ id, type, url }) => ({ id, type, url })))}; último erro=${lastError?.message || 'ausente'}`);
 }
 
 async function waitForFile(filePath) {
@@ -295,6 +321,112 @@ async function main() {
 
   const providerValidation = {};
   await waitForPageValue(mainTarget, `({readyState: document.readyState, appType: typeof window.app, tabId: window.app?.activeTabId ?? null, apiType: typeof window.navegante, address: document.getElementById('address-bar')?.value || ''})`, (value) => value.appType === 'object' && Boolean(value.tabId) && value.apiType === 'object');
+  if (process.argv.includes('--ux-only')) {
+    currentStage = 'ux-newtab-button';
+    const before = await evaluate(mainTarget, 'window.app.tabs.size');
+    await evaluate(mainTarget, "document.getElementById('btn-new-tab').click()");
+    await waitForPageValue(mainTarget, 'window.app.tabs.size', (count) => count === before + 1);
+    const newtab = await waitForTarget(endpoint, (target) => target.type === 'page' && target.url.endsWith('/newtab.html'));
+    await waitForPageValue(newtab, 'document.title', (title) => title === 'Novo Separador · Zero Browser');
+    await evaluate(mainTarget, "document.getElementById('btn-new-tab').click()");
+    await waitForPageValue(mainTarget, 'window.app.tabs.size', (count) => count === before + 2);
+    const secondNewtab = await waitForTarget(endpoint, (target) => target.type === 'page' && target.id !== newtab.id && target.url.endsWith('/newtab.html'));
+    await waitForPageValue(secondNewtab, 'document.title', (title) => title === 'Novo Separador · Zero Browser');
+    currentStage = 'ux-theme-two-tabs';
+    for (const theme of ['light', 'dark']) {
+      await evaluate(mainTarget, `window.zeroBrowser.settings.applyTheme(${JSON.stringify(theme)})`);
+      await waitForPageValue(newtab, 'document.documentElement.dataset.theme', (actual) => actual === theme);
+      await waitForPageValue(secondNewtab, 'document.documentElement.dataset.theme', (actual) => actual === theme);
+    }
+    currentStage = 'ux-tab-keyboard';
+    const keyboard = await evaluate(mainTarget, `(() => {
+      const tabs = [...document.querySelectorAll('#tabs-container .tab-select')];
+      const active = tabs.find((tab) => tab.getAttribute('aria-pressed') === 'true');
+      if (!active || tabs.length < 2) return { count: tabs.length, active: false };
+      active.focus();
+      active.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }));
+      const selected = tabs.find((tab) => tab.getAttribute('aria-pressed') === 'true');
+      const afterArrow = { focus: document.activeElement === selected, selected: selected?.dataset.tabId };
+      selected?.dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true }));
+      const afterEnd = tabs.find((tab) => tab.getAttribute('aria-pressed') === 'true');
+      return { count: tabs.length, roving: tabs.filter((tab) => tab.tabIndex === 0).length,
+        afterArrow, afterEnd: { focus: document.activeElement === afterEnd, selected: afterEnd?.dataset.tabId },
+        containerRole: document.querySelector('#tabs-container').getAttribute('role'),
+        tabButtonsAreNative: tabs.every((tab) => tab.tagName === 'BUTTON' && !tab.contains(tab.closest('.tab')?.querySelector('.tab-close'))),
+        closeLabels: [...document.querySelectorAll('#tabs-container .tab-close')].every((button) => button.getAttribute('aria-label')?.startsWith('Fechar aba ')),
+        plusOutsideGroup: !document.querySelector('#tabs-container').contains(document.getElementById('btn-new-tab')) };
+    })()`);
+    assert.ok(keyboard.count >= 2, 'duas abas precisam estar disponíveis para navegação por teclado');
+    assert.equal(keyboard.roving, 1, 'apenas uma aba deve integrar a ordem de foco');
+    assert.equal(keyboard.afterArrow.focus, true, 'seta deve mover seleção e foco juntos');
+    assert.equal(keyboard.afterEnd.focus, true, 'End deve mover seleção e foco até a última aba');
+    assert.equal(keyboard.containerRole, 'group', 'abas e botões de fechar devem ter semântica de grupo, sem controles interativos aninhados em role=tab');
+    assert.equal(keyboard.tabButtonsAreNative, true, 'cada aba deve ser um botão nativo separado do botão de fechar');
+    assert.equal(keyboard.closeLabels, true, 'botões para fechar devem ter nome acessível por título');
+    assert.equal(keyboard.plusOutsideGroup, true, 'botão Nova aba permanece fora do grupo de abas');
+    currentStage = 'ux-tab-close-focus';
+    const tabCountBeforeClose = await evaluate(mainTarget, 'window.app.tabs.size');
+    currentStage = 'ux-tab-close-click';
+    await evaluate(mainTarget, "document.querySelector('#tabs-container .tab:not(.active) .tab-close').focus(); document.querySelector('#tabs-container .tab:not(.active) .tab-close').click()");
+    currentStage = 'ux-tab-close-wait';
+    await waitForPageValue(mainTarget, 'window.app.tabs.size', (count) => count === tabCountBeforeClose - 1);
+    currentStage = 'ux-tab-close-assert-focus';
+    const tabsAfterClose = await getJson(`${endpoint}/json/list`);
+    const mainTargetAfterClose = tabsAfterClose.find((target) => target.id === mainTarget.id);
+    if (!mainTargetAfterClose) throw new Error(`Janela de interface sumiu após fechar uma aba; restantes: ${JSON.stringify(tabsAfterClose.map(({ id, type, url }) => ({ id, type, url })))}`);
+    const closeFocus = await evaluate(mainTarget, `(() => {
+      const selected = document.querySelector('#tabs-container .tab.active .tab-select');
+      return { focused: document.activeElement === selected, pressed: selected?.getAttribute('aria-pressed'),
+        onePressed: document.querySelectorAll('#tabs-container .tab-select[aria-pressed="true"]').length };
+    })()`);
+    assert.equal(closeFocus.focused, true, 'fechar uma aba com foco deve devolver o foco à aba que permanece ativa');
+    assert.equal(closeFocus.pressed, 'true', 'a aba focada depois de fechar deve estar marcada como selecionada');
+    assert.equal(closeFocus.onePressed, 1, 'somente uma aba deve estar marcada como selecionada');
+    const beforeExtraTab = await evaluate(mainTarget, 'window.app.tabs.size');
+    await evaluate(mainTarget, "document.getElementById('btn-new-tab').click()");
+    await waitForPageValue(mainTarget, 'window.app.tabs.size', (count) => count === beforeExtraTab + 1);
+    const beforeActiveClose = await evaluate(mainTarget, 'window.app.tabs.size');
+    currentStage = 'ux-active-tab-close-click';
+    await evaluate(mainTarget, "document.querySelector('#tabs-container .tab.active .tab-close').focus(); document.querySelector('#tabs-container .tab.active .tab-close').click()");
+    currentStage = 'ux-active-tab-close-wait';
+    await waitForPageValue(mainTarget, 'window.app.tabs.size', (count) => count === beforeActiveClose - 1);
+    currentStage = 'ux-active-tab-close-focus';
+    const refreshedMainTarget = await waitForTarget(endpoint, (target) => target.id === mainTarget.id && target.url.endsWith('/index.html'));
+    const activeCloseFocus = await evaluate(refreshedMainTarget, `(() => {
+      const selected = document.querySelector('#tabs-container .tab.active .tab-select');
+      return { focused: document.activeElement === selected, pressed: selected?.getAttribute('aria-pressed'),
+        tabCount: window.app.tabs.size, onePressed: document.querySelectorAll('#tabs-container .tab-select[aria-pressed="true"]').length };
+    })()`);
+    assert.equal(activeCloseFocus.focused, true, 'fechar a aba ativa deve focar a aba que passa a ficar ativa');
+    assert.equal(activeCloseFocus.pressed, 'true', 'a aba que fica deve expor o estado ativo');
+    assert.equal(activeCloseFocus.onePressed, 1, 'somente uma aba deve ficar ativa depois do fechamento');
+    const beforeLastTabClose = await evaluate(refreshedMainTarget, 'window.app.tabs.size');
+    currentStage = 'ux-two-to-one-tab-close-click';
+    await evaluate(refreshedMainTarget, "document.querySelector('#tabs-container .tab.active .tab-close').focus(); document.querySelector('#tabs-container .tab.active .tab-close').click()");
+    currentStage = 'ux-two-to-one-tab-close-wait';
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    const lastTabCloseTarget = await waitForResponsiveTarget(endpoint, (target) => target.id === mainTarget.id && target.url.endsWith('/index.html'));
+    await waitForPageValue(lastTabCloseTarget, 'window.app.tabs.size', (count) => count === beforeLastTabClose - 1);
+    const mainTargetWithOneTab = await waitForResponsiveTarget(endpoint, (target) => target.id === mainTarget.id && target.url.endsWith('/index.html'));
+    const oneTabState = await evaluate(mainTargetWithOneTab, `(() => ({ count: window.app.tabs.size,
+      active: document.querySelectorAll('#tabs-container .tab.active').length,
+      focused: document.activeElement === document.querySelector('#tabs-container .tab.active .tab-select') }))()`);
+    assert.equal(oneTabState.count, 1, 'fechar uma aba ativa entre duas deve preservar a última aba e a janela');
+    assert.equal(oneTabState.active, 1, 'a última aba deve continuar ativa');
+    assert.equal(oneTabState.focused, true, 'ao fechar de duas para uma, o foco deve acompanhar a aba mantida');
+    currentStage = 'ux-agent-panel';
+    await evaluate(mainTarget, "document.getElementById('btn-ai').click()");
+    await waitForPageValue(mainTarget, "!document.getElementById('ai-panel').classList.contains('hidden')", Boolean);
+    const panel = await evaluate(mainTarget, `(() => {
+      const details = document.querySelector('.ai-chat-more');
+      const toolbar = document.querySelector('.ai-chat-toolbar');
+      return { menu: !!details, fits: toolbar.scrollWidth <= toolbar.clientWidth + 1 };
+    })()`);
+    assert.equal(panel.menu, true, 'menu das ações da conversa precisa estar disponível');
+    assert.equal(panel.fits, true, 'barra de conversa deve caber no painel');
+    console.log(JSON.stringify({ status: 'PASS', app: executable, checks: ['new-tab-button-twice', 'new-tab-title', 'keyboard-tab-navigation', 'inactive-tab-close-focus', 'active-tab-close-focus', 'two-to-one-tab-close', 'light-theme-two-tabs', 'dark-theme-two-tabs', 'agent-toolbar'], profile: 'temporary' }));
+    return;
+  }
   currentStage = 'newtab-route';
   const internalNewTab = JSON.parse(await evaluate(mainTarget, `window.navegante.browser.newTab('zero://newtab').then(JSON.stringify)`));
   assert.ok(internalNewTab.tabId, 'A página interna de nova aba passa pela validação segura do IPC');

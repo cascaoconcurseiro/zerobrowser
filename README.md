@@ -2,15 +2,15 @@
 
 Marca visível: **Zero Browser**. O identificador interno `navegante` e o `appId` legado são mantidos durante a mudança para preservar o diretório de dados e a identidade de atualização do aplicativo.
 
-Navegador Electron para Windows com agente integrado à OpenRouter ou DeepSeek.
+Navegador Electron para Windows com agente integrado à OpenRouter, DeepSeek e, em modo opcional, Ollama local.
 
-## Estado atual (2026-10-27)
+## Estado atual (2026-10-28)
 
-O **0.1.41-dev** é o que está instalado em produção no Windows desde 28/10/2026, instalado por cima do 0.1.22-dev após backup verificável e validação do executável empacotado. O `app.asar` do build e da instalação coincide (`351b931d…8dc2`), e a integração do executável instalado passou. É um build `-dev`: não passou por todos os gates de release (benchmark pareado completo e inspeção visual), então trate como candidato. O menu ⋮ tem **Novidades** com o resumo desta versão. Testes com provider local e fixtures confirmam fluxos de integração, mas não comprovam desempenho ou acerto em Planilhas autenticadas, lojas com conta ou todos os sites complexos. O estado e os próximos passos estão em `HANDOFF.md`, `docs/EVOLUCAO_MOTOR.md` e `docs/NOVIDADES.md`.
+O executável encontrado instalado no Windows é o **0.1.42-dev** (SHA-256 do executável `934CC8A06612702768C49FEFF37B27083F05D1D74018B33EBE76B1EC320F3412`; `app.asar` `4F8280C44B868EFBBB45CBCB723E4B6D37C0930FDB37C9A1E33B5F91E8F7420B`). Essa leitura foi somente de versão e hashes: não comprova segurança ou funcionamento da instalação. A árvore de trabalho está na versão **0.1.43-dev**; o candidato mais recente é `dist-ollama-20261028` com smoke UX e integração empacotada aprovados em perfil temporário. Os resultados desse candidato não descrevem automaticamente o executável instalado. Nenhuma atualização da instalação foi feita. O candidato ainda não passou por benchmark pareado completo nem inspeção visual ampla. O menu ⋮ tem **Novidades** com o resumo da versão instalada. Testes com provider local e fixtures confirmam fluxos específicos, mas não comprovam desempenho ou acerto em Planilhas autenticadas, lojas com conta ou todos os sites complexos. O estado e os próximos passos estão em `HANDOFF.md`, `docs/EVOLUCAO_MOTOR.md` e `docs/NOVIDADES.md`.
 
-A instalação anterior (0.1.22-dev) está preservada em `backups/2026-10-28-before-extras/`; a 0.1.21-dev, em `backups/2026-10-28-before-realsites/`; a 0.1.20-dev, em `backups/2026-10-28-before-pipe-acl/`; a 0.1.19-dev, em `backups/2026-10-28-before-runsteps/`; a 0.1.18-dev, em `backups/2026-10-28-before-progress/`; a 0.1.17-dev, em `backups/2026-10-28-before-csp/`; a 0.1.16-dev, em `backups/2026-10-28-before-audit/`; a 0.1.15-dev, em `backups/2026-10-28-before-sheets-batch/`; a 0.1.14-dev, em `backups/2026-10-28-before-panel-history/`; a 0.1.13-dev, em `backups/2026-10-28-before-guardian-upload/`; a 0.1.12-dev, em `backups/2026-10-28-before-durable-jobs/`; a 0.1.11-dev, em `backups/2026-10-28-before-guardian/`; a 0.1.10-dev, em `backups/2026-10-28-before-output-schema/`; a 0.1.9-dev, em `backups/2026-10-28-before-accname/`; a 0.1.8-dev, em `backups/2026-10-28-before-diagnostics/`; a 0.1.7-dev, em `backups/2026-10-28-before-credential/`; a 0.1.6-dev, em `backups/2026-10-28-before-mint/`; o release 0.1.4, em `backups/2026-10-27-before-0.1.5-dev/` — com instruções de restauração no `LEIA-ME.md` de cada pasta.
+A instalação atual (0.1.42-dev) não foi alterada. Backups de versões anteriores e instruções de restauração estão nos arquivos `LEIA-ME.md` das respectivas pastas em `backups/`.
 
-### Em desenvolvimento (0.1.41-dev)
+### Candidato atual compilado (0.1.43-dev; ainda não instalado)
 
 - `tabs read_batch` pagina abas (`tabOffset`/`tabVersion`) e texto (`contentOffset`/`contentVersion`), reiniciando a leitura quando a página muda; `coverage.complete` agora fica `true` no último trecho.
 - Perfis locais pelo menu ⋮ (abrir, criar, excluir), cada um como processo próprio via `ZERO_USER_DATA`; sem renomear e sem migrar o perfil atual.
@@ -19,7 +19,7 @@ A instalação anterior (0.1.22-dev) está preservada em `backups/2026-10-28-bef
 - Ferramenta `calculate` (aritmética exata, sem `eval`), nova tentativa em 429/5xx, aviso de repetição e `href` curto no snapshot.
 - Guardas: aviso de injeção de prompt vindo da página e aprovação extra para navegação a outro site com dados na URL.
 - Motor opt-in, desligado por padrão: `preInspect`, `run_steps` (com pós-condições), journal de efeitos (idempotência), snapshot por diferença, cascata de modelos e streaming. Só `preInspect` tem A/B registrado.
-- `npm test` 127/127 nesta árvore e a integração do executável instalado passou (`status: PASS`). Faltam `test:electron`, `test:bench-store`, `test:agent-download` e benchmark com modelo real.
+- Verificação em 28/10/2026: `npm test` 302/302, `npm run test:ui` PASS; auditoria npm reportou 0 vulnerabilidades; segurança das extensões 12/12; smoke UX 9/9, integração empacotada completa e persistência da biblioteca após reinício PASS. Candidato compilado: `dist-ollama-20261028/win-unpacked/Zero Browser.exe` (0.1.43-dev; SHA-256 `D2AF83B1F36BD8EBAD919682EEDCE5797DADC7EB80C774BF10DF7452BD7CDF93`), disponível para aceite manual com `NAVEGANTE_USER_DATA` apontando a uma pasta nova. Isso não valida o instalado 0.1.42-dev, o uso autenticado do DeepSeek nem benchmark pareado.
 
 ### Fluxos ligados
 
@@ -27,13 +27,13 @@ A instalação anterior (0.1.22-dev) está preservada em `backups/2026-10-28-bef
 - Painel de IA com OpenRouter ou DeepSeek direto, chave separada por provedor, catálogo de modelos sincronizado pela API e ferramentas básicas para inspecionar a aba, navegar, clicar, preencher e rolar.
 - Configurações de aprovação do agente: sempre perguntar, permitir leitura, permitir ações de baixo risco ou permitir todas automaticamente. A última opção pode enviar/publicar/comprar/excluir sem confirmação; limites técnicos (como navegação HTTP/HTTPS e CDP desativado) continuam valendo.
 - Laterais de IA e Configurações reorganizadas com cabeçalhos, campos e estados visuais mais claros; o espaçamento nativo reserva a lateral para os controles permanecerem clicáveis.
-- Permissão de localização automática em domínios Google reconhecidos; demais permissões cobertas pelo diálogo do navegador.
+- Permissões web suportadas exigem confirmação explícita e ficam concedidas por origem/sessão; não há grant automático de localização.
 
 ### Ainda incompleto
 
 - O fluxo real com conta/modelo OpenRouter ou DeepSeek não foi validado nesta máquina.
 - No modo padrão “Permitir ações de baixo risco”, ações consequentes, execução JavaScript e comandos CDP mutáveis passam por confirmação no processo principal; uma recusa interrompe o ciclo do agente. Os quatro níveis são configuráveis em Configurações > Agente de IA · aprovações. Os modos foram testados unitariamente; no executável instalado, os diálogos confirmar/cancelar passaram antes desta implementação de níveis.
-- O agente ainda não oferece screenshot visual para o modelo, teclado completo, arrastar por coordenadas, seleção, execução multiaba, pausa/takeover ou retomada.
+- O agente ainda carece de validação ampla de screenshot visual pelo modelo; pausa/takeover e retomada têm suporte parcial e precisam de aceite em sites e tarefas reais.
 - A integração do agente usa snapshot e ações AX básicas; passou por fixture em `WebContentsView` para snapshot, digitação, clique, mutação e screenshot. O preload de automação das páginas foi removido; faltam benchmark real e validação em sites difíceis.
 - Tema, URL completa, DNT, pasta e fluxo de download sem prompt já foram verificados no instalador com uma fixture local. Limpeza ao sair, bloqueio real de cookies de terceiros, seleção interativa de pasta, downloads com diálogo e CDP ainda precisam de aceite instalado.
 - O painel pede a chave API do provedor selecionado e sincroniza seu catálogo. A chave cifrada permanece no processo principal. A chamada real de chat depende de uma chave válida e ainda não foi validada nesta máquina.

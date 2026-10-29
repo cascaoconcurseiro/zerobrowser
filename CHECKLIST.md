@@ -1,5 +1,9 @@
 # Checklist — Zero Browser
 
+## Estado canônico dos 10 fluxos — 28/10/2026
+
+Para evitar duplicar tarefas e confundir implementação com aceite, a tabela de reconciliação em [`docs/COMPARATIVO_CONCORRENTES_2026-10-28.md`](docs/COMPARATIVO_CONCORRENTES_2026-10-28.md#reconciliacao-dos-10-fluxos-essenciais-do-zero) é a fonte atual para navegação/busca, abas, biblioteca, perfis, extensões, agente, takeover/aprovação, segurança e atualizações/sync. Os itens abaixo mantêm decisões e histórico; não devem ser contados como tarefas independentes quando cobrem o mesmo fluxo. Estado do executável instalado não foi inferido do código da árvore.
+
 ## Transformação de produto e marca
 
 - [x] Definir a marca visível como **Zero Browser**.
@@ -26,7 +30,8 @@
 
 - [x] Adicionar menu `⋮` com Nova aba, Histórico, Downloads recentes, Favoritos e Configurações; os itens abrem fluxos reais já ligados ao perfil do navegador.
 - [x] Criar painel pesquisável de Histórico e Favoritos e painel de Downloads desta sessão; permitir abrir páginas guardadas e revelar na pasta um arquivo concluído.
-- [ ] Persistir histórico de downloads, oferecer abrir/pausar/cancelar/remover e acompanhar downloads em tempo real.
+- [x] Persistir histórico de downloads no perfil local (`src/main/download-history.js`, integração em `src/main/main.js`).
+- [ ] Completar e validar na UI as ações abrir/pausar/cancelar/remover e acompanhar downloads em tempo real; o histórico persistente no código não prova aceite em pacote.
 - [ ] Integrar atalhos globais de histórico e downloads quando o foco estiver dentro da página; os atalhos ainda não são anunciados pelo menu.
 - [ ] Inspecionar visualmente o novo menu e os painéis de biblioteca em runtime e validar abrir item, busca e arquivo fixture baixado.
 - [x] Manter o botão `+` de Nova aba visível ao lado das abas.
@@ -35,9 +40,9 @@
 - [ ] Criar páginas completas de Downloads, Histórico, Favoritos e Configurações, com busca, estados vazios, ações e atalhos.
 - [ ] Completar abas: menu contextual, duplicar, fixar, reordenar, silenciar, reabrir fechadas, restaurar sessão e abrir janela privada.
 - [ ] Implementar páginas de configuração organizadas por Geral, Aparência, Inicialização, Privacidade e segurança, Senhas/preenchimento, Sites/permissões, Downloads, Agente, Extensões, Acessibilidade, navegador padrão, atualização e Sobre.
-- [ ] Implementar gerenciador de extensões com botão **Adicionar extensões**: instalar, listar, ativar/desativar, remover e apresentar permissões; definir fontes/compatibilidade e informar falhas reais de instalação.
+- [~] Implementar gerenciador básico de extensões unpacked: código tem adicionar/listar/ativar/desativar/remover; validar em pacote, apresentar/revisar permissões, compatibilidade e falhas de instalação. Isso não implica Chrome Web Store nem paridade de APIs.
 - [ ] Completar comandos comuns do menu: nova janela, zoom, localizar na página, imprimir, histórico, downloads, favoritos, extensões, configurações, ajuda e sobre.
-- [ ] Criar perfis locais isolados com favoritos, histórico, sessões, downloads e abas próprios; migrar o perfil atual sem perda de dados.
+- [~] Código cria/remove perfis locais com diretório isolado por `ZERO_USER_DATA`; validar em pacote isolamento de cookies/dados, sessões/downloads/abas e remoção. Migração do perfil principal sem perda segue pendente.
 - [ ] Projetar sincronização entre dispositivos com login, escolha de dados, criptografia, resolução de conflitos e recuperação; avaliar separadamente senhas e cookies e não assumir que o Chrome Sync está disponível.
 - [ ] Mapear recursos de referência do Chrome e definir critério de paridade por recurso, sem marcar como completo o que ainda não foi implementado/testado.
 
@@ -462,7 +467,8 @@
 - [ ] A/B isolado de `--scripts` e `--diff`; repetir `--preinspect` em `reais` antes de ligá-lo por padrão.
 - [x] Build Windows 0.1.5-dev com backup restaurável (`backups/2026-10-27-before-0.1.5-dev`, app + perfil + atalhos + instalador 0.1.4) e instalação validada: `app.asar` idêntico entre build e produção (`3658148c…f606401`) e `status: PASS` na integração do executável instalado. Pedido explícito do usuário.
 - [x] Push/publicação: `main` enviado a `origin/main` em 28/10/2026 (`c13447e`) e tag `motor-pre-leaps-2026-10-27` publicada.
-- [ ] Rodar `test:electron`, `test:bench-store` e `test:agent-download`, e o benchmark pareado 0.1.4 vs 0.1.5-dev. O build instalado é `-dev`, não um release.
+- [x] Reexecutar `test:electron`, `test:bench-store` e `test:agent-download` na árvore atual em sessões isoladas; todos passaram nesta etapa (ver HANDOFF).
+- [ ] Rodar o benchmark pareado 0.1.4 vs 0.1.5-dev com provedor real. O build instalado é `-dev`, não um release; este requisito histórico continua sem medição atual.
 
 ## Saltos do motor — 2026-10-27
 
@@ -558,7 +564,17 @@
 - [x] Remover ferramentas de transformação indisponíveis do catálogo do agente e corrigir apresentação no painel.
 - [x] Validar pacote separado em fixture Electron; pacote final após alterações adicionais ainda precisa ser refeito.
 - [x] Corrigir publicação do token de pipe antes da ACL e falha aberta quando a restrição falha; teste com ACL real no Windows passou.
-- [ ] Atualizar e verificar instalação: 0.1.39-dev instalada ainda contém o sandbox vulnerável.
+- [x] Registrar que a nota sobre 0.1.39-dev é histórica e não identifica o executável atual; versão instalada confirmada separadamente como 0.1.42-dev.
+- [x] Auditar estaticamente o executável instalado 0.1.42-dev separado do pacote 0.1.43-dev: hashes conferidos; no ASAR instalado há 38 handlers sem guarda em `main.js` e 24 em `src/ipc/index.js`, além do `sandbox-worker.js` órfão; a execução de transformações já falha fechada.
+- [x] Endurecer e verificar Electron fuses no pacote isolado 0.1.43-dev: RunAsNode, NODE_OPTIONS e inspeção CLI desativados; integridade ASAR, carregamento exclusivo do ASAR e criptografia de cookies ativados. Smoke `--ux-only` PASS com perfil temporário; hashes dos seis arquivos de UX atuais e de main/IPC conferem byte a byte com o pacote. `grantFileProtocolExtraPrivileges` permanece ativo porque o app ainda usa `file://`; desligá-lo reproduziu `ERR_FILE_NOT_FOUND` ao abrir a interface.
+- [x] Atualizar em tempo real a biblioteca de Downloads e descartar respostas antigas quando a categoria muda/painel fecha; teste reproduz a corrida e contraprova falha sem proteção. Integração empacotada validou download fixture.
+- [x] Remover grant automático de geolocalização do Google e exigir confirmação explícita por origem/sessão; negar subframe/metadados ausentes e revalidar janela após diálogo. Teste focado de permissões passou 27/27 antes da adição do teste de navegação.
+- [x] Aplicar allowlist de esquemas a navegações iniciadas por páginas e redirects; teste focado de navegação em `test/startup.test.js` passou 28/28; redirects maliciosos ainda não foram tentados em runtime.
+- [x] Corrigir busca da biblioteca para ignorar acentos/caixa em português em Histórico, Favoritos e sugestões; testes SQLite temporário confirmam buscas e persistência após reabrir o banco. Persistência na UI após reiniciar o app segue aberta.
+- [x] Restringir IPC customizado das extensões por sessão/frame/top frame, permissões declaradas e destinatário de eventos; projetar/redigir dados de abas em APIs/eventos/janelas conforme permissão efetiva; bloquear filtros que revelariam aba sem acesso; exigir host permission compatível para capturas. `extension-host.test.js` 11/11; `activeTab` e compatibilidade Flame real seguem pendentes.
+- [x] Recriar pacote consolidado em `dist-extension-privacy-20261028`: suíte 300/300, UI PASS, smoke UX 9/9, integração completa PASS; guard presente, worker ausente, quatro arquivos principais byte-match e fuses verificadas. Hashes no `HANDOFF.md`.
+- [ ] Antes de qualquer instalação do candidato com criptografia de cookies, criar e verificar backup do perfil real; a migração de cookies é de mão única. A instalação permanece intacta.
+- [ ] Projetar e implementar atualizações assinadas/verificáveis, com recuperação/rollback; o repositório ainda não tem updater configurado.
 
 ## Continuação de UX — 28/10/2026
 
@@ -568,3 +584,54 @@
 - [ ] Redesenhar e validar de forma consistente as superfícies do navegador, nova aba, painel e configurações.
 - [ ] Inventariar e concluir as pendências do DeepSeek com evidência para cada item; não marcar pendências históricas sem validação.
 - [ ] Comparar confiabilidade, velocidade, custo e segurança com concorrentes em condições equivalentes antes de alegar paridade.
+
+## Nova aba — continuação 28/10/2026
+
+- [x] Redesenhar a nova aba e remover indicação não comprovada de que o agente está pronto.
+- [x] Tornar ações da nova aba botões nativos e corrigir reabertura do painel pelo mesmo atalho; verificado em fixture Electron.
+- [ ] Verificar aparência e ações na janela real em perfil isolado, tamanhos e temas diferentes.
+- [x] Fazer nova aba acompanhar preferência clara/escura e verificar troca de paleta em fixture Electron; verificação no app completo ainda pendente.
+
+- [x] Inspecionar visualmente a nova aba na fixture Electron em temas claro e escuro e largura reduzida.
+
+## Abas — verificação adicional 28/10/2026
+
+- [x] Validar em executável empacotado isolado dois cliques no +, duas novas abas e troca de tema em ambas.
+- [x] Tornar abas navegáveis por teclado e verificar seleção/foco na fixture Electron.
+- [ ] Validar navegação por teclado e desenho final no aplicativo completo atualizado.
+- [x] Reempacotar a árvore atual em diretório isolado e verificar eventos de teclado no renderer do app com perfil temporário via CDP: seta, End, foco/seleção, roving tabindex e botão + fora da tablist.
+- [x] Registrar concorrentes, forças, limitações e avaliação evidenciada do Zero em `docs/COMPARATIVO_CONCORRENTES_2026-10-28.md`; ranking numérico permanece sem base comparável.
+- [x] Separar pendências DeepSeek concluídas por mock/rede sem credencial das chamadas autenticadas e benchmarks reais ainda não executados; motivo e destravamento registrados no handoff e no relatório.
+- [x] Resolver o smoke de fechamento 2→1: a janela principal permanecia responsiva; o teste reutilizava o target da segunda página `newtab.html` depois que essa aba havia sido fechada corretamente. Mover verificação de temas para antes dos fechamentos; smoke empacotado isolado passou.
+- [x] Validar remetente e frame dos handlers IPC: 38 canais de `main.js` + 22 de `src/ipc/index.js` usam o wrapper; mapeamento cobriu os 62 usos de `invoke` do preload. Frame exato da interface principal, URL local e janela viva; testes negam remetentes/frame inválidos. Extensão valida sessão e principal/frame do mesmo ID; service worker mantém handler scoped.
+- [x] Corrigir nomes e situação dos concorrentes no relatório: Atlas aposentado, Chrome/Gemini e Edge/Copilot incluídos como adjacentes, ChatGPT identificado como agente e não navegador.
+- [ ] Continuar a auditoria item a item das pendências históricas do DeepSeek; a suíte unitária verde não conclui nem valida recursos ausentes no app.
+- [x] Corrigir alegações de isolamento em descrições de `transform`/`module`: execução segue desativada, os textos agora informam esse limite e os testes focados passaram 9/9.
+- [x] Corrigir no README a versão instalada (0.1.42-dev) versus árvore não empacotada (0.1.43-dev), registrando que versão/hash não comprovam segurança ou funcionamento.
+- [x] Remover o worker órfão `src/automation/sandbox-worker.js`, que continha execução com `vm`; busca estática confirmou que não há referências restantes.
+- [x] Confirmar no `dist-ipc-guard-final-20261028`: 62 arquivos JavaScript sob `src` analisados sem erro de sintaxe, guard incluído, `sandbox-worker.js` ausente; smoke empacotado `--ux-only` PASS.
+- [x] Diagnosticar o erro de inicialização da captura: o executável aberto era o build descartado `dist-ipc-guard-20261028`, cujo `app.asar` contém quatro JS truncados; confirmar 62 arquivos `src` sem erros no candidato atual `dist-extension-privacy-20261028` e smoke UX 9/9 em perfil temporário.
+- [x] Confirmar que já existe build compilado 0.1.43-dev testável em pasta isolada; registrar exe/hash e modo manual de usar `NAVEGANTE_USER_DATA` para não tocar no perfil da instalação 0.1.42-dev.
+- [x] Registrar diagnóstico técnico de `activeTab`: sem gesto confiável do host não há grant seguro; teste mantém a negativa fail-closed.
+- [x] Registrar dependências e gates de atualização verificável em `docs/PLANO_ATUALIZACAO_ASSINADA.md`; feed, assinatura Ed25519 suportada e release bridge permanecem pendentes, sem updater unsigned.
+- [ ] Aceite manual do usuário no executável 0.1.43-dev isolado; confirmar visual, navegação, biblioteca e configurações com perfil de QA sem credenciais.
+- [x] Adicionar e executar `scripts/library-restart.integration.js`: pacote isolado persistiu histórico/favoritos e busca sem acentos após fechar/reabrir a aplicação; controle pré-correção falha na busca de favoritos. `test/library.test.js` 7/7.
+- [x] Inspecionar o candidato em janela isolada 1400×900, tema escuro: nova aba e configurações renderizam sem overflow aparente; corrigir rótulo de marca “Copilot” para “Agente IA” e adicionar asserção no harness. `npm run test:ui` PASS após a correção.
+- [x] Reexecutar `npm run test:ui` para verificar rótulo “Agente IA”: PASS após adicionar a asserção ao harness.
+- [x] Empacotar a correção em `dist-visual-brand-20261028`; 62 JS do app parseados, ASAR tem “Agente IA” e não contém o rótulo “Copilot”; hashes e smoke/integradores no `HANDOFF.md`.
+- [x] Reexecutar em sequência `test:electron`, `test:bench-store` e `test:agent-download` com APPDATA de QA; os três passaram. Descartar a tentativa concorrente contaminada por colisão no cache global do Electron.
+- [x] Confirmar que `index.html`, `app.js`, `extension-host.js`, `library/index.js`, `browser-policy.js` e `trusted-ui.js` do build `dist-visual-brand-20261028` conferem byte a byte com a árvore atual.
+- [x] Corrigir semântica do seletor da biblioteca: remover `role=tablist` incompatível com os controles, usar grupo de botões toggle nativos e sincronizar `aria-pressed`; `test:ui` valida os três modos e estado único.
+- [x] Testar sequência confiável Tab/Shift+Tab nas categorias da biblioteca e foco preservado quando o botão focado muda o modo. Corrigir `openLibrary()` para focar a pesquisa só ao abrir o painel. `npm run test:ui` PASS.
+- [ ] Confirmar Enter/Espaço no candidato recompilado com teclado real; o harness Electron produziu keydown confiável sem clique nativo e não foi tratado como prova da ativação padrão.
+- [x] Reempacotar seletor acessível e correção de navegação por extensões em `dist-security-a11y-20261028`; 62 JS parseiam, seis arquivos críticos byte-match, smoke UX 9/9, integração completa e biblioteca após reinício PASS; hashes no HANDOFF.
+- [x] Fechar bypass de esquema em navegação de extensões: validar `tabs.create`, `tabs.update` e lote `windows.create` antes de chamar create/load; teste inclui `file:`, `javascript:`, `data:`, `chrome:`, origem de extensão alheia, URLs malformadas, URL vazia/ausente e lote HTTPS+file atômico. `node --test test/extension-host.test.js` 12/12.
+- [x] `npm test` 301/301 após correções; `npm audit` e `npm audit --omit=dev` retornaram zero vulnerabilidades reportadas.
+- [ ] Aceitar manualmente ativação Enter/Espaço dos botões da Biblioteca e inspecionar tema claro/viewports menores no pacote mais recente; harness enviou keydown confiável mas não produziu clique nativo.
+
+## Continuação 28/10/2026
+
+- [x] Implementar Ollama local opt-in usando somente modelos presentes em `/api/tags` e `/api/chat` nativo em `127.0.0.1:11434`; sem chave, download ou fallback cloud. Testes mockados 2/2.
+- [x] `npm test` 302/302 e `npm run test:ui` PASS após inclusão do provider.
+- [x] Empacotar candidato atualizado em `dist-ollama-20261028`; smoke 9/9, integração empacotada e persistência da biblioteca após reinício PASS em perfis temporários.
+- [ ] Testar visualmente e por teclado o build mais recente; conexão real Ollama, DeepSeek/OpenRouter autenticados e benchmark pareado permanecem gates abertos.

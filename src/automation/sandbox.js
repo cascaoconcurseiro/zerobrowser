@@ -24,7 +24,7 @@ function checkCode(code) {
   if (typeof code !== 'string' || !code.trim()) return 'code é obrigatório.';
   if (code.length > MAX_CODE) return `code acima de ${MAX_CODE} caracteres.`;
   for (const [pattern, label] of FORBIDDEN) {
-    if (pattern.test(code)) return `código recusado: ${label} não é permitido no sandbox.`;
+    if (pattern.test(code)) return `código recusado: ${label} não é permitido pela verificação estática.`;
   }
   return null;
 }
@@ -37,7 +37,7 @@ const TRANSFORM_TOOL = {
   type: 'function',
   function: {
     name: 'transform',
-    description: 'Executa uma função JavaScript determinística sobre dados já lidos (ex.: somar uma coluna, normalizar datas) em processo isolado, sem require/rede/disco. O código é o corpo de uma função que recebe input e deve retornar o resultado.',
+    description: 'Indisponível: a execução de JavaScript fornecido pelo agente foi desativada até existir isolamento seguro validado. Não chame esta ferramenta; calcule com as ferramentas disponíveis.',
     parameters: {
       type: 'object',
       properties: {

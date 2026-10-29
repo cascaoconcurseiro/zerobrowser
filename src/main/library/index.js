@@ -7,9 +7,14 @@ const BAR_ID = 1;
 const OTHER_ID = 2;
 const SKIPPED_SCHEMES = /^(about|chrome-extension|chrome|devtools|navegante|data|blob|file|javascript):/i;
 
+function foldSearchText(value) {
+  return String(value ?? '').normalize('NFKD').replace(/\p{M}/gu, '').toLowerCase();
+}
+
 class Library {
   constructor(dbPath = ':memory:') {
     this.db = new DatabaseSync(dbPath);
+    this.db.function('library_search_fold', { deterministic: true }, foldSearchText);
     this.db.exec(`
       PRAGMA journal_mode = WAL;
       CREATE TABLE IF NOT EXISTS bookmarks (
@@ -147,8 +152,8 @@ class Library {
         const params = [];
         if (q.url) { clauses.push('url = ?'); params.push(q.url); }
         if (q.title) { clauses.push('title = ?'); params.push(q.title); }
-        for (const word of String(q.query || '').toLowerCase().split(/\s+/).filter(Boolean)) {
-          clauses.push('(lower(title) LIKE ? OR lower(url) LIKE ?)');
+        for (const word of foldSearchText(q.query).split(/\s+/).filter(Boolean)) {
+          clauses.push('(library_search_fold(title) LIKE ? OR library_search_fold(url) LIKE ?)');
           params.push(`%${word}%`, `%${word}%`);
         }
         return lib.db.prepare(`SELECT * FROM bookmarks WHERE ${clauses.join(' AND ')} ORDER BY date_added DESC LIMIT 200`).all(...params).map((row) => lib.node(row));
@@ -243,8 +248,8 @@ class Library {
         clauses.push('last_visit >= ?');
         params.push(start);
         if (endTime !== undefined) { clauses.push('last_visit <= ?'); params.push(endTime); }
-        for (const word of String(text).toLowerCase().split(/\s+/).filter(Boolean)) {
-          clauses.push('(lower(title) LIKE ? OR lower(url) LIKE ?)');
+        for (const word of foldSearchText(text).split(/\s+/).filter(Boolean)) {
+          clauses.push('(library_search_fold(title) LIKE ? OR library_search_fold(url) LIKE ?)');
           params.push(`%${word}%`, `%${word}%`);
         }
         const limit = maxResults === 0 ? -1 : Math.max(1, Number(maxResults) || 100);
@@ -281,9 +286,9 @@ class Library {
 
   // Sugestões da barra de endereço: favoritos primeiro, depois histórico por frequência e recência.
   suggest(text, limit = 8) {
-    const words = String(text || '').toLowerCase().split(/\s+/).filter(Boolean);
+    const words = foldSearchText(text).split(/\s+/).filter(Boolean);
     if (!words.length) return [];
-    const where = words.map(() => '(lower(title) LIKE ? OR lower(url) LIKE ?)').join(' AND ');
+    const where = words.map(() => '(library_search_fold(title) LIKE ? OR library_search_fold(url) LIKE ?)').join(' AND ');
     const params = words.flatMap((w) => [`%${w}%`, `%${w}%`]);
     const bookmarks = this.db.prepare(`SELECT title, url FROM bookmarks WHERE url IS NOT NULL AND ${where} LIMIT ?`).all(...params, limit)
       .map((row) => ({ kind: 'bookmark', title: row.title, url: row.url, favicon: this.faviconFor(row.url) }));
@@ -294,7 +299,7 @@ class Library {
     const seen = new Set();
     const first = words[0];
     // Quem começa com o que foi digitado (sem esquema e www) sobe para o topo, como a barra do Chrome.
-    const startsWith = (url) => url.replace(/^https?:\/\/(www\.)?/i, '').toLowerCase().startsWith(first);
+    const startsWith = (url) => foldSearchText(url.replace(/^https?:\/\/(www\.)?/i, '')).startsWith(first);
     return [...bookmarks, ...history]
       .filter((item) => (seen.has(item.url) ? false : seen.add(item.url)))
       .sort((a, b) => Number(startsWith(b.url)) - Number(startsWith(a.url)))

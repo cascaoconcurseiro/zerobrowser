@@ -8,6 +8,13 @@ const PROVIDERS = Object.freeze({
     modelsUrl: 'https://api.deepseek.com/models',
     completionUrl: 'https://api.deepseek.com/chat/completions',
     label: 'DeepSeek'
+  },
+  ollama: {
+    modelsUrl: 'http://127.0.0.1:11434/api/tags',
+    completionUrl: 'http://127.0.0.1:11434/api/chat',
+    label: 'Ollama local',
+    requiresApiKey: false,
+    localOnly: true
   }
 });
 
@@ -24,6 +31,7 @@ function endpointFor(provider, kind, env = process.env) {
   const config = PROVIDERS[provider];
   if (!config) throw new Error('Provedor de IA inválido');
   const productionUrl = kind === 'models' ? config.modelsUrl : config.completionUrl;
+  if (config.localOnly) return productionUrl;
   const overrideName = TEST_ENV[provider][kind];
   const testUrl = env[overrideName];
   if (!testUrl) return productionUrl;
@@ -59,6 +67,7 @@ function normalizeModel(provider, model) {
 function providerNetworkError(error, provider, url) {
   const label = PROVIDERS[provider]?.label || 'provedor de IA';
   const host = (() => { try { return new URL(url).hostname; } catch { return 'endpoint configurado'; } })();
+  if (provider === 'ollama') return new Error(`Não foi possível conectar ao Ollama local (${host}:11434). Verifique se o servidor local está ativo.`);
   const cause = error?.cause || error;
   const detail = String(cause?.message || error?.message || 'conexão recusada').slice(0, 180);
   const code = cause?.code || detail.match(/(?:SELF_SIGNED_CERT_IN_CHAIN|CERT_[A-Z_]+|ERR_CERT_[A-Z_]+)/)?.[0] || cause?.name || error?.name || 'NetworkError';
@@ -73,22 +82,29 @@ function providerNetworkError(error, provider, url) {
 
 async function listModels(provider, apiKey, fetchImpl = globalThis.fetch, env = process.env) {
   if (!PROVIDERS[provider]) throw new Error('Provedor de IA inválido');
-  if (!apiKey) throw new Error(`Informe a chave de API do ${PROVIDERS[provider].label}`);
+  if (PROVIDERS[provider].requiresApiKey !== false && !apiKey) throw new Error(`Informe a chave de API do ${PROVIDERS[provider].label}`);
   const url = endpointFor(provider, 'models', env);
   let response;
   try {
     response = await fetchImpl(url, {
       method: 'GET',
-      headers: { Authorization: `Bearer ${apiKey}`, Accept: 'application/json' },
+      headers: { ...(PROVIDERS[provider].requiresApiKey === false ? {} : { Authorization: `Bearer ${apiKey}` }), Accept: 'application/json' },
       signal: AbortSignal.timeout(15000)
     });
   } catch (error) {
     throw providerNetworkError(error, provider, url);
   }
   const data = await response.json();
-  if (!response.ok) throw new Error(data.error?.message || data.message || `${PROVIDERS[provider].label} retornou HTTP ${response.status}`);
-  if (!Array.isArray(data.data)) throw new Error(`Resposta de modelos inválida do ${PROVIDERS[provider].label}`);
-  return data.data.map((model) => normalizeModel(provider, model)).filter(Boolean).sort((a, b) => a.name.localeCompare(b.name));
+  if (!response.ok) throw new Error(provider === 'ollama'
+    ? `Ollama local retornou HTTP ${response.status}`
+    : data.error?.message || data.message || `${PROVIDERS[provider].label} retornou HTTP ${response.status}`);
+  const models = data.data;
+  const localModels = provider === 'ollama' ? data.models : null;
+  if (provider === 'ollama' ? !Array.isArray(localModels) : !Array.isArray(models)) throw new Error(`Resposta de modelos inválida do ${PROVIDERS[provider].label}`);
+  const normalized = provider === 'ollama'
+    ? localModels.filter((model) => typeof model?.name === 'string' && model.name.trim()).map((model) => ({ id: model.name, name: model.name, description: 'Modelo instalado localmente', contextLength: null, inputModalities: [], outputModalities: [], supportsTools: null, promptPrice: null, completionPrice: null, provider }))
+    : models.map((model) => normalizeModel(provider, model)).filter(Boolean);
+  return normalized.sort((a, b) => a.name.localeCompare(b.name));
 }
 
 module.exports = { PROVIDERS, endpointFor, normalizeModel, providerNetworkError, listModels };

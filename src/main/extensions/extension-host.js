@@ -3,6 +3,7 @@
 // O id de aba visto pela extensão é o webContents.id, o mesmo que o chrome.scripting nativo do Electron usa.
 const path = require('path');
 const { ipcMain } = require('electron');
+const { isAllowedRendererNavigation } = require('../browser-policy');
 
 const SHIM = path.join(__dirname, 'chrome-shim-preload.js');
 const WINDOW_ID = 1;
@@ -11,6 +12,26 @@ function matchPatternToRegExp(pattern) {
   if (pattern === '<all_urls>') return /^(https?|file|ftp):/;
   const escaped = pattern.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*');
   return new RegExp(`^${escaped}$`);
+}
+
+function hostPatternMatches(pattern, value) {
+  if (typeof pattern !== 'string' || typeof value !== 'string') return false;
+  let url;
+  try { url = new URL(value); } catch { return false; }
+  if (pattern === '<all_urls>') return ['http:', 'https:', 'file:', 'ftp:'].includes(url.protocol);
+  const match = /^(\*|https?|file|ftp):\/\/([^/]*)(\/.*)$/.exec(pattern);
+  if (!match) return false;
+  const [, scheme, host, path] = match;
+  if (scheme === '*' ? !['http:', 'https:'].includes(url.protocol) : url.protocol !== `${scheme}:`) return false;
+  if (url.protocol === 'file:') {
+    if (host !== '' && host !== '*') return false;
+  } else if (host === '*') {
+    // Any valid host.
+  } else if (host.startsWith('*.')) {
+    const domain = host.slice(2).toLowerCase();
+    if (url.hostname.toLowerCase() !== domain && !url.hostname.toLowerCase().endsWith(`.${domain}`)) return false;
+  } else if (url.hostname.toLowerCase() !== host.toLowerCase()) return false;
+  return globToRegExp(path).test(url.pathname);
 }
 
 function globToRegExp(glob) {
@@ -44,8 +65,9 @@ class ExtensionHost {
     this.session.registerPreloadScript({ type: 'service-worker', id: 'navegante-chrome-shim-sw', filePath: SHIM });
 
     ipcMain.handle('navegante-ext:call', (event, method, args) => {
-      if (!this.isExtensionUrl(event.senderFrame?.url)) return { error: 'Origem não autorizada' };
-      return this.dispatch(method, args, { webContents: event.sender });
+      if (!this.isAuthorizedExtensionFrame(event)) return { error: 'Origem não autorizada' };
+      const extensionId = this.extensionIdForUrl(event.senderFrame?.url);
+      return this.dispatch(method, args, { webContents: event.sender, extensionId });
     });
     this.session.serviceWorkers.on('running-status-changed', ({ versionId, runningStatus }) => {
       if (runningStatus === 'stopped') {
@@ -57,7 +79,8 @@ class ExtensionHost {
       if (!worker || !this.isExtensionUrl(worker.scope)) return;
       this.workers.set(versionId, worker);
       worker.ipc.removeHandler('navegante-ext:call');
-      worker.ipc.handle('navegante-ext:call', (_event, method, args) => this.dispatch(method, args, {}));
+      const extensionId = this.extensionIdForUrl(worker.scope);
+      worker.ipc.handle('navegante-ext:call', (_event, method, args) => this.dispatch(method, args, { extensionId }));
     });
 
     const loaded = [];
@@ -105,6 +128,92 @@ class ExtensionHost {
     }
   }
 
+  // O shim de frame é registrado para a sessão toda; aceite a chamada só quando
+  // tanto o frame chamador quanto o documento principal pertencem à mesma extensão.
+  // Isso preserva iframes da própria extensão e barra uma extensão embutida em página web.
+  isAuthorizedExtensionFrame(event) {
+    try {
+      const sender = event?.sender;
+      if (!sender || sender.isDestroyed() || sender.session !== this.session) return false;
+      const frameUrl = event.senderFrame?.url;
+      const mainUrl = sender.getURL();
+      if (!this.isExtensionUrl(frameUrl) || !this.isExtensionUrl(mainUrl)) return false;
+      const frame = new URL(frameUrl);
+      const main = new URL(mainUrl);
+      return !frame.username && !frame.password && !frame.port
+        && !main.username && !main.password && !main.port
+        && frame.hostname === main.hostname;
+    } catch {
+      return false;
+    }
+  }
+
+  extensionIdForUrl(url) {
+    try {
+      const parsed = new URL(url);
+      return parsed.protocol === 'chrome-extension:' && this.extensions.has(parsed.host) ? parsed.host : null;
+    } catch {
+      return null;
+    }
+  }
+
+  requiredPermission(method) {
+    if (method === 'management.getSelf') return null;
+    const namespace = String(method).split('.', 1)[0];
+    return ({
+      downloads: 'downloads',
+      bookmarks: 'bookmarks',
+      history: 'history',
+      debugger: 'debugger',
+      management: 'management',
+      webNavigation: 'webNavigation',
+      contextMenus: 'contextMenus',
+      tabGroups: 'tabGroups',
+      sessions: 'sessions',
+      sidePanel: 'sidePanel'
+    })[namespace] || null;
+  }
+
+  hasExtensionPermission(extensionId, permission) {
+    const extension = this.extensions.get(extensionId);
+    return Boolean(extension && Array.isArray(extension.manifest?.permissions)
+      && extension.manifest.permissions.includes(permission));
+  }
+
+  hasAllUrlsHostPermission(extensionId) {
+    const manifest = this.extensions.get(extensionId)?.manifest;
+    return Boolean(manifest && (
+      manifest.permissions?.includes('<all_urls>')
+      || manifest.host_permissions?.includes('<all_urls>')
+    ));
+  }
+
+  hasHostPermissionForActiveTab(extensionId) {
+    const active = this.browser.activeWebContents();
+    return Boolean(active && this.hasHostPermissionForUrl(extensionId, active.getURL()));
+  }
+
+  hasHostPermissionForUrl(extensionId, url) {
+    const manifest = this.extensions.get(extensionId)?.manifest;
+    if (!manifest || typeof url !== 'string') return false;
+    const requiredPatterns = [
+      ...(Array.isArray(manifest.host_permissions) ? manifest.host_permissions : []),
+      ...(Array.isArray(manifest.permissions) ? manifest.permissions.filter((permission) => typeof permission === 'string' && (permission.includes('://') || permission === '<all_urls>')) : [])
+    ];
+    return requiredPatterns.some((pattern) => {
+      return hostPatternMatches(pattern, url);
+    });
+  }
+
+  canReadTabDetails(extensionId, url) {
+    return this.hasExtensionPermission(extensionId, 'tabs') || this.hasHostPermissionForUrl(extensionId, url);
+  }
+
+  projectTabDetails(tab, extensionId, url = tab.url) {
+    if (extensionId == null || this.canReadTabDetails(extensionId, url)) return tab;
+    return { ...tab, url: undefined, pendingUrl: undefined, title: undefined, favIconUrl: undefined };
+  }
+
   extensionOrigins() {
     return [...this.extensions.keys()].map((id) => `chrome-extension://${id}`);
   }
@@ -114,6 +223,13 @@ class ExtensionHost {
   }
 
   async dispatch(method, args = [], context) {
+    if (method === 'tabs.captureVisibleTab' && !this.hasHostPermissionForActiveTab(context?.extensionId)) {
+      return { error: 'tabs.captureVisibleTab exige permissão host para a aba ativa; grants temporários activeTab ainda não são suportados.' };
+    }
+    const permission = this.requiredPermission(method);
+    if (permission && !this.hasExtensionPermission(context?.extensionId, permission)) {
+      return { error: `A permissão "${permission}" não foi declarada por esta extensão.` };
+    }
     const handler = this.handlers[method];
     if (!handler) return { error: `${method} não está disponível no Zero Browser` };
     try {
@@ -124,12 +240,50 @@ class ExtensionHost {
   }
 
   emit(name, ...args) {
+    const permission = this.requiredEventPermission(name);
     for (const worker of this.workers.values()) {
-      try { worker.send('navegante-ext:event', name, args); } catch {}
+      const extensionId = this.extensionIdForUrl(worker.scope);
+      if (!extensionId || (permission && !this.hasExtensionPermission(extensionId, permission))) continue;
+      try { worker.send('navegante-ext:event', name, this.projectEventArgs(name, args, extensionId)); } catch {}
     }
     for (const webContents of this.browser.extensionPages()) {
-      if (!webContents.isDestroyed()) webContents.send('navegante-ext:event', name, args);
+      const extensionId = this.extensionIdForUrl(webContents.getURL());
+      if (!extensionId || (permission && !this.hasExtensionPermission(extensionId, permission))) continue;
+      if (!webContents.isDestroyed()) webContents.send('navegante-ext:event', name, this.projectEventArgs(name, args, extensionId));
     }
+  }
+
+  projectEventArgs(name, args, extensionId) {
+    if (!name.startsWith('tabs.')) return args;
+    const projected = [...args];
+    if (name === 'tabs.onCreated' && projected[0]) {
+      projected[0] = this.projectTabDetails(projected[0], extensionId);
+    } else if (name === 'tabs.onUpdated') {
+      const tab = projected[2];
+      const url = tab?.url || this.browser.listTabs().find((wc) => wc.id === projected[0])?.getURL();
+      if (projected[1] && !this.canReadTabDetails(extensionId, url)) {
+        projected[1] = { ...projected[1] };
+        for (const field of ['url', 'title', 'favIconUrl']) delete projected[1][field];
+      }
+      if (tab) projected[2] = this.projectTabDetails(tab, extensionId, url);
+    }
+    return projected;
+  }
+
+  requiredEventPermission(name) {
+    const namespace = String(name).split('.', 1)[0];
+    return ({
+      windows: 'windows',
+      tabGroups: 'tabGroups',
+      debugger: 'debugger',
+      bookmarks: 'bookmarks',
+      history: 'history',
+      downloads: 'downloads',
+      webNavigation: 'webNavigation',
+      contextMenus: 'contextMenus',
+      sessions: 'sessions',
+      management: 'management'
+    })[namespace] || null;
   }
 
   // --- Abas -------------------------------------------------------------------------------------------------
@@ -172,13 +326,13 @@ class ExtensionHost {
     this.recentlyClosed.length = Math.min(this.recentlyClosed.length, 25);
   }
 
-  tabInfo(webContents) {
+  tabInfo(webContents, extensionId = null) {
     const tabs = this.browser.listTabs();
     const index = tabs.findIndex((wc) => wc.id === webContents.id);
     const active = this.browser.activeWebContents()?.id === webContents.id;
     const meta = this.tabMeta.get(webContents.id) || { pinned: false, groupId: -1 };
     const favicon = this.browser.faviconOf?.(webContents);
-    return {
+    return this.projectTabDetails({
       id: webContents.id,
       index,
       windowId: WINDOW_ID,
@@ -200,7 +354,7 @@ class ExtensionHost {
       status: webContents.isLoading() ? 'loading' : 'complete',
       width: this.browser.viewBounds?.()?.width,
       height: this.browser.viewBounds?.()?.height
-    };
+    }, extensionId, webContents.getURL());
   }
 
   webContentsFor(tabId) {
@@ -209,8 +363,13 @@ class ExtensionHost {
     return found;
   }
 
-  queryTabs(filter = {}) {
-    return this.browser.listTabs().map((wc) => this.tabInfo(wc)).filter((tab) => {
+  queryTabs(filter = {}, extensionId = null) {
+    const sensitiveFilter = filter.title !== undefined || filter.url !== undefined;
+    return this.browser.listTabs().map((wc) => ({
+      webContents: wc,
+      canRead: extensionId == null || this.canReadTabDetails(extensionId, wc.getURL()),
+      tab: this.tabInfo(wc, extensionId)
+    })).filter(({ canRead }) => !sensitiveFilter || canRead).map(({ tab }) => tab).filter((tab) => {
       if (filter.active !== undefined && tab.active !== filter.active) return false;
       if (filter.highlighted !== undefined && tab.highlighted !== filter.highlighted) return false;
       if (filter.pinned !== undefined && tab.pinned !== filter.pinned) return false;
@@ -229,12 +388,25 @@ class ExtensionHost {
     });
   }
 
-  async createTab(props = {}) {
-    const webContents = await this.browser.createTab(props.url || 'about:blank', { active: props.active !== false });
-    return this.tabInfo(webContents);
+  async createTab(props = {}, extensionId = null) {
+    const url = props.url || 'about:blank';
+    this.assertAllowedExtensionNavigation(url, extensionId);
+    const webContents = await this.browser.createTab(url, { active: props.active !== false });
+    return this.tabInfo(webContents, extensionId);
   }
 
-  windowInfo(populate) {
+  assertAllowedExtensionNavigation(url, extensionId) {
+    if (isAllowedRendererNavigation(url)) return;
+    try {
+      const parsed = new URL(url);
+      if (parsed.protocol === 'chrome-extension:'
+        && parsed.hostname === extensionId
+        && !parsed.username && !parsed.password && !parsed.port) return;
+    } catch {}
+    throw new Error('Extensões só podem navegar para HTTP(S), páginas internas permitidas ou páginas da própria extensão.');
+  }
+
+  windowInfo(populate, extensionId = null) {
     const bounds = this.browser.windowBounds();
     return {
       id: WINDOW_ID,
@@ -247,7 +419,7 @@ class ExtensionHost {
       type: 'normal',
       state: this.browser.windowState(),
       alwaysOnTop: false,
-      tabs: populate ? this.queryTabs() : undefined
+      tabs: populate ? this.queryTabs({}, extensionId) : undefined
     };
   }
 
@@ -284,23 +456,26 @@ class ExtensionHost {
     const tabArg = (tabId, context) => (typeof tabId === 'number' ? tabId : host.browser.activeWebContents()?.id);
     return {
       // tabs
-      'tabs.get': (tabId) => host.tabInfo(host.webContentsFor(tabId)),
+      'tabs.get': (tabId, context) => host.tabInfo(host.webContentsFor(tabId), context?.extensionId),
       'tabs.getCurrent': (context) => {
         const id = context?.webContents?.id;
-        return host.tabMeta.has(id) ? host.tabInfo(context.webContents) : undefined;
+        return host.tabMeta.has(id) ? host.tabInfo(context.webContents, context?.extensionId) : undefined;
       },
-      'tabs.query': (filter) => host.queryTabs(filter),
-      'tabs.create': (props) => host.createTab(props),
-      'tabs.update': async (tabIdOrProps, maybeProps) => {
+      'tabs.query': (filter, context) => host.queryTabs(filter, context?.extensionId),
+      'tabs.create': (props, context) => host.createTab(props, context?.extensionId),
+      'tabs.update': async (tabIdOrProps, maybeProps, context) => {
         const [tabId, props] = typeof tabIdOrProps === 'object' && tabIdOrProps !== null
           ? [host.browser.activeWebContents()?.id, tabIdOrProps]
           : [tabIdOrProps, maybeProps || {}];
         const webContents = host.webContentsFor(tabId);
-        if (props.url) webContents.loadURL(props.url).catch(() => {});
+        if (props.url) {
+          host.assertAllowedExtensionNavigation(props.url, context?.extensionId);
+          webContents.loadURL(props.url).catch(() => {});
+        }
         if (props.active || props.highlighted) host.browser.activate(webContents);
         if (props.muted !== undefined) webContents.setAudioMuted(Boolean(props.muted));
         if (props.pinned !== undefined) host.tabMeta.get(tabId).pinned = Boolean(props.pinned);
-        return host.tabInfo(webContents);
+        return host.tabInfo(webContents, context?.extensionId);
       },
       'tabs.remove': (ids) => {
         for (const id of Array.isArray(ids) ? ids : [ids]) host.browser.closeTab(host.webContentsFor(id));
@@ -310,12 +485,12 @@ class ExtensionHost {
         if (props?.bypassCache) webContents.reloadIgnoringCache();
         else webContents.reload();
       },
-      'tabs.duplicate': (tabId) => host.createTab({ url: host.webContentsFor(tabId).getURL(), active: true }),
-      'tabs.highlight': ({ tabs: indices }) => {
+      'tabs.duplicate': (tabId, context) => host.createTab({ url: host.webContentsFor(tabId).getURL(), active: true }, context?.extensionId),
+      'tabs.highlight': ({ tabs: indices }, context) => {
         const first = Array.isArray(indices) ? indices[0] : indices;
         const target = host.browser.listTabs()[first];
         if (target) host.browser.activate(target);
-        return host.windowInfo(true);
+        return host.windowInfo(true, context?.extensionId);
       },
       'tabs.captureVisibleTab': async (windowIdOrOptions, maybeOptions) => {
         const options = (typeof windowIdOrOptions === 'object' ? windowIdOrOptions : maybeOptions) || {};
@@ -329,8 +504,8 @@ class ExtensionHost {
       'tabs.goForward': (tabId) => host.webContentsFor(tabArg(tabId)).navigationHistory.goForward(),
       'tabs.getZoom': (tabId) => host.webContentsFor(tabArg(tabId)).getZoomFactor(),
       'tabs.setZoom': (tabId, factor) => host.webContentsFor(tabArg(tabId)).setZoomFactor(factor || 1),
-      'tabs.move': (ids) => (Array.isArray(ids) ? ids.map((id) => host.tabInfo(host.webContentsFor(id))) : host.tabInfo(host.webContentsFor(ids))),
-      'tabs.discard': (tabId) => host.tabInfo(host.webContentsFor(tabArg(tabId))),
+      'tabs.move': (ids, context) => (Array.isArray(ids) ? ids.map((id) => host.tabInfo(host.webContentsFor(id), context?.extensionId)) : host.tabInfo(host.webContentsFor(ids), context?.extensionId)),
+      'tabs.discard': (tabId, context) => host.tabInfo(host.webContentsFor(tabArg(tabId)), context?.extensionId),
       'tabs.detectLanguage': () => 'und',
       'tabs.group': ({ tabIds, groupId, createProperties } = {}) => {
         let id = groupId;
@@ -363,14 +538,15 @@ class ExtensionHost {
       },
 
       // windows (o Zero Browser tem uma janela só)
-      'windows.get': (_id, info) => host.windowInfo(info?.populate),
-      'windows.getCurrent': (info) => host.windowInfo(info?.populate),
-      'windows.getLastFocused': (info) => host.windowInfo(info?.populate),
-      'windows.getAll': (info) => [host.windowInfo(info?.populate)],
-      'windows.create': async (data = {}) => {
+      'windows.get': (_id, info, context) => host.windowInfo(info?.populate, context?.extensionId),
+      'windows.getCurrent': (info, context) => host.windowInfo(info?.populate, context?.extensionId),
+      'windows.getLastFocused': (info, context) => host.windowInfo(info?.populate, context?.extensionId),
+      'windows.getAll': (info, context) => [host.windowInfo(info?.populate, context?.extensionId)],
+      'windows.create': async (data = {}, context) => {
         const urls = Array.isArray(data.url) ? data.url : [data.url || 'about:blank'];
-        for (const url of urls) await host.createTab({ url, active: data.focused !== false });
-        return host.windowInfo(true);
+        for (const url of urls) host.assertAllowedExtensionNavigation(url, context?.extensionId);
+        for (const url of urls) await host.createTab({ url, active: data.focused !== false }, context?.extensionId);
+        return host.windowInfo(true, context?.extensionId);
       },
       'windows.update': (_id, props = {}) => {
         if (props.focused) host.browser.focus();

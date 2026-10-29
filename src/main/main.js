@@ -4,18 +4,21 @@ const fs = require('fs');
 const store = require('../store');
 const { setupIpc, setAutomationService, setProviderFetch, getAgentConfig } = require('../ipc');
 const { AutomationService } = require('../automation/service');
-const { shouldAutoGrantGooglePermission } = require('./permissions');
-const { rewriteRequestHeaders, rewriteResponseHeaders, makeUniqueDownloadPath } = require('./browser-policy');
+const { permissionGrantsForSession, permissionOrigin, isTopLevelPermissionRequest } = require('./permissions');
+const { isAllowedRendererNavigation, rewriteRequestHeaders, rewriteResponseHeaders, makeUniqueDownloadPath } = require('./browser-policy');
 const { ExtensionHost } = require('./extensions/extension-host');
 const { runFlameTask, seedFlameSettings, waitFor } = require('./extensions/flame-runner');
 const { Library } = require('./library');
 const libraryImport = require('./library/import');
 const { browserShortcutForInput } = require('./browser-shortcuts');
+const { applyNewtabTheme } = require('./newtab-theme');
 const { loadDownloadHistory, saveDownloadHistory, nextDownloadSequence, DEFAULT_LIMIT: DOWNLOAD_HISTORY_LIMIT } = require('./download-history');
 const { buildTabMenuTemplate } = require('./tab-menu');
 const profiles = require('./profiles');
 const { zeroEnv } = require('../env');
 const { spawn } = require('child_process');
+const { pathToFileURL } = require('url');
+const { assertTrustedMainUiEvent, withTrustedMainUi } = require('../ipc/trusted-ui');
 
 // Keep the legacy internal name so a visible rebrand does not move the existing userData folder.
 app.setName('navegante');
@@ -65,6 +68,18 @@ let shuttingDown = false; // ao sair, as abas fecham uma a uma e não devem apag
 let sessionSaveTimer = null;
 let pageFrozen = false;
 const pageFreezeReasons = new Set();
+const MAIN_UI_URL = pathToFileURL(path.resolve(__dirname, '../renderer/index.html')).href;
+
+function assertTrustedMainUi(event) {
+  assertTrustedMainUiEvent(event, () => ({
+    webContents: mainWindow && !mainWindow.isDestroyed() ? mainWindow.webContents : null,
+    url: MAIN_UI_URL
+  }));
+}
+
+function handleMainUiIpc(channel, handler) {
+  ipcMain.handle(channel, withTrustedMainUi(handler, assertTrustedMainUi));
+}
 
 const gotTheLock = app.requestSingleInstanceLock();
 
@@ -86,7 +101,7 @@ async function initializeApp() {
   await store.setupStore();
   const providerFetch = (...args) => net.fetch(...args);
   setProviderFetch(providerFetch);
-  setupIpc();
+  setupIpc(assertTrustedMainUi);
   nativeTheme.on('updated', () => {
     const selectedTheme = store.getStore().get('theme') || 'system';
     if (selectedTheme === 'system') applyWindowTheme(selectedTheme);
@@ -128,7 +143,7 @@ async function initializeApp() {
   });
   const pendingApprovals = new Map();
   const approvalOrigins = new Set();
-  ipcMain.handle('automation:approval-reply', (event, { id, decision } = {}) => {
+  handleMainUiIpc('automation:approval-reply', (event, { id, decision } = {}) => {
     const entry = pendingApprovals.get(String(id));
     if (!entry) return false;
     pendingApprovals.delete(String(id));
@@ -315,6 +330,15 @@ function createNewTab(url = 'about:blank', options = {}) {
     sendToRenderer('browser:shortcut', { action, tabId });
   });
 
+  // Links in remote pages must not navigate the browser surface to file:, data:, javascript: or custom schemes.
+  // The same allowlist is used for address-bar IPC and pop-ups, so top-level navigations follow that policy too.
+  view.webContents.on('will-navigate', (event, targetUrl) => {
+    if (!isAllowedRendererNavigation(targetUrl)) event.preventDefault();
+  });
+  view.webContents.on('will-redirect', (event, targetUrl) => {
+    if (!isAllowedRendererNavigation(targetUrl)) event.preventDefault();
+  });
+
   // Pop-ups e links com target=_blank viram abas. O Electron cria a página com o vínculo window.opener, que
   // logins como "Entrar com Google" usam para devolver o resultado à aba de origem.
   view.webContents.setWindowOpenHandler(({ url: targetUrl, disposition }) => {
@@ -330,6 +354,7 @@ function createNewTab(url = 'about:blank', options = {}) {
   });
 
   view.webContents.on('did-finish-load', () => {
+    void applyNewtabTheme(view.webContents, path.join(__dirname, '../renderer/newtab.html'), isDarkTheme(store.getStore().get('theme') || 'system'));
     sendToRenderer('tab:navigated', { tabId, url: view.webContents.getURL(), title: view.webContents.getTitle() });
   });
 
@@ -392,6 +417,7 @@ function createNewTab(url = 'about:blank', options = {}) {
 
 function configureSession(ses) {
   browserSessions.add(ses);
+  const permissionGrants = permissionGrantsForSession(ses);
   const permissionLabels = {
     media: 'microfone e câmera',
     geolocation: 'localização',
@@ -402,21 +428,13 @@ function configureSession(ses) {
 
   ses.setPermissionRequestHandler((webContents, permission, callback, details) => {
     const requestingUrl = details?.requestingUrl || webContents.getURL();
-    if (shouldAutoGrantGooglePermission(permission, requestingUrl)) {
-      callback(true);
-      return;
-    }
-
     const label = permissionLabels[permission];
-    if (!label || !mainWindow || mainWindow.isDestroyed()) {
+    if (!label || !isTopLevelPermissionRequest(details) || !mainWindow || mainWindow.isDestroyed()) {
       callback(false);
       return;
     }
 
-    let origin = 'site desconhecido';
-    try {
-      origin = new URL(requestingUrl).origin;
-    } catch {}
+    const origin = permissionOrigin(requestingUrl) || 'site desconhecido';
 
     dialog.showMessageBox(mainWindow, {
       type: 'question',
@@ -426,8 +444,16 @@ function configureSession(ses) {
       defaultId: 0,
       cancelId: 0,
       noLink: true
-    }).then(({ response }) => callback(response === 1)).catch(() => callback(false));
+    }).then(({ response }) => {
+      const approved = response === 1 && mainWindow && !mainWindow.isDestroyed();
+      if (approved && origin !== 'site desconhecido') permissionGrants.grant(permission, origin, { isMainFrame: details?.isMainFrame });
+      callback(approved);
+    }).catch(() => callback(false));
   });
+
+  // Keep permission checks aligned with the explicit per-origin request decision above.
+  // Without this handler, Electron's default permission checks can diverge from the request gate.
+  ses.setPermissionCheckHandler((_webContents, permission, requestingOrigin, details) => permissionGrants.has(permission, requestingOrigin, details));
 
   if (configuredSessions.has(ses)) return;
   configuredSessions.add(ses);
@@ -571,6 +597,9 @@ function isDarkTheme(theme) {
 function applyWindowTheme(theme) {
   if (!mainWindow || mainWindow.isDestroyed()) return;
   const dark = isDarkTheme(theme);
+  for (const { view } of browserViews.values()) {
+    void applyNewtabTheme(view.webContents, path.join(__dirname, '../renderer/newtab.html'), dark);
+  }
   mainWindow.setTitleBarOverlay({
     color: dark ? '#1a1a2e' : '#f5f6f8',
     symbolColor: dark ? '#ffffff' : '#202124',
@@ -578,14 +607,14 @@ function applyWindowTheme(theme) {
   });
 }
 
-ipcMain.handle('settings:apply-theme', async (_event, theme) => {
+handleMainUiIpc('settings:apply-theme', async (_event, theme) => {
   if (!['system', 'light', 'dark'].includes(theme)) throw new Error('Tema inválido');
   await store.set('theme', theme);
   applyWindowTheme(theme);
   return { success: true, theme };
 });
 
-ipcMain.handle('settings:choose-download-directory', async () => {
+handleMainUiIpc('settings:choose-download-directory', async () => {
   if (!mainWindow || mainWindow.isDestroyed()) return null;
   const result = await dialog.showOpenDialog(mainWindow, {
     title: 'Escolher pasta de downloads',
@@ -598,13 +627,6 @@ ipcMain.handle('settings:choose-download-directory', async () => {
   for (const ses of browserSessions) ses.setDownloadPath(selected);
   return selected;
 });
-
-function isAllowedRendererNavigation(url) {
-  return typeof url === 'string' && (
-    /^https?:\/\//i.test(url)
-    || ['about:blank', 'zero://newtab', 'navegante://newtab'].includes(url)
-  );
-}
 
 function updateBrowserViewBounds() {
   if (!mainWindow || mainWindow.isDestroyed()) return null;
@@ -678,7 +700,7 @@ function sendToRenderer(channel, data) {
   }
 }
 
-ipcMain.handle('automation:intervention-reply', async (_e, { id, action } = {}) => {
+handleMainUiIpc('automation:intervention-reply', async (_e, { id, action } = {}) => {
   const resolve = pendingInterventions.get(id);
   if (!resolve) return { success: false };
   pendingInterventions.delete(id);
@@ -686,24 +708,24 @@ ipcMain.handle('automation:intervention-reply', async (_e, { id, action } = {}) 
   return { success: true };
 });
 
-ipcMain.handle('browser:new-tab', async (e, url) => {
+handleMainUiIpc('browser:new-tab', async (e, url) => {
   if (!mainWindow || e.sender !== mainWindow.webContents) throw new Error('Somente a janela principal pode abrir abas.');
   const target = typeof url === 'string' && url ? url : 'about:blank';
   if (!isAllowedRendererNavigation(target)) throw new Error('A nova aba aceita apenas endereços HTTP ou HTTPS, about:blank ou a página interna de nova aba.');
   return createNewTab(target);
 });
 
-ipcMain.handle('browser:close-tab', async (e, tabId) => {
+handleMainUiIpc('browser:close-tab', async (e, tabId) => {
   closeTab(tabId);
   return { success: true };
 });
 
-ipcMain.handle('browser:switch-tab', async (e, tabId) => {
+handleMainUiIpc('browser:switch-tab', async (e, tabId) => {
   switchTab(tabId);
   return { success: true };
 });
 
-ipcMain.handle('browser:navigate', async (e, tabId, url) => {
+handleMainUiIpc('browser:navigate', async (e, tabId, url) => {
   if (!isAllowedRendererNavigation(url)) throw new Error('A navegação aceita apenas endereços HTTP ou HTTPS ou páginas internas permitidas.');
   const entry = browserViews.get(tabId);
   if (entry) {
@@ -719,7 +741,7 @@ ipcMain.handle('browser:navigate', async (e, tabId, url) => {
   return { success: false, error: 'Tab not found' };
 });
 
-ipcMain.handle('browser:go-back', async (e, tabId) => {
+handleMainUiIpc('browser:go-back', async (e, tabId) => {
   const entry = browserViews.get(tabId);
   if (entry && entry.view.webContents.canGoBack()) {
     entry.view.webContents.goBack();
@@ -728,7 +750,7 @@ ipcMain.handle('browser:go-back', async (e, tabId) => {
   return { success: false };
 });
 
-ipcMain.handle('browser:go-forward', async (e, tabId) => {
+handleMainUiIpc('browser:go-forward', async (e, tabId) => {
   const entry = browserViews.get(tabId);
   if (entry && entry.view.webContents.canGoForward()) {
     entry.view.webContents.goForward();
@@ -737,7 +759,7 @@ ipcMain.handle('browser:go-forward', async (e, tabId) => {
   return { success: false };
 });
 
-ipcMain.handle('browser:reload', async (e, tabId) => {
+handleMainUiIpc('browser:reload', async (e, tabId) => {
   const entry = browserViews.get(tabId);
   if (entry) {
     entry.view.webContents.reload();
@@ -746,7 +768,7 @@ ipcMain.handle('browser:reload', async (e, tabId) => {
   return { success: false };
 });
 
-ipcMain.handle('browser:get-tabs', async () => {
+handleMainUiIpc('browser:get-tabs', async () => {
   const tabs = [];
   browserViews.forEach((entry, tabId) => {
     tabs.push({
@@ -763,7 +785,7 @@ ipcMain.handle('browser:get-tabs', async () => {
   return tabs;
 });
 
-ipcMain.handle('browser:whats-new', async (event) => {
+handleMainUiIpc('browser:whats-new', async (event) => {
   if (!mainWindow || event.sender !== mainWindow.webContents) throw new Error('Somente a janela principal pode abrir as novidades.');
   let content = 'Sem notas para esta versão.';
   try {
@@ -784,7 +806,7 @@ ipcMain.handle('browser:whats-new', async (event) => {
   return { success: true };
 });
 
-ipcMain.handle('browser:set-side-panel-open', (event, isOpen) => {
+handleMainUiIpc('browser:set-side-panel-open', (event, isOpen) => {
   if (!mainWindow || event.sender !== mainWindow.webContents) {
     throw new Error('Somente a janela principal pode alterar o layout do navegador.');
   }
@@ -793,14 +815,14 @@ ipcMain.handle('browser:set-side-panel-open', (event, isOpen) => {
   return { open: sidePanelOpen, bounds };
 });
 
-ipcMain.handle('browser:get-side-panel-layout', (event) => {
+handleMainUiIpc('browser:get-side-panel-layout', (event) => {
   if (!mainWindow || event.sender !== mainWindow.webContents) {
     throw new Error('Somente a janela principal pode consultar o layout do navegador.');
   }
   return { open: sidePanelOpen, frozen: pageFrozen, bounds: browserViews.get(activeBrowserTabId)?.view.getBounds() || null };
 });
 
-ipcMain.handle('browser:get-tab', async (e, tabId) => {
+handleMainUiIpc('browser:get-tab', async (e, tabId) => {
   const entry = browserViews.get(tabId);
   if (entry) {
     return {
@@ -824,26 +846,26 @@ function fromMainWindow(event) {
   return library;
 }
 
-ipcMain.handle('library:bookmarks', (event, operation, ...args) => {
+handleMainUiIpc('library:bookmarks', (event, operation, ...args) => {
   const allowed = ['getTree', 'getChildren', 'create', 'update', 'move', 'remove', 'isBookmarked', 'findByUrl', 'search'];
   if (!allowed.includes(operation)) throw new Error('Operação de favoritos inválida.');
   return fromMainWindow(event).bookmarks[operation](...args);
 });
 
-ipcMain.handle('library:history', (event, operation, ...args) => {
+handleMainUiIpc('library:history', (event, operation, ...args) => {
   const allowed = ['search', 'deleteUrl', 'deleteRange', 'deleteAll'];
   if (!allowed.includes(operation)) throw new Error('Operação de histórico inválida.');
   return fromMainWindow(event).history[operation](...args);
 });
 
-ipcMain.handle('library:suggest', (event, text) => fromMainWindow(event).suggest(String(text || ''), 8));
+handleMainUiIpc('library:suggest', (event, text) => fromMainWindow(event).suggest(String(text || ''), 8));
 
-ipcMain.handle('library:import-sources', (event) => {
+handleMainUiIpc('library:import-sources', (event) => {
   fromMainWindow(event);
   return libraryImport.chromiumSources().map(({ id, browser, profile }) => ({ id, browser, profile }));
 });
 
-ipcMain.handle('library:import', async (event, sourceId) => {
+handleMainUiIpc('library:import', async (event, sourceId) => {
   const lib = fromMainWindow(event);
   if (sourceId === 'html') {
     const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {
@@ -890,12 +912,12 @@ function folderMenuTemplate(folderId, fromIndex = 0) {
   return items;
 }
 
-ipcMain.handle('library:folder-menu', (event, folderId, x, y, fromIndex) => {
+handleMainUiIpc('library:folder-menu', (event, folderId, x, y, fromIndex) => {
   fromMainWindow(event);
   Menu.buildFromTemplate(folderMenuTemplate(folderId, fromIndex)).popup({ window: mainWindow, x: Math.round(x), y: Math.round(y) });
 });
 
-ipcMain.handle('library:item-menu', (event, bookmarkId, x, y) => {
+handleMainUiIpc('library:item-menu', (event, bookmarkId, x, y) => {
   const lib = fromMainWindow(event);
   const [node] = lib.bookmarks.get(bookmarkId);
   const template = [
@@ -909,7 +931,7 @@ ipcMain.handle('library:item-menu', (event, bookmarkId, x, y) => {
   Menu.buildFromTemplate(template).popup({ window: mainWindow, x: Math.round(x), y: Math.round(y) });
 });
 
-ipcMain.handle('browser:set-bookmarks-bar', (event, visible) => {
+handleMainUiIpc('browser:set-bookmarks-bar', (event, visible) => {
   if (!mainWindow || event.sender !== mainWindow.webContents) throw new Error('Somente a janela principal pode alterar o layout.');
   bookmarksBarVisible = visible === true;
   updateBrowserViewBounds();
@@ -918,7 +940,7 @@ ipcMain.handle('browser:set-bookmarks-bar', (event, visible) => {
 
 // As páginas ficam por cima da interface; enquanto a lista de sugestões está aberta, a página vira uma imagem
 // parada atrás dela para a lista aparecer sem esconder o site.
-ipcMain.handle('browser:freeze-page', async (event, frozen, reason = 'suggestions') => {
+handleMainUiIpc('browser:freeze-page', async (event, frozen, reason = 'suggestions') => {
   if (!mainWindow || event.sender !== mainWindow.webContents) throw new Error('Somente a janela principal pode alterar o layout.');
   const entry = browserViews.get(activeBrowserTabId);
   if (!entry) return null;
@@ -946,7 +968,7 @@ ipcMain.handle('browser:freeze-page', async (event, frozen, reason = 'suggestion
   return null;
 });
 
-ipcMain.handle('browser:tab-menu', (event, tabId, order, x, y) => {
+handleMainUiIpc('browser:tab-menu', (event, tabId, order, x, y) => {
   if (!mainWindow || event.sender !== mainWindow.webContents) throw new Error('Somente a janela principal pode abrir o menu de abas.');
   if (!browserViews.has(tabId)) return false;
   const ids = (Array.isArray(order) ? order : [...browserViews.keys()]).filter((id) => browserViews.has(id));
@@ -979,12 +1001,12 @@ function launchProfile(profile) {
   spawn(process.execPath, args, { detached: true, stdio: 'ignore', env }).unref();
 }
 
-ipcMain.handle('browser:app-info', () => ({
+handleMainUiIpc('browser:app-info', () => ({
   version: app.getVersion(),
   profile: profiles.currentProfile(profilesRoot(), app.getPath('userData')).name
 }));
 
-ipcMain.handle('browser:profile-menu', (event, x, y) => {
+handleMainUiIpc('browser:profile-menu', (event, x, y) => {
   if (!mainWindow || event.sender !== mainWindow.webContents) throw new Error('Somente a janela principal pode abrir o menu de perfis.');
   const root = profilesRoot();
   const current = profiles.currentProfile(root, app.getPath('userData'));
@@ -1011,7 +1033,7 @@ ipcMain.handle('browser:profile-menu', (event, x, y) => {
   return { current };
 });
 
-ipcMain.handle('browser:reopen-closed-tab', (event) => {
+handleMainUiIpc('browser:reopen-closed-tab', (event) => {
   if (!mainWindow || event.sender !== mainWindow.webContents) throw new Error('Somente a janela principal pode reabrir abas.');
   const url = closedTabs.pop();
   if (!url) return null;
@@ -1021,7 +1043,7 @@ ipcMain.handle('browser:reopen-closed-tab', (event) => {
 });
 
 // Abas abertas ao sair, para reabrir na próxima vez (configuração browser.restoreSession).
-ipcMain.handle('browser:get-last-session', (event) => {
+handleMainUiIpc('browser:get-last-session', (event) => {
   if (!mainWindow || event.sender !== mainWindow.webContents) throw new Error('Somente a janela principal pode ler a sessão.');
   const conf = store.getStore();
   if (conf.get('browser.restoreSession') === false || conf.get('privacy.clearOnExit') === true) return [];
@@ -1029,7 +1051,7 @@ ipcMain.handle('browser:get-last-session', (event) => {
   return Array.isArray(urls) ? urls.filter((url) => typeof url === 'string' && /^https?:/i.test(url)).slice(0, 30) : [];
 });
 
-ipcMain.handle('browser:get-downloads', (event) => {
+handleMainUiIpc('browser:get-downloads', (event) => {
   if (!mainWindow || event.sender !== mainWindow.webContents) throw new Error('Somente a janela principal pode listar downloads.');
   ensureDownloadHistory();
   return recentDownloads.filter((record) => !record.evaluation).map(({ id, filename, url, state, path: savedPath, receivedBytes, totalBytes, startedAt }) => ({
@@ -1037,7 +1059,7 @@ ipcMain.handle('browser:get-downloads', (event) => {
   })).reverse();
 });
 
-ipcMain.handle('browser:show-download', (event, id) => {
+handleMainUiIpc('browser:show-download', (event, id) => {
   if (!mainWindow || event.sender !== mainWindow.webContents) throw new Error('Somente a janela principal pode abrir a pasta de um download.');
   const record = recentDownloads.find((item) => item.id === String(id));
   if (!record || record.state !== 'completed' || !record.path || !fs.existsSync(record.path)) throw new Error('Este download ainda não está disponível.');
@@ -1141,12 +1163,12 @@ function requireMainWindowSender(event) {
   if (!mainWindow || mainWindow.isDestroyed() || event.sender !== mainWindow.webContents) throw new Error('Somente a janela principal pode gerenciar extensões.');
 }
 
-ipcMain.handle('browser:extensions:list', (event) => {
+handleMainUiIpc('browser:extensions:list', (event) => {
   requireMainWindowSender(event);
   return visibleExtensionRecords();
 });
 
-ipcMain.handle('browser:extensions:add', async (event) => {
+handleMainUiIpc('browser:extensions:add', async (event) => {
   requireMainWindowSender(event);
   const selected = await dialog.showOpenDialog(mainWindow, {
     title: 'Selecionar pasta da extensão unpacked',
@@ -1205,7 +1227,7 @@ ipcMain.handle('browser:extensions:add', async (event) => {
   }
 });
 
-ipcMain.handle('browser:extensions:set-enabled', async (event, extensionId, enabled) => {
+handleMainUiIpc('browser:extensions:set-enabled', async (event, extensionId, enabled) => {
   requireMainWindowSender(event);
   if (typeof extensionId !== 'string' || typeof enabled !== 'boolean') throw new Error('Estado de extensão inválido.');
   const settings = store.getStore();
@@ -1236,7 +1258,7 @@ ipcMain.handle('browser:extensions:set-enabled', async (event, extensionId, enab
   return extensionRecordForUI(record);
 });
 
-ipcMain.handle('browser:extensions:remove', async (event, extensionId) => {
+handleMainUiIpc('browser:extensions:remove', async (event, extensionId) => {
   requireMainWindowSender(event);
   if (typeof extensionId !== 'string') throw new Error('Identificador de extensão inválido.');
   const settings = store.getStore();
@@ -1286,7 +1308,7 @@ function closeFlamePanel(tabId) {
   sendToRenderer('flame:panel', { tabId, open: false });
 }
 
-ipcMain.handle('flame:toggle-panel', (event) => {
+handleMainUiIpc('flame:toggle-panel', (event) => {
   if (!mainWindow || event.sender !== mainWindow.webContents) throw new Error('Somente a janela principal pode abrir o painel.');
   if (!extensionHost?.primary) return { available: false };
   if (flamePanels.has(activeBrowserTabId) && !flamePanelHidden) {
@@ -1302,7 +1324,7 @@ ipcMain.handle('flame:toggle-panel', (event) => {
   return { available: true, open: extensionHost.openPanelForActiveTab() };
 });
 
-ipcMain.handle('flame:status', () => ({ available: Boolean(extensionHost?.primary), open: flamePanels.has(activeBrowserTabId) && !flamePanelHidden }));
+handleMainUiIpc('flame:status', () => ({ available: Boolean(extensionHost?.primary), open: flamePanels.has(activeBrowserTabId) && !flamePanelHidden }));
 
 app.whenReady().then(initializeApp);
 

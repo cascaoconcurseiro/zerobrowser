@@ -18,6 +18,17 @@ function isSameSite(firstUrl, secondUrl) {
   return !!first && !!second && first.scheme === second.scheme && first.site === second.site;
 }
 
+function isAllowedRendererNavigation(url) {
+  if (typeof url !== 'string') return false;
+  if (['about:blank', 'zero://newtab', 'navegante://newtab'].includes(url)) return true;
+  try {
+    const parsed = new URL(url);
+    return (parsed.protocol === 'http:' || parsed.protocol === 'https:') && Boolean(parsed.hostname);
+  } catch {
+    return false;
+  }
+}
+
 function rewriteRequestHeaders(details, settings = {}) {
   const headers = { ...(details.requestHeaders || {}) };
   const requestUrl = details.url;
@@ -63,4 +74,4 @@ function makeUniqueDownloadPath(directory, filename, exists = require('node:fs')
   return candidate;
 }
 
-module.exports = { getSchemefulSite, isSameSite, rewriteRequestHeaders, rewriteResponseHeaders, makeUniqueDownloadPath };
+module.exports = { getSchemefulSite, isSameSite, isAllowedRendererNavigation, rewriteRequestHeaders, rewriteResponseHeaders, makeUniqueDownloadPath };

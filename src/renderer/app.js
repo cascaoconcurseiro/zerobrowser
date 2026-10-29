@@ -19,6 +19,7 @@ class ZeroBrowserApp {
     await this.createInitialTab();
     this.initLibraryUi();
     this.initSettingsIndex();
+    this.initLibraryTabs();
     this.initChatSessions();
     this.initAgentMemoryUi();
     this.initRunEvents();
@@ -53,9 +54,6 @@ class ZeroBrowserApp {
       librarySearch: document.getElementById('library-search'),
       libraryList: document.getElementById('library-list'),
       btnCloseLibrary: document.getElementById('btn-close-library'),
-      btnMinimize: document.getElementById('btn-minimize'),
-      btnMaximize: document.getElementById('btn-maximize'),
-      btnClose: document.getElementById('btn-close'),
       aiPanel: document.getElementById('ai-panel'),
       btnCloseAi: document.getElementById('btn-close-ai'),
       aiProvider: document.getElementById('ai-provider'),
@@ -74,6 +72,7 @@ class ZeroBrowserApp {
       btnAiCopyChat: document.getElementById('btn-ai-copy-chat'),
       btnAiRecipes: document.getElementById('btn-ai-recipes'),
       btnAiModules: document.getElementById('btn-ai-modules'),
+      btnAiLibrary: document.getElementById('btn-ai-library'),
       btnAiRenameChat: document.getElementById('btn-ai-rename-chat'),
       btnAiPinChat: document.getElementById('btn-ai-pin-chat'),
       btnAiDeleteChat: document.getElementById('btn-ai-delete-chat'),
@@ -149,7 +148,6 @@ class ZeroBrowserApp {
     });
     this.elements.aiModel.addEventListener('change', () => this.selectAiModel(this.elements.aiModel.value));
     this.elements.aiQuickModel.addEventListener('change', () => this.selectAiModel(this.elements.aiQuickModel.value));
-    this.elements.btnClose.addEventListener('click', () => window.close());
     const settingKeys = {
       'setting-show-full-url': 'browser.showFullUrl',
       'setting-clear-on-exit': 'privacy.clearOnExit',
@@ -205,8 +203,6 @@ class ZeroBrowserApp {
       }
     });
 
-    this.elements.btnMinimize.addEventListener('click', () => window.zeroBrowser.browser.minimize());
-    this.elements.btnMaximize.addEventListener('click', () => window.zeroBrowser.browser.maximize());
 
     document.addEventListener('keydown', (e) => {
       if (e.ctrlKey && !e.altKey && e.key === 'Tab') {
@@ -229,7 +225,7 @@ class ZeroBrowserApp {
         e.preventDefault();
         this.openLibrary('downloads');
       }
-      if (e.key === 'Escape') this.closeAppMenu();
+      if (e.key === 'Escape') this.closeAppMenu({ restoreFocus: true });
       if (e.ctrlKey && e.key === 'w') {
         e.preventDefault();
         this.closeActiveTab();
@@ -630,18 +626,35 @@ class ZeroBrowserApp {
     tab.className = 'tab';
     tab.dataset.tabId = tabId;
     tab.innerHTML = `
-      <img class="tab-favicon" src="" alt="">
-      <span class="tab-title">Carregando...</span>
-      <button class="tab-close" data-tab-id="${tabId}" aria-label="Fechar aba"><svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><line x1="2" y1="2" x2="10" y2="10"/><line x1="10" y1="2" x2="2" y2="10"/></svg></button>
+      <button type="button" class="tab-select" aria-pressed="false" tabindex="-1">
+        <img class="tab-favicon" src="" alt="">
+        <span class="tab-title">Carregando...</span>
+      </button>
+      <button class="tab-close" data-tab-id="${tabId}" aria-label="Fechar aba carregando"><svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><line x1="2" y1="2" x2="10" y2="10"/><line x1="10" y1="2" x2="2" y2="10"/></svg></button>
     `;
 
+    const selectButton = tab.querySelector('.tab-select');
     tab.querySelector('.tab-close').addEventListener('click', (e) => {
       e.stopPropagation();
       this.closeTab(tabId);
     });
 
-    tab.addEventListener('click', () => this.switchTab(tabId));
-    tab.addEventListener('auxclick', (e) => { if (e.button === 1) { e.preventDefault(); this.closeTab(tabId); } });
+    selectButton.addEventListener('click', () => this.switchTab(tabId));
+    selectButton.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        this.switchTab(tabId);
+        return;
+      }
+      if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+      const tabs = [...this.elements.tabsContainer.querySelectorAll('.tab-select')];
+      const index = tabs.indexOf(selectButton);
+      const next = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1
+        : (index + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
+      event.preventDefault();
+      const target = tabs[next];
+      if (target) { this.switchTab(target.closest('.tab').dataset.tabId); target.focus(); }
+    });
     tab.addEventListener('contextmenu', (e) => {
       e.preventDefault();
       const order = [...this.elements.tabsContainer.querySelectorAll('.tab')].map((el) => el.dataset.tabId);
@@ -653,10 +666,20 @@ class ZeroBrowserApp {
 
   switchTab(tabId) {
     const prevActive = this.elements.tabsContainer.querySelector('.tab.active');
-    if (prevActive) prevActive.classList.remove('active');
+    if (prevActive) {
+      prevActive.classList.remove('active');
+      const prevButton = prevActive.querySelector('.tab-select');
+      prevButton?.setAttribute('aria-pressed', 'false');
+      if (prevButton) prevButton.tabIndex = -1;
+    }
 
-    const tabEl = this.elements.tabsContainer.querySelector(`[data-tab-id="${tabId}"]`);
-    if (tabEl) tabEl.classList.add('active');
+    const tabEl = this.elements.tabsContainer.querySelector(`.tab[data-tab-id="${tabId}"]`);
+    if (tabEl) {
+      tabEl.classList.add('active');
+      const selectButton = tabEl.querySelector('.tab-select');
+      selectButton?.setAttribute('aria-pressed', 'true');
+      if (selectButton) selectButton.tabIndex = 0;
+    }
 
     window.zeroBrowser.browser.switchTab(tabId);
     this.activeTabId = tabId;
@@ -697,7 +720,8 @@ class ZeroBrowserApp {
     window.zeroBrowser.browser.closeTab(tabId);
     this.tabs.delete(tabId);
 
-    const tabEl = this.elements.tabsContainer.querySelector(`[data-tab-id="${tabId}"]`);
+    const tabEl = this.elements.tabsContainer.querySelector(`.tab[data-tab-id="${tabId}"]`);
+    const restoreFocus = Boolean(tabEl?.contains(document.activeElement));
     if (tabEl) tabEl.remove();
 
     if (wasActive) {
@@ -706,6 +730,7 @@ class ZeroBrowserApp {
         this.switchTab(remainingTabs[remainingTabs.length - 1]);
       }
     }
+    if (restoreFocus) this.elements.tabsContainer.querySelector('.tab.active .tab-select')?.focus();
   }
 
   closeActiveTab() {
@@ -759,7 +784,7 @@ class ZeroBrowserApp {
         break;
       case 'tab:closed':
         this.tabs.delete(data.tabId);
-        const tabEl = this.elements.tabsContainer.querySelector(`[data-tab-id="${data.tabId}"]`);
+        const tabEl = this.elements.tabsContainer.querySelector(`.tab[data-tab-id="${data.tabId}"]`);
         if (tabEl) tabEl.remove();
         if (this.activeTabId === data.tabId) {
           const remaining = Array.from(this.tabs.keys());
@@ -789,6 +814,10 @@ class ZeroBrowserApp {
         if (data.state === 'completed') this.showToast(`Download concluído: ${data.filename}`, 'success');
         else if (data.state === 'cancelled') this.showToast(`Download cancelado: ${data.filename}`, 'warning');
         else if (data.state === 'interrupted') this.showToast(`Download interrompido: ${data.filename}`, 'error');
+        if (this.libraryMode === 'downloads' && !this.elements.libraryPanel.classList.contains('hidden')) {
+          clearTimeout(this.downloadRenderTimer);
+          this.downloadRenderTimer = setTimeout(() => this.renderLibrary(), 120);
+        }
         break;
       case 'browser:open-ai':
         this.toggleAiPanel(true);
@@ -833,12 +862,16 @@ class ZeroBrowserApp {
     const tab = this.tabs.get(tabId);
     if (!tab) return;
 
-    const tabEl = this.elements.tabsContainer.querySelector(`[data-tab-id="${tabId}"]`);
+    const tabEl = this.elements.tabsContainer.querySelector(`.tab[data-tab-id="${tabId}"]`);
     if (!tabEl) return;
 
     const titleEl = tabEl.querySelector('.tab-title');
+    const selectButton = tabEl.querySelector('.tab-select');
+    const closeButton = tabEl.querySelector('.tab-close');
     if (titleEl && tab.title) {
       titleEl.textContent = tab.title.length > 30 ? tab.title.substring(0, 30) + '…' : tab.title;
+      selectButton?.setAttribute('aria-label', tab.title);
+      closeButton?.setAttribute('aria-label', `Fechar aba ${tab.title}`);
     }
   }
 
@@ -901,10 +934,20 @@ class ZeroBrowserApp {
     this.aiProviderConfigs.set(provider, config);
     this.elements.aiApiKey.value = '';
     this.resetAiKeyVisibility();
-    const providerName = provider === 'deepseek' ? 'DeepSeek' : 'OpenRouter';
+    const providerName = provider === 'deepseek' ? 'DeepSeek' : provider === 'ollama' ? 'Ollama local' : 'OpenRouter';
+    const local = provider === 'ollama';
+    this.elements.aiApiKey.closest('label')?.toggleAttribute('hidden', local);
+    this.elements.aiSaveKey.hidden = local;
+    this.elements.aiApiKey.disabled = local;
+    this.elements.aiSaveKey.disabled = local;
+    this.elements.aiToggleKey.disabled = local;
     this.elements.aiApiKey.placeholder = config.hasApiKey ? `Salva: ${config.keyHint || '••••••••'} (vazio mantém a atual)` : `Chave API do ${providerName}`;
-    this.elements.aiPrivacyNote.textContent = `O texto e os dados necessários da página ativa serão enviados ao ${providerName} para realizar a tarefa.`;
-    this.elements.aiModelStatus.textContent = config.hasApiKey ? 'Chave salva com segurança. Atualize o catálogo para carregar modelos.' : 'Digite a chave e clique em Salvar chave.';
+    this.elements.aiPrivacyNote.textContent = local
+      ? 'O conteúdo da tarefa será enviado somente ao servidor Ollama em 127.0.0.1:11434. Não há fallback para nuvem.'
+      : `O texto e os dados necessários da página ativa serão enviados ao ${providerName} para realizar a tarefa.`;
+    this.elements.aiModelStatus.textContent = local
+      ? 'Conexão local opt-in. Atualize o catálogo para detectar modelos já instalados; nenhum modelo será baixado.'
+      : config.hasApiKey ? 'Chave salva com segurança. Atualize o catálogo para carregar modelos.' : 'Digite a chave e clique em Salvar chave.';
   }
 
   resetAiKeyVisibility() {
@@ -974,7 +1017,7 @@ class ZeroBrowserApp {
     const provider = this.elements.aiProvider.value;
     const config = this.aiProviderConfigs.get(provider) || await window.zeroBrowser.ai.getConfig(provider);
     const key = this.elements.aiApiKey.value.trim();
-    if (!key && !config.hasApiKey) {
+    if (provider !== 'ollama' && !key && !config.hasApiKey) {
       this.elements.aiModelStatus.textContent = 'Digite a chave de API e clique em Atualizar.';
       if (!quiet) this.showToast('Informe a chave do provedor para sincronizar os modelos.', 'warning');
       return;
@@ -1185,7 +1228,7 @@ class ZeroBrowserApp {
     this.elements.appMenu.querySelector('[role="menuitem"]')?.focus();
   }
 
-  closeAppMenu() {
+  closeAppMenu({ restoreFocus = false } = {}) {
     const wasOpen = !this.elements.appMenu.classList.contains('hidden');
     this.elements.appMenu.classList.add('hidden');
     this.elements.btnAppMenu.setAttribute('aria-expanded', 'false');
@@ -1193,6 +1236,7 @@ class ZeroBrowserApp {
       this.appMenuFreezeRequest = (this.appMenuFreezeRequest || 0) + 1;
       this.releaseAppMenuFreeze();
     }
+    if (wasOpen && restoreFocus) this.elements.btnAppMenu.focus();
   }
 
   releaseAppMenuFreeze() {
@@ -1334,7 +1378,14 @@ class ZeroBrowserApp {
     container.style.backgroundSize = '';
   }
 
+  initLibraryTabs() {
+    for (const aba of document.querySelectorAll('.library-tab')) {
+      aba.addEventListener('click', () => this.openLibrary(aba.dataset.modo));
+    }
+  }
+
   async openLibrary(mode) {
+    const libraryWasOpen = !this.elements.libraryPanel.classList.contains('hidden');
     this.elements.libraryPanel.classList.remove('hidden');
     this.elements.aiPanel.classList.add('hidden');
     this.elements.settingsPanel.classList.add('hidden');
@@ -1346,11 +1397,16 @@ class ZeroBrowserApp {
       downloads: ['Downloads', 'Downloads recentes desta sessão do Zero Browser.']
     };
     [this.elements.libraryTitle.textContent, this.elements.librarySubtitle.textContent] = labels[mode];
+    for (const aba of document.querySelectorAll('.library-tab')) {
+      const selected = aba.dataset.modo === mode;
+      aba.classList.toggle('ativo', selected);
+      aba.setAttribute('aria-pressed', String(selected));
+    }
     this.elements.librarySearch.value = '';
     window.zeroBrowser.browser.setSidePanelOpen(true);
     await this.freezePageForPanel();
     await this.renderLibrary();
-    this.elements.librarySearch.focus();
+    if (!libraryWasOpen) this.elements.librarySearch.focus();
   }
 
   async closeLibrary() {
@@ -1360,6 +1416,7 @@ class ZeroBrowserApp {
   }
 
   async renderLibrary() {
+    const renderRequest = this.libraryRenderRequest = (this.libraryRenderRequest || 0) + 1;
     const mode = this.libraryMode;
     if (!mode || this.elements.libraryPanel.classList.contains('hidden')) return;
     const query = this.elements.librarySearch.value.trim();
@@ -1374,9 +1431,12 @@ class ZeroBrowserApp {
         if (query) items = items.filter((item) => `${item.filename} ${item.url}`.toLowerCase().includes(query.toLowerCase()));
       }
     } catch (error) {
+      if (renderRequest !== this.libraryRenderRequest || this.elements.libraryPanel.classList.contains('hidden')) return;
       this.elements.libraryList.replaceChildren(this.libraryEmpty(`Não foi possível carregar: ${error.message}`));
       return;
     }
+    // A leitura pode terminar depois de uma troca de aba, busca ou fechamento do painel.
+    if (renderRequest !== this.libraryRenderRequest || this.elements.libraryPanel.classList.contains('hidden')) return;
     const fragment = document.createDocumentFragment();
     for (const item of items) {
       const row = document.createElement('div');
@@ -1436,7 +1496,7 @@ class ZeroBrowserApp {
       const result = await window.zeroBrowser.automation.runAgent(this.activeTabId, 'Use inspect_page exatamente uma vez para confirmar que as chamadas de ferramenta funcionam. Não clique, navegue ou altere nada.', true, true);
       if (!result.success) throw new Error(result.error);
       this.aiConnected = true;
-      this.addAiMessage('assistant', `Conectado a ${provider === 'deepseek' ? 'DeepSeek' : 'OpenRouter'} com ${model}. Posso operar a aba ativa usando as ferramentas disponíveis.`);
+      this.addAiMessage('assistant', `Conectado a ${provider === 'deepseek' ? 'DeepSeek' : provider === 'ollama' ? 'Ollama local' : 'OpenRouter'} com ${model}. Posso operar a aba ativa usando as ferramentas disponíveis.`);
       this.aiProviderConfigs.set(provider, saved);
       this.elements.aiApiKey.value = '';
       this.resetAiKeyVisibility();
@@ -1732,6 +1792,7 @@ class ZeroBrowserApp {
     this.elements.btnAiCopyChat?.addEventListener('click', () => this.copiarTexto(this.conversaEmMarkdown()));
     this.elements.btnAiRecipes?.addEventListener('click', () => this.showRecipes());
     this.elements.btnAiModules?.addEventListener('click', () => this.showModules());
+    this.elements.btnAiLibrary?.addEventListener('click', () => this.openLibrary('history'));
   }
 
   async showModules() {

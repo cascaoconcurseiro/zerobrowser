@@ -2,7 +2,7 @@ const { WebSocketServer } = require('ws');
 const { createHash, randomBytes, randomUUID, timingSafeEqual } = require('crypto');
 const net = require('net');
 const { z } = require('zod');
-const { PROVIDERS, endpointFor, providerNetworkError } = require('../model-catalog');
+const { PROVIDERS, endpointFor, providerNetworkError, listModels } = require('../model-catalog');
 const { Level } = require('level');
 const fs = require('fs');
 const path = require('path');
@@ -1023,8 +1023,16 @@ class AutomationService {
     const describeDownload = (item) => ({ id: item.id, filename: item.filename, state: item.state, bytes: item.receivedBytes, totalBytes: item.totalBytes || undefined });
     if (!tab?.webContents || tab.webContents.isDestroyed()) return { success: false, error: 'Aba ativa indisponível' };
     if (!PROVIDERS[provider]) return { success: false, error: 'Provedor de IA inválido' };
-    if (!apiKey) return { success: false, error: `Configure a chave da ${PROVIDERS[provider].label} no painel do agente` };
+    if (PROVIDERS[provider].requiresApiKey !== false && !apiKey) return { success: false, error: `Configure a chave da ${PROVIDERS[provider].label} no painel do agente` };
     if (!model) return { success: false, error: 'Selecione um modelo no painel do agente' };
+    if (provider === 'ollama') {
+      try {
+        const installed = await listModels('ollama', '', this.fetch);
+        if (!installed.some((item) => item.id === model)) return { success: false, error: 'O modelo selecionado não consta entre os modelos instalados localmente no Ollama.' };
+      } catch (error) {
+        return { success: false, error: error.message };
+      }
+    }
     this.agentTabs.add(tabId);
     this.activeAgentRuns.set(rootTabId, runController);
     await this.setAuroraActive(tab, true, 'Chefe, assumi o controle da página…');
@@ -1242,7 +1250,7 @@ class AutomationService {
           if (invalid) throw new Error(invalid);
           const saved = await this.moduleStore.save(moduleOrigin, { name: args.name, code: args.code, description: args.description || '' });
           if (trace) trace.modulesSaved = (trace.modulesSaved || 0) + 1;
-          return { success: true, name: saved.name, origin: saved.origin, note: 'Módulo gravado; ele roda no sandbox e pode ser repetido sem modelo.' };
+          return { success: true, name: saved.name, origin: saved.origin, note: 'Código guardado para esta origem. A execução está desativada até existir isolamento seguro validado.' };
         }
         if (args.action === 'list') return { success: true, readOnly: true, origin: moduleOrigin, modules: await this.moduleStore.list(moduleOrigin) };
         if (args.action === 'forget') return { success: true, removed: await this.moduleStore.forget(moduleOrigin, args.name) };
@@ -1253,7 +1261,7 @@ class AutomationService {
           const outcome = await runTransform(code, args.input ?? null);
           if (trace) trace.moduleRuns = (trace.moduleRuns || 0) + 1;
           if (!outcome.ok) {
-            return { success: false, code: 'MODULE_FAILED', name: found.name, error: String(outcome.error || 'falha no sandbox'), hint: 'Corrija code e rode de novo com code corrigido; depois salve para atualizar o módulo.' };
+            return { success: false, code: 'MODULE_DISABLED', name: found.name, error: String(outcome.error || 'execução de módulo desativada'), hint: 'A execução permanece desativada até existir isolamento seguro validado.' };
           }
           return { success: true, name: found.name, result: outcome.result, usedOverride: code !== found.code };
         }
@@ -1282,8 +1290,8 @@ class AutomationService {
         if (problem) throw new Error(problem);
         const outcome = await runTransform(args.code, args.input ?? null);
         if (trace) trace.transforms = (trace.transforms || 0) + 1;
-        if (!outcome.ok) return { success: false, code: 'TRANSFORM_FAILED', error: String(outcome.error || 'falha no sandbox') };
-        return { success: true, result: outcome.result, note: 'Código rodou em processo isolado e devolveu o resultado.' };
+        if (!outcome.ok) return { success: false, code: 'TRANSFORM_DISABLED', error: String(outcome.error || 'execução de transformação desativada') };
+        return { success: true, result: outcome.result, note: 'Transformação concluída.' };
       }
       if (name === 'recipe') {
         if (!recipes || !this.recipeStore) throw new Error('Receitas não estão ligadas nesta tarefa');
@@ -1944,7 +1952,7 @@ class AutomationService {
           messages.push({ role: 'user', content: '[Zero Browser] O usuário resolveu a verificação humana; inspecione a página de novo e continue.' });
         }
         const providerUrl = endpointFor(provider, 'completion');
-        const requestHeaders = { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' };
+        const requestHeaders = { ...(PROVIDERS[provider].requiresApiKey === false ? {} : { Authorization: `Bearer ${apiKey}` }), 'Content-Type': 'application/json' };
         if (provider === 'openrouter') {
           requestHeaders['HTTP-Referer'] = 'https://zerobrowser.app';
           requestHeaders['X-Title'] = 'Zero Browser';
@@ -1980,7 +1988,23 @@ class AutomationService {
               return m;
             });
             const cacheRequest = cacheRequestFields({ provider, model: requestModel, messages: requestMessages, enabled: promptCache, seed: cacheSeedValue });
-            const requestBody = JSON.stringify({
+            const requestBody = JSON.stringify(provider === 'ollama' ? {
+              model: requestModel,
+              messages: cacheRequest.messages.map((item) => {
+                if (item.role === 'assistant' && Array.isArray(item.tool_calls)) return {
+                  role: 'assistant', content: item.content || '', tool_calls: item.tool_calls.map((call) => ({ type: 'function', function: { name: call.function.name, arguments: typeof call.function.arguments === 'string' ? JSON.parse(call.function.arguments || '{}') : call.function.arguments } }))
+                };
+                if (item.role === 'tool') {
+                  const source = [...cacheRequest.messages].reverse().find((candidate) => candidate.role === 'assistant' && candidate.tool_calls?.some((call) => call.id === item.tool_call_id));
+                  const call = source?.tool_calls?.find((candidate) => candidate.id === item.tool_call_id);
+                  return { role: 'tool', tool_name: call?.function?.name || 'unknown_tool', content: item.content };
+                }
+                return { role: item.role, content: typeof item.content === 'string' ? item.content : '' };
+              }),
+              tools,
+              stream: false,
+              options: { temperature: 0.2 }
+            } : {
               model: requestModel,
               messages: cacheRequest.messages,
               tools,
@@ -2018,7 +2042,7 @@ class AutomationService {
               requestMetric.errorClass = error?.name === 'TimeoutError' ? 'timeout' : 'network';
             }
             if (runController.signal.aborted) throw Object.assign(new Error('Tarefa interrompida pelo usuário.'), { name: 'AbortError' });
-            if (attempt < 2 && error.name === 'TimeoutError') continue;
+            if (provider !== 'ollama' && attempt < 2 && error.name === 'TimeoutError') continue;
             throw providerNetworkError(error, provider, providerUrl);
           }
           if (runController.signal.aborted) throw Object.assign(new Error('Tarefa interrompida pelo usuário.'), { name: 'AbortError' });
@@ -2047,7 +2071,7 @@ class AutomationService {
             requestMetric.cachedInputTokens = cachedInputTokens(data.usage);
           }
           // Falha passageira do provedor (limite de taxa ou erro de servidor) não deve perder a tarefa: espera e tenta de novo.
-          if (!response.ok && attempt < 3 && [429, 500, 502, 503, 504].includes(Number(response.status))) {
+          if (provider !== 'ollama' && !response.ok && attempt < 3 && [429, 500, 502, 503, 504].includes(Number(response.status))) {
             const retryAfter = Number(response.headers?.get?.('retry-after'));
             const waitMs = Number.isFinite(retryAfter) && retryAfter > 0 ? Math.min(retryAfter * 1000, 8000) : attempt * 1500;
             if (requestMetric) requestMetric.errorClass = `http_${response.status}`;
@@ -2059,7 +2083,9 @@ class AutomationService {
           if (!response.ok && attempt < 2 && dropImages(messages, 'Este modelo não aceita imagens; siga só com texto e nodes.')) continue;
           break;
         }
-        if (!response.ok) throw new Error(data.error?.message || `${PROVIDERS[provider].label} retornou HTTP ${response.status}`);
+        if (!response.ok) throw new Error(provider === 'ollama'
+          ? `Ollama local retornou HTTP ${response.status}`
+          : data.error?.message || `${PROVIDERS[provider].label} retornou HTTP ${response.status}`);
         if (trace) {
           trace.modelCalls++;
           if (data.usage) {
@@ -2070,7 +2096,19 @@ class AutomationService {
             trace.usageAvailable = false;
           }
         }
-        const message = data.choices?.[0]?.message;
+          const message = provider === 'ollama' && data.message
+            ? {
+              role: 'assistant',
+              content: data.message.content || '',
+              ...(Array.isArray(data.message.tool_calls) && data.message.tool_calls.length ? {
+                tool_calls: data.message.tool_calls.map((call, index) => ({
+                  id: `ollama-${step}-${index}`,
+                  type: 'function',
+                  function: { name: call.function?.name, arguments: JSON.stringify(call.function?.arguments || {}) }
+                }))
+              } : {})
+            }
+            : data.choices?.[0]?.message;
         if (!message) throw new Error('Resposta vazia do modelo');
         messages.push(message);
         if (!message.tool_calls?.length) {
@@ -3479,7 +3517,7 @@ class AutomationService {
           const found = await this.moduleStore.get(new URL(origin).origin, name);
           if (!found) return { success: false, error: `Módulo "${name}" não existe para ${origin}` };
           const outcome = await runTransform(found.code, input ?? null);
-          return outcome.ok ? { success: true, name: found.name, result: outcome.result } : { success: false, code: 'MODULE_FAILED', error: outcome.error };
+          return outcome.ok ? { success: true, name: found.name, result: outcome.result } : { success: false, code: 'MODULE_DISABLED', error: outcome.error };
         }
       },
       {

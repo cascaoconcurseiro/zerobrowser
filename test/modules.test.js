@@ -18,6 +18,8 @@ test('modules accept only safe code and a valid name', () => {
   assert.match(validateModule({ name: 'nome inválido!', code: 'return 1' }), /name/);
   assert.match(validateModule({ name: 'x', code: '' }), /obrigatório/);
   assert.equal(MODULE_TOOL.function.name, 'module');
+  assert.match(MODULE_TOOL.function.description, /Execução de código está desativada/);
+  assert.doesNotMatch(MODULE_TOOL.function.description, /executa no sandbox|sem require\/rede\/disco/);
 });
 
 test('a module is stored by origin, listed and executed later without a model', async () => {
@@ -65,6 +67,7 @@ test('modules are exposed over MCP by origin', async () => {
 
   const run = await service.tools.get('module_run').handler({ origin: 'https://planilha.test', name: 'contar', input: { items: [1, 2, 3] } });
   assert.equal(run.success, false);
+  assert.equal(run.code, 'MODULE_DISABLED');
   assert.match(run.error, /desativada/);
 
   const missing = await service.tools.get('module_run').handler({ origin: 'https://planilha.test', name: 'nao-existe' });

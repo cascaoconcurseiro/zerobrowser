@@ -39,4 +39,6 @@ test('the guardian refuses unsafe transform code before execution', () => {
 test('the tool schema is a plain function definition', () => {
   assert.equal(TRANSFORM_TOOL.function.name, 'transform');
   assert.deepEqual(TRANSFORM_TOOL.function.parameters.required, ['code']);
+  assert.match(TRANSFORM_TOOL.function.description, /Indisponível/);
+  assert.doesNotMatch(TRANSFORM_TOOL.function.description, /processo isolado|sem require\/rede\/disco/);
 });

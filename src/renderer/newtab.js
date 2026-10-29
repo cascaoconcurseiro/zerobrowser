@@ -44,5 +44,8 @@
 
     document.getElementById('action-copilot')?.addEventListener('click', () => {
       // Signal to browser to open Copilot panel
+      if (window.location.hash === '#open-copilot') {
+        window.history.replaceState(null, '', window.location.href.split('#')[0]);
+      }
       window.location.hash = 'open-copilot';
     });

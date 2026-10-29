@@ -114,7 +114,7 @@ const MODULE_TOOL = {
   type: 'function',
   function: {
     name: 'module',
-    description: 'Módulo de operação determinístico por site: save grava um código que transforma dados já lidos, run executa no sandbox (sem require/rede/disco) com input, list mostra os módulos e forget apaga. Use para somar colunas, normalizar datas e repetir o cálculo sem modelo.',
+    description: 'Execução de código está desativada até existir isolamento seguro validado. A ferramenta não executa código: use list para consultar módulos guardados e forget para apagá-los. Não use save/run nesta versão.',
     parameters: {
       type: 'object',
       properties: {

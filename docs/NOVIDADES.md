@@ -1,4 +1,10 @@
-# Novidades — Zero Browser 0.1.41-dev
+# Novidades — Zero Browser 0.1.43-dev
+
+## Continuação da auditoria (28/10/2026)
+
+- Provider Ollama local opt-in: catálogo dos modelos já instalados e chat pela API nativa em loopback. Não pede credencial, não baixa modelos e não tenta fallback para nuvem.
+- Proteções de navegação de extensão, permissões por origem/sessão e endurecimento de IPC seguem incluídos; módulos e transformações continuam desativados até haver isolamento seguro comprovado.
+- Biblioteca com estados acessíveis anunciados e navegação por teclado. Limites de validação atuais estão registrados em `HANDOFF.md`.
 
 Versão de desenvolvimento com foco no motor de IA e em sites difíceis (planilhas, canvas, editores).
 
@@ -8,6 +14,10 @@ Versão de desenvolvimento com foco no motor de IA e em sites difíceis (planilh
 
 ## Painel mais legível
 
+- **Título da nova aba restaurado** para “Novo Separador · Zero Browser”, alinhado ao teste de aceitação.
+
+- **Biblioteca com abas**: Histórico, Favoritos e Downloads no mesmo painel, e um botão Biblioteca no painel do agente.
+
 - **Escala tipográfica única**: 10,5 / 11,5 / 13 / 15 px, aplicada ao chat, rodapés, ações e textos secundários; o teste de UI mede 13 px no cartão do agente.
 
 - **Índice das configurações**: chips fixos no topo, um por seção, levam direto ao bloco (gerado do próprio conteúdo, sem desatualizar).
@@ -15,7 +25,7 @@ Versão de desenvolvimento com foco no motor de IA e em sites difíceis (planilh
 - **Cabeçalho compacto**: uma linha, sem kicker e subtítulo redundantes (medido no teste de UI).
 - **Skeleton ao sincronizar modelos**: barra de carregamento no status em vez de texto estático.
 
-- **Módulos no painel**: executar módulos salvos com JSON de entrada. **Memória editável**: botão Editar em cada fato.
+- **Módulos no painel**: a execução de código está atualmente desativada até existir isolamento seguro validado; módulos salvos podem ser listados e apagados. **Memória editável**: botão Editar em cada fato.
 
 - **Tarefas pausadas**: o painel lista até três, cada uma com Continuar e Descartar (sem reiniciar o app).
 
@@ -107,12 +117,10 @@ Versão de desenvolvimento com foco no motor de IA e em sites difíceis (planilh
   navegador; agora a primeira linha da conexão precisa provar acesso à pasta do perfil.
 - **Retomada funcionando de verdade**: ao pausar no limite de ações na mesma sessão, a tarefa agora vai para a lista
   com id; antes o cartão **Continuar tarefa** aparecia, mas o botão não fazia nada.
-- **Módulos voltaram a rodar**: o Guardian recusava `module run` sem `code` (que usa o código salvo) por engano.
+- **Histórico — módulos**: naquela versão, o Guardian passou a aceitar `module run` sem `code` para selecionar o módulo salvo. A execução foi desativada posteriormente após a descoberta de escape do sandbox; o pacote e a árvore atuais não devem ser descritos como executando módulos.
 - **Contrato de saída com lote**: receita que lê dentro de `sheets batch` agora alimenta `output`/`outputValid`; antes
   falhava com “nenhuma leitura”.
-- **Recursos ligados de verdade**: Receitas, cálculo/módulos no sandbox e cache de prefixo estavam no motor mas o
-  painel nunca os ativava. Agora há três opções em **Configurações → Agente de IA · recursos** (receitas e módulos
-  ligados por padrão; cache opt-in) e o IPC repassa as três.
+- **Histórico — recursos**: uma versão anterior ligou receitas, transformações e cache por configuração. Hoje a execução de transformações/módulos está bloqueada; não interprete este registro histórico como estado atual.
 
 
 Versão de desenvolvimento com foco no motor de IA e em sites difíceis (planilhas, canvas, editores).
@@ -134,8 +142,7 @@ Versão de desenvolvimento com foco no motor de IA e em sites difíceis (planilh
   **Continuar tarefa** no topo do chat, com modelo, horário e endereço.
 - **Memória do agente**: botão **Memória** mostra o que foi guardado (fatos por site e ações concluídas), com
   validade de 30 dias e opção de apagar. Senha, token e cartão são recusados na hora de guardar.
-- **Módulos de operação**: com `transforms` ligado, o agente pode gravar um código curto por site
-  (`module save`), executar no sandbox e repetir o cálculo sem modelo; se falhar, ele corrige e roda de novo.
+- **Módulos de operação (histórico, execução hoje desativada)**: uma versão anterior permitia gravar código por site e tentava executá-lo no sandbox. O bloqueio foi aplicado após o escape; armazenamento/listagem não comprovam execução segura.
 - **Receitas como artefato**: `recipe_export`/`recipe_import` levam uma receita de um perfil a outro sem banco.
 
 ## Motor de IA
@@ -145,9 +152,7 @@ Versão de desenvolvimento com foco no motor de IA e em sites difíceis (planilh
   até 8 tarefas, sem chave de API no arquivo.
 - **Receitas como integração (MCP)**: `recipe_list` e `recipe_run` expõem as receitas salvas a qualquer cliente MCP.
   Rodam sem modelo, exigem a aba na origem certa, respeitam entradas obrigatórias e devolvem o contrato de saída.
-- **Transformação isolada**: `transform` roda uma função determinística sobre dados já lidos (somar coluna,
-  normalizar data) em processo separado, sem `require`, rede ou disco, com timeout e limite de tamanho. O Guardian
-  recusa código que tente sair do contexto.
+- **Transformação — alegação histórica revogada**: o texto original desta versão dizia que `transform` rodava em processo isolado sem `require`, rede ou disco. A auditoria encontrou escape de sandbox; a execução atual está desativada e essa garantia não é válida para o código anterior.
 - **Guardian independente**: cada ação passa por um revisor determinístico antes de executar. Ele recusa navegação
   fora de HTTP/HTTPS, URL com usuário e senha, envio de arquivo para origem diferente da tarefa (ou de uma origem
   de login declarada) em fluxos com URL inicial declarada (run_task/MCP), formulário cross-site e receita que grava

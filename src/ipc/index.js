@@ -1,6 +1,7 @@
 const { ipcMain, BrowserWindow } = require('electron');
 const store = require('../store');
 const { listModels, PROVIDERS } = require('../automation/model-catalog');
+const { withTrustedMainUi } = require('./trusted-ui');
 let automationService = null;
 let providerFetch = null;
 
@@ -14,6 +15,7 @@ function isSecretStoreKey(key) {
 }
 
 async function getProviderKey(provider) {
+  if (provider === 'ollama') return '';
   const keyName = provider === 'deepseek' ? 'automation.deepseekApiKey' : 'automation.openrouterApiKey';
   return await store.get(keyName) || (provider === 'openrouter' ? await store.get('automation.apiKey') : '');
 }
@@ -27,6 +29,7 @@ async function getAgentConfig() {
 
 async function saveProviderKey(provider, apiKey, storage = store) {
   if (!PROVIDERS[provider]) throw new Error('Provedor de IA inválido');
+  if (PROVIDERS[provider].requiresApiKey === false) throw new Error('Ollama local não usa chave de API');
   if (typeof apiKey !== 'string' || apiKey.length > 4096 || !apiKey.trim()) throw new Error('Informe uma chave de API válida');
   await storage.set(provider === 'deepseek' ? 'automation.deepseekApiKey' : 'automation.openrouterApiKey', apiKey.trim());
   if (provider === 'openrouter') await storage.set('automation.apiKey', apiKey.trim());
@@ -41,31 +44,36 @@ function setProviderFetch(fetchImpl) {
   providerFetch = fetchImpl;
 }
 
-function setupIpc() {
-  ipcMain.handle('store:get', async (e, key) => {
+function setupIpc(assertTrustedUi) {
+  if (typeof assertTrustedUi !== 'function') throw new TypeError('Validador da interface principal obrigatório para registrar IPCs');
+  const registerUiIpc = (channel, handler) => {
+    ipcMain.handle(channel, withTrustedMainUi(handler, assertTrustedUi));
+  };
+  registerUiIpc('store:get', async (e, key) => {
     if (isSecretStoreKey(key)) throw new Error('Credenciais só podem ser acessadas pelo processo principal');
     return await store.get(key);
   });
-  ipcMain.handle('store:set', async (e, key, value) => {
+  registerUiIpc('store:set', async (e, key, value) => {
     if (isSecretStoreKey(key)) throw new Error('Credenciais só podem ser alteradas pelo painel de IA');
     return await store.set(key, value);
   });
-  ipcMain.handle('store:delete', async (e, key) => await store.remove(key));
-  ipcMain.handle('store:getAll', async () => await store.getAll());
+  registerUiIpc('store:delete', async (e, key) => await store.remove(key));
+  registerUiIpc('store:getAll', async () => await store.getAll());
 
-  ipcMain.handle('ai:get-config', async (_e, requestedProvider) => {
+  registerUiIpc('ai:get-config', async (_e, requestedProvider) => {
     const provider = requestedProvider || await store.get('automation.provider') || 'openrouter';
     if (!PROVIDERS[provider]) throw new Error('Provedor de IA inválido');
     const providerModel = await store.get(`automation.model.${provider}`);
     const model = providerModel || (provider === 'openrouter' ? await store.get('automation.model') : '') || '';
     const apiKey = await getProviderKey(provider);
-    return { provider, model, hasApiKey: Boolean(apiKey), keyHint: maskApiKey(apiKey) };
+    return { provider, model, hasApiKey: PROVIDERS[provider].requiresApiKey === false || Boolean(apiKey), keyHint: maskApiKey(apiKey) };
   });
 
-  ipcMain.handle('ai:save-config', async (_e, input = {}) => {
+  registerUiIpc('ai:save-config', async (_e, input = {}) => {
     const { provider, model, apiKey } = input;
     if (!PROVIDERS[provider]) throw new Error('Provedor de IA inválido');
     if (typeof model !== 'string' || !model.trim()) throw new Error('Selecione um modelo');
+    if (PROVIDERS[provider].requiresApiKey === false && apiKey?.trim()) throw new Error('Ollama local não aceita chave de API');
     if (apiKey !== undefined && (typeof apiKey !== 'string' || apiKey.length > 4096)) throw new Error('Chave de API inválida');
     await store.set('automation.provider', provider);
     await store.set(`automation.model.${provider}`, model.trim());
@@ -75,35 +83,36 @@ function setupIpc() {
       if (provider === 'openrouter') await store.set('automation.apiKey', apiKey.trim());
     }
     const savedKey = apiKey?.trim() || await getProviderKey(provider);
-    return { provider, model: model.trim(), hasApiKey: Boolean(savedKey), keyHint: maskApiKey(savedKey) };
+    return { provider, model: model.trim(), hasApiKey: PROVIDERS[provider].requiresApiKey === false || Boolean(savedKey), keyHint: maskApiKey(savedKey) };
   });
 
-  ipcMain.handle('ai:save-key', async (_e, { provider, apiKey } = {}) => saveProviderKey(provider, apiKey));
+  registerUiIpc('ai:save-key', async (_e, { provider, apiKey } = {}) => saveProviderKey(provider, apiKey));
 
-  ipcMain.handle('ai:reveal-key', async (_e, provider) => {
+  registerUiIpc('ai:reveal-key', async (_e, provider) => {
     if (!PROVIDERS[provider]) throw new Error('Provedor de IA inválido');
+    if (PROVIDERS[provider].requiresApiKey === false) throw new Error('Ollama local não usa chave de API');
     const apiKey = await getProviderKey(provider);
     if (!apiKey) throw new Error(`Nenhuma chave salva para ${PROVIDERS[provider].label}`);
     return apiKey;
   });
 
-  ipcMain.handle('ai:list-models', async (_e, { provider, apiKey } = {}) => {
+  registerUiIpc('ai:list-models', async (_e, { provider, apiKey } = {}) => {
     if (!PROVIDERS[provider]) throw new Error('Provedor de IA inválido');
     return listModels(provider, String(apiKey || '').trim() || await getProviderKey(provider), providerFetch || globalThis.fetch);
   });
-  ipcMain.handle('window:minimize', (e) => BrowserWindow.fromWebContents(e.sender)?.minimize());
-  ipcMain.handle('window:toggle-maximize', (e) => {
+  registerUiIpc('window:minimize', (e) => BrowserWindow.fromWebContents(e.sender)?.minimize());
+  registerUiIpc('window:toggle-maximize', (e) => {
     const window = BrowserWindow.fromWebContents(e.sender);
     if (window?.isMaximized()) window.unmaximize();
     else window?.maximize();
   });
 
-  ipcMain.handle('automation:execute', async (e, action) => {
+  registerUiIpc('automation:execute', async (e, action) => {
     if (!automationService) return { success: false, error: 'Automation service not running' };
     return await automationService.executeAction(action);
   });
 
-  ipcMain.handle('automation:run-agent', async (_e, { tabId, prompt, testOnly, requireToolCall, resumeId }) => {
+  registerUiIpc('automation:run-agent', async (_e, { tabId, prompt, testOnly, requireToolCall, resumeId }) => {
     if (!automationService) return { success: false, error: 'Serviço de automação indisponível' };
     const { provider, apiKey, model } = await getAgentConfig();
     if (!model) return { success: false, error: 'Sincronize os modelos e escolha um modelo antes de conectar' };
@@ -124,27 +133,27 @@ function setupIpc() {
     });
   });
 
-  ipcMain.handle('automation:recipes', async (_e, { origin } = {}) => {
+  registerUiIpc('automation:recipes', async (_e, { origin } = {}) => {
     if (!automationService || !origin) return [];
     try { return await automationService.callTool('recipe_list', { origin }); } catch { return []; }
   });
 
-  ipcMain.handle('automation:recipe-run', async (_e, { origin, name } = {}) => {
+  registerUiIpc('automation:recipe-run', async (_e, { origin, name } = {}) => {
     if (!automationService) return { success: false, error: 'Serviço de automação indisponível' };
     try { return await automationService.callTool('recipe_run', { origin, name }); } catch (error) { return { success: false, error: error.message }; }
   });
 
-  ipcMain.handle('automation:job-drop', async (_e, { id } = {}) => {
+  registerUiIpc('automation:job-drop', async (_e, { id } = {}) => {
     if (!automationService) return false;
     return await automationService.dropJob(id);
   });
 
-  ipcMain.handle('automation:memory-save', async (_e, { origin, text, kind, replaceId } = {}) => {
+  registerUiIpc('automation:memory-save', async (_e, { origin, text, kind, replaceId } = {}) => {
     if (!automationService) return { success: false, error: 'Serviço de automação indisponível' };
     return await automationService.saveMemory({ origin, text, kind, replaceId });
   });
 
-  ipcMain.handle('automation:modules', async (_e, { origin } = {}) => {
+  registerUiIpc('automation:modules', async (_e, { origin } = {}) => {
     if (!automationService?.moduleStore) return { success: false, error: 'Módulos indisponíveis' };
     try {
       const list = await automationService.moduleStore.list(origin || null);
@@ -152,34 +161,34 @@ function setupIpc() {
     } catch (error) { return { success: false, error: error.message }; }
   });
 
-  ipcMain.handle('automation:module-run', async (_e, { origin, name, input } = {}) => {
+  registerUiIpc('automation:module-run', async (_e, { origin, name, input } = {}) => {
     if (!automationService) return { success: false, error: 'Serviço de automação indisponível' };
     try { return await automationService.callTool('module_run', { origin, name, input }); } catch (error) { return { success: false, error: error.message }; }
   });
 
-  ipcMain.handle('automation:memory', async (_e, { action = 'list', id } = {}) => {
+  registerUiIpc('automation:memory', async (_e, { action = 'list', id } = {}) => {
     if (!automationService) return action === 'list' ? [] : false;
     if (action === 'forget') return await automationService.forgetMemory(id);
     return await automationService.listMemories();
   });
 
   // Tarefas pausadas que sobreviveram ao reinício (TTL 20 min), para oferecer "Continuar".
-  ipcMain.handle('automation:jobs', async () => {
+  registerUiIpc('automation:jobs', async () => {
     if (!automationService) return [];
     return await automationService.listJobs();
   });
 
-  ipcMain.handle('automation:cancel-agent', async (_e, tabId) => {
+  registerUiIpc('automation:cancel-agent', async (_e, tabId) => {
     if (!automationService) return { success: false, error: 'Serviço de automação indisponível' };
     return automationService.cancelAgentRun(tabId);
   });
 
-  ipcMain.handle('automation:get-state', async (e, tabId) => {
+  registerUiIpc('automation:get-state', async (e, tabId) => {
     if (!automationService) return { success: false, error: 'Automation service not running' };
     return await automationService.getTabState(tabId);
   });
 
-  ipcMain.handle('automation:cdp-send', async (e, tabId, method, params) => {
+  registerUiIpc('automation:cdp-send', async (e, tabId, method, params) => {
     if (!automationService) return { success: false, error: 'Automation service not running' };
     return await automationService.sendCdpCommand(tabId, method, params);
   });

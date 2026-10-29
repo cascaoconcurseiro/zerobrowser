@@ -1,5 +1,8 @@
 const test = require('node:test');
 const assert = require('node:assert');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
 const { Library, BAR_ID, OTHER_ID } = require('../src/main/library');
 
 test('favoritos: criar, mover, renomear e remover mantém a árvore em ordem', () => {
@@ -46,6 +49,36 @@ test('histórico: conta visitas, busca por texto e apaga por intervalo', () => {
   lib.history.deleteAll();
   assert.strictEqual(lib.history.search({ text: 'exemplo' }).length, 0);
   lib.close();
+});
+
+test('busca da biblioteca ignora acentos e diferenças de caixa em português', () => {
+  const lib = new Library();
+  lib.history.add({ url: 'https://example.test/', title: 'SÃO PAULO' });
+  lib.bookmarks.create({ title: 'Ação e Cidadania', url: 'https://example.test/acao' });
+
+  assert.equal(lib.history.search({ text: 'sao paulo' }).length, 1);
+  assert.equal(lib.history.search({ text: 'SÃO' }).length, 1);
+  assert.equal(lib.bookmarks.search({ query: 'acao cidadania' }).length, 1);
+  assert.equal(lib.bookmarks.search({ query: 'AÇÃO' }).length, 1);
+  lib.close();
+});
+
+test('histórico e favoritos persistem depois de fechar e reabrir o SQLite', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'zero-library-reopen-'));
+  const dbPath = path.join(dir, 'biblioteca.sqlite');
+  try {
+    const beforeRestart = new Library(dbPath);
+    beforeRestart.history.add({ url: 'https://example.test/sao-paulo', title: 'SÃO PAULO' });
+    beforeRestart.bookmarks.create({ parentId: BAR_ID, title: 'Ação', url: 'https://example.test/acao' });
+    beforeRestart.close();
+
+    const afterRestart = new Library(dbPath);
+    assert.equal(afterRestart.history.search({ text: 'sao paulo' })[0]?.title, 'SÃO PAULO');
+    assert.equal(afterRestart.bookmarks.search({ query: 'acao' })[0]?.title, 'Ação');
+    afterRestart.close();
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test('sugestões: favorito e site que começa com o texto vêm primeiro', () => {
