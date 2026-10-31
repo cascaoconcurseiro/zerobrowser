@@ -33,7 +33,7 @@
         <button id="btn-ai" class="toolbar-btn ai-copilot-btn" title="Abrir modo Delegar (Ctrl+Shift+A)" aria-label="Abrir modo Delegar" aria-pressed="false"><svg class="copilot-sparkle" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/><path d="M19 3v4"/><path d="M21 5h-4"/></svg><span class="ai-copilot-label">Delegar</span><span class="mode-chevron" aria-hidden="true">⌄</span></button>
       </div>
       <div class="toolbar-group delegation-toolbar-actions">
-        <button id="btn-stop-task" class="delegation-top-stop hidden" type="button" aria-label="Parar a tarefa atual" title="Parar a tarefa atual"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2"/></svg><span>Parar tarefa</span></button>
+        <button id="btn-stop-task" class="delegation-top-stop hidden" type="button" aria-label="Parar a tarefa atual" title="Parar a tarefa atual"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2"/></svg><span>Parar tudo</span></button>
         <button id="btn-bot-central" class="delegation-top-central hidden" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="bot-central" aria-label="Abrir Central de Bots"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg><span>Central</span></button>
       </div>
       <div class="toolbar-group">
@@ -153,13 +153,20 @@
         <button id="btn-close-ai" class="panel-close" aria-label="Fechar agente"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
       </div>
       <div id="ai-ready-status" class="ai-ready-status" role="status">Carregando configuração do agente…</div>
-      <div id="tab-control-banner" class="tab-control-banner hidden" role="region" aria-label="Controle da aba ativa" aria-live="polite"><span id="tab-control-label" class="tab-control-label">Aba controlada pelo agente</span><button id="btn-tab-takeover" class="btn-ghost tab-control-action" type="button">Assumir</button></div>
+      <div id="tab-control-banner" class="tab-control-banner hidden" role="region" aria-label="Controle da aba ativa" aria-live="polite">
+        <span class="tab-control-bot-badge" aria-hidden="true">🛒</span>
+        <span id="tab-control-label" class="tab-control-label">Navegador controlado por <strong>Preços</strong></span>
+        <button id="btn-tab-takeover" class="btn-ghost tab-control-action" type="button">Assumir</button>
+      </div>
       <div id="grokbot-briefing-bar" class="grokbot-briefing-bar" role="region" aria-label="Bot Especialista ativo">
         <div class="grokbot-briefing-identity">
-          <span id="grokbot-active-ring" class="grokbot-active-ring" data-bot-state="idle" aria-hidden="true"></span>
+          <span id="grokbot-active-ring" class="grokbot-active-ring" data-bot-state="working" aria-hidden="true"></span>
           <div class="grokbot-briefing-copy">
-            <strong id="grokbot-active-name">Bot Caçador de Preços</strong>
-            <span id="grokbot-active-meta">Pesquisador de Preços · Degrau 1 (Leitura)</span>
+            <div class="grokbot-briefing-title-row">
+              <strong id="grokbot-active-name">Preços</strong>
+              <span id="grokbot-active-status" class="grokbot-status-pill">● Trabalhando</span>
+            </div>
+            <span id="grokbot-active-meta">Comparando preços de fone sem fio conforme sua solicitação.</span>
           </div>
         </div>
         <div class="grokbot-briefing-actions">
@@ -277,7 +284,13 @@
           <button id="btn-clear-history" class="btn-secondary" type="button">Apagar todo o histórico</button>
         </section>
         <section class="settings-section">
-          <h3>Agente de IA · modelo e provedor</h3>
+          <h3>IA e segurança · Provedor e credenciais</h3>
+          <div id="ai-provider-cards" class="grokbot-provider-cards" role="radiogroup" aria-label="Cartões de provedor de IA">
+            <button type="button" class="grokbot-provider-card" data-provider-card="openai"><strong>OpenAI</strong><span>Direto</span></button>
+            <button type="button" class="grokbot-provider-card ativo" data-provider-card="openrouter"><strong>OpenRouter</strong><span>Multi-modelo</span></button>
+            <button type="button" class="grokbot-provider-card" data-provider-card="deepseek"><strong>DeepSeek</strong><span>Raciocínio</span></button>
+            <button type="button" class="grokbot-provider-card" data-provider-card="ollama"><strong>Ollama</strong><span>Local 127.0.0.1</span></button>
+          </div>
           <label class="setting-field" for="ai-provider"><span>Provedor</span>
             <select id="ai-provider" class="ai-select" aria-label="Provedor de IA">
                 <option value="openrouter">OpenRouter</option><option value="openai">OpenAI direto</option><option value="deepseek">DeepSeek direto</option><option value="ollama">Ollama local</option>
@@ -289,6 +302,10 @@
           <label class="setting-field" for="ai-api-key"><span>Chave de API</span>
             <div class="ai-key-input-row"><input type="password" id="ai-api-key" class="ai-input" placeholder="Chave API do OpenRouter" autocomplete="new-password"><button id="btn-ai-toggle-key" class="btn-secondary" type="button" aria-pressed="false">Mostrar</button></div>
           </label>
+          <div class="grokbot-isolated-vault-badge">
+            <strong>🔒 Credenciais ficam no perfil isolado</strong>
+            <span>Suas chaves de API e dados de navegação são armazenados apenas no perfil isolado de cada Bot, sem acessar seus outros perfis.</span>
+          </div>
           <div class="ai-settings-actions"><button id="btn-ai-save-key" class="btn-secondary" type="button">Salvar chave</button><button id="btn-ai-connect" class="btn-secondary" type="button">Testar conexão</button></div>
           <span id="ai-model-status" class="ai-model-status" role="status"></span>
           <p id="ai-privacy-note-settings" class="setting-description">O texto e os dados necessários da página ativa serão enviados ao provedor para realizar a tarefa.</p>

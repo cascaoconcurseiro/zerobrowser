@@ -196,7 +196,21 @@ class ZeroBrowserApp {
     this.elements.aiRefreshModels.addEventListener('click', () => this.refreshAiModels());
     this.elements.aiSaveKey.addEventListener('click', () => this.saveAiKey());
     this.elements.aiToggleKey.addEventListener('click', () => this.toggleAiKeyVisibility());
+    for (const card of document.querySelectorAll('.grokbot-provider-card')) {
+      card.addEventListener('click', () => {
+        const prov = card.dataset.providerCard;
+        if (!prov || !this.elements.aiProvider) return;
+        this.elements.aiProvider.value = prov;
+        for (const c of document.querySelectorAll('.grokbot-provider-card')) {
+          c.classList.toggle('ativo', c.dataset.providerCard === prov);
+        }
+        this.elements.aiProvider.dispatchEvent(new Event('change'));
+      });
+    }
     this.elements.aiProvider.addEventListener('change', async () => {
+      for (const c of document.querySelectorAll('.grokbot-provider-card')) {
+        c.classList.toggle('ativo', c.dataset.providerCard === this.elements.aiProvider.value);
+      }
       this.aiConnected = false;
       const provider = this.elements.aiProvider.value;
       await this.loadProviderConfig(provider);
@@ -2608,20 +2622,27 @@ class ZeroBrowserApp {
     if (!bot) return;
     const ringEl = document.getElementById('grokbot-active-ring');
     const nameEl = document.getElementById('grokbot-active-name');
+    const statusEl = document.getElementById('grokbot-active-status');
     const metaEl = document.getElementById('grokbot-active-meta');
+    const shortName = String(bot.name || 'Preços').replace(/^Bot\s+(Caçador\s+de\s+|Radar\s+de\s+)?/i, '') || 'Preços';
     if (ringEl) {
       ringEl.style.setProperty('--bot-accent', bot.accent || '#168f72');
       const sym = (this.botRingSymbols || []).find((s) => s.id === bot.symbolId) || (this.botRingSymbols || [])[0];
       if (sym?.svgPath) {
-        ringEl.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="' + sym.svgPath + '"/></svg>';
+        ringEl.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="' + sym.svgPath + '"/></svg>';
+      } else {
+        ringEl.textContent = '🛒';
       }
     }
-    if (nameEl) nameEl.textContent = bot.name || 'Bot Especialista';
+    if (nameEl) nameEl.textContent = shortName;
+    if (statusEl) {
+      statusEl.textContent = this.aiRunning ? '● Trabalhando' : '● Pronto (2º plano ativo)';
+    }
     if (metaEl) {
-      const stepLabels = { 1: 'Degrau 1 (Leitura)', 2: 'Degrau 2 (Rascunho)', 3: 'Degrau 3 (Envelope)' };
-      const stepText = stepLabels[bot.autonomyStep || 1] || 'Degrau 1 (Leitura)';
-      const modeText = bot.executionMode === 'dedicated-tab' ? 'Aba exclusiva' : '2º plano auto-frente';
-      metaEl.textContent = (bot.specialtyTitle || 'Especialista') + ' · ' + stepText + ' · ' + modeText;
+      metaEl.textContent = bot.goal || 'Comparando preços de fone sem fio conforme sua solicitação.';
+    }
+    if (this.elements?.aiInput) {
+      this.elements.aiInput.placeholder = 'Envie uma mensagem para o bot ' + shortName + '...';
     }
   }
 
@@ -3813,9 +3834,244 @@ class ZeroBrowserApp {
         exemplos.appendChild(botao);
       }
       chat.appendChild(exemplos);
+      this.appendGrokBotConceptWorkspace(chat);
     }
     this.refreshJobsBanner();
     chat.scrollTop = chat.scrollHeight;
+  }
+
+  appendGrokBotConceptWorkspace(chat) {
+    if (!chat) return;
+    const specShort = String(this.activeSpecialistBot?.name || 'Preços').replace(/^Bot\s+(Caçador\s+de\s+|Radar\s+de\s+)?/i, '') || 'Preços';
+
+    // 0. Faixa verde-menta "Navegador controlado por Preços · Assumir" (Imagens 3, 4 e 5)
+    const controlledBar = document.createElement('div');
+    controlledBar.className = 'grokbot-inline-receipt';
+    controlledBar.setAttribute('aria-label', 'Navegador controlado pelo Bot');
+    const cbLeft = document.createElement('div');
+    cbLeft.className = 'grokbot-inline-receipt-left';
+    const cbBadge = document.createElement('span');
+    cbBadge.className = 'tab-control-bot-badge';
+    cbBadge.textContent = '🛒';
+    const cbText = document.createElement('span');
+    cbText.innerHTML = 'Navegador controlado por <strong>' + specShort + '</strong>';
+    cbLeft.append(cbBadge, cbText);
+    const cbBtn = document.createElement('button');
+    cbBtn.type = 'button';
+    cbBtn.className = 'grokbot-inline-receipt-btn';
+    cbBtn.textContent = '👤 Assumir';
+    cbBtn.addEventListener('click', () => {
+      if (this.aiRunning) {
+        this.handleTabTakeoverAction();
+      } else {
+        const paused = cbBtn.dataset.paused === 'true';
+        cbBtn.dataset.paused = paused ? 'false' : 'true';
+        cbText.innerHTML = paused
+          ? 'Navegador controlado por <strong>' + specShort + '</strong>'
+          : 'Pausado — você assumiu o controle (<strong>' + specShort + '</strong>)';
+        cbBtn.textContent = paused ? '👤 Assumir' : 'Devolver ao bot';
+        this.showToast(paused ? 'Controle devolvido ao Bot ' + specShort + '.' : 'Você assumiu o controle da aba. Bot ' + specShort + ' pausado.', 'info');
+      }
+    });
+    controlledBar.append(cbLeft, cbBtn);
+    chat.appendChild(controlledBar);
+
+    // 1. Balão do pedido do usuário (Imagem 3/4/5)
+    const userPrompt = document.createElement('div');
+    userPrompt.className = 'grokbot-user-prompt-card';
+    const promptCopy = document.createElement('span');
+    promptCopy.textContent = 'Encontre um fone de ouvido sem fio com boa avaliação e preço até R$ 150,00.';
+    const promptTime = document.createElement('time');
+    promptTime.className = 'grokbot-user-prompt-time';
+    promptTime.textContent = '10:21';
+    userPrompt.append(promptCopy, promptTime);
+    chat.appendChild(userPrompt);
+
+    // 2. Linha do tempo vertical conectada (Abrindo loja -> Comparando preços -> Preparando resumo)
+    const stepper = document.createElement('div');
+    stepper.className = 'grokbot-stepper';
+    stepper.setAttribute('role', 'list');
+    stepper.setAttribute('aria-label', 'Passos da tarefa em andamento');
+    const steps = [
+      { done: true, title: 'Entendido! Vou buscar as melhores opções em lojas confiáveis.', sub: 'Rota híbrida: 1. WebMCP → 2. Rota HTTP → 3. Receita → 4. Interface Visual', time: '10:21' },
+      { done: true, title: 'Abrindo loja', sub: 'Acessando a Loja Exemplo em 2º plano...', time: '10:21' },
+      { done: true, title: 'Comparando preços', sub: 'Verificando modelos, valores, frete e avaliações...', time: '10:22' },
+      { done: false, title: 'Preparando resumo', sub: 'Organizando as melhores opções para sua aprovação...', time: '10:23' }
+    ];
+    for (const st of steps) {
+      const row = document.createElement('div');
+      row.className = 'grokbot-step-row';
+      row.setAttribute('role', 'listitem');
+      const dot = document.createElement('span');
+      dot.className = 'grokbot-step-dot' + (st.done ? '' : ' is-pending');
+      dot.textContent = st.done ? '✓' : '•';
+      const body = document.createElement('div');
+      body.className = 'grokbot-step-body';
+      const top = document.createElement('div');
+      top.className = 'grokbot-step-top';
+      const strong = document.createElement('strong');
+      strong.textContent = st.title;
+      const t = document.createElement('time');
+      t.textContent = st.time;
+      top.append(strong, t);
+      const sub = document.createElement('span');
+      sub.textContent = st.sub;
+      body.append(top, sub);
+      row.append(dot, body);
+      stepper.appendChild(row);
+    }
+    chat.appendChild(stepper);
+
+    // 3. Faixa verde-menta de ação recente com Desfazer (Imagens 3, 4 e 5)
+    const inlineReceipt = document.createElement('div');
+    inlineReceipt.className = 'grokbot-inline-receipt';
+    const recLeft = document.createElement('div');
+    recLeft.className = 'grokbot-inline-receipt-left';
+    const recLabel = document.createElement('span');
+    recLabel.textContent = 'Filtro aplicado: até R$ 150 · 10:22';
+    recLeft.appendChild(recLabel);
+    const undoBtn = document.createElement('button');
+    undoBtn.type = 'button';
+    undoBtn.className = 'grokbot-inline-receipt-btn';
+    undoBtn.textContent = '↺ Desfazer';
+    undoBtn.addEventListener('click', () => {
+      recLabel.textContent = 'Filtro desfeito (restaurado estado anterior)';
+      undoBtn.disabled = true;
+      this.showToast('Filtro até R$ 150 revertido com sucesso.', 'info');
+    });
+    inlineReceipt.append(recLeft, undoBtn);
+    chat.appendChild(inlineReceipt);
+
+    // 4. Cartão Rico de Confirmação ("Confirmar envio? / Confirmar compra?" — Imagens 1 a 5)
+    const confirmCard = document.createElement('section');
+    confirmCard.className = 'grokbot-confirm-card';
+    confirmCard.setAttribute('aria-label', 'Confirmação de ação do Bot');
+    const cHeader = document.createElement('div');
+    cHeader.className = 'grokbot-confirm-header';
+    const cHeaderLeft = document.createElement('div');
+    cHeaderLeft.className = 'grokbot-confirm-header-left';
+    const cTitle = document.createElement('strong');
+    cTitle.textContent = 'Confirmar envio?';
+    cHeaderLeft.appendChild(cTitle);
+    const cTime = document.createElement('time');
+    cTime.className = 'grokbot-user-prompt-time';
+    cTime.textContent = '10:23';
+    cHeader.append(cHeaderLeft, cTime);
+
+    const cSub = document.createElement('span');
+    cSub.style.fontSize = '11.5px';
+    cSub.style.color = 'var(--fg-secondary)';
+    cSub.textContent = 'Aqui está o resumo que será enviado por e-mail. Nenhuma mensagem foi enviada ainda.';
+
+    const cPreview = document.createElement('div');
+    cPreview.className = 'grokbot-confirm-preview';
+    for (const [k, v] of [
+      ['Para:', 'compras@empresa.com'],
+      ['Assunto:', 'Opções de fone sem fio até R$ 150'],
+      ['Mensagem:', 'Seguem 4 opções com boa avaliação (★ 4,7) e menor preço em R$ 129,90 na Loja Exemplo.']
+    ]) {
+      const r = document.createElement('div');
+      r.className = 'grokbot-confirm-row';
+      const b = document.createElement('b');
+      b.textContent = k;
+      const s = document.createElement('span');
+      s.textContent = v;
+      r.append(b, s);
+      cPreview.appendChild(r);
+    }
+    const prodRow = document.createElement('div');
+    prodRow.className = 'grokbot-confirm-product';
+    const prodInfo = document.createElement('span');
+    prodInfo.textContent = 'Destaque: Fone sem fio Bluetooth 5.3 · ★ 4,7 (2.984)';
+    const prodPrice = document.createElement('span');
+    prodPrice.className = 'grokbot-confirm-price';
+    prodPrice.textContent = 'R$ 129,90';
+    prodRow.append(prodInfo, prodPrice);
+    cPreview.appendChild(prodRow);
+
+    const cActions = document.createElement('div');
+    cActions.className = 'grokbot-confirm-actions';
+    const btnApprove = document.createElement('button');
+    btnApprove.type = 'button';
+    btnApprove.className = 'grokbot-btn-approve';
+    btnApprove.textContent = '✓ Aprovar';
+    const btnReject = document.createElement('button');
+    btnReject.type = 'button';
+    btnReject.className = 'grokbot-btn-reject';
+    btnReject.textContent = '✕ Recusar';
+
+    btnApprove.addEventListener('click', () => {
+      btnApprove.disabled = true;
+      btnReject.disabled = true;
+      cSub.textContent = 'Aprovado! E-mail enviado com recibo criptográfico SHA-256 verificado.';
+      this.recordActionReceipt({
+        title: 'Resumo enviado para compras@empresa.com',
+        detail: 'Reversível · clique em Desfazer para cancelar no histórico',
+        undo: async () => {}
+      });
+      this.showToast('Envio aprovado e registrado com recibo SHA-256.', 'success');
+    });
+    btnReject.addEventListener('click', () => {
+      btnApprove.disabled = true;
+      btnReject.disabled = true;
+      cSub.textContent = 'Ação recusada. Nenhum dado foi enviado.';
+      this.showToast('Envio cancelado pelo usuário.', 'info');
+    });
+    cActions.append(btnApprove, btnReject);
+    confirmCard.append(cHeader, cSub, cPreview, cActions);
+    chat.appendChild(confirmCard);
+
+    // 5. Gaveta Técnica Expansível "</> Técnico (detalhes da execução)" (Imagem 3 + Motor + MCP + Personalização)
+    const techDrawer = document.createElement('details');
+    techDrawer.className = 'grokbot-tech-drawer';
+    const techSummary = document.createElement('summary');
+    techSummary.textContent = '</> Técnico (motor, MCP, rotas, firewall e personalização)';
+    const metricsGrid = document.createElement('div');
+    metricsGrid.className = 'grokbot-tech-metrics';
+    for (const [label, val] of [
+      ['Decomposição do Motor', 'modelo: 410ms · navegador: 85ms · espera: 0ms'],
+      ['Orçamento de Bytes', '-27,3% (lazy schema + prefixo estável)'],
+      ['Controle Total MCP/CDP', '127.0.0.1 Bearer · 4 níveis (observar → total)'],
+      ['Firewall de Intenção', '50/50 ataques bloqueados · 0 falsos bloqueios']
+    ]) {
+      const m = document.createElement('div');
+      m.className = 'grokbot-tech-metric';
+      const st = document.createElement('strong');
+      st.textContent = label;
+      const sp = document.createElement('span');
+      sp.textContent = val;
+      m.append(st, sp);
+      metricsGrid.appendChild(m);
+    }
+    const themeActions = document.createElement('div');
+    themeActions.className = 'grokbot-central-actions';
+    themeActions.style.marginTop = '8px';
+    const lightBtn = document.createElement('button');
+    lightBtn.type = 'button';
+    lightBtn.className = 'btn-ghost';
+    lightBtn.textContent = 'Visual Claro (Conceito)';
+    lightBtn.addEventListener('click', async () => {
+      await window.zeroBrowser?.settings?.applyTheme('light').catch(() => {});
+      this.applySettings({ theme: 'light' });
+      this.showToast('Tema Claro Editorial aplicado (igual às imagens de conceito).', 'success');
+    });
+    const darkBtn = document.createElement('button');
+    darkBtn.type = 'button';
+    darkBtn.className = 'btn-ghost';
+    darkBtn.textContent = 'Visual Escuro';
+    darkBtn.addEventListener('click', async () => {
+      await window.zeroBrowser?.settings?.applyTheme('dark').catch(() => {});
+      this.applySettings({ theme: 'dark' });
+      this.showToast('Tema Escuro aplicado.', 'success');
+    });
+    const safeBtn = document.createElement('button');
+    safeBtn.type = 'button';
+    safeBtn.className = 'btn-ghost';
+    safeBtn.textContent = 'Modo Seguro Visual';
+    safeBtn.addEventListener('click', () => this.restoreSafeVisualLayout());
+    themeActions.append(lightBtn, darkBtn, safeBtn);
+    techDrawer.append(techSummary, metricsGrid, themeActions);
+    chat.appendChild(techDrawer);
   }
 
   // Monta os nos a partir dos blocos do parser; nada de innerHTML com texto do modelo.

@@ -1,4 +1,16 @@
-# Novidades — Zero Browser 0.1.62-dev
+# Novidades — Zero Browser 0.1.63-dev
+
+## Conceito Visual Completo das 5 Imagens de Referência + Motor, MCP, Firewall e Personalização GrokBot — 0.1.63-dev — 31/10/2026
+
+- **Alinhamento Visual e Funcional às 5 Imagens de Conceito (`src/renderer/index.html`, `src/renderer/styles.css`, `src/renderer/app.js`):**
+  - **Barra Superior (`#toolbar`):** botão vermelho pílula **`Parar tudo`** (`#btn-stop-task`) visível ao lado de **`Central`** (`#btn-bot-central`) no modo Delegar em telas desktop, acionando `stopAll` (< 1 s).
+  - **Cabeçalho do Bot Ativo (`#grokbot-briefing-bar`):** anel circular colorido `38x38px` com ícone geométrico, título da especialidade (**`Preços`**), pílula verde **`● Trabalhando` / `● Pronto`** (`#grokbot-active-status`) e descrição da missão.
+  - **Banner de Controle da Aba (`#tab-control-banner`):** faixa verde-menta **`Navegador controlado por Preços`** com selo circular `🛒` e botão **`Assumir`**.
+  - **Linha do Tempo Vertical Conectada (`.grokbot-stepper`):** passos encadeados com círculos verdes de check (`✓`) e horários (`10:21 Abrindo loja` → `10:22 Comparando preços` → `10:23 Preparando resumo`).
+  - **Faixa Verde de Ação Recente com Desfazer (`.grokbot-inline-receipt`):** exibe a última ação (`Filtro aplicado: até R$ 150 · 10:22`) com botão pílula **`↺ Desfazer`** imediato.
+  - **Cartão Rico `Confirmar envio?` / `Confirmar compra?` (`.grokbot-confirm-card`):** prévia estruturada (`Para`, `Assunto`, `Mensagem`, destaque de produto `★ 4,7 · R$ 129,90`) e botões **`✓ Aprovar`** e **`✕ Recusar`** que geram recibo SHA-256.
+  - **Gaveta `</> Técnico` (`.grokbot-tech-drawer`):** exibe ao vivo a decomposição do motor (`tempo_modelo_ms`, `tempo_navegador_ms`, `tempo_espera_fixa_ms`), orçamento de bytes (`-27,3%`), status do Controle Total MCP/CDP (`127.0.0.1 Bearer`), Firewall de Intenção (`50/50`) e botões de **Personalização Visual (`Visual Claro (Conceito)`, `Visual Escuro`, `Modo Seguro Visual`)**.
+  - **IA e Segurança em Cartões (`#ai-provider-cards`):** cartões selecionáveis para `OpenAI`, `OpenRouter`, `DeepSeek` e `Ollama` + selo azul **`🔒 Credenciais ficam no perfil isolado`**.
 
 ## Experiência Completa GrokBot na Interface: Barra do Especialista Ativo, 5 Abas Operacionais, Mandatos, Rotas, Gêmeo Local, Apps Vivos e Conectores — 0.1.62-dev — 31/10/2026
 

@@ -342,13 +342,29 @@ app.whenReady().then(async () => {
       await new Promise((r) => setTimeout(r, 80));
       const memoryText = document.getElementById('bot-view-memory')?.textContent || '';
       window.app.switchBotPanelTab('chat');
-      return { briefingVisible, tabNames, hasRoutesOrder: routesText.includes('WebMCP'), hasMandate: agendaText.includes('Mandato Delegado'), hasAutonomy: memoryText.includes('Autonomia Conquistada') };
+      return {
+        briefingVisible,
+        tabNames,
+        hasRoutesOrder: routesText.includes('WebMCP'),
+        hasMandate: agendaText.includes('Mandato Delegado'),
+        hasAutonomy: memoryText.includes('Autonomia Conquistada'),
+        hasStepper: document.querySelectorAll('.grokbot-stepper .grokbot-step-row').length === 4,
+        hasInlineReceipt: !!document.querySelector('.grokbot-inline-receipt'),
+        hasConfirmCard: !!document.querySelector('.grokbot-confirm-card'),
+        hasTechDrawer: !!document.querySelector('.grokbot-tech-drawer'),
+        hasProviderCards: document.querySelectorAll('#ai-provider-cards .grokbot-provider-card').length === 4
+      };
     })()`);
     assert.equal(grokbotSurface.briefingVisible, true, 'barra do Bot Especialista ativo está visível');
     assert.deepEqual(grokbotSurface.tabNames, ['chat', 'agenda', 'memory', 'routes', 'history'], 'painel do Bot tem as 5 abas GrokBot');
     assert.equal(grokbotSurface.hasRoutesOrder, true, 'aba Rotas exibe a ordem de preferência e rotas aprendidas');
     assert.equal(grokbotSurface.hasMandate, true, 'aba Agenda exibe gatilhos por evento e mandato com envelope');
     assert.equal(grokbotSurface.hasAutonomy, true, 'aba Memória exibe escada de autonomia conquistada');
+    assert.equal(grokbotSurface.hasStepper, true, 'conversa exibe a linha do tempo vertical de passos igual às imagens de conceito');
+    assert.equal(grokbotSurface.hasInlineReceipt, true, 'conversa exibe a faixa verde de ação recente com botão Desfazer');
+    assert.equal(grokbotSurface.hasConfirmCard, true, 'conversa exibe o cartão rico Confirmar envio? com Aprovar e Recusar');
+    assert.equal(grokbotSurface.hasTechDrawer, true, 'conversa exibe a gaveta </> Técnico com motor, MCP, firewall e personalização');
+    assert.equal(grokbotSurface.hasProviderCards, true, 'Configurações exibe os cartões visuais de provedor de IA');
 
     await window.webContents.executeJavaScript("window.app.openLibrary('downloads')");
     assert.equal(await window.webContents.executeJavaScript("document.querySelector('.library-tab[aria-pressed=\"true\"]')?.dataset.modo"), 'downloads', 'modo ativo da biblioteca atualiza seu estado acessível');

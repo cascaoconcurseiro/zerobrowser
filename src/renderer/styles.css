@@ -1857,3 +1857,394 @@ body.dark .ai-working-status-pill {
 }
 
 
+
+
+/* ==========================================================================
+   DESIGN CONCEITO VISUAL GROKBOT (Imagens 1 a 5 — Linha do tempo, Aprovação
+   Rica, Faixa Desfazer, Equipe em Cards, IA e Segurança, Gaveta Técnica)
+   ========================================================================== */
+
+@media (min-width: 721px) {
+  #app.delegation-mode #btn-stop-task.hidden {
+    display: inline-flex !important;
+  }
+}
+
+.delegation-top-stop {
+  background: #c93528 !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.16) !important;
+  border-radius: 999px !important;
+  font-weight: 600 !important;
+  padding: 5px 12px !important;
+}
+
+.delegation-top-stop:hover {
+  background: #b12b1f !important;
+}
+
+.tab-control-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 12px;
+  background: color-mix(in srgb, var(--active-bot-accent, #168f72) 15%, var(--bg-secondary));
+  border-bottom: 1px solid color-mix(in srgb, var(--active-bot-accent, #168f72) 32%, var(--border));
+}
+
+.tab-control-bot-badge {
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: var(--active-bot-accent, #168f72);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.grokbot-briefing-bar {
+  padding: 10px 12px;
+  background: var(--bg-primary);
+  border-bottom: 1px solid var(--border);
+}
+
+.grokbot-active-ring {
+  width: 38px;
+  height: 38px;
+  border-width: 2.5px;
+  border-color: var(--bot-accent, var(--active-bot-accent, #168f72));
+  color: var(--bot-accent, var(--active-bot-accent, #168f72));
+  background: color-mix(in srgb, var(--bot-accent, #168f72) 10%, var(--bg-primary));
+}
+
+.grokbot-briefing-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.grokbot-briefing-title-row strong {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.grokbot-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px !important;
+  font-weight: 600;
+  color: #168f72 !important;
+}
+
+/* Cartão de pedido do usuário estilo Conceito Visual */
+.grokbot-user-prompt-card {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--fg-primary) 5%, var(--bg-secondary));
+  border: 1px solid var(--border);
+  font-size: 13px;
+}
+
+.grokbot-user-prompt-time {
+  font-size: 11px;
+  color: var(--fg-secondary);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+/* Linha do tempo vertical conectada (Abrindo loja -> Comparando preços -> Preparando resumo) */
+.grokbot-stepper {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 6px 4px 6px 6px;
+}
+
+.grokbot-step-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  position: relative;
+  padding-bottom: 12px;
+}
+
+.grokbot-step-row:last-child {
+  padding-bottom: 2px;
+}
+
+.grokbot-step-row:not(:last-child)::before {
+  content: "";
+  position: absolute;
+  left: 9px;
+  top: 20px;
+  bottom: 0;
+  width: 2px;
+  background: color-mix(in srgb, #168f72 35%, var(--border));
+}
+
+.grokbot-step-dot {
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: #168f72;
+  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  flex-shrink: 0;
+  z-index: 1;
+}
+
+.grokbot-step-dot.is-pending {
+  background: color-mix(in srgb, var(--fg-secondary) 30%, var(--bg-secondary));
+  color: var(--fg-secondary);
+}
+
+.grokbot-step-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.grokbot-step-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.grokbot-step-top strong {
+  font-size: 12.5px;
+  color: var(--fg-primary);
+}
+
+.grokbot-step-top time {
+  font-size: 11px;
+  color: var(--fg-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.grokbot-step-body span {
+  font-size: 11.5px;
+  color: var(--fg-secondary);
+}
+
+/* Faixa verde-menta de ação recente com botão Desfazer (Imagens 3, 4 e 5) */
+.grokbot-inline-receipt {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 9px;
+  background: color-mix(in srgb, #168f72 14%, var(--bg-secondary));
+  border: 1px solid color-mix(in srgb, #168f72 32%, var(--border));
+  font-size: 12px;
+}
+
+.grokbot-inline-receipt-left {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.grokbot-inline-receipt-btn {
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg-primary);
+  color: var(--fg-primary);
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+/* Cartão Rico "Confirmar envio? / Confirmar compra?" (Imagens 1 a 5) */
+.grokbot-confirm-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--bg-secondary);
+  border: 1.5px solid color-mix(in srgb, #168f72 38%, var(--border));
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+}
+
+.grokbot-confirm-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.grokbot-confirm-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.grokbot-confirm-header-left strong {
+  font-size: 14px;
+  color: var(--fg-primary);
+}
+
+.grokbot-confirm-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 9px 10px;
+  border-radius: 8px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  font-size: 11.5px;
+}
+
+.grokbot-confirm-row {
+  display: flex;
+  gap: 6px;
+}
+
+.grokbot-confirm-row b {
+  color: var(--fg-secondary);
+  min-width: 62px;
+}
+
+.grokbot-confirm-product {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-top: 6px;
+  margin-top: 4px;
+  border-top: 1px dashed var(--border);
+}
+
+.grokbot-confirm-price {
+  font-size: 14px;
+  font-weight: 700;
+  color: #168f72;
+  font-variant-numeric: tabular-nums;
+}
+
+.grokbot-confirm-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.grokbot-btn-approve {
+  min-height: 38px;
+  border-radius: 8px;
+  border: 1px solid #147a5e;
+  background: #168f72;
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.grokbot-btn-reject {
+  min-height: 38px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-primary);
+  color: var(--fg-primary);
+  font-weight: 600;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+/* Gaveta Técnica Expansível </> Técnico (detalhes da execução) */
+.grokbot-tech-drawer {
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--bg-secondary);
+  padding: 6px 10px;
+  font-size: 11.5px;
+}
+
+.grokbot-tech-drawer summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--fg-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.grokbot-tech-metrics {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-top: 8px;
+  font-variant-numeric: tabular-nums;
+}
+
+.grokbot-tech-metric {
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+}
+
+/* Cards de Provedor de IA e Cofre Isolado em Configurações (Imagens 1 e 2) */
+.grokbot-provider-cards {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.grokbot-provider-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 9px 11px;
+  border-radius: 10px;
+  border: 1.5px solid var(--border);
+  background: var(--bg-primary);
+  color: var(--fg-primary);
+  cursor: pointer;
+  text-align: left;
+}
+
+.grokbot-provider-card.ativo {
+  border-color: #168f72;
+  background: color-mix(in srgb, #168f72 12%, var(--bg-primary));
+}
+
+.grokbot-provider-card span {
+  font-size: 11px;
+  color: var(--fg-secondary);
+}
+
+.grokbot-isolated-vault-badge {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 9px 11px;
+  border-radius: 10px;
+  background: color-mix(in srgb, #1677d9 12%, var(--bg-primary));
+  border: 1px solid color-mix(in srgb, #1677d9 32%, var(--border));
+  margin: 8px 0;
+  font-size: 11.5px;
+}
