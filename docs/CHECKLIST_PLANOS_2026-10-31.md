@@ -11,12 +11,12 @@ Guia completo de leitura e ordem de construção para outra IA (GPT): `docs/LEIA
 - `docs/PLANO_CONTROLE_TOTAL_IA.md` — MCP completo, console/rede, permissões por cliente.
 
 ## 0. Estado e pendências imediatas
-- [x] Análise da árvore principal: `npm test` 333/333 e `npm audit --omit=dev` zero (31/10/2026, executado nesta sessão).
-- [ ] Commitar as 29 alterações da árvore principal com a suíte verde (Wesley decide quando).
-- [ ] Corrigir `temperature: 0.2` enviada a modelos OpenAI que a rejeitam (`src/automation/service/index.js`, perto da linha 2042) — provável, não testado. Teste de regressão.
-- [ ] Filtrar a lista de modelos da OpenAI para chat com ferramentas (`src/automation/model-catalog.js`, `normalizeModel`). Teste de regressão.
-- [ ] Backup do perfil antes de testar no pacote instalado.
-- [ ] Decidir a pasta de trabalho: estas anotações estão na cópia `analise-projeto-atual-bf8fc8`; a árvore principal é onde o trabalho continua.
+- [x] Análise da árvore principal: `npm test` 333/333 (atualizado para 374/374 na `0.1.52-dev`) e `npm audit --omit=dev` zero (31/10/2026).
+- [x] Commitar as 29 alterações da árvore principal com a suíte verde (commit `0c56c26` e entregas até `6e037d1`).
+- [x] Corrigir `temperature: 0.2` enviada a modelos OpenAI que a rejeitam (`src/automation/service/agent-runtime.js`, coberto em `test/provider-metrics.test.js`).
+- [x] Filtrar a lista de modelos da OpenAI para chat com ferramentas (`src/automation/model-catalog.js`, `normalizeModel`, coberto em `test/model-catalog.test.js`).
+- [x] Backup da instalação antes de testar no pacote instalado (`backups/2026-10-31-before-0.1.52-install/`, 184 arquivos) e perfil principal preservado.
+- [x] Decidir a pasta de trabalho: documentos copiados de `analise-projeto-atual-bf8fc8` para `docs/` da árvore principal.
 
 ## 1. Posicionamento e concorrentes (`PLANO_SUPERAR_CONCORRENTES.md`)
 - [ ] Confirmar o nicho: navegador-agente controlável para usuários técnicos.
@@ -69,7 +69,7 @@ Guia completo de leitura e ordem de construção para outra IA (GPT): `docs/LEIA
 - [x] Avatares: símbolo de traço dentro do anel colorido (seção 11b do plano), com iniciais ou imagem própria como alternativa (decidido em 31/10/2026; implementação pendente).
 - [ ] Decidir: trilho à esquerda ou na barra de abas, logotipo final.
 - [ ] Escolher e desenhar o conjunto de cerca de 24 símbolos e a paleta de 8 cores de bots.
-- [ ] Tokens: anel de estado, paleta de 8 cores de bots com contraste verificado, escala de 4px.
+- [x] Tokens: anel de estado, paleta de 8 cores de bots com contraste verificado, escala de 4px (`0.1.53-dev`, validado em `test/bot-avatar-catalog.test.js` e `scripts/electron-delegation-layout.integration.js`).
 - [ ] Protótipo HTML dos fluxos criar bot, aprovar e assumir; teste com 5 pessoas (4 de 5 concluem sozinhas).
 - [ ] Teste de 5 segundos do trilho (acertar estado de 4 de 5 avatares).
 - [ ] Trilho + painel do bot; cartão de aprovação; comprovante por execução; fluxo Ensinar; Central; primeira abertura.

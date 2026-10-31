@@ -6,7 +6,7 @@ Navegador Electron para Windows com agente integrado à OpenAI, OpenRouter e Dee
 
 ## Estado atual (2026-10-31)
 
-Código-fonte em **0.1.52-dev**. A .52 corrige a sobreposição visual da Central, separa Bots ativos/arquivados e deixa o painel Delegar mais estreito e ajustável. `npm test` passou 374/374 e os smokes de UI/layout passaram; build, inspeção no executável e instalação estão pendentes em `HANDOFF.md`. Consulte `CHECKLIST.md` para a ordem ativa.
+Código-fonte em **0.1.53-dev** (instalada e validada: **0.1.52-dev**). A .53 adiciona os tokens do anel de estado sem depender só de cor, a paleta de 8 cores de Bots com contraste ≥ 3:1 nos dois temas, o indicador de aba controlada com botão `Assumir` / `Devolver ao bot` e a etiqueta de reversibilidade no cartão de aprovação. Consulte `CHECKLIST.md` e `docs/CHECKLIST_GERAL_PROJETO.md` para a ordem ativa.
 
 O comparativo em `docs/COMPARATIVO_CONCORRENTES_2026-10-28.md` avalia prontidão pública por rubrica editorial; não há base para participação de mercado, comparação de desempenho ou qualidade por ranking. Não houve chamada de provedor nesta fatia.
 

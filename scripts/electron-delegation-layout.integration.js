@@ -73,6 +73,7 @@ const stubs = {
   'browser:switch-tab': () => ({ tabId: 'delegation-layout-tab' }),
   'browser:set-bookmarks-bar': () => true,
   'automation:jobs': () => [],
+  'automation:cancel-agent': () => true,
   'automation:memory': () => [],
   'ai:get-config': () => ({ provider: 'openrouter', model: '', hasApiKey: false, keyHint: '' }),
   'flame:status': () => ({ available: false }),
@@ -133,6 +134,7 @@ app.whenReady().then(async () => {
       window.setSize(Math.ceil(viewport.width / displayScaleFactor), Math.ceil(viewport.height / displayScaleFactor));
       window.center();
       await new Promise((resolve) => setTimeout(resolve, 100));
+      await window.webContents.executeJavaScript('window.app.syncDelegationPanelWidth()');
       const nativeBounds = window.getBounds();
 
       const layout = await window.webContents.executeJavaScript(`(() => {
@@ -309,6 +311,55 @@ app.whenReady().then(async () => {
     assert.equal(splitter.after, splitter.before + 24, `tecla de seta aumenta a largura pelo passo previsto (${JSON.stringify(splitter)})`);
     assert.equal(splitter.valueNow, splitter.after, 'ARIA anuncia a largura efetivamente aplicada');
     assert.equal(splitter.panel, splitter.after, 'conversa acompanha a largura ajustada');
+
+    const takeoverAndStates = await window.webContents.executeJavaScript(`(async () => {
+      window.app.aiRunning = true;
+      window.app.runningAgentTabId = window.app.activeTabId;
+      window.app.renderBotRail();
+      window.app.syncControlledTabIndicator();
+      const currentAvatarWorking = document.querySelector('#bot-rail-list .bot-avatar[aria-current="true"]');
+      const workingState = {
+        state: currentAvatarWorking?.dataset.botState,
+        label: currentAvatarWorking?.getAttribute('aria-label') || '',
+        bannerVisible: !document.getElementById('tab-control-banner').classList.contains('hidden'),
+        bannerText: document.getElementById('tab-control-label').textContent,
+        actionText: document.getElementById('btn-tab-takeover').textContent,
+        tabControlled: document.querySelector('.tab.active')?.classList.contains('tab-controlled') === true
+      };
+
+      document.getElementById('btn-tab-takeover').click();
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      const currentAvatarPaused = document.querySelector('#bot-rail-list .bot-avatar[aria-current="true"]');
+      const pausedState = {
+        state: currentAvatarPaused?.dataset.botState,
+        badge: currentAvatarPaused?.dataset.stateBadge,
+        label: currentAvatarPaused?.getAttribute('aria-label') || '',
+        bannerVisible: !document.getElementById('tab-control-banner').classList.contains('hidden'),
+        bannerPausedClass: document.getElementById('tab-control-banner').classList.contains('is-paused'),
+        actionText: document.getElementById('btn-tab-takeover').textContent
+      };
+
+      document.getElementById('btn-tab-takeover').click();
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      const currentAvatarIdle = document.querySelector('#bot-rail-list .bot-avatar[aria-current="true"]');
+      const resumedState = {
+        state: currentAvatarIdle?.dataset.botState,
+        bannerHidden: document.getElementById('tab-control-banner').classList.contains('hidden')
+      };
+
+      return { workingState, pausedState, resumedState };
+    })()`);
+    assert.equal(takeoverAndStates.workingState.state, 'working', 'avatar mostra estado trabalhando quando o agente roda');
+    assert.match(takeoverAndStates.workingState.label, /trabalhando/, 'nome acessível inclui estado trabalhando');
+    assert.equal(takeoverAndStates.workingState.bannerVisible, true, 'faixa de controle da aba aparece enquanto o agente roda');
+    assert.equal(takeoverAndStates.workingState.actionText, 'Assumir', 'botão Assumir fica disponível na faixa da aba');
+    assert.equal(takeoverAndStates.workingState.tabControlled, true, 'aba ativa recebe destaque visual de aba controlada');
+    assert.equal(takeoverAndStates.pausedState.state, 'paused', 'clicar em Assumir muda o anel do Bot para pausado');
+    assert.equal(takeoverAndStates.pausedState.badge, '‖', 'estado pausado inclui selo não dependente de cor');
+    assert.match(takeoverAndStates.pausedState.label, /pausado por você/, 'nome acessível inclui estado pausado por você');
+    assert.equal(takeoverAndStates.pausedState.bannerPausedClass, true, 'faixa reflete estado pausado');
+    assert.equal(takeoverAndStates.pausedState.actionText, 'Devolver ao bot', 'botão muda para Devolver ao bot após assumir');
+    assert.equal(takeoverAndStates.resumedState.bannerHidden, true, 'devolver ao bot sem prompt pendente recolhe a faixa de pausa');
 
     process.stdout.write(JSON.stringify({ status: 'PASS', viewports, measurements, focus }) + '\n');
   } catch (error) {

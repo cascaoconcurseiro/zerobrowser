@@ -2,12 +2,21 @@
 
 ## Estado atual
 
-- Código em `0.1.52-dev`; a .51 está instalada. A janela de QA confirmou a sobreposição da Central; o código .52 a corrige e também organiza os Bots e redimensiona o painel Delegar. Build e inspeção no executável .52 ainda pendentes.
-- A aprovação de ações no chat e a regra de autonomia dos Bots foram concluídas na .50. A .51 organizou a Central; esta fatia .52 completa os estados de arquivamento e corrigiu a sobreposição visual.
+- Código em `0.1.53-dev`; a `0.1.52` foi instalada e validada (incluindo backup da `.51` e verificação do perfil `Principal`).
+- Na fatia `0.1.53-dev` (Design e UX): implementados os tokens de espaçamento (escala de `4px`), paleta de 8 cores de Bots com contraste WCAG ≥ `3:1` verificado nos temas claro e escuro (`BOT_ACCENT_PALETTE` e `BOT_STATE_COLORS`), anel de estado nunca só por cor (`idle`, `working`, `needs-attention` `!`, `error` `×`, `paused` `‖` + nome acessível), indicador na aba controlada (`.tab-controlled` + `#tab-control-banner`), botão `Assumir` / `Devolver ao bot` e etiqueta explícita de reversibilidade no cartão de aprovação.
+
+## Entrega atual — Tokens de estado, paleta 8 cores, indicador de aba controlada e Assumir (0.1.53-dev)
+
+- [x] Paleta de 8 cores de Bots (`BOT_ACCENT_PALETTE`) e cores de estado (`BOT_STATE_COLORS`) com contraste ≥ `3:1` verificado por teste automatizado em fundos claros e escuros.
+- [x] Tokens de espaçamento na escala de `4px` (`--space-1` a `--space-12`) e anel de estado dos avatares combinando cor, traço (`solid`, `dashed`, `dotted`, `double`), selo (`!`, `×`, `‖`) e texto acessível.
+- [x] Indicador na aba controlada (`.tab-controlled` + `#tab-control-banner`) e botão `Assumir` / `Devolver ao bot` pausando imediatamente o agente.
+- [x] Etiqueta explícita de reversibilidade (`Reversível`, `Parcialmente reversível`, `Não reversível`) no cartão de aprovação no chat.
+- [x] Testes automatizados (`npm test` 375/375, `npm run test:delegation-layout` PASS, `npm run test:ui` PASS).
+- [ ] Próximo passo de Design/UX: recibo pós-ação com botão `Desfazer` para ações reversíveis e barra de comando por intenção (`Ctrl+K`).
 - Este arquivo contém apenas a ordem ativa e o backlog priorizado. O inventário cronológico antigo foi preservado em `docs/CHECKLIST_HISTORICO.md`; itens abertos lá não são tarefas autorizadas/ativas até serem promovidos para cá.
 - Planos em `docs/PLANO_*.md` são propostas. Confirmar cada capacidade no código e no executável antes de mudar status para concluído.
 
-## Entrega atual — Central, ciclo dos Bots e divisor Delegar (0.1.52-dev)
+## Entrega concluída — Central, ciclo dos Bots e divisor Delegar (0.1.52-dev)
 
 - [x] Central oculta e torna inerte o chat subjacente; fechar restaura chat e foco.
 - [x] Separar Bots Ativos/Arquivados; arquivar/restaurar sem mover dados, cookies, login ou avatar; bloquear novas aberturas no processo principal.
@@ -17,8 +26,8 @@
 - [x] Redimensionar e centralizar os sprites dentro do círculo.
 - [x] `npm test` 374/374; `npm run test:ui` PASS; `npm run test:delegation-layout` PASS em seis tamanhos; revisão estática independente sem falhas concretas.
 - [x] Build .52 (`dist/win-unpacked/Zero Browser.exe` e `dist/Zero Browser Setup 0.1.52-dev.exe`), confirmação no executável com perfil QA isolado (Central substituindo o chat, divisor `476px -> 500px`, sprites centralizados `delta=0` e arquivar/restaurar Bot) e hashes SHA-256 gerados.
-- [ ] Backup da .51 instalada, commit local da .52, instalar depois do commit e abrir pelo perfil normal (sem `ZERO_USER_DATA` de QA).
-- [ ] Registrar a verificação final pós-instalação (atalhos, versão instalada e perfil padrão).
+- [x] Backup da .51 instalada (`backups/2026-10-31-before-0.1.52-install/`, 184 arquivos), commit local `6e037d1`, instalação da .52 (`ExitCode: 0`) e abertura no perfil normal (`Principal`, `deepseek` / `deepseek-flash`, `hasApiKey: true`).
+- [x] Registrar a verificação final pós-instalação (atalhos Desktop/Start Menu `True`, versão instalada `0.1.52.0` e hashes idênticos ao pacote).
 
 ## Entrega concluída — layout Delegar e Central de Bots (0.1.51-dev)
 

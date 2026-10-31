@@ -18,6 +18,9 @@ class ZeroBrowserApp {
     this.botAvatarSheets = new Map();
     this.pendingApprovalCards = new Map();
     this.approvalUiReady = false;
+    this.takeoverState = null;
+    this.lastAgentErrorTabId = null;
+    this.lastAgentPrompt = '';
     this.init();
   }
 
@@ -92,6 +95,9 @@ class ZeroBrowserApp {
       aiModelStatus: document.getElementById('ai-model-status'),
       aiPrivacyNote: document.getElementById('ai-privacy-note-settings'),
       aiReadyStatus: document.getElementById('ai-ready-status'),
+      tabControlBanner: document.getElementById('tab-control-banner'),
+      tabControlLabel: document.getElementById('tab-control-label'),
+      btnTabTakeover: document.getElementById('btn-tab-takeover'),
       aiSession: document.getElementById('ai-session'),
       btnAiNewChat: document.getElementById('btn-ai-new-chat'),
       btnAiMemory: document.getElementById('btn-ai-memory'),
@@ -162,6 +168,7 @@ class ZeroBrowserApp {
       if (this.aiRunning) window.zeroBrowser.automation.cancelAgent(this.runningAgentTabId || this.activeTabId);
     });
     this.elements.btnBotCentral.addEventListener('click', () => this.toggleBotCentral());
+    this.elements.btnTabTakeover?.addEventListener('click', () => this.handleTabTakeoverAction());
     this.elements.btnBotCentralClose.addEventListener('click', () => this.closeBotCentral({ restoreFocus: true }));
     this.elements.btnBotCentralNew.addEventListener('click', () => {
       this.closeBotCentral();
@@ -766,6 +773,8 @@ class ZeroBrowserApp {
 
     window.zeroBrowser.browser.switchTab(tabId);
     this.activeTabId = tabId;
+    this.syncControlledTabIndicator();
+    this.renderBotRail();
     this.updateAddressBar();
   }
 
@@ -1455,6 +1464,9 @@ class ZeroBrowserApp {
     }
     if (pending.done) {
       this.pendingApprovalCards.delete(id);
+    this.renderBotRail();
+    if (!this.elements.botCentral.classList.contains('hidden')) this.renderBotCentral();
+    this.syncControlledTabIndicator();
       return;
     }
 
@@ -1488,6 +1500,13 @@ class ZeroBrowserApp {
       target.textContent = `Nome informado pela página (não confiável): ${String(request.targetName).slice(0, 160)}`;
       details.appendChild(target);
     }
+    const revMap = { reversivel: 'Reversível · pode desfazer', parcial: 'Parcialmente reversível', irreversivel: 'Não reversível · confirme antes de prosseguir' };
+    const revKey = ['reversivel', 'parcial', 'irreversivel'].includes(request.reversibility) ? request.reversibility : 'irreversivel';
+    const revBadge = document.createElement('span');
+    revBadge.className = 'ai-approval-reversibility';
+    revBadge.dataset.reversibility = revKey;
+    revBadge.textContent = revMap[revKey];
+    details.appendChild(revBadge);
     card.appendChild(details);
 
     const status = document.createElement('p');
@@ -1515,6 +1534,9 @@ class ZeroBrowserApp {
     this.elements.aiChat.appendChild(card);
     this.elements.aiChat.scrollTop = this.elements.aiChat.scrollHeight;
     Object.assign(pending, { card, status, buttons: [cancel, allow], rendering: false });
+    this.renderBotRail();
+    if (!this.elements.botCentral.classList.contains('hidden')) this.renderBotCentral();
+    this.syncControlledTabIndicator();
     cancel.focus();
   }
 
@@ -1557,6 +1579,9 @@ class ZeroBrowserApp {
       ? 'O pedido expirou; a ação foi cancelada.'
       : result.allowed === true ? 'Ação permitida uma vez.' : 'Ação cancelada; ela não foi executada.';
     this.pendingApprovalCards.delete(id);
+    this.renderBotRail();
+    if (!this.elements.botCentral.classList.contains('hidden')) this.renderBotCentral();
+    this.syncControlledTabIndicator();
     if (entry.card.contains(document.activeElement)) this.elements.aiInput.focus();
   }
 
@@ -1597,6 +1622,116 @@ class ZeroBrowserApp {
     if (!this.elements.botCentral.classList.contains('hidden')) this.renderBotCentral();
   }
 
+  getBotVisualState(bot) {
+    const isCurrent = bot?.id && bot.id === this.botTeam.currentProfileId;
+    const rawState = isCurrent
+      ? (this.pendingApprovalCards?.size > 0
+        ? 'needs-attention'
+        : this.aiRunning
+          ? 'working'
+          : (this.takeoverState && this.takeoverState.tabId === this.activeTabId)
+            ? 'paused'
+            : (this.lastAgentErrorTabId && this.lastAgentErrorTabId === this.activeTabId)
+              ? 'error'
+              : 'idle')
+      : (bot?.state || 'idle');
+    const map = {
+      idle: { state: 'idle', label: 'parado', badge: '' },
+      working: { state: 'working', label: 'trabalhando', badge: '' },
+      'needs-attention': { state: 'needs-attention', label: 'precisa de você', badge: '!' },
+      error: { state: 'error', label: 'erro', badge: '×' },
+      paused: { state: 'paused', label: 'pausado por você', badge: '‖' }
+    };
+    return map[rawState] || map.idle;
+  }
+
+  syncControlledTabIndicator() {
+    const currentBot = this.botTeam.bots.find((bot) => bot.id === this.botTeam.currentProfileId);
+    const actorName = currentBot ? `Bot ${currentBot.name}` : 'Agente';
+    const accent = currentBot?.avatar?.accent || '#168f72';
+    const controlledTabId = this.aiRunning ? (this.runningAgentTabId || this.activeTabId) : (this.takeoverState?.tabId || null);
+
+    for (const [tabId, entry] of this.tabs.entries()) {
+      const tabEl = entry?.element;
+      if (!tabEl) continue;
+      if (controlledTabId && tabId === controlledTabId) {
+        tabEl.classList.add('tab-controlled');
+        tabEl.style.setProperty('--tab-bot-accent', accent);
+        tabEl.dataset.controlledBy = actorName;
+      } else {
+        tabEl.classList.remove('tab-controlled');
+        tabEl.style.removeProperty('--tab-bot-accent');
+        delete tabEl.dataset.controlledBy;
+      }
+    }
+
+    const banner = this.elements.tabControlBanner;
+    const label = this.elements.tabControlLabel;
+    const btn = this.elements.btnTabTakeover;
+    if (!banner || !label || !btn) return;
+
+    if (this.aiRunning && (!this.runningAgentTabId || this.runningAgentTabId === this.activeTabId)) {
+      banner.classList.remove('hidden', 'is-paused');
+      label.textContent = this.pendingApprovalCards?.size > 0
+        ? `${actorName} aguarda sua aprovação nesta aba`
+        : `Aba controlada por ${actorName}`;
+      btn.textContent = 'Assumir';
+      btn.setAttribute('aria-label', `Assumir o controle da aba e pausar ${actorName}`);
+      btn.dataset.mode = 'takeover';
+    } else if (this.takeoverState && this.takeoverState.tabId === this.activeTabId) {
+      banner.classList.remove('hidden');
+      banner.classList.add('is-paused');
+      label.textContent = `Pausado — você assumiu o controle (${actorName})`;
+      btn.textContent = 'Devolver ao bot';
+      btn.setAttribute('aria-label', `Devolver o controle da aba para ${actorName}`);
+      btn.dataset.mode = 'resume';
+    } else {
+      banner.classList.add('hidden');
+      banner.classList.remove('is-paused');
+      delete btn.dataset.mode;
+    }
+  }
+
+  async handleTabTakeoverAction() {
+    if (this.aiRunning) {
+      const tabId = this.runningAgentTabId || this.activeTabId;
+      this.takeoverState = {
+        tabId,
+        prompt: this.lastAgentPrompt || '',
+        pausedAt: Date.now()
+      };
+      await this.denyPendingApprovals();
+      window.zeroBrowser.automation.cancelAgent(tabId).catch(() => {});
+      this.aiRunning = false;
+      this.runningAgentTabId = null;
+      if (!this.elements.botCentral.classList.contains('hidden')) this.renderBotCentral();
+      this.syncControlledTabIndicator();
+      this.elements.btnStopTask.classList.add('hidden');
+      this.renderBotRail();
+      if (!this.elements.botCentral.classList.contains('hidden')) this.renderBotCentral();
+      this.syncControlledTabIndicator();
+      if (!this.elements.botCentral.classList.contains('hidden')) this.renderBotCentral();
+      this.syncControlledTabIndicator();
+      this.showToast('Você assumiu o controle da aba. O agente foi pausado.', 'info');
+      return;
+    }
+    if (this.takeoverState && this.takeoverState.tabId === this.activeTabId) {
+      const saved = this.takeoverState;
+      this.takeoverState = null;
+      this.renderBotRail();
+      if (!this.elements.botCentral.classList.contains('hidden')) this.renderBotCentral();
+      this.syncControlledTabIndicator();
+      if (saved.resumeId) {
+        await this.sendAiMessage(saved.resumeId);
+      } else if (saved.prompt) {
+        this.elements.aiInput.value = saved.prompt;
+        await this.sendAiMessage();
+      } else {
+        this.showToast('Controle devolvido ao agente.', 'info');
+      }
+    }
+  }
+
   createBotAvatarButton(bot) {
     const isCurrent = bot.id === this.botTeam.currentProfileId;
     const button = document.createElement(isCurrent ? 'div' : 'button');
@@ -1613,7 +1748,22 @@ class ZeroBrowserApp {
     }
     button.className = 'bot-avatar';
     button.style.setProperty('--bot-accent', bot.avatar?.accent || '#168f72');
-    if (this.aiRunning && isCurrent) button.classList.add('is-working');
+    const visualState = this.getBotVisualState(bot);
+    button.dataset.botState = visualState.state;
+    if (visualState.badge) button.dataset.stateBadge = visualState.badge;
+    else delete button.dataset.stateBadge;
+    if (visualState.state === 'working') button.classList.add('is-working');
+    if (isCurrent && visualState.state !== 'idle') {
+      button.setAttribute('aria-label', bot.archived === true
+        ? `Bot ${bot.name}, ${visualState.label}, arquivado e aberto nesta janela`
+        : `Bot ${bot.name}, ${visualState.label}, perfil aberto nesta janela`);
+    } else if (isCurrent) {
+      button.setAttribute('aria-label', bot.archived === true
+        ? `Bot ${bot.name}, arquivado e aberto nesta janela`
+        : `Bot ${bot.name}, perfil aberto nesta janela`);
+    } else if (visualState.state !== 'idle') {
+      button.setAttribute('aria-label', `Abrir Bot ${bot.name}, ${visualState.label}`);
+    }
 
     const image = document.createElement('span');
     image.className = 'pixel-avatar';
@@ -1748,6 +1898,9 @@ class ZeroBrowserApp {
 
     const image = document.createElement('span');
     image.className = 'bot-avatar';
+    const visualState = this.getBotVisualState(bot);
+    image.dataset.botState = visualState.state;
+    if (visualState.badge) image.dataset.stateBadge = visualState.badge;
     image.setAttribute('aria-hidden', 'true');
     const sprite = document.createElement('span');
     sprite.className = 'pixel-avatar';
@@ -2617,6 +2770,10 @@ class ZeroBrowserApp {
 
     this.aiRunning = true;
     this.runningAgentTabId = this.activeTabId;
+    this.takeoverState = null;
+    this.lastAgentErrorTabId = null;
+    if (!resumeId && text) this.lastAgentPrompt = text;
+    this.syncControlledTabIndicator();
     this.elements.btnStopTask.classList.remove('hidden');
     this.renderBotRail();
     document.getElementById('app')?.classList.add('agent-active');
@@ -2705,12 +2862,14 @@ class ZeroBrowserApp {
         }
       } else {
         // Código de erro explícito (GUARDIAN_DENIED, OUTPUT_INVALID, NAME_BOX_NOT_FOUND…) ajuda a diagnosticar.
+        this.lastAgentErrorTabId = this.activeTabId;
         const etiqueta = result.code ? `Erro (${result.code})` : 'Erro';
         this.addAiMessage('error', `${etiqueta}: ${result.error}`);
         if (resumeId && previousContinue) previousContinue.disabled = false;
       }
     } catch (err) {
       if (workingBanner && workingBanner.parentNode) workingBanner.remove();
+      this.lastAgentErrorTabId = this.activeTabId;
       this.addAiMessage('error', 'Erro: ' + err.message);
       if (resumeId && previousContinue) previousContinue.disabled = false;
     } finally {
@@ -2720,6 +2879,8 @@ class ZeroBrowserApp {
       document.getElementById('browser-container')?.classList.remove('agent-active');
       this.aiRunning = false;
       this.runningAgentTabId = null;
+      if (!this.elements.botCentral.classList.contains('hidden')) this.renderBotCentral();
+      this.syncControlledTabIndicator();
       this.elements.btnStopTask.classList.add('hidden');
       this.renderBotRail();
       this.elements.btnAiSend.disabled = false;

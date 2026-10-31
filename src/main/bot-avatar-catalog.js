@@ -5,7 +5,23 @@ const { DatabaseSync } = require('node:sqlite');
 
 const SPRITE_COLUMNS = 10;
 const SPRITE_ROWS = 10;
-const ACCENTS = ['#129b78', '#1686d9', '#e98527', '#8256c7', '#de5d4d', '#326f61'];
+// Paleta de 8 tons dessaturados com contraste >= 3:1 contra fundos claros (#ffffff, #f3f4f2) e escuros (#202321, #282c29).
+const BOT_ACCENT_PALETTE = [
+  '#168f72',
+  '#2480d2',
+  '#8966d4',
+  '#c65684',
+  '#c5623f',
+  '#668730',
+  '#1a879d',
+  '#a17522'
+];
+const BOT_STATE_COLORS = {
+  attention: '#a86f14',
+  error: '#cc4b43',
+  paused: '#757d78'
+};
+const ACCENTS = BOT_ACCENT_PALETTE;
 const SHEETS = [
   { id: 'pixel-animals-01', file: 'pixel-animal-atlas-01.png', first: 1 },
   { id: 'pixel-animals-02', file: 'pixel-animal-atlas-02.png', first: 101 }
@@ -156,4 +172,4 @@ class BotAvatarCatalog {
   }
 }
 
-module.exports = { BotAvatarCatalog, SPRITE_COLUMNS, SPRITE_ROWS };
+module.exports = { BotAvatarCatalog, SPRITE_COLUMNS, SPRITE_ROWS, BOT_ACCENT_PALETTE, BOT_STATE_COLORS };

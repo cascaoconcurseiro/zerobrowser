@@ -1,4 +1,11 @@
-# Novidades — Zero Browser 0.1.52-dev
+# Novidades — Zero Browser 0.1.53-dev
+
+## Tokens de estado, paleta 8 cores, indicador de aba controlada e Assumir — 0.1.53-dev — 31/10/2026
+
+- Paleta de 8 cores de Bots (`BOT_ACCENT_PALETTE`) e cores de estado (`BOT_STATE_COLORS`) calibradas com contraste WCAG ≥ `3:1` em fundos claros e escuros.
+- Anel de estado nos avatares combinando cor, formato do traço (`solid`, `dashed`, `dotted`, `double`), selo (`!`, `×`, `‖`) e nome acessível (`trabalhando`, `precisa de você`, `pausado por você`, `erro`).
+- Indicador na aba controlada (`.tab-controlled` + faixa `#tab-control-banner`) com botão `Assumir` que pausa o agente na hora e oferece `Devolver ao bot`.
+- Cartão de aprovação no chat exibe explicitamente a classe de reversibilidade (`Reversível`, `Parcialmente reversível`, `Não reversível`).
 
 ## Central de Bots e painel Delegar — 0.1.52-dev — 31/10/2026
 

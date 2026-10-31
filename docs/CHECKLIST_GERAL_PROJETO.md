@@ -51,7 +51,7 @@ Este documento consolida **tudo o que já foi entregue (`[x]`)** e **tudo o que 
 - [x] Documentação atualizada (`package.json`, `README.md`, `docs/NOVIDADES.md`, `CHECKLIST.md`, `HANDOFF.md`).
 - [x] Suíte de testes automatizados passando (`npm test`, `npm run test:delegation-layout`, `npm run test:ui`, `npm run test:bot-runtime`).
 - [x] Gerar pacote da `0.1.52-dev` (`npm run build`) e calcular hashes SHA-256 dos artefatos.
-- [ ] Concluir validação da `0.1.52-dev` no executável empacotado com perfil QA isolado (`test:installed`), fazer backup da `0.1.51` instalada, criar commit local e instalar a `0.1.52-dev` verificando o perfil normal (sem `ZERO_USER_DATA`).
+- [x] Concluir validação da `0.1.52-dev` no executável empacotado com perfil QA isolado, fazer backup da `0.1.51` instalada (`backups/2026-10-31-before-0.1.52-install/`), criar commit local (`6e037d1`) e instalar a `0.1.52-dev` verificando o perfil normal (`Principal`, sem `ZERO_USER_DATA`).
 
 ---
 
@@ -69,14 +69,14 @@ Este documento consolida **tudo o que já foi entregue (`[x]`)** e **tudo o que 
 
 - [x] Mockup de referência do modo Delegar aprovado (`docs/conceitos/zero-browser-modo-delegar-0.1.45-dev.png` e `docs/CONCEITO_VISUAL_MODO_DELEGAR.md`).
 - [x] Preservação da moldura/banner Aurora Boreal (`zero-aurora-pan`, `.ai-working-banner`, `setAuroraActive`) quando a IA trabalha na aba.
-- [ ] **Tokens de estado e cores (`PLANO_DESIGN_UX.md` §3):**
-  - [ ] Anel de estado dos avatares sem depender só de cor: combinar texto no cabeçalho + formato do traço + cor (`Parado` sem anel, `Trabalhando` traço contínuo girando lento, `Pedindo aprovação` traço tracejado âmbar parado + selo `!`, `Erro` traço pontilhado vermelho + selo `×`, `Pausado por você` traço duplo cinza).
-  - [ ] Respeitar `prefers-reduced-motion: reduce` (sem rotação; apenas traço estático e texto).
-  - [ ] Paleta fixa de 8 cores de destaque de Bots com contraste mínimo de `3:1` no tema escuro e claro.
-  - [ ] Padronizar espaçamentos na escala de `4px` (`4, 8, 12, 16, 24, 32, 48`).
-- [ ] **Indicador na aba controlada e botão `Assumir` (`PLANO_DESIGN_UX.md` §4.2):**
-  - [ ] Faixa discreta no topo da aba controlada: `"Navegador controlado por [Nome do Bot]"` com botão `Assumir`.
-  - [ ] Clique ou digitação humana na aba controlada pausa o Bot imediatamente, muda o estado para `"Pausado — você assumiu"` e exibe botão `"Devolver ao bot"`.
+- [x] **Tokens de estado e cores (`PLANO_DESIGN_UX.md` §3 — concluído na `0.1.53-dev`):**
+  - [x] Anel de estado dos avatares sem depender só de cor: combina texto acessível + formato do traço + selo + cor (`Parado`, `Trabalhando`, `Precisa de você` com `!`, `Erro` com `×`, `Pausado por você` traço duplo com `‖`).
+  - [x] Respeita `prefers-reduced-motion: reduce`.
+  - [x] Paleta fixa de 8 cores de destaque de Bots (`BOT_ACCENT_PALETTE`) com contraste mínimo ≥ `3:1` verificado automaticamente no tema escuro e claro (`test/bot-avatar-catalog.test.js`).
+  - [x] Espaçamentos padronizados na escala de `4px` (`4, 8, 12, 16, 24, 32, 48`).
+- [x] **Indicador na aba controlada e botão `Assumir` (`PLANO_DESIGN_UX.md` §4.2 — concluído na `0.1.53-dev`):**
+  - [x] Destaque `.tab-controlled` na aba controlada e faixa `#tab-control-banner`: `"Aba controlada por [Nome do Bot]"` com botão `Assumir`.
+  - [x] Acionar `Assumir` pausa o Bot imediatamente, muda o estado para `"Pausado — você assumiu o controle"` e exibe botão `"Devolver ao bot"`.
 - [ ] **Cartão de aprovação e botão `Desfazer` (`PLANO_DESIGN_UX.md` §4.1 e §5.3):**
   - [ ] Cartão de aprovação na conversa mostrando o que vai acontecer, onde, etiqueta de reversibilidade (`Reversível`, `Parcialmente reversível`, `Não reversível`) e botões `Aprovar uma vez`, `Sempre neste site` (quando aplicável) e `Cancelar`.
   - [ ] Recibo pós-ação com botão `Desfazer` visível pelo tempo em que a reversão estiver disponível.

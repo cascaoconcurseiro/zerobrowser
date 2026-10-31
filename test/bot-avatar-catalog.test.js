@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { BotAvatarCatalog } = require('../src/main/bot-avatar-catalog');
+const { BotAvatarCatalog, BOT_ACCENT_PALETTE, BOT_STATE_COLORS } = require('../src/main/bot-avatar-catalog');
 
 const assetPath = path.join(__dirname, '../assets/bots');
 
@@ -75,4 +75,38 @@ test('profile synchronization removes deleted bots from the active roster', () =
   assert.deepEqual(active.map((bot) => bot.id), ['bot-two']);
   assert.throws(() => catalog.syncProfiles(null), /precisa ser uma lista/);
   assert.deepEqual(catalog.syncProfiles([]), []);
+}));
+
+test('8-color bot palette and state ring colors keep >= 3:1 WCAG contrast on light and dark backgrounds', () => withCatalog((catalog) => {
+  const hexToRgb = (hex) => [
+    Number.parseInt(hex.slice(1, 3), 16),
+    Number.parseInt(hex.slice(3, 5), 16),
+    Number.parseInt(hex.slice(5, 7), 16)
+  ];
+  const luminance = ([r, g, b]) => {
+    const channel = (value) => {
+      const s = value / 255;
+      return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+    };
+    return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b);
+  };
+  const contrast = (hexA, hexB) => {
+    const a = luminance(hexToRgb(hexA));
+    const b = luminance(hexToRgb(hexB));
+    return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+  };
+  const backgrounds = ['#ffffff', '#f3f4f2', '#f5f7f6', '#282c29', '#252c29', '#202321'];
+
+  assert.equal(BOT_ACCENT_PALETTE.length, 8);
+  assert.equal(new Set(BOT_ACCENT_PALETTE).size, 8);
+  for (const color of [...BOT_ACCENT_PALETTE, ...Object.values(BOT_STATE_COLORS)]) {
+    for (const bg of backgrounds) {
+      const ratio = contrast(color, bg);
+      assert.ok(ratio >= 3, `Esperado contraste >= 3:1 para ${color} sobre ${bg}, obteve ${ratio.toFixed(2)}:1`);
+    }
+  }
+
+  catalog.seed();
+  const usedAccents = new Set(catalog.list().map((avatar) => avatar.accent));
+  assert.equal(usedAccents.size, 8);
 }));
