@@ -7,7 +7,7 @@
 - Este arquivo contém apenas a ordem ativa e o backlog priorizado. O inventário cronológico antigo foi preservado em `docs/CHECKLIST_HISTORICO.md`; itens abertos lá não são tarefas autorizadas/ativas até serem promovidos para cá.
 - Planos em `docs/PLANO_*.md` são propostas. Confirmar cada capacidade no código e no executável antes de mudar status para concluído.
 
-## Entrega atual — layout Delegar e Central de Bots (0.1.51-dev)
+## Entrega concluída — layout Delegar e Central de Bots (0.1.51-dev)
 
 - [x] Alinhar a posição da Central ao trilho e ao painel reservado pelo processo principal, removendo o encobrimento pela página nativa.
 - [x] Organizar cabeçalho, contagem, lista rolável, identidade do Bot atual e ação de criação.
@@ -15,7 +15,7 @@
 - [x] Verificar UI e layout em quatro tamanhos; `npm test` 370/370 e `npm run test:ui` passaram.
 - [x] Build NSIS gerado, instalado e verificado; backup dos 184 arquivos e hashes registrados em HANDOFF.
 - [x] `test:installed` PASS com perfil temporário e endpoints loopback mockados.
-- [ ] Commit local e reinstalação após commit.
+- [x] Commit local `095728a`, reinstalação após o commit e smoke no executável.
 
 ## Próxima entrega — ciclo de vida reversível de Bots
 
