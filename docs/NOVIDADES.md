@@ -1,10 +1,21 @@
-# Novidades — Zero Browser 0.1.49-dev
+# Novidades — Zero Browser 0.1.50-dev
+
+## Aprovações e autonomia de Bots — 31/10/2026
+
+- O pedido de aprovação em Delegar agora aparece como cartão no chat quando o usuário habilita “Mostrar pedidos de aprovação no chat do agente”. O cartão mostra origem, ação e conteúdo da página identificado como não confiável; oferece apenas “Permitir uma vez” e “Cancelar”. O foco inicial fica em Cancelar.
+- Aprovações no chat só são usadas com o painel Delegar ativo. Fechar ou trocar de painel cancela pedidos pendentes; a interface exibe quando a ação foi cancelada ou o pedido expirou. Com o painel fechado, permanece o diálogo nativo.
+- O teste de Bots verifica perfil novo em `Sempre perguntar`, recusa e aceite humano ao elevar autonomia, redução automática de autonomia e proteções técnicas ainda ativas em `Permitir todas automaticamente`.
+- Validação local: `npm test` 370/370, `npm run test:ui` PASS, `npm run test:bot-runtime` PASS. O smoke do executável empacotado passou em Permitir/Cancelar via Enter, fechamento do painel e diálogo nativo. Revisão independente sem bypass; risco residual baixo apenas de ordem visual na transição. Nenhum endpoint externo foi chamado.
+- Instalador 0.1.50-dev gerado; aguarda commit, backup/instalação QA e smoke no executável instalado.
+
+## Histórico — 0.1.49-dev
 
 ## Correção do smoke instalado — 31/10/2026
 
 - O smoke `test:installed` agora segue o fluxo da tela: salva a chave no cofre, sincroniza o catálogo, seleciona o modelo e espera o handshake com um servidor local. O cenário mockado responde com uma ferramenta e depois uma resposta final, evitando repetição infinita.
 - A abertura do painel de IA no roteiro é idempotente e deixa de alternar um painel que já está aberto.
 - `npm run test:installed` passou contra o executável 0.1.48 instalado, usando perfil temporário e endpoints loopback mockados. Não houve chamada paga nem conexão com provedor real.
+- Depois do commit `fabe822`, 0.1.49 foi instalado; versão, hashes e atalhos foram conferidos e o smoke completo passou contra o executável instalado com perfil temporário. O produto não recebeu mudança de comportamento nesta versão.
 
 ## Histórico — 0.1.48-dev
 

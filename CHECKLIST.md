@@ -11,12 +11,29 @@
 - [x] Gerar o NSIS 0.1.48-dev: 130.429.999 bytes; SHA-256 `BC4F4E07F938A31ACF9FBC4C6495664D68FAB5185432BBBEF2B44B26BEF1663B`. Binário desempacotado `0.1.48.0`, SHA-256 `19BAD1328AA1E0524A085DD0903F7A481A5BF7AC9F6D59B954A69B0B5D0A4143`; `app.asar` SHA-256 `F856E9EDCA9282A8EF698437E9C2B02247826BEFE66AB1CEAD217DED54D5936E`.
 - [x] Commit local `c3af35f` e instalação QA de 0.1.48-dev; smoke do executável instalado passou com endpoints mockados e perfil temporário. NSIS sem assinatura Authenticode.
 
-## Ciclo ativo — 0.1.49-dev (integração/release: agente principal)
+## Ciclo concluído — 0.1.49-dev (integração/release: agente principal)
 
 - [x] Corrigir o smoke instalado para seguir o fluxo de salvar chave, escolher modelo e concluir handshake; abrir painel de forma idempotente.
 - [x] Validar `npm run test:installed` em Zero Browser 0.1.48-dev instalado; todos os cenários reportaram PASS com mocks loopback.
 - [x] `npm test` 370/370 e gerar NSIS 0.1.49-dev (130.430.072 bytes; SHA-256 `A578153B3F4106F894D19E6A401167A114E52E5FD6F32F3E64AF7BA26E87DB1B`); instalador sem assinatura Authenticode.
-- [ ] Fazer commit local, criar backup de 0.1.48-dev, instalar 0.1.49-dev em QA e verificar versão, hashes, atalhos e abertura.
+- [x] Commit `fabe822`; backup da versão 0.1.48 em `backups/2026-10-31-before-0.1.49-install/`; instalar 0.1.49-dev (exit code 0) e conferir versão `0.1.49.0`, hashes e atalhos.
+- [x] Rodar smoke completo no executável 0.1.49 instalado: PASS em perfil temporário, provedor mock loopback, AX/CUA, abas, DNT, download e aprovações.
+
+## Ciclo ativo — 0.1.50-dev (Bots: aprovação e autonomia)
+
+- [x] Ligar o pedido de aprovação do host ao cartão do chat; usar texto simples para conteúdo vindo da página e manter Cancelar como foco inicial.
+- [x] Restringir aprovação no chat ao painel Delegar ativo; fechar/sair do painel recusa as pendências; permitir uma vez ou cancelar.
+- [x] Expor a opção de apresentar aprovações no chat; manter diálogo nativo quando desligada ou quando outro painel estiver ativo.
+- [x] Tornar explícito no smoke Bot o default `always-ask`, a confirmação humana para elevar autonomia e a redução sem confirmação.
+- [x] `npm test` 370/370, `test:ui` PASS, `test:bot-runtime` PASS e checagem sintática dos arquivos alterados.
+- [x] Revisão independente sem bypass; risco residual baixo apenas de ordem visual em transição assíncrona.
+- [x] Smoke do executável empacotado: permitir/cancelar com Enter, fechar painel cancela sem nova chamada e fallback nativo; endpoints locais.
+- [x] Gerar NSIS 0.1.50-dev (130.431.885 bytes; SHA-256 `E25ADEDA06E204D188F1DAD2D8424A0B26E07F4DC268166759A48F65034E707A`); sem assinatura Authenticode.
+- [ ] Fazer commit local, backup de 0.1.49, instalar 0.1.50 e verificar versão, hashes, atalhos e smoke no executável instalado.
+
+## Próximo passo
+
+- [ ] Após fechar .50, retomar lifecycle/exclusão de Bots: impedir remoção enquanto qualquer processo usa o perfil e validar limpeza de dados/avatar. Escopo: `src/main/profiles.js`, `src/main/main.js`, Central de Bots e `scripts/bot-runtime.integration.js`.
 
 - [x] Receber entregas separadas de motor, segurança MCP/Bots, concorrentes, revisão de release e acessibilidade; resolver os achados antes do pacote.
 - [x] Abrir o app diretamente no modo Delegar e conferir visualmente a build empacotada no perfil QA isolado; o modo Navegar continua disponível no controle superior.

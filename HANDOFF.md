@@ -1,11 +1,22 @@
 # Handoff — Zero Browser
 
-## Candidato 0.1.49-dev — 31/10/2026
+## Candidato 0.1.50-dev — 31/10/2026
+
+- Implementado cartão acessível de aprovação no chat: origem/ação/alvo com texto seguro, foco inicial em Cancelar, decisões só de uma vez ou recusa e limpeza de estado após resposta/timeout. Ao fechar Delegar ou trocar para Configurações/Biblioteca, pendências são recusadas; painel Configurações não é confundido com painel do agente pelo host.
+- Configuração do painel adicionada em Configurações > Agente de IA · aprovações. O padrão continua desligado; com Delegar fechado, permanece o diálogo nativo. Não há decisão persistente “permitir este site”.
+- Atualizado teste Bot para conferir `always-ask` no primeiro início, aceite obrigatório para subir autonomia, redução sem confirmação e bloqueios de credenciais/CDP mesmo em `allow-all`.
+- Revisão independente: não encontrou bypass; host só aceita `allow`/`deny`, e mudanças de painel esperam a resposta. Risco residual baixo de ordenação visual durante transição assíncrona; a ação continua bloqueada até decisão.
+- Validações na árvore: `npm test` 370/370, `npm run test:ui` PASS, `npm run test:bot-runtime` PASS; smoke do executável empacotado passou com permitir/cancelar via Enter, fechamento do painel e fallback nativo. Nenhuma chamada externa.
+- Build: `dist/Zero Browser Setup 0.1.50-dev.exe` (130.431.885 bytes; SHA-256 `E25ADEDA06E204D188F1DAD2D8424A0B26E07F4DC268166759A48F65034E707A`); executável `0.1.50.0` SHA-256 `B510ECB080CE4667E8CB5AF2E3CA39FE0E127B0C2B265DEF48DD3570796D0131`; `app.asar` SHA-256 `F064B9D5199478D9BCC2E704766878ED99985B19F2FC6DB416878FB5305079B2`. Instalador sem assinatura Authenticode.
+- Próximo passo concreto: fazer o commit local, criar backup da instalação .49, instalar .50, conferir versão/hash/atalhos e repetir `test:installed` no executável instalado.
+
+## Histórico de 0.1.49-dev — 31/10/2026
 
 - Corrigido o smoke instalado: ele salvava a chave e o modelo fora da sequência real da interface e a simulação de conexão repetia a ferramenta indefinidamente. O roteiro agora salva a chave, sincroniza, seleciona o modelo e exige a chamada ao endpoint mock. Também abre o painel de IA de forma idempotente.
 - `npm run test:installed -- 'C:\Users\Wesley\AppData\Local\Programs\navegante\Zero Browser.exe'` passou contra 0.1.48-dev instalado: catálogo OpenRouter/DeepSeek, conexão mock, automação AX/CUA, abas, DNT, download e aprovações passaram em perfil temporário. Sem provedor real ou pago.
 - `npm test`: 370/370. Build gerado: `dist/Zero Browser Setup 0.1.49-dev.exe` (130.430.072 bytes; SHA-256 `A578153B3F4106F894D19E6A401167A114E52E5FD6F32F3E64AF7BA26E87DB1B`); executável `0.1.49.0` SHA-256 `9A1B322F53D8178FBFE124663720E272AF992A4DD6BB7B308D75676BD02F9CD7`; `app.asar` SHA-256 `DB7FF6EF6AC8F1B39C5D3EF5B17D02605139416B1A04FEDBFCD3B7E0D9B9C542`. Instalador sem assinatura Authenticode.
-- O código do produto não mudou nesta fatia; 0.1.49-dev atualiza o roteiro de validação instalado. Próximo passo: commit local; depois fazer backup da instalação 0.1.48 e instalar 0.1.49 em QA, verificando versão/hash/atalhos/tela.
+- Commit local `fabe822`; instalador executado com exit code 0. Em QA, versão, hashes e atalhos confirmados. Smoke do próprio executável 0.1.49 passou; perfil temporário, provedor somente mock loopback. Backup 0.1.48: `backups/2026-10-31-before-0.1.49-install/`.
+- Próximo passo concreto: aceitar aprovação/autonomia/ciclo de vida de Bots em `scripts/bot-runtime.integration.js` e no runtime MCP; não há chamada paga autorizada nesta fatia.
 
 ## Histórico de 0.1.48-dev — 31/10/2026
 

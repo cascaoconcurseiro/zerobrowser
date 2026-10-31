@@ -149,6 +149,30 @@ function evaluate(target, expression, timeoutMs = 10000) {
   });
 }
 
+function cdpCommand(target, method, params = {}, timeoutMs = 10000) {
+  return new Promise((resolve, reject) => {
+    const socket = new WebSocket(target.webSocketDebuggerUrl);
+    const id = Math.floor(Math.random() * 1e9);
+    const timer = setTimeout(() => { socket.terminate(); reject(new Error(`CDP ${method} timeout`)); }, timeoutMs);
+    socket.once('error', (error) => { clearTimeout(timer); reject(error); });
+    socket.on('message', (raw) => {
+      const message = JSON.parse(raw.toString());
+      if (message.id !== id) return;
+      clearTimeout(timer);
+      socket.close();
+      if (message.error) reject(new Error(message.error.message));
+      else resolve(message.result);
+    });
+    socket.once('open', () => socket.send(JSON.stringify({ id, method, params })));
+  });
+}
+
+async function pressEnter(target) {
+  const key = { key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13, text: '\r', unmodifiedText: '\r' };
+  await cdpCommand(target, 'Input.dispatchKeyEvent', { type: 'keyDown', ...key });
+  await cdpCommand(target, 'Input.dispatchKeyEvent', { type: 'keyUp', ...key });
+}
+
 async function waitForTarget(endpoint, predicate) {
   const deadline = Date.now() + 15000;
   while (Date.now() < deadline) {
@@ -606,17 +630,27 @@ async function main() {
   assert.equal(downloadedText, 'download fixture verified', 'Download usa a pasta configurada e preserva o conteúdo');
   await evaluate(mainTarget, `window.navegante.browser.closeTab(${JSON.stringify(settingsTab.tabId)})`);
 
-  async function verifySensitiveDecision(scenario, approvalButton, expectSubmitted) {
+  async function verifySensitiveDecision(scenario, approvalButton, expectSubmitted, usePanel = true) {
     currentScenario = scenario;
     requestCount = 0;
+    await evaluate(mainTarget, `window.navegante.store.set('automation.approvalInPanel', ${usePanel})`);
     const formHtml = `<!doctype html><html><head><title>Approval fixture ${scenario}</title></head><body><form onsubmit="event.preventDefault();document.body.dataset.submitted='yes'"><button type="submit">Place order</button></form></body></html>`;
     const formUrl = registerFixture(formHtml);
     const formTab = JSON.parse(await evaluate(mainTarget, `(async()=>{const tab=await window.navegante.browser.newTab(${JSON.stringify(formUrl)});await window.navegante.browser.switchTab(tab.tabId);return JSON.stringify(tab)})()`));
     const formTarget = await waitForTarget(endpoint, (target) => target.type === 'page' && target.url === formUrl);
     const resultPromise = evaluate(mainTarget, `window.navegante.automation.runAgent(${JSON.stringify(formTab.tabId)},'Clique em Place order na fixture.',false).then(JSON.stringify)`, 45000);
-    // Com o painel aberto a aprovação é um cartão no chat; o diálogo nativo é o fallback.
-    const clicouNoPainel = await evaluate(mainTarget, `(async()=>{const alvo=${JSON.stringify(approvalButton === 'Cancelar' ? 'Negar' : approvalButton)};for(let i=0;i<60;i++){const b=[...document.querySelectorAll('.ai-approval button')].find((x)=>x.textContent.trim()===alvo);if(b){b.click();return true}await new Promise((r)=>setTimeout(r,100))}return false})()`).catch(() => false);
-    if (!clicouNoPainel) await clickNativeApprovalButton(approvalButton);
+    if (usePanel) {
+      const cardState = await waitForPageValue(mainTarget, `(()=>{const card=document.querySelector('.ai-approval:not(.respondido)');return {visible:!!card,
+        cancelFocused:card?.querySelector('button')===document.activeElement,
+        labels:[...(card?.querySelectorAll('button')||[])].map(button=>button.textContent.trim())}})()`,
+        (state) => state.visible && state.cancelFocused && state.labels.includes('Permitir uma vez') && state.labels.includes('Cancelar'));
+      assert.equal(cardState.cancelFocused, true, 'O foco inicial da aprovação fica em Cancelar');
+      const focused = await evaluate(mainTarget, `(()=>{const card=document.querySelector('.ai-approval:not(.respondido)');const button=[...card.querySelectorAll('button')].find((item)=>item.textContent.trim()===${JSON.stringify(approvalButton)});button?.focus();return document.activeElement===button})()`);
+      assert.equal(focused, true, 'O botão escolhido pode receber foco por teclado');
+      await pressEnter(mainTarget);
+    } else {
+      await clickNativeApprovalButton(approvalButton);
+    }
     const result = JSON.parse(await resultPromise);
     const submitted = await evaluate(formTarget, `document.body.dataset.submitted || ''`);
     assert.equal(submitted === 'yes', expectSubmitted, `${scenario}: resultado do formulário deve corresponder à decisão; submitted=${submitted}, result=${JSON.stringify(result)}, providerCalls=${requestCount}, appOutput=${appOutput}, UIA=${uiAutomationOutput}`);
@@ -628,13 +662,37 @@ async function main() {
       assert.equal(result.cancelled, true, 'O resultado deve indicar cancelamento explícito');
       assert.equal(requestCount, 2, 'O modelo não deve receber nova chamada para contornar o cancelamento');
     }
+    if (usePanel) {
+      const status = await waitForPageValue(mainTarget, `[...document.querySelectorAll('.ai-approval.respondido .ai-approval-status')].at(-1)?.textContent || ''`, Boolean);
+      assert.match(status, expectSubmitted ? /permitida uma vez/i : /Ação cancelada/i);
+    }
     await evaluate(mainTarget, `window.navegante.browser.closeTab(${JSON.stringify(formTab.tabId)})`);
-    return { scenario, submitted, providerCalls: requestCount };
+    return { scenario, submitted, providerCalls: requestCount, decisionUi: usePanel ? 'panel-card' : 'native-dialog' };
   }
 
   const approval = await verifySensitiveDecision('allow-sensitive', 'Permitir uma vez', true);
   const cancellation = await verifySensitiveDecision('cancel-sensitive', 'Cancelar', false);
-  console.log(JSON.stringify({ status: 'PASS', app: executable, renderer: mainTarget.url, secondInstance: 'second process exited; primary renderer remained live', tab: created.tabId, provider: 'loopback mock', providerValidation, agentSteps: 3, axMutation: clicked, cuaInput, settings: { shortUrl, fullUrl, lightTheme, dntOff: noDnt.dnt, dntOn: withDnt.dnt, download: downloadedText }, approval, cancellation, elapsedMs: Date.now() - createdAt }, null, 2));
+  await evaluate(mainTarget, `window.navegante.store.set('automation.approvalInPanel', true)`);
+  currentScenario = 'close-panel-cancel';
+  requestCount = 0;
+  const closeFormUrl = registerFixture('<!doctype html><title>Close approval fixture</title><form onsubmit="event.preventDefault();document.body.dataset.submitted=\'yes\'"><button type="submit">Place order</button></form>');
+  const closeFormTab = JSON.parse(await evaluate(mainTarget, `(async()=>{const tab=await window.navegante.browser.newTab(${JSON.stringify(closeFormUrl)});await window.navegante.browser.switchTab(tab.tabId);return JSON.stringify(tab)})()`));
+  const closeFormTarget = await waitForTarget(endpoint, (target) => target.type === 'page' && target.url === closeFormUrl);
+  const closeResultPromise = evaluate(mainTarget, `window.navegante.automation.runAgent(${JSON.stringify(closeFormTab.tabId)},'Clique em Place order na fixture.',false).then(JSON.stringify)`, 45000);
+  await waitForPageValue(mainTarget, `Boolean(document.querySelector('.ai-approval:not(.respondido)'))`, Boolean);
+  await evaluate(mainTarget, `document.getElementById('btn-close-ai').click()`);
+  const closeResult = JSON.parse(await closeResultPromise);
+  const closeSubmitted = await evaluate(closeFormTarget, `document.body.dataset.submitted || ''`);
+  assert.equal(closeSubmitted, '', 'Fechar o painel recusa a aprovação pendente sem executar o formulário');
+  assert.equal(closeResult.cancelled, true, 'Fechar o painel encerra a tarefa como cancelada');
+  assert.equal(requestCount, 2, 'Fechar o painel não permite uma nova chamada ao modelo para contornar a recusa');
+  await waitForPageValue(mainTarget, `document.getElementById('ai-panel').classList.contains('hidden')`, Boolean);
+  await evaluate(mainTarget, `document.getElementById('btn-ai').click()`);
+  await waitForPageValue(mainTarget, `!document.getElementById('ai-panel').classList.contains('hidden')`, Boolean);
+  await evaluate(mainTarget, `window.navegante.browser.closeTab(${JSON.stringify(closeFormTab.tabId)})`);
+  const closeCancellation = { submitted: closeSubmitted, cancelled: closeResult.cancelled, providerCalls: requestCount };
+  const nativeApproval = await verifySensitiveDecision('native-allow-sensitive', 'Permitir uma vez', true, false);
+  console.log(JSON.stringify({ status: 'PASS', app: executable, renderer: mainTarget.url, secondInstance: 'second process exited; primary renderer remained live', tab: created.tabId, provider: 'loopback mock', providerValidation, agentSteps: 3, axMutation: clicked, cuaInput, settings: { shortUrl, fullUrl, lightTheme, dntOff: noDnt.dnt, dntOn: withDnt.dnt, download: downloadedText }, approval, cancellation, closeCancellation, nativeApproval, elapsedMs: Date.now() - createdAt }, null, 2));
 }
 
 main().catch((error) => {

@@ -11,12 +11,15 @@ class ZeroBrowserApp {
     this.aiRevealedStoredKey = false;
     this.botTeam = { bots: [], avatars: 0, currentProfileId: null };
     this.botAvatarSheets = new Map();
+    this.pendingApprovalCards = new Map();
+    this.approvalUiReady = false;
     this.init();
   }
 
   async init() {
     this.bindElements();
     this.bindEvents();
+    this.initApprovalUi();
     await this.loadSettings();
     await this.createInitialTab();
     await this.loadBotProfiles();
@@ -25,6 +28,7 @@ class ZeroBrowserApp {
     this.initSettingsIndex();
     this.initLibraryTabs();
     this.initChatSessions();
+    await this.flushPendingApprovalRequests();
     this.initAgentMemoryUi();
     this.initRunEvents();
     this.refreshJobsBanner();
@@ -180,6 +184,7 @@ class ZeroBrowserApp {
       'setting-show-bookmarks-bar': 'browser.showBookmarksBar',
       'setting-theme': 'theme',
       'setting-agent-approval-mode': 'automation.approvalMode',
+      'setting-agent-approval-in-panel': 'automation.approvalInPanel',
       'setting-block-3rd-party': 'privacy.blockThirdPartyCookies',
       'setting-do-not-track': 'privacy.doNotTrack',
       'setting-cdp-enabled': 'developer.cdpEnabled',
@@ -1158,6 +1163,7 @@ class ZeroBrowserApp {
     this.renderImportSources();
     document.getElementById('setting-theme').value = settings.theme || 'system';
     document.getElementById('setting-agent-approval-mode').value = settings['automation.approvalMode'] || 'low-risk';
+    document.getElementById('setting-agent-approval-in-panel').checked = settings['automation.approvalInPanel'] === true;
     document.getElementById('setting-block-3rd-party').checked = settings['privacy.blockThirdPartyCookies'] !== false;
     document.getElementById('setting-do-not-track').checked = settings['privacy.doNotTrack'] !== false;
     document.getElementById('setting-cdp-enabled').checked = settings['developer.cdpEnabled'] || false;
@@ -1227,6 +1233,7 @@ class ZeroBrowserApp {
 
   async toggleAiPanel(forceOpen = false) {
     const opening = forceOpen ? true : this.elements.aiPanel.classList.contains('hidden');
+    if (!opening) await this.denyPendingApprovals();
     this.elements.aiPanel.classList.toggle('hidden', !opening);
     this.elements.settingsPanel.classList.add('hidden');
     this.elements.libraryPanel.classList.add('hidden');
@@ -1241,7 +1248,7 @@ class ZeroBrowserApp {
     this.elements.addressBar.setAttribute('aria-label', opening ? 'Pesquisar, navegar ou delegar ao Bot' : 'Endereço ou pesquisa');
     this.elements.btnBotCentral.classList.toggle('hidden', !opening);
     if (!opening) this.closeBotCentral();
-    window.zeroBrowser.browser.setSidePanelOpen(opening, 'left');
+    window.zeroBrowser.browser.setSidePanelOpen(opening, 'left', opening ? 'ai' : 'none');
     if (opening) {
       await this.loadBotProfiles();
       await this.releasePageOverlay('panel');
@@ -1251,11 +1258,161 @@ class ZeroBrowserApp {
     } else await this.releasePageOverlay('panel');
   }
 
-  closeAiPanel() {
+  async closeAiPanel() {
+    await this.denyPendingApprovals();
     this.elements.aiPanel.classList.add('hidden');
     this.clearDelegationMode();
-    if (this.elements.settingsPanel.classList.contains('hidden')) window.zeroBrowser.browser.setSidePanelOpen(false);
+    if (this.elements.settingsPanel.classList.contains('hidden')) window.zeroBrowser.browser.setSidePanelOpen(false, 'left', 'none');
     if (this.elements.settingsPanel.classList.contains('hidden') && this.elements.libraryPanel.classList.contains('hidden')) this.releasePageOverlay('panel');
+  }
+
+  initApprovalUi() {
+    window.zeroBrowser.automation.onApprovalRequest((request) => this.showApprovalRequest(request));
+    window.zeroBrowser.automation.onApprovalEnd((result) => this.finishApprovalRequest(result));
+  }
+
+  async flushPendingApprovalRequests() {
+    this.approvalUiReady = true;
+    for (const [id, entry] of [...this.pendingApprovalCards]) {
+      if (entry.done) this.pendingApprovalCards.delete(id);
+      else if (entry.queued) await this.showApprovalRequest(entry.request);
+    }
+  }
+
+  async showApprovalRequest(request = {}) {
+    const id = String(request.id || '');
+    if (!id) return;
+    let pending = this.pendingApprovalCards.get(id);
+    if (!pending) {
+      pending = { request, card: null, status: null, buttons: [], replyPromise: null, replying: false, done: false, result: null };
+      this.pendingApprovalCards.set(id, pending);
+    }
+    if (pending.done || pending.card || pending.rendering) return;
+    if (!this.approvalUiReady) {
+      pending.queued = true;
+      return;
+    }
+    pending.queued = false;
+    pending.rendering = true;
+    if (!this.elements.botCentral.classList.contains('hidden')) this.closeBotCentral();
+    try {
+      if (this.elements.aiPanel.classList.contains('hidden')) await this.toggleAiPanel(true);
+    } catch (error) {
+      pending.rendering = false;
+      await this.respondToApproval(id, 'deny');
+      this.showToast(`Não foi possível exibir a aprovação; a ação foi cancelada. ${error.message}`, 'warning');
+      return;
+    }
+    if (pending.done) {
+      this.pendingApprovalCards.delete(id);
+      return;
+    }
+
+    const card = document.createElement('section');
+    card.className = 'ai-message assistant ai-approval';
+    card.dataset.approvalId = id;
+    card.setAttribute('role', 'group');
+    card.setAttribute('aria-label', 'Pedido de aprovação do agente');
+
+    const title = document.createElement('h3');
+    title.className = 'ai-approval-title';
+    title.textContent = 'O agente pede sua aprovação';
+    card.appendChild(title);
+
+    const details = document.createElement('div');
+    details.className = 'ai-approval-details';
+    const origin = document.createElement('p');
+    origin.textContent = `Site: ${String(request.origin || 'origem desconhecida').slice(0, 240)}`;
+    details.appendChild(origin);
+    const reason = document.createElement('p');
+    reason.textContent = `Ação: ${String(request.reason || 'ação que requer confirmação').slice(0, 400)}`;
+    details.appendChild(reason);
+    if (request.method) {
+      const method = document.createElement('p');
+      method.textContent = `Comando: ${String(request.method).slice(0, 120)}`;
+      details.appendChild(method);
+    }
+    if (request.targetName) {
+      const target = document.createElement('p');
+      target.className = 'ai-approval-untrusted';
+      target.textContent = `Nome informado pela página (não confiável): ${String(request.targetName).slice(0, 160)}`;
+      details.appendChild(target);
+    }
+    card.appendChild(details);
+
+    const status = document.createElement('p');
+    status.className = 'ai-approval-status';
+    status.setAttribute('role', 'status');
+    status.setAttribute('aria-live', 'polite');
+    status.textContent = 'A ação está pausada até você escolher.';
+    card.appendChild(status);
+
+    const actions = document.createElement('div');
+    actions.className = 'ai-approval-actions';
+    const cancel = document.createElement('button');
+    cancel.type = 'button';
+    cancel.className = 'btn-secondary';
+    cancel.textContent = 'Cancelar';
+    cancel.addEventListener('click', () => this.respondToApproval(id, 'deny'));
+    const allow = document.createElement('button');
+    allow.type = 'button';
+    allow.className = 'btn-primary';
+    allow.textContent = 'Permitir uma vez';
+    allow.addEventListener('click', () => this.respondToApproval(id, 'allow'));
+    actions.append(cancel, allow);
+    card.appendChild(actions);
+
+    this.elements.aiChat.appendChild(card);
+    this.elements.aiChat.scrollTop = this.elements.aiChat.scrollHeight;
+    Object.assign(pending, { card, status, buttons: [cancel, allow], rendering: false });
+    cancel.focus();
+  }
+
+  respondToApproval(id, decision) {
+    const entry = this.pendingApprovalCards.get(String(id));
+    if (!entry || entry.done || !['allow', 'deny'].includes(decision)) return Promise.resolve(false);
+    if (entry.replyPromise) return entry.replyPromise;
+    entry.replying = true;
+    entry.decision = decision;
+    entry.buttons.forEach((button) => { button.disabled = true; });
+    if (entry.status) entry.status.textContent = 'Registrando sua decisão…';
+    entry.replyPromise = (async () => {
+      try {
+        const accepted = await window.zeroBrowser.automation.approvalReply(String(id), decision);
+        if (!accepted && !entry.done) this.finishApprovalRequest({ id, decision: 'ended', allowed: false });
+        return accepted;
+      } catch (error) {
+        if (!entry.done) {
+          entry.replying = false;
+          entry.replyPromise = null;
+          entry.buttons.forEach((button) => { button.disabled = false; });
+          if (entry.status) entry.status.textContent = `Não foi possível registrar a decisão: ${error.message}`;
+        }
+        return false;
+      }
+    })();
+    return entry.replyPromise;
+  }
+
+  finishApprovalRequest(result = {}) {
+    const id = String(result.id || '');
+    const entry = this.pendingApprovalCards.get(id);
+    if (!entry) return;
+    entry.done = true;
+    entry.result = result;
+    if (!entry.card) return;
+    entry.buttons.forEach((button) => { button.disabled = true; });
+    entry.card.classList.add('respondido');
+    entry.status.textContent = result.decision === 'timeout'
+      ? 'O pedido expirou; a ação foi cancelada.'
+      : result.allowed === true ? 'Ação permitida uma vez.' : 'Ação cancelada; ela não foi executada.';
+    this.pendingApprovalCards.delete(id);
+    if (entry.card.contains(document.activeElement)) this.elements.aiInput.focus();
+  }
+
+  denyPendingApprovals() {
+    return Promise.all([...this.pendingApprovalCards].map(([id, entry]) =>
+      entry.replyPromise || this.respondToApproval(id, 'deny')));
   }
 
   clearDelegationMode() {
@@ -1398,14 +1555,15 @@ class ZeroBrowserApp {
     }
   }
 
-  toggleSettingsPanel() {
+  async toggleSettingsPanel() {
     const opening = this.elements.settingsPanel.classList.contains('hidden');
+    if (opening) await this.denyPendingApprovals();
     this.elements.settingsPanel.classList.toggle('hidden', !opening);
     this.elements.aiPanel.classList.add('hidden');
     this.clearDelegationMode();
     this.elements.libraryPanel.classList.add('hidden');
     this.closeAppMenu();
-    window.zeroBrowser.browser.setSidePanelOpen(opening);
+    window.zeroBrowser.browser.setSidePanelOpen(opening, 'right', opening ? 'settings' : 'none');
     if (opening) {
       this.freezePageForPanel();
       this.loadSettingsToUI();
@@ -1415,7 +1573,7 @@ class ZeroBrowserApp {
 
   closeSettingsPanel() {
     this.elements.settingsPanel.classList.add('hidden');
-    if (this.elements.aiPanel.classList.contains('hidden')) window.zeroBrowser.browser.setSidePanelOpen(false);
+    if (this.elements.aiPanel.classList.contains('hidden')) window.zeroBrowser.browser.setSidePanelOpen(false, 'right', 'none');
     if (this.elements.aiPanel.classList.contains('hidden') && this.elements.libraryPanel.classList.contains('hidden')) this.releasePageOverlay('panel');
   }
 
@@ -1468,12 +1626,13 @@ class ZeroBrowserApp {
   }
 
   async openExtensionsManager() {
+    await this.denyPendingApprovals();
     this.elements.settingsPanel.classList.remove('hidden');
     this.elements.aiPanel.classList.add('hidden');
     this.clearDelegationMode();
     this.elements.libraryPanel.classList.add('hidden');
     this.closeAppMenu();
-    window.zeroBrowser.browser.setSidePanelOpen(true);
+    window.zeroBrowser.browser.setSidePanelOpen(true, 'right', 'settings');
     await this.freezePageForPanel();
     this.loadSettingsToUI();
     this.loadAiSettings();
@@ -1624,6 +1783,7 @@ class ZeroBrowserApp {
 
   async openLibrary(mode) {
     const libraryWasOpen = !this.elements.libraryPanel.classList.contains('hidden');
+    await this.denyPendingApprovals();
     this.elements.libraryPanel.classList.remove('hidden');
     this.elements.aiPanel.classList.add('hidden');
     this.clearDelegationMode();
@@ -1642,7 +1802,7 @@ class ZeroBrowserApp {
       aba.setAttribute('aria-pressed', String(selected));
     }
     this.elements.librarySearch.value = '';
-    window.zeroBrowser.browser.setSidePanelOpen(true);
+    window.zeroBrowser.browser.setSidePanelOpen(true, 'right', 'library');
     await this.freezePageForPanel();
     await this.renderLibrary();
     if (!libraryWasOpen) this.elements.librarySearch.focus();
@@ -1650,7 +1810,7 @@ class ZeroBrowserApp {
 
   async closeLibrary() {
     this.elements.libraryPanel.classList.add('hidden');
-    if (this.elements.aiPanel.classList.contains('hidden') && this.elements.settingsPanel.classList.contains('hidden')) window.zeroBrowser.browser.setSidePanelOpen(false);
+    if (this.elements.aiPanel.classList.contains('hidden') && this.elements.settingsPanel.classList.contains('hidden')) window.zeroBrowser.browser.setSidePanelOpen(false, 'right', 'none');
     if (this.elements.aiPanel.classList.contains('hidden') && this.elements.settingsPanel.classList.contains('hidden')) await this.releasePageOverlay('panel');
   }
 

@@ -1473,6 +1473,14 @@ body.dark .ai-working-status-pill {
 /* Aprovação no chat: cartão destacado, botões desabilitados depois da resposta. */
 .ai-approval { border-color: var(--accent); }
 .ai-approval.respondido { opacity: 0.7; }
+.ai-approval-title { margin: 0 0 6px; font-size: 13px; }
+.ai-approval-details { display: grid; gap: 4px; font-size: 12px; overflow-wrap: anywhere; }
+.ai-approval-details p, .ai-approval-status { margin: 0; }
+.ai-approval-untrusted { color: var(--fg-secondary); }
+.ai-approval-status { margin-top: 8px; font-size: 12px; }
+.ai-approval-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.ai-approval-actions button { min-height: 40px; }
+.ai-approval-actions button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 /* Lista de tarefas pausadas. */
 .ai-job-row { display: flex; gap: 8px; align-items: center; margin-top: 6px; font-size: 12px; }

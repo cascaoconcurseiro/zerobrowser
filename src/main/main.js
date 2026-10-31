@@ -57,6 +57,7 @@ let quitCleanupStarted = false;
 let quitCleanupComplete = false;
 let sidePanelOpen = false;
 let sidePanelPosition = 'right';
+let sidePanelMode = 'none';
 const PROFILE_PARTITION = 'persist:navegante';
 const FLAME_PANEL_WIDTH = 420;
 let extensionHost = null;
@@ -151,34 +152,33 @@ async function initializeApp() {
     }
   });
   const pendingApprovals = new Map();
-  const approvalOrigins = new Set();
   handleMainUiIpc('automation:approval-reply', (event, { id, decision } = {}) => {
     const entry = pendingApprovals.get(String(id));
-    if (!entry) return false;
+    if (!entry || !['allow', 'deny'].includes(decision)) return false;
     pendingApprovals.delete(String(id));
-    const allowed = decision === 'allow' || decision === 'allow-site';
-    if (decision === 'allow-site' && entry.origin) approvalOrigins.add(entry.origin);
+    clearTimeout(entry.timeout);
+    const allowed = decision === 'allow';
+    mainWindow?.webContents?.send?.('automation:approval-end', { id: String(id), decision, allowed });
     entry.resolve(allowed);
     return true;
   });
 
   automationService.setApprovalHandler(async ({ origin, reason, targetName, method, tabId }) => {
     if (!mainWindow || mainWindow.isDestroyed()) return false;
-    if (origin && approvalOrigins.has(origin)) return true;
     // Painel aberto: a aprovação vira cartão no chat. Painel fechado: diálogo nativo.
     // Cartão no chat é opt-in (automation.approvalInPanel); o padrão continua o diálogo do sistema.
     const approvalInPanel = await store.get('automation.approvalInPanel').catch(() => false);
-    if (approvalInPanel === true && sidePanelOpen && mainWindow.webContents && !mainWindow.webContents.isDestroyed()) {
+    if (approvalInPanel === true && sidePanelMode === 'ai' && sidePanelOpen && mainWindow.webContents && !mainWindow.webContents.isDestroyed()) {
       const id = `ap-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-      mainWindow.webContents.send('automation:approval-request', { id, origin, reason, targetName, tabId, method });
       return await new Promise((resolve) => {
-        pendingApprovals.set(id, { resolve, origin });
-        setTimeout(() => {
+        const timeout = setTimeout(() => {
           if (!pendingApprovals.has(id)) return;
           pendingApprovals.delete(id);
-          mainWindow?.webContents?.send?.('automation:approval-end', { id });
+          mainWindow?.webContents?.send?.('automation:approval-end', { id, decision: 'timeout', allowed: false });
           resolve(false);
         }, 60000);
+        pendingApprovals.set(id, { resolve, timeout });
+        mainWindow.webContents.send('automation:approval-request', { id, origin, reason, targetName, tabId, method });
       });
     }
     const details = [
@@ -833,6 +833,7 @@ handleMainUiIpc('browser:set-side-panel-open', (event, state) => {
   const panelState = state && typeof state === 'object' ? state : { open: state === true };
   sidePanelOpen = panelState.open === true;
   sidePanelPosition = panelState.position === 'left' ? 'left' : 'right';
+  sidePanelMode = sidePanelOpen && ['ai', 'settings', 'library'].includes(panelState.mode) ? panelState.mode : 'none';
   const bounds = updateBrowserViewBounds();
   return { open: sidePanelOpen, bounds };
 });

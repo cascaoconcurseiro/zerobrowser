@@ -7,9 +7,9 @@
 
 O Zero Browser é um **protótipo de navegador com agente em estágio inicial**, ainda sem evidência para lhe atribuir colocação numérica no mercado. Ele não tem dados comparáveis de adoção, retenção, disponibilidade, compatibilidade, preço, avaliação de usuários ou benchmark pareado de ponta a ponta. Em prontidão de produto e confiança demonstrada, está atrás de BrowserOS neo, Comet, Dia, Edge/Copilot, Chrome/Gemini e Opera Neon/One, que publicam experiências mais maduras ou dispõem de distribuição/ecossistema mais amplos. Isso é uma avaliação de prontidão baseada nas evidências disponíveis, não uma classificação de participação de mercado.
 
-Em 31/10/2026, o Zero Browser 0.1.48-dev está instalado em QA. `npm test` passou 370/370; `npm run test:ui`, `npm run test:bot-runtime` e `npm run test:delegation-layout` também passaram. O smoke instalado, com perfil temporário e provedores simulados por loopback, confirmou catálogo OpenRouter/DeepSeek, handshake mock, automação AX/CUA, abas, DNT, download e aprovações. Esses resultados comprovam somente os testes e a instalação no escopo reportado, não uso real com provedor, disponibilidade geral, adoção ou equivalência aos concorrentes.
+Em 31/10/2026, o Zero Browser 0.1.49-dev está instalado em QA. `npm test` passou 370/370; `npm run test:ui`, `npm run test:bot-runtime` e `npm run test:delegation-layout` passaram na árvore da 0.1.48, cujo código de produto é o mesmo. O smoke instalado completo passou na 0.1.49, com perfil temporário e provedores simulados por loopback; confirmou catálogo OpenRouter/DeepSeek, handshake mock, automação AX/CUA, abas, DNT, download e aprovações. O candidato 0.1.50, ainda não instalado, também passou 370/370 e o smoke empacotado de aprovação via chat/teclado. Esses resultados comprovam somente os testes e a instalação no escopo reportado, não uso real com provedor, disponibilidade geral, adoção ou equivalência aos concorrentes.
 
-O Zero tem uma base própria para um nicho técnico: agentes com provedores configuráveis, MCP, ferramentas de navegação, aprovações e automações estruturadas. Seus diferenciais seguem como hipóteses de produto até haver uso e comparação independentes. A instalação QA via NSIS da 0.1.48-dev confirma esse caminho de distribuição, mas não muda o posicionamento competitivo: ainda falta aceite completo do layout, autenticação real, auditoria adversarial, maturidade de ecossistema e comparativos com condições pareadas.
+O Zero tem uma base própria para um nicho técnico: agentes com provedores configuráveis, MCP, ferramentas de navegação, aprovações e automações estruturadas. Seus diferenciais seguem como hipóteses de produto até haver uso e comparação independentes. A instalação QA via NSIS da 0.1.49-dev confirma esse caminho de distribuição, mas não muda o posicionamento competitivo: ainda falta aceite completo do layout, autenticação real, auditoria adversarial, maturidade de ecossistema e comparativos com condições pareadas.
 
 **Posição honesta hoje:** abaixo dos produtos ativos em acabamento, ecossistema e confiança comprovada; potencialmente diferenciado como navegador experimental, controlável e extensível para desenvolvedores. “Potencialmente” é uma hipótese de posicionamento, não resultado de pesquisa com clientes.
 
@@ -31,7 +31,7 @@ Esta escala avalia somente a maturidade da oferta publicamente descrita até 31/
 
 | Produto | Prontidão pública (1–5) | Evidência usada | Limite da nota |
 |---|---:|---|---|
-| Zero Browser | 2/5 | Em 31/10, versão instalada 0.1.48-dev passou `npm test` 370/370, `test:ui`, `test:bot-runtime`, `test:delegation-layout` e o smoke instalado com provedores mockados. Tem fixtures de pré-carga e autorização MCP. | Não prova chamada real a provedor, envio efetivo, segurança geral, adoção ou distribuição pública. |
+| Zero Browser | 2/5 | Em 31/10, versão instalada 0.1.49-dev passou `npm test` 370/370 e o smoke instalado completo com provedores mockados. O código de produto 0.1.48 também passou `test:ui`, `test:bot-runtime` e `test:delegation-layout`. Tem fixtures de pré-carga e autorização MCP. | Não prova chamada real a provedor, envio efetivo, segurança geral, adoção ou distribuição pública. |
 | BrowserOS neo | 4/5 | Produto gratuito com suporte declarado a três sistemas, conectores para clientes de agentes, múltiplas sessões e replay. | Recursos e números são declarações do fornecedor; nenhum teste técnico independente nesta comparação. |
 | Perplexity Comet | 4/5 | Produto disponível em quatro plataformas segundo a Perplexity, com recursos integrados de busca, contexto, comandos de browser, Gmail e resumo. | Não foi verificada a paridade entre dispositivos nem testada a qualidade das tarefas. |
 | Chrome com Gemini | 4/5 | Recursos integrados de contexto/Skills/resumo e Auto Browse anunciado para assinantes elegíveis. | Auto Browse restrito a AI Pro/Ultra nos EUA; disponibilidade de outros recursos varia por plataforma/conta. |
@@ -43,7 +43,7 @@ O Zero fica abaixo dos concorrentes ativos nesta leitura de prontidão pública.
 
 ## Nota do Zero por dimensão
 
-Escala qualitativa de prontidão interna de 1 (fraco/não demonstrado) a 5 (forte e validado no escopo) baseada em evidências locais. Não é nota de usuários nem benchmark entre produtos. O app 0.1.48-dev foi instalado via NSIS em QA e passou o smoke com endpoints mockados; segurança ampla, provedores reais e fluxos extensos não foram revalidados integralmente nesta rodada.
+Escala qualitativa de prontidão interna de 1 (fraco/não demonstrado) a 5 (forte e validado no escopo) baseada em evidências locais. Não é nota de usuários nem benchmark entre produtos. O app 0.1.49-dev foi instalado via NSIS em QA e passou o smoke com endpoints mockados; segurança ampla, provedores reais e fluxos extensos não foram revalidados integralmente nesta rodada.
 
 | Dimensão | Nota | Evidência e limite |
 |---|---:|---|

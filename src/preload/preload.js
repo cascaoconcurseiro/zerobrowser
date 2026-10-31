@@ -11,7 +11,7 @@ const browserApi = {
     reload: (tabId) => ipcRenderer.invoke('browser:reload', tabId),
     getTabs: () => ipcRenderer.invoke('browser:get-tabs'),
     getTab: (tabId) => ipcRenderer.invoke('browser:get-tab', tabId),
-    setSidePanelOpen: (isOpen, position = 'right') => ipcRenderer.invoke('browser:set-side-panel-open', { open: isOpen === true, position }),
+    setSidePanelOpen: (isOpen, position = 'right', mode = 'unknown') => ipcRenderer.invoke('browser:set-side-panel-open', { open: isOpen === true, position, mode }),
     getSidePanelLayout: () => ipcRenderer.invoke('browser:get-side-panel-layout'),
     setBookmarksBar: (visible) => ipcRenderer.invoke('browser:set-bookmarks-bar', visible),
     freezePage: (frozen, reason) => ipcRenderer.invoke('browser:freeze-page', frozen, reason),
@@ -88,6 +88,11 @@ const browserApi = {
       const handler = (_event, data) => callback(data);
       ipcRenderer.on('automation:approval-request', handler);
       return () => ipcRenderer.removeListener('automation:approval-request', handler);
+    },
+    onApprovalEnd: (callback) => {
+      const handler = (_event, data) => callback(data);
+      ipcRenderer.on('automation:approval-end', handler);
+      return () => ipcRenderer.removeListener('automation:approval-end', handler);
     },
     onRunEvent: (callback) => {
       const handler = (_event, data) => callback(data);

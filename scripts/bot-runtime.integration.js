@@ -90,6 +90,17 @@ async function waitForPageElement(target, selector) {
   assert.equal(found, true, `fixture carregou o seletor ${selector}`);
 }
 
+async function waitForPageValue(target, expression, predicate, timeoutMs = 10000) {
+  const until = Date.now() + timeoutMs;
+  let value;
+  while (Date.now() < until) {
+    value = await evaluate(target, expression);
+    if (predicate(value)) return value;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  throw new Error(`Valor da página não atingiu a condição esperada: ${JSON.stringify(value)}`);
+}
+
 function evaluate(target, expression, timeoutMs = 45000) {
   return new Promise((resolve, reject) => {
     const socket = new WebSocket(target.webSocketDebuggerUrl);
@@ -132,9 +143,7 @@ async function main() {
   fs.mkdirSync(botData, { recursive: true });
   fs.writeFileSync(path.join(profileRoot, 'perfis.json'), JSON.stringify([{ id: 'bot-fixture', name: 'Bot Fixture', type: 'bot' }]));
   fs.writeFileSync(path.join(botData, 'navegante-config.json'), JSON.stringify({
-    'automation.approvalMode': 'allow-all',
-    'developer.cdpEnabled': true,
-    'bot.approvalInitialized': true
+    'developer.cdpEnabled': true
   }));
   const sitePort = await listen(site);
   cdpPort = await allocatePort();
@@ -159,8 +168,30 @@ async function main() {
   assert.equal(ready, true, 'bridge do app pronto');
   const appInfo = await evaluate(mainTarget, `window.navegante.browser.getAppInfo()`);
   assert.equal(appInfo.profile, 'Bot Fixture', 'Electron reconhece o perfil isolado como Bot');
+  const defaultApprovalMode = await evaluate(mainTarget, `window.navegante.store.get('automation.approvalMode')`);
+  assert.equal(defaultApprovalMode, 'always-ask', 'Bot novo inicia com aprovação conservadora');
+  await evaluate(mainTarget, `document.getElementById('btn-settings').click()`);
+  await waitForPageValue(mainTarget, `!document.getElementById('settings-panel').classList.contains('hidden')`, Boolean);
+  const panelApprovalToggle = await evaluate(mainTarget, `document.getElementById('setting-agent-approval-in-panel').checked`);
+  assert.equal(panelApprovalToggle, false, 'A aprovação no chat começa desativada e pode ser ligada pelo usuário');
+  await evaluate(mainTarget, `(()=>{const input=document.getElementById('setting-agent-approval-in-panel');input.checked=true;input.dispatchEvent(new Event('change',{bubbles:true}));return true})()`);
+  await waitForPageValue(mainTarget, `window.navegante.store.get('automation.approvalInPanel')`, (enabled) => enabled === true);
+  await evaluate(mainTarget, `(()=>{window.__approvalConfirmCalls=0;window.confirm=()=>{window.__approvalConfirmCalls++;return false};const select=document.getElementById('setting-agent-approval-mode');select.value='allow-all';select.dispatchEvent(new Event('change',{bubbles:true}));return true})()`);
+  await waitForPageValue(mainTarget, `document.getElementById('setting-agent-approval-mode').value`, (mode) => mode === 'always-ask');
+  assert.equal(await evaluate(mainTarget, `window.navegante.store.get('automation.approvalMode')`), 'always-ask', 'Recusar o aumento mantém a autonomia atual');
+  assert.equal(await evaluate(mainTarget, `window.__approvalConfirmCalls`), 1, 'Elevar autonomia exige aceite humano');
+  await evaluate(mainTarget, `(()=>{window.confirm=()=>{window.__approvalConfirmCalls++;return true};const select=document.getElementById('setting-agent-approval-mode');select.value='allow-all';select.dispatchEvent(new Event('change',{bubbles:true}));return true})()`);
+  await waitForPageValue(mainTarget, `window.navegante.store.get('automation.approvalMode')`, (mode) => mode === 'allow-all');
+  await evaluate(mainTarget, `(()=>{const select=document.getElementById('setting-agent-approval-mode');select.value='always-ask';select.dispatchEvent(new Event('change',{bubbles:true}));return true})()`);
+  await waitForPageValue(mainTarget, `window.navegante.store.get('automation.approvalMode')`, (mode) => mode === 'always-ask');
+  assert.equal(await evaluate(mainTarget, `window.__approvalConfirmCalls`), 2, 'Reduzir autonomia não exige confirmação adicional');
+  await evaluate(mainTarget, `document.getElementById('btn-close-settings').click()`);
+  await waitForPageValue(mainTarget, `document.getElementById('settings-panel').classList.contains('hidden')`, Boolean);
+  await evaluate(mainTarget, `document.getElementById('btn-ai').click()`);
+  await waitForPageValue(mainTarget, `!document.getElementById('ai-panel').classList.contains('hidden')`, Boolean);
+  await evaluate(mainTarget, `window.navegante.store.set('automation.approvalMode','allow-all')`);
   const approvalMode = await evaluate(mainTarget, `window.navegante.store.get('automation.approvalMode')`);
-  assert.equal(approvalMode, 'allow-all', 'fixture simula nível amplo previamente aprovado, apenas para validar que bloqueios técnicos do Bot continuam ativos');
+  assert.equal(approvalMode, 'allow-all', 'O restante deste teste exercita bloqueios técnicos em perfil Bot sob allow-all');
   const mcpTools = await requestMcp('tools/list');
   const baselineService = new AutomationService();
   baselineService.registerTools();
@@ -213,7 +244,7 @@ async function main() {
   const toolsAfterRefusals = await requestMcp('tools/list');
   assert.equal(toolsAfterRefusals.tools.length, botToolNames.length, 'MCP continua atendendo após recusas de credencial/CDP e erro de ferramenta');
 
-  console.log(JSON.stringify({ status: 'PASS', profile: appInfo.profile, approvalMode: 'allow-all seeded only in temporary fixture to exercise technical denial', mcpToolCount: botToolNames.length, mcpCatalogMatchesBaseline: true, site: 'loopback fixtures', credentialAttempts: results, mcpRecoveredAfterRefusalsAndToolError: true }, null, 2));
+  console.log(JSON.stringify({ status: 'PASS', profile: appInfo.profile, autonomy: { default: defaultApprovalMode, increaseRequiresHumanAcceptance: true, decreaseDoesNotAsk: true }, approvalInChat: 'explicit opt-in confirmed through the UI', approvalModeForTechnicalGuards: approvalMode, mcpToolCount: botToolNames.length, mcpCatalogMatchesBaseline: true, site: 'loopback fixtures', credentialAttempts: results, mcpRecoveredAfterRefusalsAndToolError: true }, null, 2));
 }
 
 main().catch((error) => {
