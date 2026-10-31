@@ -34,7 +34,7 @@
       </div>
       <div class="toolbar-group delegation-toolbar-actions">
         <button id="btn-stop-task" class="delegation-top-stop hidden" type="button" aria-label="Parar a tarefa atual" title="Parar a tarefa atual"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2"/></svg><span>Parar tarefa</span></button>
-        <button id="btn-bot-central" class="delegation-top-central hidden" type="button" aria-haspopup="dialog" aria-expanded="false" aria-label="Abrir Central de Bots"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg><span>Central</span></button>
+        <button id="btn-bot-central" class="delegation-top-central hidden" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="bot-central" aria-label="Abrir Central de Bots"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg><span>Central</span></button>
       </div>
       <div class="toolbar-group">
         <button id="btn-flame" class="toolbar-btn hidden" title="Flame (agente da extensão)" aria-label="Abrir o Flame" aria-pressed="false"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg></button>
@@ -81,8 +81,9 @@
         </div>
         <button id="btn-bot-central-close" type="button" aria-label="Fechar Central de Bots" title="Fechar Central de Bots">×</button>
       </header>
-      <div class="bot-central-toolbar"><strong>Seus Bots</strong><span id="bot-central-count" aria-live="polite">0 Bots</span></div>
-      <div id="bot-central-list" class="bot-central-list" role="list" aria-label="Perfis de Bot"></div>
+      <div class="bot-central-toolbar"><strong>Seus Bots</strong><span id="bot-central-count" aria-live="polite">0 ativos · 0 arquivados</span></div>
+      <div id="bot-central-list" class="bot-central-list" aria-label="Perfis de Bot"></div>
+      <p id="bot-central-status" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></p>
       <footer class="bot-central-footer"><span id="bot-central-avatar-count">200 avatares disponíveis</span><button id="btn-bot-central-new" type="button"><span aria-hidden="true">+</span><span>Criar Bot</span></button></footer>
     </section>
     <div id="ai-panel" class="panel hidden" aria-label="Modo Delegar">
@@ -125,6 +126,7 @@
           </div>
         </div>
       </div>
+      <div id="delegation-resizer" class="delegation-resizer" role="separator" aria-orientation="vertical" aria-label="Ajustar largura do painel Delegar" aria-controls="ai-panel browser-container" aria-valuemin="160" aria-valuemax="640" aria-valuenow="320" aria-valuetext="Largura do painel: 320 pixels" tabindex="0" title="Arraste para ajustar a largura; use as setas do teclado"></div>
     </div>
 
     <div id="library-panel" class="panel hidden" aria-label="Biblioteca do navegador">

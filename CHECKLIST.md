@@ -2,10 +2,23 @@
 
 ## Estado atual
 
-- Código e executável instalado em `0.1.51-dev`; build, instalação e hashes registrados em `HANDOFF.md`. Reinstalação pós-commit ainda pendente.
-- A aprovação de ações no chat e a regra de autonomia dos Bots foram concluídas na .50. A .51 corrige a Central e as sobreposições do modo Delegar.
+- Código em `0.1.52-dev`; a .51 está instalada. A janela de QA confirmou a sobreposição da Central; o código .52 a corrige e também organiza os Bots e redimensiona o painel Delegar. Build e inspeção no executável .52 ainda pendentes.
+- A aprovação de ações no chat e a regra de autonomia dos Bots foram concluídas na .50. A .51 organizou a Central; esta fatia .52 completa os estados de arquivamento e corrigiu a sobreposição visual.
 - Este arquivo contém apenas a ordem ativa e o backlog priorizado. O inventário cronológico antigo foi preservado em `docs/CHECKLIST_HISTORICO.md`; itens abertos lá não são tarefas autorizadas/ativas até serem promovidos para cá.
 - Planos em `docs/PLANO_*.md` são propostas. Confirmar cada capacidade no código e no executável antes de mudar status para concluído.
+
+## Entrega atual — Central, ciclo dos Bots e divisor Delegar (0.1.52-dev)
+
+- [x] Central oculta e torna inerte o chat subjacente; fechar restaura chat e foco.
+- [x] Separar Bots Ativos/Arquivados; arquivar/restaurar sem mover dados, cookies, login ou avatar; bloquear novas aberturas no processo principal.
+- [x] Serializar alterações concorrentes entre processos para não perder registros Bot/perfil.
+- [x] Reduzir largura inicial Delegar para `min(480px, 34vw)`; permitir ajuste por mouse/toque e teclado, mantendo espaço mínimo para a página.
+- [x] Central acompanha a largura do painel; melhorar estado ativo de Delegar e alvos de clique compactos.
+- [x] Redimensionar e centralizar os sprites dentro do círculo.
+- [x] `npm test` 374/374; `npm run test:ui` PASS; `npm run test:delegation-layout` PASS em seis tamanhos; revisão estática independente sem falhas concretas.
+- [x] Build .52 (`dist/win-unpacked/Zero Browser.exe` e `dist/Zero Browser Setup 0.1.52-dev.exe`), confirmação no executável com perfil QA isolado (Central substituindo o chat, divisor `476px -> 500px`, sprites centralizados `delta=0` e arquivar/restaurar Bot) e hashes SHA-256 gerados.
+- [ ] Backup da .51 instalada, commit local da .52, instalar depois do commit e abrir pelo perfil normal (sem `ZERO_USER_DATA` de QA).
+- [ ] Registrar a verificação final pós-instalação (atalhos, versão instalada e perfil padrão).
 
 ## Entrega concluída — layout Delegar e Central de Bots (0.1.51-dev)
 
@@ -17,26 +30,27 @@
 - [x] `test:installed` PASS com perfil temporário e endpoints loopback mockados.
 - [x] Commit local `095728a`, reinstalação após o commit e smoke no executável.
 
-## Próxima entrega — ciclo de vida reversível de Bots
+## Próxima entrega — estados de Bots já cobertos; falta validação no executável
 
 **Objetivo:** arquivar e restaurar um Bot sem apagar nem mover diretório, cookies, login ou associação de avatar. Uma janela já aberta continua funcionando e deve indicar que o Bot está arquivado. O app deve impedir novas aberturas pelo menu e IPC.
 
 **Limite:** exclusão permanente e detecção/contenção de processos Bot ativos ficam fora desta fatia. O código atual não mantém um registro confiável dos processos separados; apagar a pasta pode remover dados ainda usados.
 
-- [ ] **Modelo/persistência:** guardar estado de arquivamento no registro do perfil Bot; preservar esse campo na leitura/escrita; recusar arquivar perfil que não seja Bot.
-- [ ] **IPC/abertura:** oferecer arquivar/restaurar na API do processo principal e negar abertura de Bot arquivado, inclusive se o renderer estiver desatualizado.
-- [ ] **Central/trilho:** separar botões Arquivar/Restaurar; mostrar Bots ativos e arquivados em seções distintas; manter o avatar estável e identificar janela já aberta de Bot arquivado.
-- [ ] **Verificação:** cobrir persistência, permissões IPC, abertura negada, restauração, avatar e estados acessíveis da UI em perfil temporário.
-- [ ] **Entrega:** revisão do diff; `npm test` e smokes Bot/UI; gerar nova versão e hashes; commit local; backup da instalação anterior; instalar e verificar smoke no executável instalado.
+- [x] **Modelo/persistência:** guardar estado de arquivamento no registro Bot; serializar alterações concorrentes; não apagar nem mover arquivos.
+- [x] **IPC/abertura:** arquivar/restaurar pela API principal e impedir abertura nova de Bot arquivado.
+- [x] **Central/trilho:** separar Ativos/Arquivados, oferecer Arquivar/Restaurar e preservar associação do avatar.
+- [x] **Verificação local:** persistência, concorrência entre processos, abertura negada, restauração, avatar e estados de UI cobertos.
+- [x] **Verificação instalada:** confirmar visualmente as ações no executável .52 com perfil isolado.
+- [ ] **Limite conhecido:** janela Bot já aberta em outro processo continua ativa e não é detectada; detecção e encerramento ficam fora desta etapa.
 
 ## Ordem das próximas frentes
 
-1. **Bots — lifecycle reversível** (fatias desta entrega; sem purge físico).
-2. **Motor — velocidade, acerto e tokens:** criar baseline de tarefas/condições e medir separadamente sucesso verificado, rodadas, latência, tokens do provedor/cache e custo. Otimizar somente depois da baseline. Nenhuma medição paga até haver orçamento aprovado.
-3. **Layout e acessibilidade:** revisar os demais estados instalados contra o conceito visual do projeto, com aceite por tela/estado; manter o motor fora desse diff.
-4. **MCP e segurança de Bots:** inventário de ferramentas e ataques em fixture por gate; não misturar com o benchmark de velocidade.
-5. **Concorrentes e maturidade:** atualizar notas apenas com evidência equivalente e fontes datadas; sem ranking numérico sem benchmark pareado.
-6. **Exclusão permanente de Bots e atualizações assinadas:** planejar separadamente, com coordenação entre processos e rollback verificável.
+1. **Validação/instalação .52:** Central visual, divisor de largura, avatares e perfil normal com configuração existente.
+2. **Interações do restante do navegador:** conferir estados de foco, botões e sobreposições por tela com critérios visuais/funcionais.
+3. **Motor — velocidade, acerto e tokens:** o benchmark pareado e fixtures locais já existem em `bench/`; primeiro escolha baseline e experimento. Chamadas a provedores reais só com orçamento aprovado.
+4. **MCP e segurança de Bots:** inventário de ferramentas e ataques em fixture por gate; sem misturar com o benchmark.
+5. **Concorrentes e maturidade:** atualizar notas só com evidência comparável e fontes datadas.
+6. **Detecção de Bots ativos, exclusão permanente e atualizações assinadas:** planejar separadamente; não apagar pastas até haver coordenação/rollback seguro.
 
 ## Regra de divisão do trabalho
 

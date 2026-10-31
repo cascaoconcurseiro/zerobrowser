@@ -2,6 +2,11 @@ class ZeroBrowserApp {
   constructor() {
     this.tabs = new Map();
     this.activeTabId = null;
+    this.delegationPanelWidth = null;
+    this.delegationPanelWasResized = false;
+    this.delegationResizePointerId = null;
+    this.delegationResizeFrame = 0;
+    this.delegationResizeRequestId = 0;
     this.aiConnected = false;
     this.aiModel = 'openai/gpt-4o-mini';
     this.settings = {};
@@ -62,9 +67,11 @@ class ZeroBrowserApp {
       btnBotCentral: document.getElementById('btn-bot-central'),
       botCentral: document.getElementById('bot-central'),
       botCentralList: document.getElementById('bot-central-list'),
+      botCentralStatus: document.getElementById('bot-central-status'),
       btnBotCentralClose: document.getElementById('btn-bot-central-close'),
       btnBotCentralNew: document.getElementById('btn-bot-central-new'),
       botCentralAvatarCount: document.getElementById('bot-central-avatar-count'),
+      delegationResizer: document.getElementById('delegation-resizer'),
       btnAppMenu: document.getElementById('btn-app-menu'),
       appMenu: document.getElementById('app-menu'),
       libraryPanel: document.getElementById('library-panel'),
@@ -138,7 +145,10 @@ class ZeroBrowserApp {
     });
     window.addEventListener('resize', () => {
       clearTimeout(this.fitTimer);
-      this.fitTimer = setTimeout(() => this.fitBookmarksBar(), 100);
+      this.fitTimer = setTimeout(() => {
+        this.fitBookmarksBar();
+        this.syncDelegationPanelWidth();
+      }, 100);
     });
     this.elements.btnFlame.addEventListener('click', () => window.zeroBrowser.flame.togglePanel());
 
@@ -160,6 +170,7 @@ class ZeroBrowserApp {
     this.elements.btnCloseAi.addEventListener('click', () => this.closeAiPanel());
     this.elements.btnSettings.addEventListener('click', () => this.toggleSettingsPanel());
     this.elements.btnCloseSettings.addEventListener('click', () => this.closeSettingsPanel());
+    this.bindDelegationResizerEvents();
 
     this.elements.btnAiConnect.addEventListener('click', () => this.connectAi());
     this.elements.btnAiSend.addEventListener('click', () => {
@@ -1240,6 +1251,127 @@ class ZeroBrowserApp {
     }
   }
 
+  getDelegationPanelLimits() {
+    const compact = window.innerWidth <= 800;
+    const railWidth = compact ? 64 : 80;
+    const minimumPageWidth = compact ? 160 : 320;
+    const room = Math.max(0, window.innerWidth - railWidth - minimumPageWidth);
+    const maximum = Math.min(760, room);
+    return { minimum: Math.min(compact ? 160 : 240, maximum), maximum };
+  }
+
+  getCurrentDelegationPanelWidth() {
+    const cssWidth = Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--delegation-panel-width'));
+    return Number.isFinite(this.delegationPanelWidth) ? this.delegationPanelWidth : Number.isFinite(cssWidth) ? cssWidth : 320;
+  }
+
+  updateDelegationResizerValues(width = this.getCurrentDelegationPanelWidth()) {
+    const resizer = this.elements.delegationResizer;
+    if (!resizer) return;
+    const { minimum, maximum } = this.getDelegationPanelLimits();
+    const current = Math.round(width);
+    resizer.setAttribute('aria-valuemin', String(minimum));
+    resizer.setAttribute('aria-valuemax', String(maximum));
+    resizer.setAttribute('aria-valuenow', String(current));
+    resizer.setAttribute('aria-valuetext', `Largura do painel: ${current} pixels`);
+  }
+
+  applyDelegationPanelWidth(width) {
+    const panelWidth = Number(width);
+    if (!Number.isFinite(panelWidth) || panelWidth <= 0) return;
+    this.delegationPanelWidth = Math.round(panelWidth);
+    document.documentElement.style.setProperty('--delegation-panel-width', `${this.delegationPanelWidth}px`);
+    this.updateDelegationResizerValues(this.delegationPanelWidth);
+  }
+
+  async commitDelegationPanelWidth(width, { markResized = true } = {}) {
+    const { minimum, maximum } = this.getDelegationPanelLimits();
+    const requestedWidth = Math.round(Math.min(maximum, Math.max(minimum, Number(width))));
+    if (!Number.isFinite(requestedWidth)) return;
+    const requestId = ++this.delegationResizeRequestId;
+    try {
+      const setWidth = window.zeroBrowser?.browser?.setSidePanelWidth;
+      if (typeof setWidth !== 'function') throw new Error('O redimensionamento do painel ainda não está disponível.');
+      const result = await setWidth(requestedWidth);
+      if (requestId !== this.delegationResizeRequestId) return;
+      if (!Number.isFinite(Number(result?.panelWidth)) || Number(result.panelWidth) <= 0) {
+        throw new Error('O navegador não retornou a largura aplicada ao painel.');
+      }
+      this.applyDelegationPanelWidth(result.panelWidth);
+      if (markResized) this.delegationPanelWasResized = true;
+    } catch (error) {
+      if (requestId !== this.delegationResizeRequestId) return;
+      if (markResized) this.showToast(`Não foi possível ajustar o painel: ${error.message}`, 'error');
+    }
+  }
+
+  queueDelegationPanelResize(width) {
+    const { minimum, maximum } = this.getDelegationPanelLimits();
+    this.pendingDelegationPanelWidth = Math.round(Math.min(maximum, Math.max(minimum, width)));
+    if (this.delegationResizeFrame) return;
+    this.delegationResizeFrame = window.requestAnimationFrame(() => {
+      this.delegationResizeFrame = 0;
+      const pendingWidth = this.pendingDelegationPanelWidth;
+      this.pendingDelegationPanelWidth = null;
+      if (Number.isFinite(pendingWidth)) this.commitDelegationPanelWidth(pendingWidth);
+    });
+  }
+
+  bindDelegationResizerEvents() {
+    const resizer = this.elements.delegationResizer;
+    if (!resizer) return;
+    resizer.addEventListener('pointerdown', (event) => {
+      if (event.button !== 0 || !document.getElementById('app').classList.contains('delegation-mode')) return;
+      event.preventDefault();
+      this.delegationResizePointerId = event.pointerId;
+      this.delegationResizeStartX = event.clientX;
+      this.delegationResizeStartWidth = this.getCurrentDelegationPanelWidth();
+      resizer.focus();
+      resizer.setPointerCapture(event.pointerId);
+    });
+    resizer.addEventListener('pointermove', (event) => {
+      if (event.pointerId !== this.delegationResizePointerId) return;
+      this.queueDelegationPanelResize(this.delegationResizeStartWidth + event.clientX - this.delegationResizeStartX);
+    });
+    const finishPointerResize = (event) => {
+      if (event.pointerId !== this.delegationResizePointerId) return;
+      if (this.delegationResizeFrame) {
+        window.cancelAnimationFrame(this.delegationResizeFrame);
+        this.delegationResizeFrame = 0;
+        if (Number.isFinite(this.pendingDelegationPanelWidth)) this.commitDelegationPanelWidth(this.pendingDelegationPanelWidth);
+        this.pendingDelegationPanelWidth = null;
+      }
+      this.delegationResizePointerId = null;
+      if (resizer.hasPointerCapture(event.pointerId)) resizer.releasePointerCapture(event.pointerId);
+    };
+    resizer.addEventListener('pointerup', finishPointerResize);
+    resizer.addEventListener('pointercancel', finishPointerResize);
+    resizer.addEventListener('keydown', (event) => {
+      const { minimum, maximum } = this.getDelegationPanelLimits();
+      const current = this.getCurrentDelegationPanelWidth();
+      const step = event.shiftKey ? 48 : 24;
+      let nextWidth;
+      if (event.key === 'ArrowLeft') nextWidth = current - step;
+      else if (event.key === 'ArrowRight') nextWidth = current + step;
+      else if (event.key === 'Home') nextWidth = minimum;
+      else if (event.key === 'End') nextWidth = maximum;
+      else return;
+      event.preventDefault();
+      this.commitDelegationPanelWidth(nextWidth);
+    });
+    this.updateDelegationResizerValues();
+  }
+
+  async syncDelegationPanelWidth() {
+    if (!document.getElementById('app').classList.contains('delegation-mode')) return;
+    try {
+      const layout = await window.zeroBrowser.browser.getSidePanelLayout();
+      if (Number.isFinite(Number(layout?.panelWidth)) && Number(layout.panelWidth) > 0) this.applyDelegationPanelWidth(layout.panelWidth);
+    } catch (error) {
+      console.warn('Não foi possível sincronizar a largura do painel Delegar:', error);
+    }
+  }
+
   async toggleAiPanel(forceOpen = false) {
     const opening = forceOpen ? true : this.elements.aiPanel.classList.contains('hidden');
     if (!opening) await this.denyPendingApprovals();
@@ -1251,6 +1383,7 @@ class ZeroBrowserApp {
     document.getElementById('app').classList.toggle('delegation-mode', opening);
     this.elements.delegationRail.classList.toggle('hidden', !opening);
     this.elements.btnAi.setAttribute('aria-pressed', String(opening));
+    this.elements.btnAi.classList.toggle('active', opening);
     this.elements.btnAi.querySelector('.ai-copilot-label').textContent = 'Delegar';
     this.elements.btnAi.setAttribute('aria-label', opening ? 'Modo Delegar aberto; voltar ao modo Navegar' : 'Abrir modo Delegar');
     this.elements.btnAi.title = opening ? 'Modo Delegar · voltar ao modo Navegar' : 'Abrir modo Delegar (Ctrl+Shift+A)';
@@ -1258,7 +1391,13 @@ class ZeroBrowserApp {
     this.elements.addressBar.setAttribute('aria-label', opening ? 'Pesquisar, navegar ou delegar ao Bot' : 'Endereço ou pesquisa');
     this.elements.btnBotCentral.classList.toggle('hidden', !opening);
     if (!opening) this.closeBotCentral();
-    window.zeroBrowser.browser.setSidePanelOpen(opening, 'left', opening ? 'ai' : 'none');
+    const layout = await window.zeroBrowser.browser.setSidePanelOpen(opening, 'left', opening ? 'ai' : 'none');
+    if (opening && Number.isFinite(Number(layout?.panelWidth)) && Number(layout.panelWidth) > 0) {
+      this.applyDelegationPanelWidth(layout.panelWidth);
+    }
+    if (opening && this.delegationPanelWasResized && Number.isFinite(this.delegationPanelWidth)) {
+      await this.commitDelegationPanelWidth(this.delegationPanelWidth, { markResized: false });
+    }
     if (opening) {
       await this.loadBotProfiles();
       await this.releasePageOverlay('panel');
@@ -1430,6 +1569,7 @@ class ZeroBrowserApp {
     document.getElementById('app').classList.remove('delegation-mode');
     this.elements.delegationRail.classList.add('hidden');
     this.elements.btnAi.setAttribute('aria-pressed', 'false');
+    this.elements.btnAi.classList.remove('active');
     this.elements.btnAi.querySelector('.ai-copilot-label').textContent = 'Delegar';
     this.elements.btnAi.setAttribute('aria-label', 'Abrir modo Delegar');
     this.elements.btnAi.title = 'Abrir modo Delegar (Ctrl+Shift+A)';
@@ -1462,7 +1602,9 @@ class ZeroBrowserApp {
     const button = document.createElement(isCurrent ? 'div' : 'button');
     if (isCurrent) {
       button.setAttribute('role', 'img');
-      button.setAttribute('aria-label', `Bot ${bot.name}, perfil aberto nesta janela`);
+      button.setAttribute('aria-label', bot.archived === true
+        ? `Bot ${bot.name}, arquivado e aberto nesta janela`
+        : `Bot ${bot.name}, perfil aberto nesta janela`);
       button.setAttribute('aria-current', 'true');
     } else {
       button.type = 'button';
@@ -1483,6 +1625,7 @@ class ZeroBrowserApp {
     const rows = Math.max(1, Number(bot.avatar?.rows) || 10);
     const column = frame % columns;
     const row = Math.floor(frame / columns);
+    image.style.backgroundSize = `${columns * 100}% ${rows * 100}%`;
     image.style.backgroundPosition = `${columns > 1 ? column / (columns - 1) * 100 : 0}% ${rows > 1 ? row / (rows - 1) * 100 : 0}%`;
     button.appendChild(image);
     if (!isCurrent) button.addEventListener('click', () => {
@@ -1494,14 +1637,15 @@ class ZeroBrowserApp {
   renderBotRail() {
     this.elements.botRailList.replaceChildren();
     this.elements.botRailCount.textContent = `${this.botTeam.avatars || 0} avatares`;
-    if (!this.botTeam.bots.length) {
+    const availableBots = this.botTeam.bots.filter((bot) => !bot.archived || bot.id === this.botTeam.currentProfileId);
+    if (!availableBots.length) {
       const empty = document.createElement('p');
       empty.className = 'bot-rail-empty';
-      empty.textContent = 'Crie seu primeiro Bot';
+      empty.textContent = this.botTeam.bots.length ? 'Restaure um Bot na Central' : 'Crie seu primeiro Bot';
       this.elements.botRailList.appendChild(empty);
       return;
     }
-    for (const bot of this.botTeam.bots) this.elements.botRailList.appendChild(this.createBotAvatarButton(bot));
+    for (const bot of availableBots) this.elements.botRailList.appendChild(this.createBotAvatarButton(bot));
   }
 
   async toggleBotCentral() {
@@ -1511,13 +1655,15 @@ class ZeroBrowserApp {
       await this.loadBotProfiles();
       this.botCentralReturnToAi = !this.elements.aiPanel.classList.contains('hidden');
       if (this.botCentralReturnToAi) {
+        this.elements.aiPanel.classList.add('hidden');
         this.elements.aiPanel.inert = true;
         this.elements.aiPanel.setAttribute('aria-hidden', 'true');
       }
       this.elements.botCentral.classList.remove('hidden');
       this.elements.btnBotCentral.setAttribute('aria-expanded', 'true');
       this.renderBotCentral();
-      await window.zeroBrowser.browser.setSidePanelOpen(true, 'left', 'bots').catch(() => {});
+      const layout = await window.zeroBrowser.browser.setSidePanelOpen(true, 'left', 'bots').catch(() => null);
+      if (Number.isFinite(Number(layout?.panelWidth)) && Number(layout.panelWidth) > 0) this.applyDelegationPanelWidth(layout.panelWidth);
       this.elements.btnBotCentralClose.focus();
     } else this.closeBotCentral({ restoreFocus: true });
   }
@@ -1531,6 +1677,7 @@ class ZeroBrowserApp {
     const returnToAi = this.botCentralReturnToAi === true;
     this.botCentralReturnToAi = false;
     if (returnToAi) {
+      this.elements.aiPanel.classList.remove('hidden');
       this.elements.aiPanel.inert = false;
       this.elements.aiPanel.removeAttribute('aria-hidden');
     }
@@ -1541,68 +1688,129 @@ class ZeroBrowserApp {
   renderBotCentral() {
     this.elements.botCentralList.replaceChildren();
     this.elements.botCentralAvatarCount.textContent = `${this.botTeam.avatars || 0} avatares disponíveis`;
-    const count = this.botTeam.bots.length;
-    document.getElementById('bot-central-count').textContent = `${count} ${count === 1 ? 'Bot' : 'Bots'}`;
-    if (!this.botTeam.bots.length) {
-      const empty = document.createElement('div');
-      empty.className = 'bot-central-empty';
-      const title = document.createElement('strong');
-      title.textContent = 'Nenhum Bot criado ainda';
-      const message = document.createElement('p');
-      message.textContent = 'Crie um Bot para abrir uma sessão separada, com seus próprios cookies, login e avatar.';
-      empty.append(title, message);
-      this.elements.botCentralList.appendChild(empty);
-      return;
+    const activeBots = this.botTeam.bots.filter((bot) => bot.archived !== true);
+    const archivedBots = this.botTeam.bots.filter((bot) => bot.archived === true);
+    document.getElementById('bot-central-count').textContent = `${activeBots.length} ativos · ${archivedBots.length} arquivados`;
+    this.elements.botCentralList.setAttribute('aria-busy', 'false');
+
+    const appendGroup = (label, bots, emptyMessage) => {
+      const section = document.createElement('section');
+      section.className = 'bot-central-group';
+      const heading = document.createElement('h3');
+      heading.className = 'bot-central-group-heading';
+      heading.textContent = `${label} (${bots.length})`;
+      const headingId = `bot-central-${label === 'Ativos' ? 'active' : 'archived'}-heading`;
+      heading.id = headingId;
+      const list = document.createElement('div');
+      list.className = 'bot-central-group-list';
+      list.setAttribute('role', 'list');
+      list.setAttribute('aria-labelledby', headingId);
+      if (!bots.length && emptyMessage) {
+        const empty = document.createElement('p');
+        empty.className = 'bot-central-empty';
+        empty.setAttribute('role', 'listitem');
+        empty.textContent = emptyMessage;
+        list.appendChild(empty);
+      }
+      for (const bot of bots) list.appendChild(this.createBotCentralRow(bot));
+      section.append(heading, list);
+      this.elements.botCentralList.appendChild(section);
+    };
+
+    appendGroup('Ativos', activeBots, this.botTeam.bots.length
+      ? 'Não há Bots ativos. Restaure um arquivado ou crie um Bot.'
+      : 'Ainda não há Bots. Crie um para iniciar uma sessão isolada.');
+    if (archivedBots.length) appendGroup('Arquivados', archivedBots);
+  }
+
+  createBotCentralRow(bot) {
+    const isCurrent = bot.id === this.botTeam.currentProfileId;
+    const isArchived = bot.archived === true;
+    const row = document.createElement('div');
+    row.setAttribute('role', 'listitem');
+    if (isCurrent) row.setAttribute('aria-current', 'true');
+    row.className = 'bot-central-row';
+    row.dataset.botId = bot.id;
+    row.style.setProperty('--bot-accent', bot.avatar?.accent || '#168f72');
+
+    const content = !isArchived && !isCurrent ? document.createElement('button') : document.createElement('div');
+    content.className = 'bot-central-open';
+    if (content.tagName === 'BUTTON') {
+      content.type = 'button';
+      content.setAttribute('aria-label', `Abrir janela do Bot ${bot.name}`);
+      content.title = `Abrir janela do Bot ${bot.name}`;
+    } else {
+      content.classList.add('bot-central-identity');
+      content.setAttribute('aria-label', isArchived
+        ? `Bot ${bot.name}, arquivado${isCurrent ? ' e aberto nesta janela' : ''}`
+        : `Bot ${bot.name}, perfil aberto nesta janela`);
     }
-    for (const bot of this.botTeam.bots) {
-      const isCurrent = bot.id === this.botTeam.currentProfileId;
-      const row = document.createElement('div');
-      row.setAttribute('role', 'listitem');
-      if (isCurrent) row.setAttribute('aria-current', 'true');
-      row.className = 'bot-central-row';
-      row.style.setProperty('--bot-accent', bot.avatar?.accent || '#168f72');
-      const content = isCurrent ? document.createElement('div') : document.createElement('button');
-      content.className = 'bot-central-open';
-      if (!isCurrent) {
-        content.type = 'button';
-        content.setAttribute('aria-label', `${bot.name}, perfil isolado. Abrir janela do Bot.`);
-      } else {
-        content.classList.add('bot-central-current-content');
-      }
-      const image = document.createElement('span');
-      image.className = 'bot-avatar';
-      image.setAttribute('aria-hidden', 'true');
-      const sprite = document.createElement('span');
-      sprite.className = 'pixel-avatar';
-      const sheet = this.botAvatarSheets.get(bot.avatar?.sheetId);
-      if (sheet) sprite.style.backgroundImage = `url("${sheet}")`;
-      const frame = Number(bot.avatar?.frameIndex) || 0;
-      sprite.style.backgroundPosition = `${frame % 10 / 9 * 100}% ${Math.floor(frame / 10) / 9 * 100}%`;
-      image.appendChild(sprite);
-      const copy = document.createElement('span');
-      copy.className = 'bot-central-row-copy';
-      const name = document.createElement('strong');
-      name.textContent = bot.name;
-      const state = document.createElement('span');
-      state.textContent = isCurrent ? 'Perfil nesta janela' : 'Sessão isolada';
-      copy.append(name, state);
-      content.append(image, copy);
-      if (isCurrent) {
-        const badge = document.createElement('span');
-        badge.className = 'bot-central-state';
-        badge.textContent = 'Ativo';
-        content.appendChild(badge);
-      } else {
-        const badge = document.createElement('span');
-        badge.className = 'bot-central-state';
-        badge.textContent = 'Abrir';
-        content.appendChild(badge);
-      }
-      row.appendChild(content);
-      if (!isCurrent) content.addEventListener('click', () => {
-        window.zeroBrowser.browser.openBotProfile(bot.id).catch((error) => this.showToast(`Não foi possível abrir ${bot.name}: ${error.message}`, 'error'));
-      });
-      this.elements.botCentralList.appendChild(row);
+
+    const image = document.createElement('span');
+    image.className = 'bot-avatar';
+    image.setAttribute('aria-hidden', 'true');
+    const sprite = document.createElement('span');
+    sprite.className = 'pixel-avatar';
+    const sheet = this.botAvatarSheets.get(bot.avatar?.sheetId);
+    if (sheet) sprite.style.backgroundImage = `url("${sheet}")`;
+    const frame = Number(bot.avatar?.frameIndex) || 0;
+    const columns = Math.max(1, Number(bot.avatar?.columns) || 10);
+    const rows = Math.max(1, Number(bot.avatar?.rows) || 10);
+    const column = frame % columns;
+    const spriteRow = Math.floor(frame / columns);
+    sprite.style.backgroundSize = `${columns * 100}% ${rows * 100}%`;
+    sprite.style.backgroundPosition = `${columns > 1 ? column / (columns - 1) * 100 : 0}% ${rows > 1 ? spriteRow / (rows - 1) * 100 : 0}%`;
+    image.appendChild(sprite);
+
+    const copy = document.createElement('span');
+    copy.className = 'bot-central-row-copy';
+    const name = document.createElement('strong');
+    name.textContent = bot.name;
+    const state = document.createElement('span');
+    state.textContent = isArchived
+      ? (isCurrent ? 'Arquivado · aberto nesta janela' : 'Arquivado · não pode ser aberto')
+      : (isCurrent ? 'Perfil aberto nesta janela' : 'Sessão isolada');
+    copy.append(name, state);
+    content.append(image, copy);
+    row.appendChild(content);
+
+    if (!isArchived && !isCurrent) content.addEventListener('click', () => {
+      window.zeroBrowser.browser.openBotProfile(bot.id).catch((error) => this.showToast(`Não foi possível abrir ${bot.name}: ${error.message}`, 'error'));
+    });
+
+    const action = document.createElement('button');
+    action.type = 'button';
+    action.className = `bot-central-action${isArchived ? ' is-restore' : ''}`;
+    action.dataset.botId = bot.id;
+    action.dataset.botAction = isArchived ? 'restore' : 'archive';
+    action.setAttribute('aria-label', `${isArchived ? 'Restaurar' : 'Arquivar'} Bot ${bot.name}`);
+    action.textContent = isArchived ? 'Restaurar' : 'Arquivar';
+    action.addEventListener('click', () => this.changeBotArchiveState(bot, action));
+    row.appendChild(action);
+    return row;
+  }
+
+  async changeBotArchiveState(bot, button) {
+    const restoring = bot.archived === true;
+    const actionLabel = restoring ? 'restaurado' : 'arquivado';
+    this.elements.botCentralStatus.textContent = `${restoring ? 'Restaurando' : 'Arquivando'} ${bot.name}…`;
+    this.elements.botCentralList.setAttribute('aria-busy', 'true');
+    button.disabled = true;
+    try {
+      if (restoring) await window.zeroBrowser.browser.restoreBot(bot.id);
+      else await window.zeroBrowser.browser.archiveBot(bot.id);
+      await this.loadBotProfiles();
+      this.elements.botCentralStatus.textContent = `${bot.name} foi ${actionLabel}.`;
+      const nextAction = restoring ? 'archive' : 'restore';
+      const nextButton = [...this.elements.botCentralList.querySelectorAll('.bot-central-action')]
+        .find((candidate) => candidate.dataset.botId === bot.id && candidate.dataset.botAction === nextAction);
+      if (nextButton) nextButton.focus();
+    } catch (error) {
+      this.elements.botCentralStatus.textContent = `Não foi possível ${restoring ? 'restaurar' : 'arquivar'} ${bot.name}.`;
+      this.showToast(`Não foi possível ${restoring ? 'restaurar' : 'arquivar'} ${bot.name}: ${error.message}`, 'error');
+      if (button.isConnected) button.disabled = false;
+    } finally {
+      this.elements.botCentralList.setAttribute('aria-busy', 'false');
     }
   }
 

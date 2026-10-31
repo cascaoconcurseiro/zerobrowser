@@ -3,14 +3,18 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { spawn } = require('child_process');
 const {
   MAIN_PROFILE,
   buildProfileMenuTemplate,
+  archiveBot,
   createBot,
   createProfile,
   currentProfile,
+  getLaunchableProfile,
   listProfiles,
   profileDir,
+  restoreBot,
   resolveProfilesRoot
 } = require('../src/main/profiles');
 
@@ -85,4 +89,83 @@ test('profile menu lists bots, opens them, and does not offer bot deletion', () 
   assert.deepEqual(opened, ['pesquisa']);
   assert.equal(createBotClicked, true);
   assert.deepEqual(deletionMenu.submenu.map((item) => item.label), ['Pessoal']);
+});
+
+test('archiving a bot persists metadata without changing its data directory or avatar inputs', () => withTempRoot((root) => {
+  const bot = createBot(root, 'Pesquisa');
+  const directory = profileDir(root, bot.id);
+  fs.writeFileSync(path.join(directory, 'sentinel.txt'), 'preserve');
+
+  const archived = archiveBot(root, bot.id);
+  assert.equal(archived.archived, true);
+  assert.equal(fs.readFileSync(path.join(directory, 'sentinel.txt'), 'utf8'), 'preserve');
+  assert.deepEqual(listProfiles(root).find((profile) => profile.id === bot.id), archived);
+  assert.throws(() => getLaunchableProfile(root, bot.id), /Bot arquivado/);
+
+  const restored = restoreBot(root, bot.id);
+  assert.equal(Object.hasOwn(restored, 'archived'), false);
+  assert.equal(fs.existsSync(directory), true);
+  assert.equal(getLaunchableProfile(root, bot.id).id, bot.id);
+}));
+
+test('archive and restore reject regular profiles and unknown bots', () => withTempRoot((root) => {
+  const profile = createProfile(root, 'Pessoal');
+  assert.throws(() => archiveBot(root, profile.id), /Bot não encontrado/);
+  assert.throws(() => restoreBot(root, 'ausente'), /Bot não encontrado/);
+  assert.equal(getLaunchableProfile(root, profile.id).id, profile.id);
+}));
+
+test('profile menu and launch guard omit archived bots', () => withTempRoot((root) => {
+  const opened = [];
+  const bot = createBot(root, 'Pesquisa');
+  archiveBot(root, bot.id);
+  const menu = buildProfileMenuTemplate({
+    current: MAIN_PROFILE,
+    profiles: listProfiles(root),
+    actions: { open: (profile) => opened.push(profile.id), create: () => {}, createBot: () => {}, remove: () => {} }
+  });
+
+  assert.equal(menu.some((item) => item.label === 'Abrir bot: Pesquisa'), false);
+  assert.throws(() => getLaunchableProfile(root, bot.id), /Bot arquivado/);
+  assert.deepEqual(opened, []);
+}));
+
+test('cross-process profile mutations serialize deterministically without losing either update', async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'zero-profiles-concurrent-'));
+  const modulePath = path.resolve(__dirname, '../src/main/profiles.js');
+  const childScript = `
+    const { updateProfiles } = require(${JSON.stringify(modulePath)});
+    const root = process.argv[1];
+    const id = process.argv[2];
+    const name = process.argv[3];
+    require('node:fs').readSync(0, Buffer.alloc(1), 0, 1, null);
+    updateProfiles(root, (profiles) => {
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 200);
+      profiles.push({ id, name });
+    });
+  `;
+  const children = [];
+  try {
+    const runWriter = (id, name) => new Promise((resolve, reject) => {
+      const child = spawn(process.execPath, ['-e', childScript, root, id, name], { stdio: ['pipe', 'ignore', 'pipe'] });
+      children.push(child);
+      let stderr = '';
+      child.stderr.setEncoding('utf8');
+      child.stderr.on('data', (chunk) => { stderr += chunk; });
+      child.once('error', reject);
+      child.once('close', (code) => code === 0 ? resolve() : reject(new Error(`Writer ${id} exited ${code}: ${stderr}`)));
+      child.stdin.write('go');
+      child.stdin.end();
+    });
+
+    await Promise.all([
+      runWriter('worker-one', 'Worker One'),
+      runWriter('worker-two', 'Worker Two')
+    ]);
+
+    assert.deepEqual(listProfiles(root).map((profile) => profile.id).sort(), ['worker-one', 'worker-two']);
+  } finally {
+    for (const child of children) if (child.exitCode === null && child.signalCode === null) child.kill();
+    fs.rmSync(root, { recursive: true, force: true });
+  }
 });

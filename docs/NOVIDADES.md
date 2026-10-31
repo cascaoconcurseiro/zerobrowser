@@ -1,6 +1,16 @@
-# Novidades — Zero Browser 0.1.51-dev
+# Novidades — Zero Browser 0.1.52-dev
 
-## Central de Bots e layout Delegar — 31/10/2026
+## Central de Bots e painel Delegar — 0.1.52-dev — 31/10/2026
+
+- A Central substitui visualmente o chat enquanto está aberta, impede foco/interação com o painel por trás e devolve o foco ao fechar.
+- Perfis Bot ficam em seções Ativos e Arquivados, com ações Arquivar/Restaurar. O arquivamento só altera metadados: preserva cookies, login, pasta e associação do avatar; Bots arquivados não podem ser abertos novamente.
+- As gravações do registro de perfis são coordenadas entre processos, para criação e arquivamento simultâneos não sobrescreverem a lista um do outro.
+- O painel Delegar começa mais estreito (`min(480px, 34vw)`) e pode ser ajustado pelo divisor com mouse/toque ou teclado; a página mantém uma largura mínima. A Central acompanha o mesmo limite.
+- Os avatares pixel ficam centralizados dentro do círculo; os alvos principais de clique mantêm pelo menos 44px em layouts compactos.
+- Validação local: `npm test` 374/374; `npm run test:ui` PASS; `npm run test:delegation-layout` PASS em seis tamanhos (1584x966, 1402x901, 700x800, 700x600, 400x800 e 400x600). Revisão independente estática sem falha concreta. Build e inspeção visual no executável .52 ainda pendentes.
+- Limite: arquivar não encerra uma janela Bot já aberta em outro processo; o Zero ainda não mantém uma lista confiável desses processos. Nenhuma chamada a provedor de IA foi feita.
+
+## Histórico do layout Delegar — 0.1.51-dev — 31/10/2026
 
 - A Central agora ocupa o mesmo painel reservado pelo processo principal do navegador; a página nativa deixa de cobrir a lista e os controles.
 - A Central tem título, contagem, lista rolável independente, estado do Bot atual e ação Criar Bot sempre acessível. Em janelas estreitas, usa o espaço restante ao lado do trilho.

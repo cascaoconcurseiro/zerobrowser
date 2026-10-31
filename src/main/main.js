@@ -58,6 +58,7 @@ let quitCleanupComplete = false;
 let sidePanelOpen = false;
 let sidePanelPosition = 'right';
 let sidePanelMode = 'none';
+let sidePanelWidthOverride = null;
 const PROFILE_PARTITION = 'persist:navegante';
 const FLAME_PANEL_WIDTH = 420;
 let extensionHost = null;
@@ -69,6 +70,11 @@ const closedTabs = []; // para Ctrl+Shift+T
 const TAB_BAR_HEIGHT = 60;
 const TOOLBAR_HEIGHT = 52;
 const BOOKMARKS_BAR_HEIGHT = 32;
+const MIN_PAGE_VIEW_WIDTH = 320;
+const MIN_COMPACT_PAGE_VIEW_WIDTH = 160;
+const MIN_SIDE_PANEL_WIDTH = 240;
+const MIN_COMPACT_SIDE_PANEL_WIDTH = 160;
+const MAX_LEFT_SIDE_PANEL_WIDTH = 760;
 let bookmarksBarVisible = false;
 let shuttingDown = false; // ao sair, as abas fecham uma a uma e não devem apagar a sessão salva
 let sessionSaveTimer = null;
@@ -653,16 +659,12 @@ function updateBrowserViewBounds() {
   if (!mainWindow || mainWindow.isDestroyed()) return null;
   const contentBounds = mainWindow.getContentBounds();
   const top = TAB_BAR_HEIGHT + TOOLBAR_HEIGHT + (bookmarksBarVisible ? BOOKMARKS_BAR_HEIGHT : 0);
-  const compact = contentBounds.width <= 800;
   const flameOpen = flamePanels.has(activeBrowserTabId) && !flamePanelHidden;
-  const sidePanelLimit = sidePanelPosition === 'left' ? (compact ? 520 : 640) : 360;
-  const mobileLeftPanel = sidePanelOpen && sidePanelPosition === 'left' && contentBounds.width <= 480;
-  const sidePanelRatio = sidePanelPosition === 'left'
-    ? (mobileLeftPanel ? (contentBounds.width - 64) / contentBounds.width : compact ? 0.46 : 0.42)
-    : 0.4;
+  const compact = contentBounds.width <= 800;
+  const panelWidth = getSidePanelWidth(contentBounds.width, sidePanelPosition, sidePanelOpen);
   const sidePanelWidth = flameOpen
     ? Math.min(FLAME_PANEL_WIDTH, Math.ceil(contentBounds.width * 0.45))
-    : sidePanelOpen ? Math.min(sidePanelLimit, Math.ceil(contentBounds.width * sidePanelRatio)) : 0;
+    : sidePanelOpen ? panelWidth : 0;
   const delegationRailWidth = sidePanelOpen && sidePanelPosition === 'left' ? (compact ? 64 : 80) : 0;
   for (const panel of flamePanels.values()) {
     if (!panel.webContents.isDestroyed()) {
@@ -681,6 +683,36 @@ function updateBrowserViewBounds() {
     }
   });
   return browserViews.get(activeBrowserTabId)?.view.getBounds() || null;
+}
+
+function getSidePanelWidth(contentWidth, position = sidePanelPosition, open = sidePanelOpen) {
+  const width = Math.max(1, Math.floor(contentWidth));
+  const compact = width <= 800;
+  if (position !== 'left') return Math.min(360, Math.ceil(width * 0.4));
+
+  const railWidth = open ? (compact ? 64 : 80) : 0;
+  const minimumPageWidth = compact ? MIN_COMPACT_PAGE_VIEW_WIDTH : MIN_PAGE_VIEW_WIDTH;
+  const availableWidth = Math.max(0, width - railWidth - minimumPageWidth);
+  const maximumWidth = Math.min(MAX_LEFT_SIDE_PANEL_WIDTH, availableWidth);
+  const mobileLeftPanel = width <= 480;
+  const defaultWidth = compact
+    ? (mobileLeftPanel ? maximumWidth : Math.min(360, Math.floor(width * 0.4)))
+    : Math.min(480, Math.floor(width * 0.34));
+  const requestedWidth = sidePanelWidthOverride ?? defaultWidth;
+  const minimumWidth = Math.min(compact ? MIN_COMPACT_SIDE_PANEL_WIDTH : MIN_SIDE_PANEL_WIDTH, maximumWidth);
+  return Math.max(minimumWidth, Math.min(maximumWidth, Math.round(requestedWidth)));
+}
+
+function getSidePanelLayout(bounds = browserViews.get(activeBrowserTabId)?.view.getBounds() || null) {
+  const contentBounds = mainWindow && !mainWindow.isDestroyed() ? mainWindow.getContentBounds() : { width: 1 };
+  const panelWidth = getSidePanelWidth(contentBounds.width, sidePanelPosition, sidePanelOpen);
+  return {
+    open: sidePanelOpen,
+    panelWidth,
+    bounds,
+    contentTop: TAB_BAR_HEIGHT + TOOLBAR_HEIGHT + (bookmarksBarVisible ? BOOKMARKS_BAR_HEIGHT : 0),
+    railWidth: sidePanelOpen && sidePanelPosition === 'left' ? (contentBounds.width <= 800 ? 64 : 80) : 0
+  };
 }
 
 function closeTab(tabId) {
@@ -841,14 +873,26 @@ handleMainUiIpc('browser:set-side-panel-open', (event, state) => {
   sidePanelPosition = panelState.position === 'left' ? 'left' : 'right';
   sidePanelMode = sidePanelOpen && ['ai', 'bots', 'settings', 'library'].includes(panelState.mode) ? panelState.mode : 'none';
   const bounds = updateBrowserViewBounds();
-  return { open: sidePanelOpen, bounds, contentTop: TAB_BAR_HEIGHT + TOOLBAR_HEIGHT + (bookmarksBarVisible ? BOOKMARKS_BAR_HEIGHT : 0) };
+  return getSidePanelLayout(bounds);
 });
 
 handleMainUiIpc('browser:get-side-panel-layout', (event) => {
   if (!mainWindow || event.sender !== mainWindow.webContents) {
     throw new Error('Somente a janela principal pode consultar o layout do navegador.');
   }
-  return { open: sidePanelOpen, frozen: pageFrozen, bounds: browserViews.get(activeBrowserTabId)?.view.getBounds() || null, contentTop: TAB_BAR_HEIGHT + TOOLBAR_HEIGHT + (bookmarksBarVisible ? BOOKMARKS_BAR_HEIGHT : 0) };
+  return { ...getSidePanelLayout(), frozen: pageFrozen };
+});
+
+handleMainUiIpc('browser:set-side-panel-width', (event, requestedWidth) => {
+  if (!mainWindow || event.sender !== mainWindow.webContents) {
+    throw new Error('Somente a janela principal pode alterar o layout do navegador.');
+  }
+  if (typeof requestedWidth !== 'number' || !Number.isFinite(requestedWidth)) {
+    throw new TypeError('A largura do painel precisa ser um número finito.');
+  }
+  sidePanelWidthOverride = Math.round(requestedWidth);
+  const bounds = updateBrowserViewBounds();
+  return getSidePanelLayout(bounds);
 });
 
 handleMainUiIpc('browser:get-tab', async (e, tabId) => {
@@ -1031,9 +1075,10 @@ const profilesRoot = () => {
 };
 
 function launchProfile(profile) {
+  const launchableProfile = profiles.getLaunchableProfile(profilesRoot(), profile?.id);
   const env = { ...process.env };
   for (const key of ['ZERO_USER_DATA', 'NAVEGANTE_USER_DATA', 'ZERO_DATA_DIR', 'NAVEGANTE_DATA_DIR']) delete env[key];
-  if (profile.id !== profiles.MAIN_PROFILE.id) env.ZERO_USER_DATA = profiles.profileDir(profilesRoot(), profile.id);
+  if (launchableProfile.id !== profiles.MAIN_PROFILE.id) env.ZERO_USER_DATA = profiles.profileDir(profilesRoot(), launchableProfile.id);
   const args = app.isPackaged ? [] : [app.getAppPath()];
   spawn(process.execPath, args, { detached: true, stdio: 'ignore', env }).unref();
 }
@@ -1051,7 +1096,12 @@ handleMainUiIpc('browser:profile-menu', (event, x, y) => {
     current,
     profiles: profiles.listProfiles(root),
     actions: {
-      open: (profile) => launchProfile(profile),
+      open: (profile) => {
+        try { launchProfile(profile); } catch (error) {
+          logError(error);
+          dialog.showErrorBox('Abrir perfil', error.message);
+        }
+      },
       create: () => {
         try { launchProfile(profiles.createProfile(root)); } catch (error) { logError(error); dialog.showErrorBox('Novo perfil', error.message); }
       },
@@ -1083,8 +1133,10 @@ handleMainUiIpc('browser:get-bots', () => {
   if (!botAvatarCatalog) return { bots: [], avatars: 0, currentProfileId: null };
   const root = profilesRoot();
   const botProfiles = profiles.listProfiles(root).filter((profile) => profile.type === 'bot');
+  const profileById = new Map(botProfiles.map((profile) => [profile.id, profile]));
   const bots = botAvatarCatalog.syncProfiles(botProfiles).map((bot) => ({
     ...bot,
+    ...(profileById.get(bot.id)?.archived === true ? { archived: true } : {}),
     avatar: botAvatarCatalog.getAvatar(bot.avatarId)
   }));
   const current = profiles.currentProfile(root, app.getPath('userData'));
@@ -1102,6 +1154,20 @@ handleMainUiIpc('browser:open-bot-profile', (_event, profileId) => {
   if (!profile) throw new Error('Perfil de Bot não encontrado');
   launchProfile(profile);
   return true;
+});
+
+handleMainUiIpc('browser:archive-bot', (_event, profileId) => {
+  if (typeof profileId !== 'string' || !/^[a-z0-9-]{1,40}$/.test(profileId)) throw new TypeError('Perfil de Bot inválido');
+  const bot = profiles.archiveBot(profilesRoot(), profileId);
+  sendToRenderer('browser:bots-changed');
+  return bot;
+});
+
+handleMainUiIpc('browser:restore-bot', (_event, profileId) => {
+  if (typeof profileId !== 'string' || !/^[a-z0-9-]{1,40}$/.test(profileId)) throw new TypeError('Perfil de Bot inválido');
+  const bot = profiles.restoreBot(profilesRoot(), profileId);
+  sendToRenderer('browser:bots-changed');
+  return bot;
 });
 
 handleMainUiIpc('browser:reopen-closed-tab', (event) => {

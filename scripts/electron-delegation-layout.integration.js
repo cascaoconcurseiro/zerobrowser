@@ -1,4 +1,4 @@
-// Verifica o contrato visual da Central de Bots e do modo Delegar em quatro tamanhos.
+// Verifica o contrato visual da Central de Bots e do modo Delegar em telas largas, estreitas e baixas.
 const { app, BrowserWindow, ipcMain } = require('electron');
 const assert = require('node:assert/strict');
 const path = require('node:path');
@@ -9,7 +9,7 @@ const bots = Array.from({ length: 32 }, (_unused, index) => {
   const id = current ? 'bot-current' : `bot-${String(index).padStart(2, '0')}`;
   return {
     id,
-    name: current ? 'Bot Atual' : `Bot ${String(index).padStart(2, '0')}`,
+    name: current ? 'Bot Atual' : index === 31 ? 'Bot de automação com nome longo para validar encaixe' : `Bot ${String(index).padStart(2, '0')}`,
     avatarId: `pixel-${String(index + 1).padStart(3, '0')}`,
     avatar: {
       sheetId: 'pixel-animals-01',
@@ -21,18 +21,54 @@ const bots = Array.from({ length: 32 }, (_unused, index) => {
   };
 });
 
+let testWindow = null;
+let sidePanelOpen = false;
+let sidePanelPosition = 'left';
+let sidePanelWidthOverride = null;
+
+function mockSidePanelLayout() {
+  const width = testWindow?.getContentBounds().width || 1200;
+  const compact = width <= 800;
+  const railWidth = sidePanelOpen && sidePanelPosition === 'left' ? (compact ? 64 : 80) : 0;
+  const available = Math.max(0, width - railWidth - (compact ? 160 : 320));
+  const maximum = Math.min(760, available);
+  const minimum = Math.min(compact ? 160 : 240, maximum);
+  const defaultWidth = compact
+    ? (width <= 480 ? maximum : Math.min(360, Math.floor(width * 0.4)))
+    : Math.min(480, Math.floor(width * 0.34));
+  const panelWidth = Math.max(minimum, Math.min(maximum, sidePanelWidthOverride ?? defaultWidth));
+  return {
+    open: sidePanelOpen,
+    panelWidth,
+    railWidth,
+    contentTop: 112,
+    bounds: sidePanelOpen && sidePanelPosition === 'left'
+      ? { x: railWidth + panelWidth, y: 112, width: Math.max(1, width - railWidth - panelWidth), height: 600 }
+      : null
+  };
+}
+
 const stubs = {
   'store:getAll': () => ({}),
   'store:get': () => null,
   'store:set': () => true,
   'browser:get-last-session': () => [],
   'browser:get-tabs': () => [],
-  'browser:get-side-panel-layout': () => ({ open: false }),
+  'browser:get-side-panel-layout': () => mockSidePanelLayout(),
   'browser:get-bots': () => ({ bots, avatars: 200, currentProfileId: 'bot-current' }),
   'browser:get-bot-avatar-sheet': () => null,
   'browser:app-info': () => ({ version: '0.1.47-dev', profile: 'Fixture' }),
   'browser:freeze-page': () => null,
-  'browser:set-side-panel-open': () => true,
+  'browser:set-side-panel-open': (_event, state) => {
+    const normalized = state && typeof state === 'object' ? state : { open: state === true };
+    sidePanelOpen = normalized.open === true;
+    sidePanelPosition = normalized.position === 'left' ? 'left' : 'right';
+    return mockSidePanelLayout();
+  },
+  'browser:set-side-panel-width': (_event, width) => {
+    sidePanelWidthOverride = width;
+    return mockSidePanelLayout();
+  },
   'browser:new-tab': () => ({ tabId: 'delegation-layout-tab' }),
   'browser:switch-tab': () => ({ tabId: 'delegation-layout-tab' }),
   'browser:set-bookmarks-bar': () => true,
@@ -60,6 +96,7 @@ app.whenReady().then(async () => {
       sandbox: true
     }
   });
+  testWindow = window;
 
   try {
     const loaded = new Promise((resolve, reject) => {
@@ -72,6 +109,7 @@ app.whenReady().then(async () => {
 
     window.show();
     window.focus();
+    const displayScaleFactor = await window.webContents.executeJavaScript('window.devicePixelRatio || 1');
     await window.webContents.executeJavaScript(`(() => {
       const app = document.getElementById('app');
       if (!app.classList.contains('delegation-mode')) document.getElementById('btn-ai').click();
@@ -84,13 +122,18 @@ app.whenReady().then(async () => {
       { width: 1584, height: 966 },
       { width: 1402, height: 901 },
       { width: 700, height: 800 },
-      { width: 400, height: 800 }
+      { width: 700, height: 600 },
+      { width: 400, height: 800 },
+      { width: 400, height: 600 }
     ];
     const measurements = [];
 
     for (const viewport of viewports) {
-      window.setSize(viewport.width, viewport.height);
+      if (window.isMaximized()) window.unmaximize();
+      window.setSize(Math.ceil(viewport.width / displayScaleFactor), Math.ceil(viewport.height / displayScaleFactor));
+      window.center();
       await new Promise((resolve) => setTimeout(resolve, 100));
+      const nativeBounds = window.getBounds();
 
       const layout = await window.webContents.executeJavaScript(`(() => {
         const px = (value) => Number.parseFloat(value) || 0;
@@ -134,13 +177,22 @@ app.whenReady().then(async () => {
         const list = document.getElementById('bot-central-list');
         const rail = document.getElementById('delegation-rail');
         const panel = document.getElementById('ai-panel');
+        const panelWasHidden = panel.classList.contains('hidden');
+        panel.classList.remove('hidden');
+        const expectedPanelWidth = panel.getBoundingClientRect().width;
+        if (panelWasHidden) panel.classList.add('hidden');
         const toolbar = document.getElementById('toolbar');
         const address = document.getElementById('address-bar');
         const aiButton = document.getElementById('btn-ai');
+        const resizer = document.getElementById('delegation-resizer');
         const label = aiButton.querySelector('.ai-copilot-label');
         const close = document.getElementById('btn-bot-central-close');
         const create = document.getElementById('btn-bot-central-new');
         const dialogRect = dialog.getBoundingClientRect();
+        const avatar = dialog.querySelector('.bot-avatar');
+        const sprite = avatar?.querySelector('.pixel-avatar');
+        const avatarRect = avatar?.getBoundingClientRect();
+        const spriteRect = sprite?.getBoundingClientRect();
         const listRect = list.getBoundingClientRect();
         const railRect = rail.getBoundingClientRect();
         const panelRect = panel.getBoundingClientRect();
@@ -154,7 +206,22 @@ app.whenReady().then(async () => {
           viewport: { width: document.documentElement.clientWidth, height: document.documentElement.clientHeight },
           requestedWindow: { width: ${viewport.width}, height: ${viewport.height} },
           dialog: { left: dialogRect.left, top: dialogRect.top, right: dialogRect.right, bottom: dialogRect.bottom, width: dialogRect.width, height: dialogRect.height },
-          expectedPanel: { left: railRect.right, right: railRect.right + panelRect.width, width: panelRect.width },
+          expectedPanel: { left: railRect.right, right: railRect.right + expectedPanelWidth, width: expectedPanelWidth },
+          splitter: {
+            visible: Boolean(resizer.getClientRects().length),
+            role: resizer.getAttribute('role'),
+            valueNow: Number(resizer.getAttribute('aria-valuenow')),
+            panelWidth: Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--delegation-panel-width'))
+          },
+          underlyingChatHidden: panel.classList.contains('hidden'),
+          avatar: avatarRect && spriteRect ? {
+            frameWidth: avatarRect.width,
+            frameHeight: avatarRect.height,
+            spriteWidth: spriteRect.width,
+            spriteHeight: spriteRect.height,
+            centerXDelta: Math.abs((avatarRect.left + avatarRect.right) / 2 - (spriteRect.left + spriteRect.right) / 2),
+            centerYDelta: Math.abs((avatarRect.top + avatarRect.bottom) / 2 - (spriteRect.top + spriteRect.bottom) / 2)
+          } : null,
           list: {
             clientHeight: list.clientHeight,
             scrollHeight: list.scrollHeight,
@@ -185,13 +252,19 @@ app.whenReady().then(async () => {
         };
       })()`);
 
-      const message = `${viewport.width}x${viewport.height}: ${JSON.stringify(layout)}`;
+      const message = `${viewport.width}x${viewport.height} scale=${displayScaleFactor} native=${JSON.stringify(nativeBounds)}: ${JSON.stringify(layout)}`;
       const tolerance = 1.5;
       assert.ok(layout.dialog.left >= 0 && layout.dialog.top >= 0, `Central inicia dentro do viewport; ${message}`);
       assert.ok(layout.dialog.right <= layout.viewport.width + tolerance && layout.dialog.bottom <= layout.viewport.height + tolerance, `Central inteira dentro do viewport; ${message}`);
       assert.ok(Math.abs(layout.dialog.left - layout.expectedPanel.left) <= tolerance, `Central alinhada após o trilho; ${message}`);
       assert.ok(Math.abs(layout.dialog.right - layout.expectedPanel.right) <= tolerance, `Borda direita da Central coincide com o início esperado da página (trilho + painel); ${message}`);
+      assert.equal(layout.underlyingChatHidden, true, `Central substitui visualmente o chat enquanto está aberta; ${message}`);
       assert.ok(layout.dialog.width > 0 && layout.dialog.height > 0, `Central tem área visível; ${message}`);
+      assert.equal(layout.splitter.visible, false, `divisor do painel Delegar fica oculto enquanto a Central substitui o chat; ${message}`);
+      assert.ok(layout.splitter.panelWidth <= (viewport.width <= 800 ? 360 : 480) + tolerance, `largura inicial do painel acompanha o padrão compacto; ${message}`);
+      assert.ok(layout.avatar, `Avatar pixelado aparece na Central; ${message}`);
+      assert.ok(layout.avatar.spriteWidth < layout.avatar.frameWidth && layout.avatar.spriteHeight < layout.avatar.frameHeight, `Sprite cabe dentro do círculo; ${message}`);
+      assert.ok(layout.avatar.centerXDelta <= 1 && layout.avatar.centerYDelta <= 1, `Sprite fica centralizado no círculo; ${message}`);
 
       assert.ok(layout.list.clientHeight > 0, `Lista tem viewport próprio; ${message}`);
       assert.ok(layout.list.scrollHeight > layout.list.clientHeight, `Lista longa deve rolar dentro do painel; ${message}`);
@@ -222,6 +295,20 @@ app.whenReady().then(async () => {
     assert.equal(focus.closed, true, 'Escape fecha a Central');
     assert.equal(focus.triggerExpanded, 'false', 'Escape sincroniza aria-expanded');
     assert.equal(focus.activeElement, 'btn-bot-central', 'Escape retorna o foco ao acionador');
+
+    window.setSize(Math.ceil(1584 / displayScaleFactor), Math.ceil(966 / displayScaleFactor));
+    await new Promise((resolve) => setTimeout(resolve, 120));
+    const splitter = await window.webContents.executeJavaScript(`(async () => {
+      const divider = document.getElementById('delegation-resizer');
+      const before = Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--delegation-panel-width'));
+      divider.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+      await new Promise((resolve) => setTimeout(resolve, 80));
+      const after = Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--delegation-panel-width'));
+      return { before, after, valueNow: Number(divider.getAttribute('aria-valuenow')), panel: document.getElementById('ai-panel').getBoundingClientRect().width };
+    })()`);
+    assert.equal(splitter.after, splitter.before + 24, `tecla de seta aumenta a largura pelo passo previsto (${JSON.stringify(splitter)})`);
+    assert.equal(splitter.valueNow, splitter.after, 'ARIA anuncia a largura efetivamente aplicada');
+    assert.equal(splitter.panel, splitter.after, 'conversa acompanha a largura ajustada');
 
     process.stdout.write(JSON.stringify({ status: 'PASS', viewports, measurements, focus }) + '\n');
   } catch (error) {
