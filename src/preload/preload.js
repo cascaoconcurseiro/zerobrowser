@@ -145,8 +145,20 @@ const browserApi = {
 
   bots: {
     getPresets: () => ipcRenderer.invoke('bots:get-presets'),
+    getSymbols: () => ipcRenderer.invoke('bots:get-symbols'),
     listTasks: () => ipcRenderer.invoke('bots:list-tasks'),
     createTask: (spec) => ipcRenderer.invoke('bots:create-task', spec),
+    addMemory: (botId, text) => ipcRenderer.invoke('bots:add-memory', { botId, text }),
+    promoteAutonomy: (botId, targetStep, confirmedByUser = false) => ipcRenderer.invoke('bots:promote-autonomy', { botId, targetStep, confirmedByUser }),
+    registerTrigger: (payload) => ipcRenderer.invoke('bots:register-trigger', payload),
+    listTriggers: (botId = null) => ipcRenderer.invoke('bots:list-triggers', botId),
+    createMandate: (payload) => ipcRenderer.invoke('bots:create-mandate', payload),
+    getMandate: (botId) => ipcRenderer.invoke('bots:get-mandate', botId),
+    getWindowsTaskSpec: (botId, time = '09:00') => ipcRenderer.invoke('bots:windows-task-spec', { botId, time }),
+    teachStart: (opts) => ipcRenderer.invoke('bots:teach:start', opts),
+    teachRecordEvent: (sessionId, stepEvent) => ipcRenderer.invoke('bots:teach:record-event', { sessionId, stepEvent }),
+    teachStop: (sessionId) => ipcRenderer.invoke('bots:teach:stop', sessionId),
+    teachSaveAsBot: (sessionId, name, schedule) => ipcRenderer.invoke('bots:teach:save-as-bot', { sessionId, name, schedule }),
     runNow: (botId, options = {}) => ipcRenderer.invoke('bots:run-now', botId, options),
     stopAll: () => ipcRenderer.invoke('bots:stop-all'),
     runMissedSchedules: () => ipcRenderer.invoke('bots:run-missed-schedules'),
@@ -156,9 +168,20 @@ const browserApi = {
       return () => ipcRenderer.removeListener('bots:attention', handler);
     }
   },
+  routes: {
+    list: () => ipcRenderer.invoke('routes:list'),
+    toggle: (routeId, enabled, confirmedByUser = false) => ipcRenderer.invoke('routes:toggle', { routeId, enabled, confirmedByUser }),
+    captureCurrent: (payload) => ipcRenderer.invoke('routes:capture-current', payload),
+    rehearseTwin: (payload) => ipcRenderer.invoke('routes:rehearse-twin', payload)
+  },
+  connectors: {
+    status: () => ipcRenderer.invoke('connectors:status'),
+    addTelegramSender: (senderId) => ipcRenderer.invoke('connectors:add-telegram-sender', senderId)
+  },
   liveApps: {
     list: () => ipcRenderer.invoke('live-apps:list'),
-    createWeeklyDuePrototype: () => ipcRenderer.invoke('live-apps:create-weekly-due')
+    createWeeklyDuePrototype: () => ipcRenderer.invoke('live-apps:create-weekly-due'),
+    generate: (payload) => ipcRenderer.invoke('live-apps:generate', payload)
   },
   platform: process.platform,
   versions: process.versions

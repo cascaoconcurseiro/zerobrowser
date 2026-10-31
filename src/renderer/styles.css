@@ -1736,3 +1736,124 @@ body.dark .ai-working-status-pill {
   box-shadow: inset 0 0 0 1.5px var(--bot-state-attention, #d9822b);
 }
 
+/* Cabeçalho GrokBot do Bot Especialista ativo no painel + cards da Central e abas internas */
+.grokbot-briefing-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--active-bot-accent, var(--accent)) 10%, var(--bg-secondary));
+}
+.grokbot-briefing-identity {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.grokbot-active-ring {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: 2px solid var(--active-bot-accent, var(--accent));
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--active-bot-accent, var(--accent));
+  background: var(--bg-primary);
+}
+.grokbot-active-ring[data-bot-state="working"] {
+  border-style: dashed;
+}
+.grokbot-active-ring[data-bot-state="needs-attention"] {
+  border-color: var(--bot-state-attention, #d9822b);
+  color: var(--bot-state-attention, #d9822b);
+}
+.grokbot-briefing-copy {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.grokbot-briefing-copy strong {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--fg-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.grokbot-briefing-copy span {
+  font-size: 10.5px;
+  color: var(--fg-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.grokbot-briefing-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.grokbot-chip-btn {
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+.grokbot-chip-btn.is-recording {
+  border-color: #d9383a;
+  color: #d9383a;
+  background: color-mix(in srgb, #d9383a 12%, var(--bg-primary));
+}
+.grokbot-central-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--bot-accent, var(--accent));
+  border-radius: 10px;
+  background: var(--bg-secondary);
+}
+.grokbot-central-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.grokbot-central-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+#bot-central .grokbot-central-actions button {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 6px 10px;
+}
+.grokbot-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+  border: 1px solid var(--border);
+  background: var(--bg-primary);
+  color: var(--fg-secondary);
+}
+.grokbot-input-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.grokbot-input-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+

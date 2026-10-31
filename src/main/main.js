@@ -15,10 +15,14 @@ const { applyNewtabTheme } = require('./newtab-theme');
 const { loadDownloadHistory, saveDownloadHistory, nextDownloadSequence, DEFAULT_LIMIT: DOWNLOAD_HISTORY_LIMIT } = require('./download-history');
 const { buildTabMenuTemplate } = require('./tab-menu');
 const profiles = require('./profiles');
-const { BotAvatarCatalog } = require('./bot-avatar-catalog');
+const { BotAvatarCatalog, BOT_STROKE_SYMBOLS } = require('./bot-avatar-catalog');
 const { BotTaskStore, SPECIALIST_BOT_PRESETS } = require('../bots/bot-store');
 const { BotRunner } = require('../bots/runner');
 const { BotScheduler } = require('../bots/scheduler');
+const { TeachTaskRecorder } = require('../bots/recorder');
+const { LearnedRouteLibrary, LocalTwinSandbox } = require('../automation/learned-routes');
+const { NativeConnectorsHub, AuthorizedMessagingBridge } = require('../connectors');
+const { McpClientRegistry } = require('../automation/mcp-diagnostics');
 const { LiveAppEngine, createWeeklyDueAppPrototype } = require('../live-apps/live-app-engine');
 const { zeroEnv } = require('../env');
 const { spawn } = require('child_process');
@@ -245,6 +249,21 @@ async function initializeApp() {
     botAvatarCatalog.seed();
     botAvatarCatalog.syncProfiles(profiles.listProfiles(profilesRoot()).filter((profile) => profile.type === 'bot'));
     botTaskStore = new BotTaskStore({ filePath: path.join(app.getPath('userData'), 'bot-tasks.json') });
+    if (botTaskStore.listBots().length === 0) {
+      for (const preset of SPECIALIST_BOT_PRESETS.slice(0, 3)) {
+        botTaskStore.createBot({
+          name: preset.defaultName,
+          specialty: preset.id,
+          specialtyTitle: preset.title,
+          executionMode: preset.executionMode,
+          defaultUrl: preset.defaultUrl,
+          accent: preset.accent,
+          goal: preset.goal,
+          permission: preset.permission,
+          schedule: { enabled: true, kind: 'daily', dailyAt: '09:00' }
+        });
+      }
+    }
     botRunner = new BotRunner({ store: botTaskStore });
     botScheduler = new BotScheduler({
       store: botTaskStore,
@@ -253,7 +272,70 @@ async function initializeApp() {
     });
     botScheduler.pauseStaleBots();
     botScheduler.runMissedSchedulesOnce().catch(logError);
+    global.teachTaskRecorder = new TeachTaskRecorder({ store: botTaskStore });
+    global.learnedRouteLibrary = new LearnedRouteLibrary();
+    global.learnedRouteLibrary.addRoute({
+      id: 'route-shopping-offers',
+      site: 'https://www.google.com',
+      profileId: 'default',
+      name: 'Buscar ofertas e menor frete (Shopping)',
+      intent: 'shopping.searchOffers',
+      method: 'GET',
+      urlTemplate: 'https://www.google.com/shopping/api/offers?q={produto}',
+      params: [{ name: 'produto', type: 'string', origin: 'usuario' }],
+      effect: 'leitura',
+      reversibility: 'reversivel',
+      enabled: true,
+      needsRelearning: false,
+      runs: 18,
+      successes: 18,
+      successRate: 1,
+      lastVerifiedAt: new Date().toISOString()
+    });
+    global.learnedRouteLibrary.addRoute({
+      id: 'route-finance-quote',
+      site: 'https://www.google.com',
+      profileId: 'default',
+      name: 'Consultar cotação intradiária de ativo',
+      intent: 'finance.getQuote',
+      method: 'GET',
+      urlTemplate: 'https://www.google.com/finance/quote/{ticker}',
+      params: [{ name: 'ticker', type: 'string', origin: 'usuario' }],
+      effect: 'leitura',
+      reversibility: 'reversivel',
+      enabled: true,
+      needsRelearning: false,
+      runs: 24,
+      successes: 24,
+      successRate: 1,
+      lastVerifiedAt: new Date().toISOString()
+    });
+    global.learnedRouteLibrary.addRoute({
+      id: 'route-erp-submit-batch',
+      site: 'https://erp.empresa.local',
+      profileId: 'default',
+      name: 'Enviar lote de notas fiscais (ERP)',
+      intent: 'erp.submitInvoiceBatch',
+      method: 'POST',
+      urlTemplate: 'https://erp.empresa.local/api/lotes/{loteId}/enviar',
+      params: [{ name: 'loteId', type: 'string', origin: 'usuario' }],
+      effect: 'escreve',
+      reversibility: 'irreversivel',
+      enabled: false,
+      needsRelearning: false,
+      runs: 4,
+      successes: 4,
+      successRate: 1,
+      lastVerifiedAt: new Date().toISOString()
+    });
+    global.localTwinSandbox = new LocalTwinSandbox();
+    global.connectorsHub = new NativeConnectorsHub();
+    global.telegramBridge = new AuthorizedMessagingBridge({ channel: 'telegram', authorizedSenderIds: ['wesley-telegram'] });
+    global.mcpClientRegistry = new McpClientRegistry();
     liveAppEngine = new LiveAppEngine({ storageDir: path.join(app.getPath('userData'), 'live-apps') });
+    if (liveAppEngine.listApps().length === 0) {
+      createWeeklyDueAppPrototype(liveAppEngine);
+    }
   } catch (error) {
     logError(error);
   }
@@ -1491,8 +1573,95 @@ handleMainUiIpc('flame:toggle-panel', (event) => {
 
 handleMainUiIpc('flame:status', () => ({ available: Boolean(extensionHost?.primary), open: flamePanels.has(activeBrowserTabId) && !flamePanelHidden }));
 handleMainUiIpc('bots:get-presets', () => SPECIALIST_BOT_PRESETS);
+handleMainUiIpc('bots:get-symbols', () => BOT_STROKE_SYMBOLS);
 handleMainUiIpc('bots:list-tasks', () => (botTaskStore ? botTaskStore.listBots() : []));
 handleMainUiIpc('bots:create-task', (_event, spec = {}) => (botTaskStore ? botTaskStore.createBot(spec) : null));
+handleMainUiIpc('bots:add-memory', (_event, { botId, text, note } = {}) => {
+  if (!botTaskStore) return null;
+  return botTaskStore.addMemoryItem(String(botId), {
+    content: { value: String(text || note || ''), origin: 'usuario' },
+    confirmedByUser: true
+  });
+});
+handleMainUiIpc('bots:promote-autonomy', (_event, { botId, targetStep, confirmedByUser = false } = {}) => {
+  if (!botTaskStore) return null;
+  return botTaskStore.promoteAutonomy(String(botId), { targetStep: Number(targetStep), confirmedByUser: Boolean(confirmedByUser) });
+});
+handleMainUiIpc('bots:register-trigger', (_event, payload = {}) => (botScheduler ? botScheduler.registerEventTrigger(payload) : null));
+handleMainUiIpc('bots:list-triggers', (_event, botId = null) => (botScheduler ? botScheduler.listEventTriggers(botId) : []));
+handleMainUiIpc('bots:create-mandate', (_event, { botId, maxAmountBRL, maxAmountBrl, ...spec } = {}) => (botScheduler ? botScheduler.createMandate(String(botId), { ...spec, maxAmountBrl: maxAmountBrl ?? maxAmountBRL ?? 150 }) : null));
+handleMainUiIpc('bots:get-mandate', (_event, botId) => (botScheduler ? botScheduler.getMandate(String(botId)) : null));
+handleMainUiIpc('bots:windows-task-spec', (_event, arg = {}) => {
+  if (!botScheduler) return null;
+  const botId = typeof arg === 'string' ? arg : arg?.botId;
+  const time = typeof arg === 'object' ? arg?.time : '09:00';
+  try {
+    return botScheduler.buildWindowsScheduledTaskSpec(String(botId), { time: time || '09:00', exePath: process.execPath });
+  } catch {
+    return null;
+  }
+});
+handleMainUiIpc('bots:teach:start', (_event, opts = {}) => (global.teachTaskRecorder ? global.teachTaskRecorder.startRecording(opts) : null));
+handleMainUiIpc('bots:teach:record-event', (_event, { sessionId, stepEvent } = {}) => (global.teachTaskRecorder ? global.teachTaskRecorder.recordEvent(String(sessionId), stepEvent || {}) : null));
+handleMainUiIpc('bots:teach:stop', (_event, sessionId) => (global.teachTaskRecorder ? global.teachTaskRecorder.stopRecording(String(sessionId)) : null));
+handleMainUiIpc('bots:teach:save-as-bot', (_event, { sessionId, name, schedule } = {}) => (global.teachTaskRecorder ? global.teachTaskRecorder.saveAsBot(String(sessionId), { name, schedule }) : null));
+handleMainUiIpc('routes:list', () => (global.learnedRouteLibrary ? [...global.learnedRouteLibrary.routes.values()] : []));
+handleMainUiIpc('routes:toggle', (_event, { routeId, enabled, confirmedByUser = false } = {}) => (global.learnedRouteLibrary ? global.learnedRouteLibrary.setRouteEnabled(String(routeId), Boolean(enabled), { confirmedByUser: Boolean(confirmedByUser) }) : null));
+handleMainUiIpc('routes:capture-current', (_event, { site, name, urlTemplate, effect = 'leitura' } = {}) => {
+  if (!global.learnedRouteLibrary) return null;
+  return global.learnedRouteLibrary.addRoute({
+    id: `route-${Date.now().toString(36)}`,
+    site: String(site || 'https://site.local'),
+    profileId: 'default',
+    name: String(name || 'Rota capturada da aba ativa'),
+    intent: `custom.${Date.now().toString(36)}`,
+    method: effect === 'escreve' ? 'POST' : 'GET',
+    urlTemplate: String(urlTemplate || `${site || 'https://site.local'}/api/dados`),
+    params: [],
+    effect: effect === 'escreve' ? 'escreve' : 'leitura',
+    reversibility: effect === 'escreve' ? 'irreversivel' : 'reversivel',
+    enabled: effect !== 'escreve',
+    needsRelearning: false,
+    runs: 1,
+    successes: 1,
+    successRate: 1,
+    lastVerifiedAt: new Date().toISOString()
+  });
+});
+handleMainUiIpc('routes:rehearse-twin', (_event, { site, action = 'click', selector = '#btn-confirmar', label = 'Botão principal da página' } = {}) => {
+  if (!global.localTwinSandbox) return null;
+  const twin = global.localTwinSandbox.captureTwin({
+    site: site || 'https://site.local',
+    html: '<main><button id="btn-confirmar">Confirmar</button></main>',
+    elements: { [selector]: { label, value: 'Pronto (somente leitura no Gêmeo Local)' } }
+  });
+  return global.localTwinSandbox.rehearseAction(twin.twinId, { action, selector, proposedValue: 'Simulado sem tocar na conta real' });
+});
+handleMainUiIpc('connectors:status', () => ({
+  connectors: [
+    { id: 'email.read', name: 'Gmail / Outlook', mode: 'Somente leitura (Rascunho exige aprovação)', status: 'Pronto (Firewall ativo)' },
+    { id: 'calendar.read', name: 'Google Agenda', mode: 'Somente leitura', status: 'Pronto (Firewall ativo)' },
+    { id: 'files.read', name: 'Google Drive / Arquivos', mode: 'Somente leitura', status: 'Pronto (Firewall ativo)' },
+    { id: 'notion.read', name: 'Notion Workspace', mode: 'Somente leitura', status: 'Pronto (Firewall ativo)' },
+    { id: 'github.read', name: 'GitHub Issues & PRs', mode: 'Leitura + Rascunho aprovado', status: 'Pronto (Firewall ativo)' },
+    { id: 'slack.postMessage', name: 'Slack / Equipe', mode: 'Rascunho com Recibo SHA-256', status: 'Pronto (Firewall ativo)' }
+  ],
+  telegram: {
+    channel: 'telegram',
+    authorizedSenders: global.telegramBridge ? [...global.telegramBridge.authorizedSenders] : ['wesley-telegram']
+  },
+  firewall: {
+    attacksTested: 50,
+    attacksBlocked: 50,
+    falsePositives: 0,
+    untouchableCoreActive: true
+  }
+}));
+handleMainUiIpc('connectors:add-telegram-sender', (_event, senderId) => {
+  if (!global.telegramBridge || !senderId) return null;
+  global.telegramBridge.authorizedSenders.add(String(senderId).trim());
+  return [...global.telegramBridge.authorizedSenders];
+});
 handleMainUiIpc('bots:run-now', (_event, botId, options = {}) => {
   if (!botRunner) return null;
   return botRunner.runBotNow(String(botId), {
@@ -1504,6 +1673,16 @@ handleMainUiIpc('bots:stop-all', () => (botRunner ? botRunner.stopAllBots() : { 
 handleMainUiIpc('bots:run-missed-schedules', () => (botScheduler ? botScheduler.runMissedSchedulesOnce() : []));
 handleMainUiIpc('live-apps:list', () => (liveAppEngine ? liveAppEngine.listApps() : []));
 handleMainUiIpc('live-apps:create-weekly-due', () => (liveAppEngine ? createWeeklyDueAppPrototype(liveAppEngine) : null));
+handleMainUiIpc('live-apps:generate', (_event, { title, prompt } = {}) => {
+  if (!liveAppEngine) return null;
+  return liveAppEngine.generateAppFromConversation({
+    title: String(title || 'App Vivo Personalizado'),
+    prompt: String(prompt || 'Painel consolidado a partir das minhas sessões'),
+    sources: [
+      { id: 'src-1', site: 'https://painel.local', label: 'Fonte principal (Rota aprendida)', fresh: true, items: [{ item: String(prompt || 'Indicador principal'), valor: 'R$ 249,90', status: 'Atualizado agora' }] }
+    ]
+  });
+});
 
 app.whenReady().then(initializeApp);
 

@@ -79,11 +79,31 @@ const stubs = {
   },
   'automation:jobs': () => [],
   'bots:get-presets': () => [],
-  'bots:list-tasks': () => [],
+  'bots:get-symbols': () => [{ id: 'radar', label: 'Radar', svgPath: 'M12 3a9 9 0 1 0 9 9' }],
+  'bots:list-tasks': () => [{ id: 'bot-spec-fixture', name: 'Bot Caçador de Preços', specialty: 'price-hunter', specialtyTitle: 'Pesquisador de Preços', executionMode: 'background-auto-foreground', defaultUrl: 'https://www.google.com/shopping', accent: '#168f72', autonomyStep: 1, memory: ['Regra inicial'], history: [] }],
   'bots:create-task': (_e, spec) => ({ id: `bot-task-smoke-${Date.now()}`, ...spec }),
-  'bots:run-now': () => ({ status: 'completed', shouldBringToFront: true, bringToFrontReason: 'goal_reached' }),
+  'bots:run-now': () => ({ status: 'completed', shouldBringToFront: true, attentionReason: 'goal_reached', summary: 'Menor valor encontrado.', receipt: { receiptHash: 'abc123456789' } }),
   'bots:stop-all': () => ({ stoppedCount: 0, elapsedMs: 0 }),
   'bots:run-missed-schedules': () => [],
+  'bots:add-memory': () => ({ ok: true }),
+  'bots:promote-autonomy': () => ({ autonomyStep: 2 }),
+  'bots:register-trigger': () => ({ id: 'trig-1' }),
+  'bots:list-triggers': () => [],
+  'bots:create-mandate': () => ({ id: 'mand-1', allowedAction: 'reserve-price-offer', maxAmountBRL: 200, usedCount: 0, maxUses: 1 }),
+  'bots:get-mandate': () => null,
+  'bots:windows-task-spec': () => ({ taskName: 'ZeroBrowser_Bot_1', dailyAt: '09:00', schtasksCreateCommand: 'schtasks /Create /F /SC DAILY' }),
+  'bots:teach:start': () => ({ recording: true, steps: [] }),
+  'bots:teach:record-event': () => ({ ok: true }),
+  'bots:teach:stop': () => ({ recording: false, steps: [] }),
+  'bots:teach:save-as-bot': () => ({ ok: true, bot: { id: 'bot-taught-1', name: 'Bot Ensinado na Aba', specialtyTitle: 'Ensinado', autonomyStep: 1 } }),
+  'routes:list': () => [{ id: 'r-1', domain: 'api.mercadolivre.com', method: 'GET', pathTemplate: '/sites/MLB/search', description: 'Busca direta', enabled: true, replayCount: 2 }],
+  'routes:toggle': () => ({ id: 'r-1', enabled: false }),
+  'routes:capture-current': () => ({ ok: true }),
+  'routes:rehearse-twin': () => ({ rehearsed: true, mutationsCount: 1 }),
+  'connectors:status': () => ({ connectors: [{ provider: 'email', title: 'Gmail / Outlook' }], telegramSenders: [] }),
+  'connectors:add-telegram-sender': () => ['100200300'],
+  'live-apps:list': () => [{ id: 'app-bills', title: 'Painel de Vencimentos da Semana', items: [{ title: 'Energia', amountBRL: 248.9, dueDate: '2026-11-05' }] }],
+  'live-apps:generate': () => ({ id: 'app-gen-1', title: 'Painel Gerado', items: [] }),
   'automation:memory': () => [],
   'browser:new-tab': () => ({ tabId: `tab-smoke-${++newTabCalls}` }),
   'browser:switch-tab': () => ({ tabId: 'tab-smoke' }),
@@ -308,6 +328,27 @@ app.whenReady().then(async () => {
     assert.equal(specialistFlow.presetCount, 6, 'criador exibe as 6 especialidades prontas');
     assert.equal(specialistFlow.keptBackground, true, 'modo em 2º plano cria a aba do Bot sem roubar o foco da aba atual');
     assert.equal(specialistFlow.promoted && specialistFlow.switchedToBotTab, true, 'atingir a meta ou precisar de ação traz a aba do Bot automaticamente para frente');
+
+    const grokbotSurface = await window.webContents.executeJavaScript(`(async () => {
+      const briefingVisible = !document.getElementById('grokbot-briefing-bar')?.classList.contains('hidden');
+      const tabNames = [...document.querySelectorAll('.bot-panel-tab')].map((b) => b.dataset.botTab);
+      window.app.switchBotPanelTab('routes');
+      await new Promise((r) => setTimeout(r, 80));
+      const routesText = document.getElementById('bot-view-routes')?.textContent || '';
+      window.app.switchBotPanelTab('agenda');
+      await new Promise((r) => setTimeout(r, 80));
+      const agendaText = document.getElementById('bot-view-agenda')?.textContent || '';
+      window.app.switchBotPanelTab('memory');
+      await new Promise((r) => setTimeout(r, 80));
+      const memoryText = document.getElementById('bot-view-memory')?.textContent || '';
+      window.app.switchBotPanelTab('chat');
+      return { briefingVisible, tabNames, hasRoutesOrder: routesText.includes('WebMCP'), hasMandate: agendaText.includes('Mandato Delegado'), hasAutonomy: memoryText.includes('Autonomia Conquistada') };
+    })()`);
+    assert.equal(grokbotSurface.briefingVisible, true, 'barra do Bot Especialista ativo está visível');
+    assert.deepEqual(grokbotSurface.tabNames, ['chat', 'agenda', 'memory', 'routes', 'history'], 'painel do Bot tem as 5 abas GrokBot');
+    assert.equal(grokbotSurface.hasRoutesOrder, true, 'aba Rotas exibe a ordem de preferência e rotas aprendidas');
+    assert.equal(grokbotSurface.hasMandate, true, 'aba Agenda exibe gatilhos por evento e mandato com envelope');
+    assert.equal(grokbotSurface.hasAutonomy, true, 'aba Memória exibe escada de autonomia conquistada');
 
     await window.webContents.executeJavaScript("window.app.openLibrary('downloads')");
     assert.equal(await window.webContents.executeJavaScript("document.querySelector('.library-tab[aria-pressed=\"true\"]')?.dataset.modo"), 'downloads', 'modo ativo da biblioteca atualiza seu estado acessível');

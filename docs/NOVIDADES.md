@@ -1,4 +1,15 @@
-# Novidades — Zero Browser 0.1.61-dev
+# Novidades — Zero Browser 0.1.62-dev
+
+## Experiência Completa GrokBot na Interface: Barra do Especialista Ativo, 5 Abas Operacionais, Mandatos, Rotas, Gêmeo Local, Apps Vivos e Conectores — 0.1.62-dev — 31/10/2026
+
+- **Cabeçalho GrokBot do Bot Especialista Ativo (`#grokbot-briefing-bar` em `src/renderer/index.html`, `src/renderer/app.js`, `src/renderer/styles.css`):** mostra permanentemente o anel geométrico e cor do Bot Especialista ativo (`#grokbot-active-ring`), nome (`#grokbot-active-name`), especialidade + degrau de autonomia + modo de execução (`#grokbot-active-meta`) e botões de 1 clique **`2º plano`** (`#btn-grokbot-run-bg`, que roda o Bot na aba de segundo plano e traz a aba automaticamente para a frente ao atingir a meta) e **`Gravar`** (`#btn-grokbot-teach-quick`, gravador interativo `TeachTaskRecorder`).
+- **5 Abas Operacionais Completas no Painel do Bot (`#bot-panel-tabs`):**
+  1. **`Conversa`:** conversa com o Bot Especialista + gravador **"Ensinar tarefa por demonstração"** (`bots:teach:start`, `bots:teach:record-event`, `bots:teach:stop`, `bots:teach:save-as-bot`) e botão **`Ensaiar no Gêmeo Local`**.
+  2. **`Agenda`:** rotinas agendadas por horário + **Gatilhos por Evento** (`price-below-target`, `page-changed`, `new-email` via `bots:register-trigger`) + **Mandato Delegado com Envelope** (ação autorizada, teto em R$, prazo e limite de usos via `bots:create-mandate`) + **Execução com Zero Fechado** (`bots:windows-task-spec` gerando comando auditável `schtasks` do Windows).
+  3. **`Memória`:** **Escada de Autonomia Conquistada (`Degrau 1 → 2 → 3`)** com promoção confirmada pelo usuário (`bots:promote-autonomy`) + **"O que este Bot sabe"** protegido pelo Firewall de Intenção (`bots:add-memory`).
+  4. **`Rotas`:** ordem de preferência GrokBot (`1. WebMCP → 2. Rota HTTP Aprendida → 3. Receita Determinística → 4. Interface Visual`), captura de rota da aba ativa (`routes:capture-current`), ensaio em **Gêmeo Local (`LocalTwinSandbox` via `routes:rehearse-twin`)** e biblioteca de **Rotas Aprendidas (`LearnedRouteLibrary`)** com ativação/pausa.
+  5. **`Histórico`:** recibos verificados com hash SHA-256 (`receiptHash`), duração em `ms`, economia sem modelo (`0 tokens`), compensação **`Desfazer`** e exportação JSON.
+- **Central de Comando GrokBot (`#bot-central`):** além dos perfis isolados, exibe os cartões interativos de **Bots Especialistas GrokBot** (pré-semeados com *Bot Caçador de Preços*, *Bot Radar de Mercado* e *Bot Triagem Executiva*), **Apps Vivos do Navegador** (*Painel de Vencimentos da Semana* + gerador de App Vivo por conversa), **Conectores Nativos (`Gmail/Outlook`, `Google Agenda`, `Drive`, `Notion`, `GitHub`, `Slack`) & Ponte Telegram** e **Firewall de Intenção 50/50 + Parar todos os Bots**.
 
 ## GrokBot dos Navegadores: Bots Especialistas + Execução em 2º Plano com Auto-Foreground e Integração IPC — 0.1.61-dev — 31/10/2026
 

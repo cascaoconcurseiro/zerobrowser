@@ -154,10 +154,24 @@
       </div>
       <div id="ai-ready-status" class="ai-ready-status" role="status">Carregando configuração do agente…</div>
       <div id="tab-control-banner" class="tab-control-banner hidden" role="region" aria-label="Controle da aba ativa" aria-live="polite"><span id="tab-control-label" class="tab-control-label">Aba controlada pelo agente</span><button id="btn-tab-takeover" class="btn-ghost tab-control-action" type="button">Assumir</button></div>
+      <div id="grokbot-briefing-bar" class="grokbot-briefing-bar" role="region" aria-label="Bot Especialista ativo">
+        <div class="grokbot-briefing-identity">
+          <span id="grokbot-active-ring" class="grokbot-active-ring" data-bot-state="idle" aria-hidden="true"></span>
+          <div class="grokbot-briefing-copy">
+            <strong id="grokbot-active-name">Bot Caçador de Preços</strong>
+            <span id="grokbot-active-meta">Pesquisador de Preços · Degrau 1 (Leitura)</span>
+          </div>
+        </div>
+        <div class="grokbot-briefing-actions">
+          <button id="btn-grokbot-run-bg" class="btn-ghost grokbot-chip-btn" type="button" title="Executar missão do Bot em 2º plano e trazer para frente ao atingir a meta">2º plano</button>
+          <button id="btn-grokbot-teach-quick" class="btn-ghost grokbot-chip-btn" type="button" title="Gravar tarefa passo a passo na aba (Teach a Task)">Gravar</button>
+        </div>
+      </div>
       <div id="bot-panel-tabs" class="bot-panel-tabs" role="group" aria-label="Abas do Bot">
         <button type="button" class="bot-panel-tab ativo" data-bot-tab="chat" aria-pressed="true">Conversa</button>
         <button type="button" class="bot-panel-tab" data-bot-tab="agenda" aria-pressed="false">Agenda</button>
         <button type="button" class="bot-panel-tab" data-bot-tab="memory" aria-pressed="false">Memória</button>
+        <button type="button" class="bot-panel-tab" data-bot-tab="routes" aria-pressed="false">Rotas</button>
         <button type="button" class="bot-panel-tab" data-bot-tab="history" aria-pressed="false">Histórico</button>
       </div>
       <div class="ai-chat-toolbar">
@@ -182,6 +196,7 @@
       <div id="ai-chat" class="ai-chat" aria-live="polite"></div>
       <div id="bot-view-agenda" class="bot-subview hidden" role="region" aria-label="Agenda do Bot"></div>
       <div id="bot-view-memory" class="bot-subview hidden" role="region" aria-label="Memória do Bot"></div>
+      <div id="bot-view-routes" class="bot-subview hidden" role="region" aria-label="Rotas aprendidas e Gêmeo Local"></div>
       <div id="bot-view-history" class="bot-subview hidden" role="region" aria-label="Histórico de execuções e recibos"></div>
       <div class="ai-input-area">
         <textarea id="ai-input" class="ai-textarea" placeholder="Descreva a tarefa para o agente… (Enter envia · Shift+Enter quebra linha)" aria-label="Comando para o agente"></textarea>

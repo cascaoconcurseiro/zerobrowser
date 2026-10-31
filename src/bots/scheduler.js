@@ -17,9 +17,116 @@ class BotScheduler {
     this.notify = typeof notify === 'function' ? notify : () => {};
     this.lastRunByBot = new Map();
     this.notifications = [];
+    this.eventTriggers = new Map();
+    this.mandatesByBot = new Map();
     this.loginItemSettings = {
       openAtLogin: false,
       openAsHiddenInTray: true
+    };
+  }
+
+  registerEventTrigger({ botId, eventType, condition = {}, active = true } = {}) {
+    if (!botId || !eventType) throw new Error('botId e eventType são obrigatórios para gatilho por evento.');
+    const triggerId = `trg-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    const trigger = {
+      triggerId,
+      botId: String(botId),
+      eventType: String(eventType), // 'new-email' | 'page-changed' | 'price-below-target'
+      condition: { ...condition },
+      active: Boolean(active),
+      createdAt: new Date(this.now()).toISOString()
+    };
+    this.eventTriggers.set(triggerId, trigger);
+    return { ...trigger };
+  }
+
+  listEventTriggers(botId = null) {
+    const all = [...this.eventTriggers.values()];
+    return botId ? all.filter((t) => t.botId === botId) : all;
+  }
+
+  async fireEvent(eventType, payload = {}) {
+    const triggered = [];
+    for (const trig of this.eventTriggers.values()) {
+      if (!trig.active || trig.eventType !== eventType) continue;
+      if (eventType === 'price-below-target' && trig.condition.targetPrice != null) {
+        if (!(Number(payload.price) <= Number(trig.condition.targetPrice))) continue;
+      }
+      const res = await this.runner.runBotNow(trig.botId, {
+        steps: payload.steps || [{ tool: 'snapshot', goalReached: true, mockData: payload }]
+      });
+      triggered.push({ triggerId: trig.triggerId, botId: trig.botId, runId: res.runId, status: res.status });
+    }
+    return triggered;
+  }
+
+  createMandate(botId, {
+    allowedAction = 'reservar_ou_alertar',
+    allowedSites = [],
+    maxAmountBrl = 150,
+    expiresAt = null,
+    maxUses = 1
+  } = {}) {
+    if (!botId) throw new Error('botId obrigatório para criar Mandato.');
+    const mandate = {
+      mandateId: `mnd-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      botId: String(botId),
+      allowedAction: String(allowedAction),
+      allowedSites: Array.isArray(allowedSites) ? [...allowedSites] : [],
+      maxAmountBrl: Math.max(0, Number(maxAmountBrl) || 0),
+      expiresAt: expiresAt || new Date(this.now() + 7 * 24 * 3600_000).toISOString(),
+      maxUses: Math.max(1, Number(maxUses) || 1),
+      usedCount: 0,
+      active: true
+    };
+    this.mandatesByBot.set(String(botId), mandate);
+    return { ...mandate };
+  }
+
+  getMandate(botId) {
+    const m = this.mandatesByBot.get(String(botId));
+    return m ? { ...m } : null;
+  }
+
+  evaluateMandate(botId, { action, amountBrl = 0, site = '' } = {}) {
+    const m = this.mandatesByBot.get(String(botId));
+    if (!m || !m.active) return { withinEnvelope: false, reason: 'Nenhum mandato ativo para este Bot.' };
+    if (m.usedCount >= m.maxUses) return { withinEnvelope: false, reason: 'Limite de usos do mandato atingido.' };
+    if (m.expiresAt && this.now() > Date.parse(m.expiresAt)) {
+      return { withinEnvelope: false, reason: 'Mandato expirado.' };
+    }
+    if (m.allowedAction && action && m.allowedAction !== action) {
+      return { withinEnvelope: false, reason: `Ação "${action}" fora do mandato ("${m.allowedAction}").` };
+    }
+    if (Number(amountBrl) > m.maxAmountBrl) {
+      return { withinEnvelope: false, reason: `Valor R$ ${amountBrl} excede o teto do mandato (R$ ${m.maxAmountBrl}).` };
+    }
+    if (m.allowedSites.length > 0 && site && !m.allowedSites.some((s) => site.includes(s))) {
+      return { withinEnvelope: false, reason: `Site "${site}" fora do envelope do mandato.` };
+    }
+    m.usedCount += 1;
+    return { withinEnvelope: true, remainingUses: m.maxUses - m.usedCount };
+  }
+
+  buildWindowsScheduledTaskSpec(botId, { time = '09:00', wakeToRun = true, exePath = 'Zero Browser.exe' } = {}) {
+    const bot = this.store.getBot(botId);
+    if (!bot) throw new Error(`Bot "${botId}" não encontrado.`);
+    const taskName = `ZeroBrowser_Bot_${bot.id.replace(/[^a-zA-Z0-9_-]/g, '_')}`;
+    const commandArgs = [
+      '/Create',
+      '/F',
+      '/SC', 'DAILY',
+      '/ST', String(time || '09:00'),
+      '/TN', taskName,
+      '/TR', `"${exePath}" --run-scheduled-bot="${bot.id}" --headless- close-when-done`
+    ];
+    return {
+      taskName,
+      botId: bot.id,
+      botName: bot.name,
+      time: String(time || '09:00'),
+      wakeToRun: Boolean(wakeToRun),
+      schtasksCommand: `schtasks ${commandArgs.join(' ')}`
     };
   }
 

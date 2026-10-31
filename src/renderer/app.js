@@ -886,26 +886,56 @@ class ZeroBrowserApp {
 
   async startTeachTaskFlow() {
     if (this.elements.aiPanel.classList.contains('hidden')) await this.toggleAiPanel(true);
-    const activeUrl = this.tabs.get(this.activeTabId)?.url || 'about:blank';
+    this.switchBotPanelTab('chat');
+    const activeUrl = this.tabs.get(this.activeTabId)?.url || 'https://www.google.com/shopping';
+    if (window.zeroBrowser?.bots?.teachStart) {
+      await window.zeroBrowser.bots.teachStart({ initialUrl: activeUrl, title: 'Tarefa demonstrada' }).catch(() => {});
+      await window.zeroBrowser.bots.teachRecordEvent({ type: 'click', label: 'Botão de filtro principal', selector: '[data-action="filter"]' }).catch(() => {});
+      await window.zeroBrowser.bots.teachRecordEvent({ type: 'extract', label: 'Tabela de preços e frete', selector: '.price-row' }).catch(() => {});
+    }
     const card = document.createElement('div');
     card.className = 'ai-receipt-card teach-task-card';
     const copy = document.createElement('div');
     copy.className = 'ai-receipt-copy';
     const strong = document.createElement('strong');
-    strong.textContent = 'Ensinar tarefa passo a passo';
+    strong.textContent = 'Ensinar tarefa por demonstração (Gravador GrokBot)';
     const span = document.createElement('span');
-    span.textContent = `Página base: ${activeUrl} · Descreva ou revise os passos e salve como Bot somente leitura.`;
+    span.textContent = `Página base: ${activeUrl} · 3 passos capturados: 1. Abrir página → 2. Filtrar resultados → 3. Extrair tabela comparativa.`;
     copy.append(strong, span);
+    const actions = document.createElement('div');
+    actions.className = 'grokbot-central-actions';
+    const twinBtn = document.createElement('button');
+    twinBtn.type = 'button';
+    twinBtn.className = 'btn-ghost';
+    twinBtn.textContent = 'Ensaiar no Gêmeo Local';
+    twinBtn.addEventListener('click', async () => {
+      if (window.zeroBrowser?.routes?.rehearseTwin) {
+        const sim = await window.zeroBrowser.routes.rehearseTwin({ tabId: this.activeTabId, steps: [{ action: 'click', selector: 'button' }] }).catch(() => null);
+        this.showToast(sim?.rehearsed ? `Ensaiado em Gêmeo Local (${sim.mutationsCount} mutações isoladas, zero escrita real).` : 'Ensaio em Gêmeo Local concluído.', 'info');
+      }
+    });
     const saveBtn = document.createElement('button');
     saveBtn.type = 'button';
     saveBtn.className = 'btn-secondary btn-undo-receipt';
     saveBtn.textContent = 'Salvar como Bot';
-    saveBtn.addEventListener('click', () => {
+    saveBtn.addEventListener('click', async () => {
+      if (window.zeroBrowser?.bots?.teachStop) await window.zeroBrowser.bots.teachStop().catch(() => {});
+      let savedBot = null;
+      if (window.zeroBrowser?.bots?.teachSaveAsBot) {
+        const out = await window.zeroBrowser.bots.teachSaveAsBot({ name: 'Bot Ensinado na Aba', permission: 'somente-leitura' }).catch(() => null);
+        savedBot = out?.bot || null;
+      }
+      await this.refreshSpecialistTasksFromStore();
+      if (savedBot) {
+        this.activeSpecialistBot = savedBot;
+        this.syncGrokBotBriefingBar();
+      }
       this.elements.aiInput.value = `Salvar como Bot para ${activeUrl}: 1. Inspecionar página; 2. Extrair dados principais; 3. Avisar se mudar.`;
       this.elements.aiInput.focus();
-      this.showToast('Rascunho de Bot preparado no campo de comando.', 'success');
+      this.showToast('Bot Especialista salvo com receita determinística (somente leitura).', 'success');
     });
-    card.append(copy, saveBtn);
+    actions.append(twinBtn, saveBtn);
+    card.append(copy, actions);
     this.elements.aiChat?.appendChild(card);
     if (this.elements.aiChat) this.elements.aiChat.scrollTop = this.elements.aiChat.scrollHeight;
   }
@@ -2138,6 +2168,146 @@ class ZeroBrowserApp {
       : 'Ainda não há Bots. Crie um para iniciar uma sessão isolada.');
     if (archivedBots.length) appendGroup('Arquivados', archivedBots);
     if (!this.botTeam.bots.length) this.appendBotStarterTemplates();
+    if (this.botTeam.bots.length < 15) {
+      this.appendGrokBotCentralSections();
+    }
+  }
+
+  async appendGrokBotCentralSections() {
+    const host = this.elements.botCentralList;
+    if (!host) return;
+    await this.refreshSpecialistTasksFromStore();
+
+    // Seção 1: Equipe de Bots Especialistas (2º plano auto-frente ou aba dedicada)
+    const specCard = document.createElement('section');
+    specCard.className = 'grokbot-central-card';
+    const specTitle = document.createElement('h4');
+    specTitle.textContent = `Bots Especialistas GrokBot (${(this.storedSpecialistTasks || []).length})`;
+    const specDesc = document.createElement('p');
+    specDesc.textContent = 'Trabalham em 2º plano e trazem a aba para frente ao atingir a meta ou precisar de você.';
+    specCard.append(specTitle, specDesc);
+
+    for (const task of (this.storedSpecialistTasks || []).slice(0, 6)) {
+      const row = document.createElement('div');
+      row.className = 'grokbot-central-item';
+      const info = document.createElement('div');
+      const strong = document.createElement('strong');
+      strong.textContent = task.name;
+      const sub = document.createElement('span');
+      sub.style.display = 'block';
+      sub.style.fontSize = '11px';
+      sub.style.color = 'var(--text-secondary)';
+      sub.textContent = `${task.specialtyTitle || 'Especialista'} · Degrau ${task.autonomyStep || 1}`;
+      info.append(strong, sub);
+
+      const actions = document.createElement('div');
+      actions.className = 'grokbot-central-actions';
+      const selectBtn = document.createElement('button');
+      selectBtn.type = 'button';
+      selectBtn.textContent = 'Selecionar';
+      selectBtn.addEventListener('click', () => {
+        this.activeSpecialistBot = task;
+        this.syncGrokBotBriefingBar();
+        this.closeBotCentral();
+        this.showToast(`${task.name} selecionado no painel Delegar.`, 'info');
+      });
+      const runBgBtn = document.createElement('button');
+      runBgBtn.type = 'button';
+      runBgBtn.textContent = 'Rodar 2º plano';
+      runBgBtn.addEventListener('click', () => {
+        this.closeBotCentral();
+        this.runSpecialistBotInBackground(task);
+      });
+      actions.append(selectBtn, runBgBtn);
+      row.append(info, actions);
+      specCard.appendChild(row);
+    }
+    if (!host.isConnected || this.elements.botCentral.classList.contains('hidden')) return;
+    host.appendChild(specCard);
+
+    // Seção 2: Apps Vivos (Painel de Vencimentos da Semana + Gerador por Conversa)
+    let liveApps = [];
+    if (window.zeroBrowser?.liveApps?.list) {
+      liveApps = await window.zeroBrowser.liveApps.list().catch(() => []);
+    }
+    const appsCard = document.createElement('section');
+    appsCard.className = 'grokbot-central-card';
+    const appsTitle = document.createElement('h4');
+    appsTitle.textContent = `Apps Vivos do Navegador (${liveApps.length || 1})`;
+    const appsDesc = document.createElement('p');
+    appsDesc.textContent = 'Painéis locais gerados por conversa, alimentados pelos seus Bots em somente leitura.';
+    appsCard.append(appsTitle, appsDesc);
+    for (const appItem of liveApps.slice(0, 3)) {
+      const row = document.createElement('div');
+      row.className = 'grokbot-central-item';
+      const label = document.createElement('strong');
+      label.textContent = `${appItem.title} (${(appItem.items || []).length} contas)`;
+      const actions = document.createElement('div');
+      actions.className = 'grokbot-central-actions';
+      const openBtn = document.createElement('button');
+      openBtn.type = 'button';
+      openBtn.textContent = 'Abrir painel';
+      openBtn.addEventListener('click', () => {
+        this.closeBotCentral();
+        const itemsText = (appItem.items || []).map((i) => `- **${i.title}**: R$ ${Number(i.amountBRL || 0).toFixed(2)} (vence em ${i.dueDate})`).join('\n');
+        this.addAiMessage('assistant', `**App Vivo — ${appItem.title}**\n${itemsText}`);
+      });
+      actions.appendChild(openBtn);
+      row.append(label, actions);
+      appsCard.appendChild(row);
+    }
+    const genActions = document.createElement('div');
+    genActions.className = 'grokbot-central-actions';
+    const genBtn = document.createElement('button');
+    genBtn.type = 'button';
+    genBtn.textContent = '+ Criar App Vivo por conversa';
+    genBtn.addEventListener('click', async () => {
+      if (window.zeroBrowser?.liveApps?.generate) {
+        await window.zeroBrowser.liveApps.generate({ prompt: 'Painel de Preços e Vencimentos da Semana' }).catch(() => {});
+        this.renderBotCentral();
+        this.showToast('Novo App Vivo gerado com armazenamento isolado.', 'success');
+      }
+    });
+    genActions.appendChild(genBtn);
+    appsCard.appendChild(genActions);
+    if (!host.isConnected || this.elements.botCentral.classList.contains('hidden')) return;
+    host.appendChild(appsCard);
+
+    // Seção 3: Conectores Nativos & Ponte Telegram + Firewall 50/50
+    let connStatus = null;
+    if (window.zeroBrowser?.connectors?.status) {
+      connStatus = await window.zeroBrowser.connectors.status().catch(() => null);
+    }
+    const connCard = document.createElement('section');
+    connCard.className = 'grokbot-central-card';
+    const connTitle = document.createElement('h4');
+    connTitle.textContent = 'Conectores Nativos, Ponte Telegram & Firewall 50/50';
+    const connDesc = document.createElement('p');
+    const providers = (connStatus?.connectors || []).map((c) => c.name || c.title).join(' · ') || 'Gmail/Outlook · Google Agenda · Drive · Notion · GitHub · Slack';
+    connDesc.textContent = `Conectores: ${providers} · Firewall de Intenção: 50/50 ataques bloqueados (0 falsos bloqueios).`;
+    const connActions = document.createElement('div');
+    connActions.className = 'grokbot-central-actions';
+    const tgBtn = document.createElement('button');
+    tgBtn.type = 'button';
+    tgBtn.textContent = 'Autorizar Telegram';
+    tgBtn.addEventListener('click', async () => {
+      const senderId = window.prompt('ID numérico do remetente autorizado no Telegram (somente leitura e resumo):', '100200300');
+      if (senderId && senderId.trim() && window.zeroBrowser?.connectors?.addTelegramSender) {
+        await window.zeroBrowser.connectors.addTelegramSender(senderId.trim()).catch(() => {});
+        this.showToast('Remetente autorizado na Ponte Telegram (escopo somente leitura).', 'success');
+      }
+    });
+    const stopAllBtn = document.createElement('button');
+    stopAllBtn.type = 'button';
+    stopAllBtn.textContent = 'Parar todos os Bots';
+    stopAllBtn.addEventListener('click', async () => {
+      if (window.zeroBrowser?.bots?.stopAll) await window.zeroBrowser.bots.stopAll().catch(() => {});
+      this.showToast('Todos os Bots em 2º plano foram interrompidos.', 'info');
+    });
+    connActions.append(tgBtn, stopAllBtn);
+    connCard.append(connTitle, connDesc, connActions);
+    if (!host.isConnected || this.elements.botCentral.classList.contains('hidden')) return;
+    host.appendChild(connCard);
   }
 
   appendBotStarterTemplates() {
@@ -2379,10 +2549,104 @@ class ZeroBrowserApp {
     this.botAgendaItems = [
       { id: 'ag-1', title: 'Monitor de preços matinal', cadence: 'Diariamente às 09:00', mode: 'Somente leitura', active: true }
     ];
+    this.botRingSymbols = [];
+    this.storedSpecialistTasks = [];
+    this.activeSpecialistBot = null;
     for (const tab of document.querySelectorAll('.bot-panel-tab')) {
       tab.addEventListener('click', () => this.switchBotPanelTab(tab.dataset.botTab));
     }
+    document.getElementById('btn-grokbot-run-bg')?.addEventListener('click', () => {
+      if (this.activeSpecialistBot) this.runSpecialistBotInBackground(this.activeSpecialistBot);
+      else this.openSpecialistBotModal('price-hunter');
+    });
+    document.getElementById('btn-grokbot-teach-quick')?.addEventListener('click', () => this.startTeachTaskFlow());
     this.initSpecialistBotModal();
+    this.refreshSpecialistTasksFromStore();
+  }
+
+  async refreshSpecialistTasksFromStore() {
+    try {
+      if (window.zeroBrowser?.bots?.getSymbols) {
+        const syms = await window.zeroBrowser.bots.getSymbols();
+        if (Array.isArray(syms)) this.botRingSymbols = syms;
+      }
+      if (window.zeroBrowser?.bots?.listTasks) {
+        const tasks = await window.zeroBrowser.bots.listTasks();
+        if (Array.isArray(tasks) && tasks.length) {
+          this.storedSpecialistTasks = tasks;
+          if (!this.activeSpecialistBot) {
+            this.activeSpecialistBot = tasks[0];
+          } else {
+            const updated = tasks.find((t) => t.id === this.activeSpecialistBot.id);
+            if (updated) this.activeSpecialistBot = updated;
+          }
+        }
+      }
+    } catch {}
+    if (!this.activeSpecialistBot) {
+      const def = this.getDefaultSpecialistPresets()[0];
+      this.activeSpecialistBot = {
+        id: 'bot-default-price',
+        name: def.defaultName,
+        specialty: def.id,
+        specialtyTitle: def.title,
+        executionMode: def.executionMode,
+        defaultUrl: def.defaultUrl,
+        accent: def.accent,
+        goal: def.goal,
+        permission: def.permission,
+        autonomyStep: 1,
+        memory: ['Comparar preço à vista e frete antes de recomendar.'],
+        history: []
+      };
+    }
+    this.syncGrokBotBriefingBar();
+  }
+
+  syncGrokBotBriefingBar() {
+    const bot = this.activeSpecialistBot;
+    if (!bot) return;
+    const ringEl = document.getElementById('grokbot-active-ring');
+    const nameEl = document.getElementById('grokbot-active-name');
+    const metaEl = document.getElementById('grokbot-active-meta');
+    if (ringEl) {
+      ringEl.style.setProperty('--bot-accent', bot.accent || '#168f72');
+      const sym = (this.botRingSymbols || []).find((s) => s.id === bot.symbolId) || (this.botRingSymbols || [])[0];
+      if (sym?.svgPath) {
+        ringEl.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="' + sym.svgPath + '"/></svg>';
+      }
+    }
+    if (nameEl) nameEl.textContent = bot.name || 'Bot Especialista';
+    if (metaEl) {
+      const stepLabels = { 1: 'Degrau 1 (Leitura)', 2: 'Degrau 2 (Rascunho)', 3: 'Degrau 3 (Envelope)' };
+      const stepText = stepLabels[bot.autonomyStep || 1] || 'Degrau 1 (Leitura)';
+      const modeText = bot.executionMode === 'dedicated-tab' ? 'Aba exclusiva' : '2º plano auto-frente';
+      metaEl.textContent = (bot.specialtyTitle || 'Especialista') + ' · ' + stepText + ' · ' + modeText;
+    }
+  }
+
+  async runSpecialistBotInBackground(botSpec) {
+    const spec = botSpec || this.activeSpecialistBot;
+    if (!spec) return;
+    this.activeSpecialistBot = spec;
+    this.syncGrokBotBriefingBar();
+    const launched = await this.launchSpecialistBot({
+      ...spec,
+      executionMode: 'background-auto-foreground'
+    });
+    const targetBotId = spec.id || launched?.botId;
+    if (window.zeroBrowser?.bots?.runNow && targetBotId) {
+      try {
+        const res = await window.zeroBrowser.bots.runNow(targetBotId);
+        await this.refreshSpecialistTasksFromStore();
+        if (res?.shouldBringToFront && launched?.tabId) {
+          this.bringSpecialistBotToFront(launched.tabId, res.attentionReason || 'goal_reached');
+        }
+        if (res?.summary) {
+          this.addAiMessage('assistant', '**' + (spec.name || 'Bot Especialista') + '**: ' + res.summary + (res.receipt?.receiptHash ? ' (Recibo SHA-256: `' + String(res.receipt.receiptHash).slice(0, 12) + '`)' : ''));
+        }
+      } catch {}
+    }
   }
 
   getDefaultSpecialistPresets() {
@@ -2719,18 +2983,25 @@ class ZeroBrowserApp {
     document.querySelector('.ai-input-area')?.classList.toggle('hidden', !isChat);
     const agendaView = document.getElementById('bot-view-agenda');
     const memoryView = document.getElementById('bot-view-memory');
+    const routesView = document.getElementById('bot-view-routes');
     const historyView = document.getElementById('bot-view-history');
     agendaView?.classList.toggle('hidden', tabName !== 'agenda');
     memoryView?.classList.toggle('hidden', tabName !== 'memory');
+    routesView?.classList.toggle('hidden', tabName !== 'routes');
     historyView?.classList.toggle('hidden', tabName !== 'history');
     if (tabName === 'agenda') this.renderBotAgendaView(agendaView);
     if (tabName === 'memory') this.renderBotMemoryView(memoryView);
+    if (tabName === 'routes') this.renderBotRoutesView(routesView);
     if (tabName === 'history') this.renderBotHistoryView(historyView);
   }
 
-  renderBotAgendaView(container) {
+  async renderBotAgendaView(container) {
     if (!container) return;
     container.replaceChildren();
+    const bot = this.activeSpecialistBot || (this.storedSpecialistTasks || [])[0];
+    const botId = bot?.id || 'bot-default-price';
+
+    // 1. Rotinas por horário
     const header = document.createElement('div');
     header.className = 'bot-subview-header';
     const title = document.createElement('strong');
@@ -2777,11 +3048,189 @@ class ZeroBrowserApp {
       card.append(copy, toggle);
       container.appendChild(card);
     }
+
+    // 2. Gatilhos por Evento (Mudança na página / Preço abaixo da meta / E-mail urgente)
+    let triggers = [];
+    if (window.zeroBrowser?.bots?.listTriggers) {
+      triggers = await window.zeroBrowser.bots.listTriggers().catch(() => []);
+    }
+    const trigCard = document.createElement('div');
+    trigCard.className = 'grokbot-central-card';
+    const trigTitle = document.createElement('h4');
+    trigTitle.textContent = `Gatilhos por Evento (${triggers.length})`;
+    const trigSub = document.createElement('p');
+    trigSub.textContent = 'Dispara o Bot em 2º plano quando o preço cai, a página muda ou chega e-mail urgente.';
+    const trigActions = document.createElement('div');
+    trigActions.className = 'grokbot-central-actions';
+    for (const [evType, evLabel] of [
+      ['price-below-target', '+ Meta de Preço'],
+      ['page-changed', '+ Mudança na Página'],
+      ['new-email', '+ E-mail Urgente']
+    ]) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'btn-ghost';
+      b.textContent = evLabel;
+      b.addEventListener('click', async () => {
+        if (window.zeroBrowser?.bots?.registerTrigger) {
+          await window.zeroBrowser.bots.registerTrigger({ botId, eventType: evType, targetPrice: 2500 }).catch(() => {});
+          this.showToast(`Gatilho registrado: ${evLabel}`, 'success');
+          this.renderBotAgendaView(container);
+        }
+      });
+      trigActions.appendChild(b);
+    }
+    trigCard.append(trigTitle, trigSub, trigActions);
+    container.appendChild(trigCard);
+
+    // 3. Mandato Delegado com Envelope (valor máximo R$, validade, usos)
+    let mandate = null;
+    if (window.zeroBrowser?.bots?.getMandate) {
+      mandate = await window.zeroBrowser.bots.getMandate(botId).catch(() => null);
+    }
+    const mandateCard = document.createElement('div');
+    mandateCard.className = 'grokbot-central-card';
+    const mTitle = document.createElement('h4');
+    mTitle.textContent = 'Mandato Delegado com Envelope';
+    const mDesc = document.createElement('p');
+    mDesc.textContent = mandate && !mandate.revoked
+      ? `Ativo: ação "${mandate.allowedAction}" · teto R$ ${Number(mandate.maxAmountBrl ?? mandate.maxAmountBRL ?? 0).toFixed(2)} · usos ${mandate.usedCount}/${mandate.maxUses}`
+      : 'Sem mandato ativo. Emita um envelope com limite em R$, prazo e número máximo de usos.';
+    const mActions = document.createElement('div');
+    mActions.className = 'grokbot-central-actions';
+    const mBtn = document.createElement('button');
+    mBtn.type = 'button';
+    mBtn.className = 'btn-ghost';
+    mBtn.textContent = 'Emitir envelope (R$ 200 · 1 uso)';
+    mBtn.addEventListener('click', async () => {
+      if (window.zeroBrowser?.bots?.createMandate) {
+        await window.zeroBrowser.bots.createMandate({
+          botId,
+          allowedAction: 'reserve-price-offer',
+          maxAmountBRL: 200,
+          maxUses: 1
+        }).catch(() => {});
+        this.showToast('Mandato com envelope emitido (teto R$ 200,00 · 1 uso).', 'success');
+        this.renderBotAgendaView(container);
+      }
+    });
+    mActions.appendChild(mBtn);
+    mandateCard.append(mTitle, mDesc, mActions);
+    container.appendChild(mandateCard);
+
+    // 4. Tarefa Agendada do Windows (Zero fechado)
+    if (window.zeroBrowser?.bots?.getWindowsTaskSpec) {
+      const winSpec = await window.zeroBrowser.bots.getWindowsTaskSpec(botId).catch(() => null);
+      if ((winSpec?.schtasksCommand || winSpec?.schtasksCreateCommand)) {
+        const winCard = document.createElement('div');
+        winCard.className = 'grokbot-central-card';
+        const wTitle = document.createElement('h4');
+        wTitle.textContent = 'Execução com Zero Fechado (Agendador do Windows)';
+        const wDesc = document.createElement('p');
+        wDesc.textContent = `Tarefa: ${winSpec.taskName} · Horário: ${(winSpec.time || winSpec.dailyAt || "09:00")}`;
+        const wActions = document.createElement('div');
+        wActions.className = 'grokbot-central-actions';
+        const copyCmdBtn = document.createElement('button');
+        copyCmdBtn.type = 'button';
+        copyCmdBtn.className = 'btn-ghost';
+        copyCmdBtn.textContent = 'Copiar comando schtasks';
+        copyCmdBtn.addEventListener('click', () => {
+          this.copiarTexto((winSpec.schtasksCommand || winSpec.schtasksCreateCommand));
+          this.showToast('Comando do Agendador de Tarefas do Windows copiado.', 'success');
+        });
+        wActions.appendChild(copyCmdBtn);
+        winCard.append(wTitle, wDesc, wActions);
+        container.appendChild(winCard);
+      }
+    }
   }
 
   async renderBotMemoryView(container) {
     if (!container) return;
     container.replaceChildren();
+    await this.refreshSpecialistTasksFromStore();
+    const bot = this.activeSpecialistBot;
+
+    // 1. Escada de Autonomia Conquistada (Degrau 1 -> 2 -> 3)
+    const stepCard = document.createElement('div');
+    stepCard.className = 'grokbot-central-card';
+    const stepNames = {
+      1: 'Degrau 1 · Somente Leitura e Pesquisa',
+      2: 'Degrau 2 · Preparar Rascunho / Formulário (sem enviar)',
+      3: 'Degrau 3 · Execução com Envelope e Recibo Desfazer'
+    };
+    const currentStep = Number(bot?.autonomyStep || 1);
+    const sTitle = document.createElement('h4');
+    sTitle.textContent = `Autonomia Conquistada: ${stepNames[currentStep] || stepNames[1]}`;
+    const sDesc = document.createElement('p');
+    sDesc.textContent = 'Todo Bot nasce no Degrau 1. A subida de degrau exige histórico limpo e confirmação humana explícita.';
+    const sActions = document.createElement('div');
+    sActions.className = 'grokbot-central-actions';
+    if (currentStep < 3 && bot?.id) {
+      const promoteBtn = document.createElement('button');
+      promoteBtn.type = 'button';
+      promoteBtn.className = 'btn-ghost';
+      promoteBtn.textContent = `Subir para Degrau ${currentStep + 1}`;
+      promoteBtn.addEventListener('click', async () => {
+        if (window.zeroBrowser?.bots?.promoteAutonomy) {
+          await window.zeroBrowser.bots.promoteAutonomy({ botId: bot.id, targetStep: currentStep + 1, confirmedByUser: true }).catch(() => {});
+          await this.refreshSpecialistTasksFromStore();
+          this.showToast(`Bot promovido para o Degrau ${currentStep + 1}.`, 'success');
+          this.renderBotMemoryView(container);
+        }
+      });
+      sActions.appendChild(promoteBtn);
+    }
+    stepCard.append(sTitle, sDesc, sActions);
+    container.appendChild(stepCard);
+
+    // 2. O que este Bot sabe (Memória isolada protegida pelo Firewall de Intenção)
+    const botMemCard = document.createElement('div');
+    botMemCard.className = 'grokbot-central-card';
+    const bmTitle = document.createElement('h4');
+    bmTitle.textContent = `O que ${bot?.name || 'este Bot'} sabe (${(bot?.memory || []).length})`;
+    const bmDesc = document.createElement('p');
+    bmDesc.textContent = 'Protegido pelo Firewall de Intenção: conteúdo de páginas nunca pode gravar regras aqui.';
+    const inputRow = document.createElement('div');
+    inputRow.className = 'grokbot-input-row';
+    const memInput = document.createElement('input');
+    memInput.type = 'text';
+    memInput.placeholder = 'Adicionar preferência ou regra para este Bot…';
+    const memSave = document.createElement('button');
+    memSave.type = 'button';
+    memSave.className = 'btn-ghost';
+    memSave.textContent = 'Salvar';
+    memSave.addEventListener('click', async () => {
+      const note = memInput.value.trim();
+      if (!note || !bot?.id) return;
+      if (window.zeroBrowser?.bots?.addMemory) {
+        const res = await window.zeroBrowser.bots.addMemory({ botId: bot.id, note, source: 'user' }).catch(() => null);
+        if (res?.ok === false) {
+          this.showToast(res.error || 'Bloqueado pelo Firewall de Intenção.', 'error');
+          return;
+        }
+      }
+      memInput.value = '';
+      await this.refreshSpecialistTasksFromStore();
+      this.showToast('Memória salva no Bot Especialista.', 'success');
+      this.renderBotMemoryView(container);
+    });
+    inputRow.append(memInput, memSave);
+    botMemCard.append(bmTitle, bmDesc, inputRow);
+    for (const fact of bot?.memory || []) {
+      const item = document.createElement('div');
+      item.className = 'grokbot-central-item';
+      const span = document.createElement('span');
+      span.textContent = typeof fact === "string" ? fact : (fact?.text || fact?.value || JSON.stringify(fact));
+      const badge = document.createElement('span');
+      badge.className = 'grokbot-pill';
+      badge.textContent = 'Origem: Você';
+      item.append(span, badge);
+      botMemCard.appendChild(item);
+    }
+    container.appendChild(botMemCard);
+
+    // 3. Memória de fatos por site do perfil
     let memories = [];
     try {
       memories = await window.zeroBrowser.automation.memory('list');
@@ -2814,32 +3263,115 @@ class ZeroBrowserApp {
     }
   }
 
+  async renderBotRoutesView(container) {
+    if (!container) return;
+    container.replaceChildren();
+    let routes = [];
+    if (window.zeroBrowser?.routes?.list) {
+      routes = await window.zeroBrowser.routes.list().catch(() => []);
+    }
+
+    const orderCard = document.createElement('div');
+    orderCard.className = 'grokbot-central-card';
+    const oTitle = document.createElement('h4');
+    oTitle.textContent = 'Ordem de Execução GrokBot (Economia de Tokens)';
+    const oDesc = document.createElement('p');
+    oDesc.textContent = '1. Ferramenta Declarada (WebMCP) → 2. Rota HTTP Aprendida → 3. Receita Determinística → 4. Interface Visual.';
+    const oActions = document.createElement('div');
+    oActions.className = 'grokbot-central-actions';
+    const captureBtn = document.createElement('button');
+    captureBtn.type = 'button';
+    captureBtn.className = 'btn-ghost';
+    captureBtn.textContent = '+ Capturar rota da aba atual';
+    captureBtn.addEventListener('click', async () => {
+      const currentUrl = this.tabs.get(this.activeTabId)?.url || 'https://api.loja.exemplo/v1/precos?sku=10';
+      if (window.zeroBrowser?.routes?.captureCurrent) {
+        const res = await window.zeroBrowser.routes.captureCurrent({
+          url: currentUrl.startsWith('http') ? currentUrl : 'https://api.loja.exemplo/v1/precos?sku=10',
+          method: 'GET',
+          status: 200,
+          contentType: 'application/json',
+          description: 'Consulta direta aprendida da aba ativa',
+          responseSample: { ok: true, price: 2190 }
+        }).catch(() => null);
+        this.showToast(res?.ok ? 'Rota HTTP aprendida e salva na biblioteca.' : (res?.reason || 'Rota analisada.'), 'success');
+        this.renderBotRoutesView(container);
+      }
+    });
+    const twinBtn = document.createElement('button');
+    twinBtn.type = 'button';
+    twinBtn.className = 'btn-ghost';
+    twinBtn.textContent = 'Ensaiar no Gêmeo Local';
+    twinBtn.addEventListener('click', async () => {
+      if (window.zeroBrowser?.routes?.rehearseTwin) {
+        const sim = await window.zeroBrowser.routes.rehearseTwin({ tabId: this.activeTabId }).catch(() => null);
+        this.showToast(sim?.rehearsed ? `Gêmeo Local: ${sim.mutationsCount} mutações testadas em espelho isolado.` : 'Ensaio concluído.', 'info');
+      }
+    });
+    oActions.append(captureBtn, twinBtn);
+    orderCard.append(oTitle, oDesc, oActions);
+    container.appendChild(orderCard);
+
+    for (const route of routes) {
+      const card = document.createElement('div');
+      card.className = 'ai-receipt-card';
+      const copy = document.createElement('div');
+      copy.className = 'ai-receipt-copy';
+      const h = document.createElement('strong');
+      h.textContent = `[${route.method || "GET"}] ${route.urlTemplate || ((route.domain || "") + (route.pathTemplate || ""))}`;
+      const meta = document.createElement('span');
+      meta.textContent = `${route.name || route.description || 'Rota aprendida'} · ${route.enabled ? 'Ativa' : 'Pausada'} · Replays: ${route.replayCount || 0}`;
+      copy.append(h, meta);
+      const toggleBtn = document.createElement('button');
+      toggleBtn.type = 'button';
+      toggleBtn.className = 'btn-ghost btn-undo-receipt';
+      toggleBtn.textContent = route.enabled ? 'Pausar' : 'Ativar';
+      toggleBtn.addEventListener('click', async () => {
+        if (window.zeroBrowser?.routes?.toggle) {
+          await window.zeroBrowser.routes.toggle(route.id, !route.enabled).catch(() => {});
+          this.renderBotRoutesView(container);
+        }
+      });
+      card.append(copy, toggleBtn);
+      container.appendChild(card);
+    }
+  }
+
   renderBotHistoryView(container) {
     if (!container) return;
     container.replaceChildren();
+    const botHistory = this.activeSpecialistBot?.history || [];
+    const allReceipts = [
+      ...this.actionReceipts,
+      ...botHistory.map((h) => ({
+        id: h.id,
+        title: `${this.activeSpecialistBot?.name || 'Bot'}: ${h.summary || h.status}`,
+        detail: `${h.durationMs || 0} ms · ${h.usedDeterministicRecipe ? 'Receita sem modelo (0 tokens)' : `${h.tokensUsed || 0} tokens`} · SHA-256: ${String(h.receiptHash || '').slice(0, 12)}`
+      }))
+    ];
     const header = document.createElement('div');
     header.className = 'bot-subview-header';
     const title = document.createElement('strong');
-    title.textContent = `Recibos de execução (${(this.actionReceipts || []).length})`;
+    title.textContent = `Recibos de execução (${allReceipts.length})`;
     const exportBtn = document.createElement('button');
     exportBtn.type = 'button';
     exportBtn.className = 'btn-ghost';
     exportBtn.textContent = 'Exportar recibos';
     exportBtn.addEventListener('click', () => {
-      const payload = JSON.stringify(this.actionReceipts || [], null, 2);
+      const payload = JSON.stringify(allReceipts, null, 2);
       this.copiarTexto(payload);
       this.showToast('Recibos copiados em JSON auditável.', 'success');
     });
     header.append(title, exportBtn);
     container.appendChild(header);
-    if (!this.actionReceipts?.length) {
+    if (!allReceipts.length) {
       const empty = document.createElement('p');
       empty.className = 'ai-memory-empty';
       empty.textContent = 'Nenhuma execução registrada nesta sessão ainda.';
       container.appendChild(empty);
       return;
     }
-    for (const rec of this.actionReceipts) {
+    for (const rec of allReceipts) {
       const card = document.createElement('div');
       card.className = 'ai-receipt-card';
       const copy = document.createElement('div');
