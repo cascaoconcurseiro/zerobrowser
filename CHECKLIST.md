@@ -69,6 +69,8 @@
 - [x] O compositor mostra quem executará e oferece correção quando há sugestão especialista; seleção manual de Bot permanece explícita.
 - [x] Envio em primeiro plano aplica orientação do perfil selecionado e informa que agente geral usa a aba e o perfil atuais; envio em segundo plano não escolhe Bot por padrão.
 - [x] Cobrir classificação, ambiguidade e estado/override visível na UI.
+- [x] `npm test` 414/414; `npm run test:ui` PASS; `npm run test:delegation-layout` PASS nos seis viewports; build NSIS PASS.
+- [x] Commit local `8b3ad15`; instalador terminou com `ExitCode 0`; versão instalada `0.1.68-dev` / `0.1.68.0`; hash do `app.asar` instalado confere com o build; sem push.
 - [ ] Revisão visual dedicada do app instalado e teste de uso pelo Wesley.
 
 
