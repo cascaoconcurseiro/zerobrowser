@@ -1,4 +1,12 @@
-# Novidades — Zero Browser 0.1.67-dev
+# Novidades — Zero Browser 0.1.68-dev
+
+## 0.1.68-dev — Orquestrador no modo Delegar
+
+- Pedidos claros de preço, mercado e e-mail recebem uma sugestão local de perfil especialista; pedidos comuns, mistos ou sem perfil salvo ficam com o agente geral.
+- O compositor mostra a rota e permite corrigir a sugestão. A classificação não faz chamada extra ao provedor.
+- O envio principal aplica a orientação local do perfil especialista e informa que execução, aba e login continuam no agente geral e no perfil atual. Não há runtime autônomo por Bot nesta fatia.
+- O envio em 2º plano não seleciona um Bot automaticamente quando o pedido não corresponde a uma especialidade.
+- Suíte cobre classificação, ambiguidades, UI da rota e layout.
 
 ## 0.1.67-dev — Identidade dos Bots e continuidade de dados
 

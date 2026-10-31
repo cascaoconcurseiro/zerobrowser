@@ -210,6 +210,11 @@
       <div id="bot-view-history" class="bot-subview hidden" role="region" aria-label="Histórico de execuções e recibos"></div>
       <div class="ai-input-area">
         <textarea id="ai-input" class="ai-textarea" placeholder="Descreva a tarefa para o agente… (Enter envia · Shift+Enter quebra linha)" aria-label="Comando para o agente"></textarea>
+        <div class="ai-route-status" role="status" aria-live="polite">
+          <span class="ai-route-mark" aria-hidden="true">⌁</span>
+          <span id="ai-route-label">O orquestrador escolhe um Bot especialista ou executa com o agente geral.</span>
+          <button id="btn-ai-route-mode" class="btn-ghost" type="button" hidden></button>
+        </div>
         <div class="ai-composer-footer">
           <span id="ai-privacy-note" class="ai-privacy-note">Os dados necessários da página serão enviados ao provedor escolhido.</span>
           <div class="ai-composer-actions">
@@ -449,6 +454,7 @@
   </div>
 
   <script src="markdown.js"></script>
+  <script src="orchestrator-routing.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

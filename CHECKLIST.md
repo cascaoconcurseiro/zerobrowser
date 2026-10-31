@@ -6,7 +6,7 @@
 - [ ] Concluir a evolução visual a partir da referência aprovada com acabamento profissional, fluxo claro e identidade própria; ainda há telas sem revisão visual integrada.
 - [x] Tornar a Central mais clara e retirar dados/ações simulados que pareciam serviços ativos.
 - [ ] Concluir executor de Bot com isolamento, limites por tarefa, política de site aplicada no processo principal, cancelamento verificável e resultado independente.
-- [ ] Criar um orquestrador explícito no modo Delegar: identificar ação comum versus especialidade, encaminhar ao Bot adequado ou executar no agente geral, mostrando ao usuário quem fará o trabalho e permitindo corrigir a escolha.
+- [x] Criar um orquestrador explícito no modo Delegar: classificar pedidos claros de preço, mercado e e-mail; pedidos comuns, mistos ou sem Bot salvo seguem para o agente geral; mostrar a rota e permitir corrigir a escolha. O perfil especialista é orientação local no agente geral, não um runtime autônomo isolado.
 - [ ] Implementar agenda persistente e gatilhos reais, depois provar execução com Zero fechado e retomada.
 - [ ] Conectar serviços externos e Apps a transportes/fontes reais; manter aprovação, recibo e estado verdadeiro.
 - [ ] Fechar popup, cookies, banners e permissões por política explícita sem dispensar consentimento em nome do usuário.
@@ -62,6 +62,14 @@
 - [x] Registrar achados e limites em docs/AUDITORIA_INTEGRADA_2026-10-31.md.
 - [ ] Corrigir A01–A04: executor real, propagação de erro, cancelamento e agenda.
 - [ ] Concluir cobertura operacional pendente no relatório. A declaração histórica de todas as fases concluídas abaixo está suspensa.
+
+## Fatia utilizável — 0.1.68-dev (orquestrador)
+
+- [x] Classificador local encaminha solicitações claras para preço, mercado ou e-mail, sem chamada extra ao provedor; pedidos comuns, mistos e sem Bot salvo permanecem no agente geral.
+- [x] O compositor mostra quem executará e oferece correção quando há sugestão especialista; seleção manual de Bot permanece explícita.
+- [x] Envio em primeiro plano aplica orientação do perfil selecionado e informa que agente geral usa a aba e o perfil atuais; envio em segundo plano não escolhe Bot por padrão.
+- [x] Cobrir classificação, ambiguidade e estado/override visível na UI.
+- [ ] Revisão visual dedicada do app instalado e teste de uso pelo Wesley.
 
 
 ## Registro histórico antigo — não representa o estado atual

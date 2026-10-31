@@ -14,6 +14,9 @@ class ZeroBrowserApp {
     this.aiProviderConfigs = new Map();
     this.aiKeyRevealed = false;
     this.aiRevealedStoredKey = false;
+    this.executionRouteMode = 'auto';
+    this.routeOverrideForDraft = null;
+    this.currentExecutionRoute = null;
     this.botTeam = { bots: [], avatars: 0, currentProfileId: null };
     this.botTabs = new Map();
     this.specialistBots = new Map();
@@ -118,6 +121,8 @@ class ZeroBrowserApp {
       btnAiConnect: document.getElementById('btn-ai-connect'),
       aiChat: document.getElementById('ai-chat'),
       aiInput: document.getElementById('ai-input'),
+      aiRouteLabel: document.getElementById('ai-route-label'),
+      btnAiRouteMode: document.getElementById('btn-ai-route-mode'),
       btnAiSend: document.getElementById('btn-ai-send'),
       btnAiSendBg: document.getElementById('btn-ai-send-bg'),
       settingsPanel: document.getElementById('settings-panel'),
@@ -194,6 +199,11 @@ class ZeroBrowserApp {
     this.elements.btnAiSendBg?.addEventListener('click', () => {
       this.sendAiMessageInBackground();
     });
+    this.elements.aiInput.addEventListener('input', () => {
+      this.routeOverrideForDraft = null;
+      this.updateOrchestratorRouteStatus(this.elements.aiInput.value);
+    });
+    this.elements.btnAiRouteMode?.addEventListener('click', () => this.handleRouteModeAction());
     this.elements.aiRefreshModels.addEventListener('click', () => this.refreshAiModels());
     this.elements.aiSaveKey.addEventListener('click', () => this.saveAiKey());
     this.elements.aiToggleKey.addEventListener('click', () => this.toggleAiKeyVisibility());
@@ -2189,8 +2199,11 @@ class ZeroBrowserApp {
       else if (specialty.includes('sentinel') || specialty.includes('radar')) sym = syms.find((s) => s.id === 'radar');
       else sym = syms[0];
     }
-    if (sym?.svgPath) {
-      return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="' + sym.svgPath + '"/></svg>';
+    if (sym?.svgPath || sym?.path) {
+      return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="' + (sym.svgPath || sym.path) + '"/></svg>';
+    }
+    if (specialty.includes('general')) {
+      return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Zm0 5a4 4 0 1 0 0 8 4 4 0 0 0 0-8Z"/></svg>';
     }
     if (specialty.includes('market')) {
       return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>';
@@ -2206,7 +2219,7 @@ class ZeroBrowserApp {
     if (!container) return;
     container.replaceChildren();
     const tasks = this.getSpecialistTasksCatalog();
-    const activeId = this.activeSpecialistBot?.id || tasks[0]?.id;
+    const activeId = this.activeSpecialistBot?.id || null;
     for (const task of tasks) {
       const btn = document.createElement('button');
       btn.type = 'button';
@@ -2227,9 +2240,11 @@ class ZeroBrowserApp {
     }
   }
 
-  selectSpecialistBot(task, { switchToChat = true } = {}) {
+  selectSpecialistBot(task, { switchToChat = true, routeMode = 'specialist' } = {}) {
     if (!task) return;
     this.activeSpecialistBot = task;
+    this.executionRouteMode = routeMode;
+    this.routeOverrideForDraft = null;
     const appEl = document.getElementById('app');
     if (appEl && task.accent) {
       appEl.style.setProperty('--active-bot-accent', task.accent);
@@ -2253,11 +2268,99 @@ class ZeroBrowserApp {
     this.renderSpecialistRail();
     this.renderChatSessionSelect();
     this.renderChatSession();
+    this.updateOrchestratorRouteStatus(this.elements.aiInput?.value || '');
     if (switchToChat && this.activeBotTab !== 'chat') {
       this.switchBotPanelTab('chat');
     } else if (!switchToChat && this.activeBotTab !== 'chat') {
       this.switchBotPanelTab(this.activeBotTab);
     }
+  }
+
+  resolveExecutionRoute(prompt = '') {
+    if (this.executionRouteMode === 'specialist' && this.activeSpecialistBot) {
+      return { kind: 'specialist', bot: this.activeSpecialistBot, reason: 'user-selected' };
+    }
+    if (this.executionRouteMode === 'general' || this.routeOverrideForDraft === 'general') {
+      return { kind: 'general', bot: null, reason: 'user-selected' };
+    }
+    return window.ZeroOrchestratorRouting.classifyRequest(prompt, this.getAvailableSpecialistTasks());
+  }
+
+  getAvailableSpecialistTasks() {
+    return Array.isArray(this.storedSpecialistTasks) ? this.storedSpecialistTasks : [];
+  }
+
+  updateOrchestratorRouteStatus(prompt = '') {
+    const label = this.elements?.aiRouteLabel || document.getElementById('ai-route-label');
+    const button = this.elements?.btnAiRouteMode || document.getElementById('btn-ai-route-mode');
+    if (!label || !button) return;
+    const route = this.resolveExecutionRoute(prompt);
+    if (route.kind === 'specialist') {
+      const botName = route.bot.name || 'Bot especialista';
+      label.textContent = route.reason === 'user-selected'
+        ? `Você escolheu ${botName}. O agente geral executará na aba atual com este perfil.`
+        : `Sugestão do orquestrador: ${botName}. O agente geral usa a aba e o perfil atuais.`;
+      button.textContent = route.reason === 'user-selected' ? 'Usar agente geral' : 'Fazer aqui mesmo';
+      button.hidden = false;
+    } else if (this.executionRouteMode === 'general' || this.routeOverrideForDraft === 'general') {
+      label.textContent = 'O agente geral executará o pedido na aba atual.';
+      button.textContent = 'Ativar orquestrador';
+      button.hidden = false;
+    } else {
+      label.textContent = 'O agente geral executará na aba atual; o orquestrador só encaminha quando reconhece uma especialidade.';
+      button.hidden = true;
+    }
+  }
+
+  handleRouteModeAction() {
+    const route = this.resolveExecutionRoute(this.elements.aiInput?.value || '');
+    if (this.executionRouteMode === 'specialist') {
+      this.useGeneralChat({ mode: 'general' });
+    } else if (this.executionRouteMode === 'general') {
+      this.executionRouteMode = 'auto';
+      this.routeOverrideForDraft = null;
+      this.updateOrchestratorRouteStatus(this.elements.aiInput?.value || '');
+    } else if (route.kind === 'specialist') {
+      this.routeOverrideForDraft = 'general';
+      this.updateOrchestratorRouteStatus(this.elements.aiInput?.value || '');
+    }
+  }
+
+  prepareExecutionRoute(prompt, resumeId = null) {
+    if (resumeId) return { kind: 'general', bot: null, reason: 'resume' };
+    const route = this.resolveExecutionRoute(prompt);
+    if (route.kind === 'specialist' && this.activeSpecialistBot?.id !== route.bot.id) {
+      this.selectSpecialistBot(route.bot, { routeMode: this.executionRouteMode === 'specialist' ? 'specialist' : 'auto' });
+    } else if (route.kind === 'general' && this.chatSession?.botId) {
+      this.useGeneralChat({ mode: this.executionRouteMode === 'general' ? 'general' : 'auto', render: true });
+    }
+    this.currentExecutionRoute = route;
+    return route;
+  }
+
+  useGeneralChat({ mode = this.executionRouteMode, render = true } = {}) {
+    this.executionRouteMode = mode;
+    this.routeOverrideForDraft = null;
+    this.activeSpecialistBot = null;
+    const generalSession = !this.chatSession?.botId
+      ? this.chatSession
+      : [...(this.chatSessions || [])].filter((session) => !session.botId).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))[0];
+    if (generalSession) this.chatSession = generalSession;
+    else {
+      const session = { id: `c${Date.now().toString(36)}`, title: 'Nova conversa', messages: [], updatedAt: Date.now() };
+      this.chatSessions = [session, ...(this.chatSessions || [])].slice(0, 50);
+      this.chatSession = session;
+      this.persistChatSessions();
+    }
+    const appEl = document.getElementById('app');
+    appEl?.style.removeProperty('--active-bot-accent');
+    this.syncGrokBotBriefingBar();
+    this.renderSpecialistRail();
+    if (render) {
+      this.renderChatSessionSelect();
+      this.renderChatSession();
+    }
+    this.updateOrchestratorRouteStatus(this.elements?.aiInput?.value || '');
   }
 
   renderBotRail() {
@@ -2693,50 +2796,33 @@ class ZeroBrowserApp {
         const tasks = await window.zeroBrowser.bots.listTasks();
         if (Array.isArray(tasks) && tasks.length) {
           this.storedSpecialistTasks = tasks;
-          if (!this.activeSpecialistBot) {
-            this.activeSpecialistBot = tasks[0];
-          } else {
+          if (this.activeSpecialistBot) {
             const updated = tasks.find((t) => t.id === this.activeSpecialistBot.id);
-            if (updated) this.activeSpecialistBot = updated;
+            this.activeSpecialistBot = updated || null;
           }
-        }
+        } else this.storedSpecialistTasks = [];
       }
     } catch {}
-    if (!this.activeSpecialistBot) {
-      const def = this.getDefaultSpecialistPresets()[0];
-      this.activeSpecialistBot = {
-        id: 'bot-default-price',
-        name: def.defaultName,
-        specialty: def.id,
-        specialtyTitle: def.title,
-        executionMode: def.executionMode,
-        defaultUrl: def.defaultUrl,
-        accent: def.accent,
-        goal: def.goal,
-        permission: def.permission,
-        autonomyStep: 1,
-        memory: ['Comparar preço à vista e frete antes de recomendar.'],
-        history: []
-      };
-    }
     this.syncGrokBotBriefingBar();
     this.renderSpecialistRail();
+    this.updateOrchestratorRouteStatus(this.elements?.aiInput?.value || '');
   }
 
   syncGrokBotBriefingBar() {
     const bot = this.activeSpecialistBot;
-    if (!bot) return;
     const ringEl = document.getElementById('grokbot-active-ring');
     const nameEl = document.getElementById('grokbot-active-name');
     const statusEl = document.getElementById('grokbot-active-status');
     const metaEl = document.getElementById('grokbot-active-meta');
-    const shortName = String(bot.name || 'Preços').replace(/^Bot\s+(Caçador\s+de\s+|Radar\s+de\s+|Triagem\s+)?/i, '') || 'Preços';
-    const isWorkingBg = [...(this.backgroundAgentJobs?.values() || [])].some((j) => j.botId === bot.id);
+    const shortName = bot
+      ? (String(bot.name || 'Bot especialista').replace(/^Bot\s+(Caçador\s+de\s+|Radar\s+de\s+|Triagem\s+)?/i, '') || 'Bot especialista')
+      : 'Agente geral';
+    const isWorkingBg = [...(this.backgroundAgentJobs?.values() || [])].some((j) => bot ? j.botId === bot.id : !j.botId);
     const isWorking = Boolean(this.aiRunning || isWorkingBg);
     if (ringEl) {
-      ringEl.style.setProperty('--bot-accent', bot.accent || '#168f72');
+      ringEl.style.setProperty('--bot-accent', bot?.accent || '#168f72');
       ringEl.dataset.botState = isWorking ? 'working' : 'idle';
-      ringEl.innerHTML = this.getSpecialistSymbolSvg(bot);
+      ringEl.innerHTML = this.getSpecialistSymbolSvg(bot || { id: 'general', specialty: 'general', symbolId: 'compass' });
     }
     if (nameEl) nameEl.textContent = shortName;
     if (statusEl) {
@@ -2748,10 +2834,12 @@ class ZeroBrowserApp {
       statusEl.classList.toggle('is-idle', !isWorking);
     }
     if (metaEl) {
-      metaEl.textContent = bot.goal || 'Pronto para receber ordens nesta aba ou em 2º plano.';
+      metaEl.textContent = bot?.goal || 'O orquestrador sugere um perfil especialista quando reconhece a tarefa; caso contrário, o agente geral cuida dela.';
     }
     if (this.elements?.aiInput) {
-      this.elements.aiInput.placeholder = `Envie uma ordem para o bot ${shortName} (Enter = nesta aba · Em 2º plano = aba oculta)...`;
+      this.elements.aiInput.placeholder = bot
+        ? `Descreva o pedido para ${shortName}; o agente geral executará na aba atual…`
+        : 'Descreva a tarefa. O orquestrador escolhe o Bot adequado ou usa o agente geral…';
     }
     this.syncStopAllButton();
   }
@@ -3806,14 +3894,21 @@ class ZeroBrowserApp {
       this.chatSessions = [];
     }
     this.chatSession = this.chatSessions[0] || this.startChatSession({ render: false });
+    this.restoreExecutionRouteForSession(this.chatSession);
     this.renderChatSessionSelect();
     this.renderChatSession();
+    this.syncGrokBotBriefingBar();
+    this.updateOrchestratorRouteStatus(this.elements.aiInput?.value || '');
 
     this.elements.aiSession?.addEventListener('change', () => {
       const found = this.chatSessions.find((session) => session.id === this.elements.aiSession.value);
       if (!found) return;
       this.chatSession = found;
+      this.restoreExecutionRouteForSession(found);
       this.renderChatSession();
+      this.syncGrokBotBriefingBar();
+      this.renderSpecialistRail();
+      this.updateOrchestratorRouteStatus(this.elements.aiInput?.value || '');
     });
     this.elements.btnAiNewChat?.addEventListener('click', () => {
       this.startChatSession();
@@ -3851,12 +3946,27 @@ class ZeroBrowserApp {
     const session = { id: `c${Date.now().toString(36)}`, title: 'Nova conversa', messages: [], updatedAt: Date.now() };
     this.chatSessions = [session, ...(this.chatSessions || [])].slice(0, 50);
     this.chatSession = session;
+    this.activeSpecialistBot = null;
+    this.executionRouteMode = 'auto';
+    this.routeOverrideForDraft = null;
     this.persistChatSessions();
     if (render) {
       this.renderChatSession();
       this.renderChatSessionSelect();
+      this.syncGrokBotBriefingBar();
+      this.renderSpecialistRail();
+      this.updateOrchestratorRouteStatus(this.elements.aiInput?.value || '');
     }
     return session;
+  }
+
+  restoreExecutionRouteForSession(session) {
+    const bot = session?.botId
+      ? this.getAvailableSpecialistTasks().find((task) => task.id === session.botId) || null
+      : null;
+    this.activeSpecialistBot = bot;
+    this.executionRouteMode = bot ? 'specialist' : 'auto';
+    this.routeOverrideForDraft = null;
   }
 
   persistChatSessions() {
@@ -3927,24 +4037,26 @@ class ZeroBrowserApp {
     const messages = this.chatSession?.messages || [];
     for (const message of messages) this.addAiMessage(message.role, message.content, { persist: false });
     if (!messages.length) {
-      const bot = this.activeSpecialistBot || this.getSpecialistTasksCatalog()[0];
-      const shortName = String(bot?.name || 'Preços').replace(/^Bot\s+(Caçador\s+de\s+|Radar\s+de\s+|Triagem\s+)?/i, '') || 'Preços';
+      const bot = this.activeSpecialistBot || null;
+      const shortName = bot
+        ? (String(bot.name || 'Bot especialista').replace(/^Bot\s+(Caçador\s+de\s+|Radar\s+de\s+|Triagem\s+)?/i, '') || 'Bot especialista')
+        : 'Agente geral';
 
       const welcome = document.createElement('section');
       welcome.className = 'grokbot-specialist-welcome';
-      welcome.setAttribute('aria-label', `Apresentação do Bot ${bot?.name || shortName}`);
+      welcome.setAttribute('aria-label', bot ? `Apresentação do Bot ${bot.name}` : 'Apresentação do agente geral');
       const wHeader = document.createElement('div');
       wHeader.className = 'grokbot-specialist-welcome-header';
       const wTitle = document.createElement('strong');
-      wTitle.textContent = `${bot?.name || 'Bot Caçador de Preços'} · ${bot?.specialtyTitle || 'Especialista'}`;
+      wTitle.textContent = bot ? `${bot.name} · ${bot.specialtyTitle || 'Especialista'}` : 'Agente geral · Orquestrador ativo';
       const wPill = document.createElement('span');
       wPill.className = 'grokbot-pill';
-      wPill.textContent = `Degrau ${bot?.autonomyStep || 1} · ${bot?.permission || 'somente-leitura'}`;
+      wPill.textContent = bot ? `Degrau ${bot.autonomyStep || 1} · ${bot.permission || 'somente-leitura'}` : 'Aba atual · escolha automática';
       wHeader.append(wTitle, wPill);
 
       const wDesc = document.createElement('span');
       wDesc.style.color = 'var(--fg-secondary)';
-      wDesc.textContent = bot?.goal || 'Escolha abaixo uma missão ou digite sua ordem para executar nesta aba ou em uma aba oculta de 2º plano.';
+      wDesc.textContent = bot?.goal || 'Descreva o que precisa. O orquestrador encaminha pedidos claros para um perfil especialista e deixa os demais com o agente geral.';
 
       const wModes = document.createElement('div');
       wModes.className = 'grokbot-specialist-welcome-modes';
@@ -3960,7 +4072,11 @@ class ZeroBrowserApp {
 
       const exemplos = document.createElement('div');
       exemplos.className = 'ai-message assistant ai-examples';
-      const sugestoes = this.getSuggestionsForSpecialist(bot);
+      const sugestoes = bot ? this.getSuggestionsForSpecialist(bot) : [
+        'Resuma esta página em cinco tópicos e destaque os números principais.',
+        'Encontre informações específicas nesta página e cite onde aparecem.',
+        'Organize o conteúdo aberto em uma lista de próximos passos.'
+      ];
       for (const texto of sugestoes) {
         const botao = document.createElement('button');
         botao.type = 'button';
@@ -3975,7 +4091,7 @@ class ZeroBrowserApp {
       const runBgQuick = document.createElement('button');
       runBgQuick.type = 'button';
       runBgQuick.className = 'btn-secondary grokbot-send-bg-btn';
-      runBgQuick.textContent = `▶ Executar missão de ${shortName} em 2º plano agora`;
+      runBgQuick.textContent = `▶ Executar com ${shortName} em 2º plano`;
       runBgQuick.addEventListener('click', () => {
         this.sendAiMessageInBackground(sugestoes[0]);
       });
@@ -4015,20 +4131,25 @@ class ZeroBrowserApp {
   }
 
   async sendAiMessageInBackground(customPrompt = null) {
-    const bot = this.activeSpecialistBot || this.getSpecialistTasksCatalog()[0];
-    if (!bot?.id) {
-      this.showToast('Selecione ou crie um Bot antes de iniciar a tarefa.', 'warning');
-      return { success: false, error: 'Bot não selecionado' };
-    }
-    const shortName = String(bot.name || 'Bot').replace(/^Bot\s+(Caçador\s+de\s+|Radar\s+de\s+|Triagem\s+)?/i, '') || 'Bot';
     const rawInput = customPrompt !== null ? String(customPrompt) : (this.elements.aiInput?.value || '');
-    const promptText = rawInput.trim() || String(bot.goal || '').trim();
+    const route = this.resolveExecutionRoute(rawInput.trim());
+    const bot = route.kind === 'specialist' ? route.bot : null;
+    const promptText = rawInput.trim() || String(bot?.goal || '').trim();
     if (!promptText) {
-      this.showToast('Escreva a tarefa que este Bot deve executar.', 'warning');
+      this.showToast('Escreva a tarefa que o agente deve executar.', 'warning');
       this.elements.aiInput?.focus();
       return { success: false, error: 'Tarefa vazia' };
     }
+    const shortName = bot
+      ? (String(bot.name || 'Bot especialista').replace(/^Bot\s+(Caçador\s+de\s+|Radar\s+de\s+|Triagem\s+)?/i, '') || 'Bot especialista')
+      : 'Agente geral';
+    if (bot && this.activeSpecialistBot?.id !== bot.id) {
+      this.selectSpecialistBot(bot, { routeMode: this.executionRouteMode });
+    } else if (!bot && this.chatSession?.botId) {
+      this.useGeneralChat({ mode: this.executionRouteMode, render: true });
+    }
     if (customPrompt === null && this.elements.aiInput) this.elements.aiInput.value = '';
+    this.updateOrchestratorRouteStatus('');
     if (this.elements.aiPanel.classList.contains('hidden')) await this.toggleAiPanel(true);
     this.switchBotPanelTab('chat');
 
@@ -4039,14 +4160,14 @@ class ZeroBrowserApp {
 
     const explicitUrl = promptText.match(/https?:\/\/[^\s)]+/i)?.[0];
     const activeUrl = this.tabs.get(this.activeTabId)?.url || '';
-    const targetUrl = explicitUrl || bot.defaultUrl || activeUrl || 'about:blank';
+    const targetUrl = explicitUrl || bot?.defaultUrl || activeUrl || 'about:blank';
     let parsedTarget;
     try { parsedTarget = new URL(targetUrl); } catch {
       const error = 'O endereço inicial do Bot é inválido.';
       this.addAiMessage('assistant', error);
       return { success: false, error };
     }
-    const allowed = Array.isArray(bot.allowedSites) ? bot.allowedSites : [];
+    const allowed = Array.isArray(bot?.allowedSites) ? bot.allowedSites : [];
     if (allowed.length && !allowed.some((site) => {
       try { const permitted = new URL(site); return parsedTarget.origin === permitted.origin || parsedTarget.hostname === permitted.hostname; }
       catch { return false; }
@@ -4056,20 +4177,22 @@ class ZeroBrowserApp {
       return { success: false, error };
     }
 
-    const botMeta = {
+    const botMeta = bot ? {
       botId: bot.id, name: bot.name, specialty: bot.specialty,
       specialtyTitle: bot.specialtyTitle, executionMode: 'background-auto-foreground',
       accent: bot.accent, goal: promptText, shortBadge: shortName.slice(0, 14)
-    };
+    } : null;
     const previousActiveTabId = this.activeTabId;
-    const bgTabId = await this.createTab(parsedTarget.href, { background: true, botMeta });
+    const bgTabId = await this.createTab(parsedTarget.href, { background: true, ...(botMeta ? { botMeta } : {}) });
     if (!bgTabId) {
-      const error = 'Não foi possível abrir uma nova aba do Bot.';
+      const error = `Não foi possível abrir uma aba para ${shortName}.`;
       this.addAiMessage('assistant', error);
       return { success: false, error };
     }
-    botMeta.tabId = bgTabId;
-    this.specialistBots.set(bot.id, botMeta);
+    if (botMeta) {
+      botMeta.tabId = bgTabId;
+      this.specialistBots.set(bot.id, botMeta);
+    }
     if (previousActiveTabId && previousActiveTabId !== bgTabId) this.activeTabId = previousActiveTabId;
 
     const jobId = `bg-job-${Date.now()}`;
@@ -4079,7 +4202,7 @@ class ZeroBrowserApp {
     status.className = 'grokbot-inline-receipt';
     status.setAttribute('role', 'status');
     const statusText = document.createElement('span');
-    statusText.textContent = `${shortName} está executando em uma aba do perfil atual…`;
+    statusText.textContent = `${shortName} está executando em uma aba do perfil atual${bot ? ' com orientação deste perfil especialista' : ''}…`;
     const openTab = document.createElement('button');
     openTab.type = 'button';
     openTab.className = 'grokbot-inline-receipt-btn';
@@ -4089,7 +4212,7 @@ class ZeroBrowserApp {
     chat?.appendChild(status);
 
     this.backgroundAgentJobs.set(jobId, {
-      id: jobId, botId: bot.id, botName: shortName, tabId: bgTabId, prompt: promptText,
+      id: jobId, botId: bot?.id || null, botName: shortName, tabId: bgTabId, prompt: promptText,
       onCancel: async () => {
         cancelRequested = true;
         statusText.textContent = `${shortName}: pedido para interromper enviado.`;
@@ -4105,8 +4228,8 @@ class ZeroBrowserApp {
 
     let result;
     try {
-      if (!this.aiConnected && !(await this.useSavedAiConfig())) throw new Error('Configure o provedor e o modelo de IA antes de executar o Bot.');
-      result = await window.zeroBrowser.automation.runAgent(bgTabId, promptText, false, false);
+      if (!this.aiConnected && !(await this.useSavedAiConfig())) throw new Error('Configure o provedor e o modelo de IA antes de executar a tarefa.');
+      result = await window.zeroBrowser.automation.runAgent(bgTabId, this.buildRoutedPrompt(promptText, bot), false, false);
     } catch (error) {
       result = { success: false, error: String(error?.message || error) };
     } finally {
@@ -4118,29 +4241,36 @@ class ZeroBrowserApp {
 
     if (result?.cancelled === true) {
       statusText.textContent = `${shortName}: execução interrompida. Uma ação já enviada pode terminar antes de parar.`;
-      return { success: false, cancelled: true, botId: bot.id, tabId: bgTabId, jobId };
+      return { success: false, cancelled: true, botId: bot?.id || null, tabId: bgTabId, jobId };
     }
     if (result?.paused === true) {
       const pauseMessage = String(result.message || 'A execução pausou ao atingir um limite. Revise a página antes de continuar.');
       statusText.textContent = `${shortName}: execução pausada; ainda não concluída.`;
       this.addAiMessage('assistant', pauseMessage);
-      return { success: false, paused: true, resumeId: result.resumeId || null, botId: bot.id, tabId: bgTabId, jobId };
+      return { success: false, paused: true, resumeId: result.resumeId || null, botId: bot?.id || null, tabId: bgTabId, jobId };
     }
     if (cancelRequested && cancellationConfirmed && result?.success !== true) {
       statusText.textContent = `${shortName}: execução interrompida.`;
-      return { success: false, cancelled: true, botId: bot.id, tabId: bgTabId, jobId };
+      return { success: false, cancelled: true, botId: bot?.id || null, tabId: bgTabId, jobId };
     }
     if (result?.success === true) {
       statusText.textContent = `${shortName}: execução encerrada. Revise o resultado na página.`;
       const answer = String(result.message || '').trim();
       this.addAiMessage('assistant', answer || 'O motor encerrou a execução sem fornecer uma resposta final. Confira a aba para revisar o estado.');
-      return { success: true, taskVerified: false, botId: bot.id, tabId: bgTabId, jobId, summary: answer };
+      return { success: true, taskVerified: false, botId: bot?.id || null, tabId: bgTabId, jobId, summary: answer };
     }
     const error = String(result?.error || 'O motor não confirmou a conclusão da tarefa.');
     statusText.textContent = `${shortName}: falha na execução.`;
     this.addAiMessage('assistant', `Não consegui concluir a tarefa: ${error}`);
-    this.showToast(`Falha no Bot ${shortName}: ${error}`, 'error');
-    return { success: false, error, botId: bot.id, tabId: bgTabId, jobId };
+    this.showToast(`Falha em ${shortName}: ${error}`, 'error');
+    return { success: false, error, botId: bot?.id || null, tabId: bgTabId, jobId };
+  }
+
+  buildRoutedPrompt(prompt, bot) {
+    if (!bot) return prompt;
+    const profile = String(bot.specialtyTitle || bot.name || 'Bot especialista').slice(0, 100);
+    const goal = String(bot.goal || '').replace(/\s+/g, ' ').trim().slice(0, 600);
+    return `[Perfil local: ${profile}${goal ? `; objetivo: ${goal}` : ''}]\n[Pedido do usuário]\n${prompt}`;
   }
   // Monta os nos a partir dos blocos do parser; nada de innerHTML com texto do modelo.
   renderRichText(container, text) {
@@ -4439,6 +4569,7 @@ class ZeroBrowserApp {
     if (this.aiRunning) return;
     const text = this.elements.aiInput.value.trim();
     if (!resumeId && !text) return;
+    const route = this.prepareExecutionRoute(text, resumeId);
 
     this.aiRunning = true;
     this.runningAgentTabId = this.activeTabId;
@@ -4464,8 +4595,10 @@ class ZeroBrowserApp {
       }
       this.runEvents = [];
       if (previousContinue) previousContinue.disabled = true;
+      const routeName = route.kind === 'specialist' ? route.bot.name : 'Agente geral';
       this.addAiMessage('user', resumeId ? 'Continuar tarefa' : text);
       if (!resumeId) this.elements.aiInput.value = '';
+      this.updateOrchestratorRouteStatus('');
 
       if (this.elements.aiChat) {
         workingBanner = document.createElement('div');
@@ -4474,8 +4607,8 @@ class ZeroBrowserApp {
           <div class="ai-working-header">
             <span class="ai-aurora-indicator"></span>
             <div>
-              <strong>Chefe, assumi o controle do navegador!</strong>
-              <p class="ai-working-subtitle">Estamos fazendo seu trabalho na aba ativa. Acompanhe a moldura de aurora boreal na página ou aguarde o término.</p>
+              <strong>Agente geral está cuidando da tarefa</strong>
+              <p class="ai-working-subtitle">O agente geral executa na aba e no perfil atuais${route.kind === 'specialist' ? `, seguindo o perfil local ${routeName}` : ''}. Acompanhe a página ou aguarde o término.</p>
             </div>
           </div>
           <div class="ai-working-status-pill">
@@ -4488,7 +4621,8 @@ class ZeroBrowserApp {
         this.elements.aiChat.scrollTop = this.elements.aiChat.scrollHeight;
       }
 
-      const result = await window.zeroBrowser.automation.runAgent(this.activeTabId, resumeId ? '' : text, false, false, resumeId);
+      const routedPrompt = resumeId ? '' : this.buildRoutedPrompt(text, route.kind === 'specialist' ? route.bot : null);
+      const result = await window.zeroBrowser.automation.runAgent(this.activeTabId, routedPrompt, false, false, resumeId);
       if (workingBanner && workingBanner.parentNode) workingBanner.remove();
 
       if (result.success) {
@@ -4553,6 +4687,7 @@ class ZeroBrowserApp {
       document.getElementById('browser-container')?.classList.remove('agent-active');
       this.aiRunning = false;
       this.runningAgentTabId = null;
+      this.currentExecutionRoute = null;
       if (!this.elements.botCentral.classList.contains('hidden')) this.renderBotCentral();
       this.syncControlledTabIndicator();
       this.elements.btnStopTask.classList.add('hidden');
@@ -4562,6 +4697,7 @@ class ZeroBrowserApp {
       this.elements.btnAiSend.setAttribute('aria-label', 'Enviar comando');
       // Um novo pausa/fim muda a lista de tarefas: o cartão do topo precisa acompanhar.
       this.refreshJobsBanner();
+      this.updateOrchestratorRouteStatus(this.elements.aiInput?.value || '');
     }
   }
 

@@ -78,7 +78,10 @@ const stubs = {
     return { ...bot };
   },
   'automation:jobs': () => [],
-  'automation:run-agent': () => ({ success: true, message: 'Resultado do motor de fixture.' }),
+  'automation:run-agent': (_event, request) => {
+    const marker = request?.prompt?.includes('[Perfil local:') ? '[PERFIL APLICADO]' : '[SEM PERFIL]';
+    return { success: true, message: `Resultado do motor de fixture. ${marker}` };
+  },
   'automation:cancel-agent': () => ({ success: false, error: 'Não há execução ativa.' }),
   'bots:get-presets': () => [],
   'bots:get-symbols': () => [{ id: 'radar', label: 'Radar', svgPath: 'M12 3a9 9 0 1 0 9 9' }],
@@ -382,6 +385,22 @@ app.whenReady().then(async () => {
         return ['strong', 'span'].map((selector) => contrast(getComputedStyle(card.querySelector(selector)).color, background));
       });
       const tabNames = [...document.querySelectorAll('.bot-panel-tab')].map((b) => b.dataset.botTab);
+      window.app.executionRouteMode = 'auto';
+      window.app.activeSpecialistBot = null;
+      window.app.updateOrchestratorRouteStatus('');
+      const initialRouteLabel = document.getElementById('ai-route-label')?.textContent || '';
+      const initialRouteActionHidden = document.getElementById('btn-ai-route-mode')?.hidden === true;
+      window.app.elements.aiInput.value = 'Resuma esta página em cinco tópicos';
+      window.app.updateOrchestratorRouteStatus(window.app.elements.aiInput.value);
+      const ordinaryRouteIsGeneral = document.getElementById('ai-route-label')?.textContent.includes('agente geral') === true;
+      window.app.elements.aiInput.value = 'Compare preços e frete desta loja';
+      window.app.routeOverrideForDraft = null;
+      window.app.updateOrchestratorRouteStatus(window.app.elements.aiInput.value);
+      const specialistRouteIsVisible = document.getElementById('ai-route-label')?.textContent.includes('orquestrador') === true
+        && document.getElementById('btn-ai-route-mode')?.hidden === false;
+      window.app.elements.aiInput.value = '';
+      window.app.routeOverrideForDraft = null;
+      window.app.updateOrchestratorRouteStatus('');
       window.app.switchBotPanelTab('routes');
       await new Promise((r) => setTimeout(r, 80));
       const routesText = document.getElementById('bot-view-routes')?.textContent || '';
@@ -394,8 +413,9 @@ app.whenReady().then(async () => {
       window.app.switchBotPanelTab('chat');
       const initialFgTab = window.app.activeTabId;
       window.app.aiConnected = true;
-      const bgRun = await window.app.sendAiMessageInBackground('Encontre fone sem fio até R$ 150,00');
+      const bgRun = await window.app.sendAiMessageInBackground('Compare preços de fone sem fio até R$ 150,00');
       const keptForeground = window.app.activeTabId === initialFgTab && bgRun.tabId !== initialFgTab;
+      const specialistPromptApplied = document.getElementById('ai-chat')?.textContent.includes('[PERFIL APLICADO]') === true;
       const hasStepper = document.querySelectorAll('.grokbot-stepper .grokbot-step-row').length === 4;
       const hasInlineReceipt = !!document.querySelector('.grokbot-inline-receipt');
       const hasConfirmCard = !!document.querySelector('.grokbot-confirm-card');
@@ -412,9 +432,14 @@ app.whenReady().then(async () => {
         idleStatusText,
         railSpecialistsCount,
         hasSendBgBtn,
+        initialRouteLabel,
+        initialRouteActionHidden,
+        ordinaryRouteIsGeneral,
+        specialistRouteIsVisible,
         welcomeCardContrast,
         switchedBotSession: switchedSessionId.startsWith('bot-chat-'),
         keptForeground,
+        specialistPromptApplied,
         tabNames,
         hasRoutesOrder: routesText.includes('WebMCP'),
         hasMandate: agendaText.includes('Mandato Delegado'),
@@ -435,10 +460,15 @@ app.whenReady().then(async () => {
     assert.equal(grokbotSurface.idleStatusText, '● Pronto', 'Bot Especialista inicia com estado Pronto em vez de tarefa fictícia');
     assert.ok(grokbotSurface.railSpecialistsCount >= 3, 'trilho lateral exibe os Bots Especialistas para troca direta de conversa');
     assert.equal(grokbotSurface.hasSendBgBtn, true, 'compositor tem botão dedicado Em 2º plano ao lado de Enviar');
+    assert.match(grokbotSurface.initialRouteLabel, /agente geral/i, 'sem Bot selecionado, o estado inicial explica a rota geral com orquestrador');
+    assert.equal(grokbotSurface.initialRouteActionHidden, true, 'sem especialidade sugerida, não mostra alternância desnecessária');
+    assert.equal(grokbotSurface.ordinaryRouteIsGeneral, true, 'pedido comum fica no agente geral');
+    assert.equal(grokbotSurface.specialistRouteIsVisible, true, 'pedido especializado mostra a sugestão e a opção de corrigir a rota');
     assert.equal(grokbotSurface.welcomeCardContrast.length, 2, 'as duas opções de envio aparecem na apresentação inicial do Bot');
     assert.ok(grokbotSurface.welcomeCardContrast.flat().every((ratio) => ratio >= 4.5), `título e descrição das opções de envio têm contraste legível sobre o cartão: ${JSON.stringify(grokbotSurface.welcomeCardContrast)}`);
     assert.equal(grokbotSurface.switchedBotSession, true, 'clicar em outro Bot Especialista troca para a conversa exclusiva daquele Bot');
     assert.equal(grokbotSurface.keptForeground, true, 'enviar ordem em 2º plano abre aba oculta do Bot mantendo a aba atual');
+    assert.equal(grokbotSurface.specialistPromptApplied, true, 'pedido encaminhado inclui a orientação local do perfil no motor geral');
     assert.deepEqual(grokbotSurface.tabNames, ['chat', 'agenda', 'memory', 'routes', 'history'], 'painel do Bot tem as 5 abas GrokBot');
     assert.equal(grokbotSurface.hasRoutesOrder, true, 'aba Rotas exibe a ordem de preferência e rotas aprendidas');
     assert.equal(grokbotSurface.hasMandate, true, 'aba Agenda exibe gatilhos por evento e mandato com envelope');
