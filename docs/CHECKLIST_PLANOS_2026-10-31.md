@@ -84,10 +84,10 @@ Guia completo de leitura e ordem de construção para outra IA (GPT): `docs/LEIA
 ## 4c. Rotas aprendidas e firewall (`PLANO_ROTAS_E_FIREWALL.md`)
 - [ ] Fase 0 das rotas: 5 sites, comparar clicar × rota (portão: 3 de 5 com tempo −70% e tokens −80%, meta).
 - [ ] Observador de rede, compilador de rota, executor com queda automática, biblioteca, WebMCP, ensaio (gêmeo local).
-- [ ] Suíte de 50+ ataques em 5 famílias e linha de base no Zero atual.
-- [ ] Etiquetas de origem, política de efeitos, recibo antes de executar (recibo igual à requisição enviada).
+- [x] Suíte de 50+ ataques em 5 famílias e linha de base no Zero atual (`test/intent-firewall-attacks.test.js`, 50/50 bloqueados na `0.1.55-dev`).
+- [x] Etiquetas de origem, política de efeitos, recibo antes de executar (recibo igual à requisição enviada, `0.1.55-dev`).
 - [ ] Publicar "N de N ataques sem efeito indevido" e taxa de falsos bloqueios.
-- [ ] Deixar explícito no produto o limite: texto livre externo copiado para campos livres.
+- [x] Deixar explícito no produto o limite: texto livre externo copiado para campos livres (`containsExternalText` / `warningLabel` em `src/automation/service/intent-firewall.js`, `0.1.55-dev`).
 
 ## 4d. Apps vivos (`PLANO_APPS_VIVOS.md`)
 - [ ] Fase 0: um painel de vencimentos com 3 fontes, 7 dias de uso real.

@@ -2,7 +2,7 @@
 
 ## Estado atual
 
-- Código e instalação local em `0.1.54-dev`: registro único de comandos (`src/main/command-registry.js`), catálogo (`docs/CATALOGO_COMANDOS_NAVEGADOR.md`), proteção do núcleo intocável, recibo pós-ação com `Desfazer` em sequência reversa (5/5 fixtures) e barra de comando por intenção (`Ctrl+K`).
+- Código e instalação local em `0.1.55-dev`: Firewall de Intenção (`src/automation/service/intent-firewall.js`), etiquetas de origem (`usuario` vs. `externo`), recibo verificado com hash SHA-256 e suíte de 50 ataques (`test/intent-firewall-attacks.test.js`) com 50/50 bloqueios.
 - Na fatia `0.1.53-dev` (Design e UX): implementados os tokens de espaçamento (escala de `4px`), paleta de 8 cores de Bots com contraste WCAG ≥ `3:1` verificado nos temas claro e escuro (`BOT_ACCENT_PALETTE` e `BOT_STATE_COLORS`), anel de estado nunca só por cor (`idle`, `working`, `needs-attention` `!`, `error` `×`, `paused` `‖` + nome acessível), indicador na aba controlada (`.tab-controlled` + `#tab-control-banner`), botão `Assumir` / `Devolver ao bot` e etiqueta explícita de reversibilidade no cartão de aprovação.
 
 ## Entrega atual — Tokens de estado, paleta 8 cores, indicador de aba controlada e Assumir (0.1.53-dev)

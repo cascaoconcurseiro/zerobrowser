@@ -1,7 +1,7 @@
 # Checklist Geral do Projeto — Zero Browser
 
 Data de consolidação: `31/10/2026`
-Versão atual (código e instalada): `0.1.54-dev`
+Versão atual (código e instalada): `0.1.55-dev`
 
 Este documento consolida **tudo o que já foi entregue (`[x]`)** e **tudo o que falta (`[ ]`)** no Zero Browser, unificando `CHECKLIST.md`, `HANDOFF.md`, `docs/CHECKLIST_HISTORICO.md`, `docs/CHECKLIST_PLANOS_2026-10-31.md`, `docs/EVOLUCAO_MOTOR.md`, `docs/PLANO_MATURIDADE_4.md` e todos os planos específicos em `docs/PLANO_*.md`.
 
@@ -183,10 +183,10 @@ Este documento consolida **tudo o que já foi entregue (`[x]`)** e **tudo o que 
 
 ### 9.2 Firewall de Intenção e Recibo (`docs/PLANO_ROTAS_E_FIREWALL.md` Parte B)
 - [x] `injection-guard` e `exfiltration-guard` iniciais em operação no runtime.
-- [ ] **Fase 1 — Suíte de 50+ Ataques:** fixtures cobrindo 5 famílias (texto oculto, imitação de sistema, exfiltração por URL/form, troca de destinatário/valor, redirecionamento para domínio terceiro).
-- [ ] **Fase 2 — Etiquetas de Origem:** separar estruturalmente `origem: "usuario"` de `origem: "externo"` até o momento de executar cada ferramenta.
-- [ ] **Fase 3 — Política de Efeitos:** bloquear envio de dados para domínio novo, submissão de form e escrita cruzada quando originados de conteúdo externo sem confirmação humana.
-- [ ] **Fase 4 — Recibo Verificado:** gerar recibo estruturado antes de ações sensíveis (ação, site, campos alterados, reversibilidade) e gravar no log de auditoria.
+- [x] **Fase 1 — Suíte de 50+ Ataques:** fixtures cobrindo 5 famílias (texto oculto, imitação de sistema/PDF, exfiltração por URL/form, troca de destinatário/valor, encaminhamento de e-mail) em `test/intent-firewall-attacks.test.js` (`0.1.55-dev`).
+- [x] **Fase 2 — Etiquetas de Origem:** separar estruturalmente `origem: "usuario"` de `origem: "externo"` até o momento de executar cada ferramenta (`src/automation/service/intent-firewall.js`, `0.1.55-dev`).
+- [x] **Fase 3 — Política de Efeitos:** bloquear envio de dados para domínio novo, submissão de form e escrita cruzada quando originados de conteúdo externo sem confirmação humana (`0.1.55-dev`).
+- [x] **Fase 4 — Recibo Verificado:** gerar recibo estruturado antes de ações sensíveis (`createVerifiedReceipt` / `verifyReceiptMatchesRequest`) com igualdade verificada (`0.1.55-dev`).
 
 ### 9.3 Reversibilidade, Autonomia Conquistada e Paridade Essencial (`docs/PLANO_PARIDADE_E_SALTO.md` & `docs/PLANO_MATURIDADE_4.md`)
 - [x] **Salto 1 — Reversibilidade e `Desfazer`:** campo `reversibilidade` obrigatório em toda ferramenta de escrita + executor de sequência de compensação validado em 5 fixtures (`test/command-registry.test.js`, `0.1.54-dev`).

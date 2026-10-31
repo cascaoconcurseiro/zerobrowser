@@ -1,4 +1,11 @@
-# Novidades — Zero Browser 0.1.54-dev
+# Novidades — Zero Browser 0.1.55-dev
+
+## Firewall de Intenção, etiquetas de origem, recibo verificado e suíte de 50 ataques — 0.1.55-dev — 31/10/2026
+
+- Firewall de Intenção (`src/automation/service/intent-firewall.js`) com etiquetas de origem (`usuario` vs. `externo`), propagação de contaminação e proteção da memória do Bot contra gravação de instruções de origem externa.
+- Política de efeitos que bloqueia dados externos em parâmetros críticos (destinatário, valor, conta, URL de envio) e sinaliza campos livres com texto externo.
+- Recibo verificado (`createVerifiedReceipt` / `verifyReceiptMatchesRequest`) com hash SHA-256 canônico e redação de segredos, garantindo igualdade exata entre o recibo aprovado e a requisição enviada.
+- Suíte aberta de 50 ataques em 5 famílias (`test/intent-firewall-attacks.test.js`: encaminhamento de e-mail, exfiltração por página/URL, texto oculto, pagamento falso/PIX e instrução em PDF/arquivo) passando com 50/50 bloqueios e zero efeito indevido.
 
 ## Registro de comandos, núcleo intocável, recibo Desfazer e barra Ctrl+K — 0.1.54-dev — 31/10/2026
 
