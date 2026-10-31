@@ -1,4 +1,14 @@
-# Novidades — Zero Browser 0.1.63-dev
+# Novidades — Zero Browser 0.1.65-dev
+
+## 0.1.65-dev — Bots e Central mais honestos
+
+- A Central separa perfis de navegação de tarefas especialistas e mostra a quantidade de perfis reais, sem contar imagens do catálogo como Bots.
+- A Central descarta atualizações assíncronas antigas, evitando duplicar ou reintroduzir seções depois de uma atualização mais recente.
+- Apps locais de demonstração e autorização simulada do Telegram não aparecem como serviços conectados.
+- O painel de detalhes deixou de exibir tempos, percentuais e resultados de ataques fixos como se fossem métricas desta execução.
+- Tarefas em segundo plano informam que usam o perfil de navegação atual. Cancelamento pedido, cancelamento confirmado, pausa por limite e fim da execução são estados distintos.
+- A suíte da interface usa uma sessão temporária limpa e valida que a UI apresenta a resposta do motor sem fabricar passos, aprovação ou tarefa verificada.
+- Ainda não há isolamento do perfil por tarefa especialista, executor real de agenda, conectores externos funcionais nem limite de gasto aplicado por Bot.
 
 ## Conceito Visual Completo das 5 Imagens de Referência + Motor, MCP, Firewall e Personalização GrokBot — 0.1.63-dev — 31/10/2026
 

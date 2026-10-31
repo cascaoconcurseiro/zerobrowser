@@ -1460,6 +1460,10 @@ class ZeroBrowserApp {
     const conteudo = document.querySelector('.settings-content');
     if (!indice || !conteudo) return;
     const secoes = [...conteudo.querySelectorAll('.settings-section')];
+    const busca = document.getElementById('settings-search-input');
+    const status = document.getElementById('settings-search-status');
+    const normalizar = (valor) => String(valor).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    const categorias = [];
     indice.replaceChildren();
     for (const secao of secoes) {
       const titulo = secao.querySelector('h3');
@@ -1469,7 +1473,21 @@ class ZeroBrowserApp {
       botao.textContent = titulo.textContent.trim();
       botao.addEventListener('click', () => secao.scrollIntoView({ behavior: 'smooth', block: 'start' }));
       indice.appendChild(botao);
+      categorias.push({ secao, botao });
     }
+    if (busca) busca.oninput = () => {
+      const termo = normalizar(busca.value.trim());
+      let total = 0;
+      for (const { secao, botao } of categorias) {
+        const corresponde = !termo || normalizar(secao.textContent).includes(termo);
+        secao.hidden = !corresponde;
+        botao.hidden = !corresponde;
+        if (corresponde) total++;
+      }
+      if (status) status.textContent = termo
+        ? (total ? `${total} ${total === 1 ? 'categoria encontrada' : 'categorias encontradas'}` : 'Nenhuma configuração encontrada. Tente outro termo.')
+        : '';
+    };
   }
 
   async loadSettingsToUI() {
@@ -1554,7 +1572,7 @@ class ZeroBrowserApp {
     const railWidth = compact ? 64 : 80;
     const minimumPageWidth = compact ? 160 : 320;
     const room = Math.max(0, window.innerWidth - railWidth - minimumPageWidth);
-    const maximum = Math.min(760, room);
+    const maximum = Math.min(640, room);
     return { minimum: Math.min(compact ? 160 : 240, maximum), maximum };
   }
 
@@ -2122,20 +2140,15 @@ class ZeroBrowserApp {
       window.zeroBrowser?.automation?.cancelAgent(this.runningAgentTabId || this.activeTabId).catch(() => {});
     }
     if (this.backgroundAgentJobs && this.backgroundAgentJobs.size > 0) {
-      for (const job of this.backgroundAgentJobs.values()) {
-        if (job.tabId) {
-          window.zeroBrowser?.automation?.cancelAgent(job.tabId).catch(() => {});
-        }
-        if (typeof job.onCancel === 'function') {
-          job.onCancel();
-        }
-      }
-      this.backgroundAgentJobs.clear();
+      await Promise.all([...this.backgroundAgentJobs.values()].map((job) => {
+        if (typeof job.onCancel === 'function') return job.onCancel();
+        return job.tabId ? window.zeroBrowser?.automation?.cancelAgent(job.tabId).catch(() => null) : null;
+      }));
     }
     this.syncStopAllButton();
     this.syncGrokBotBriefingBar();
     this.renderSpecialistRail();
-    this.showToast('Todas as tarefas em execução foram interrompidas.', 'info');
+    this.showToast('Pedido para interromper as tarefas enviado.', 'info');
   }
 
   getSpecialistTasksCatalog() {
@@ -2244,8 +2257,8 @@ class ZeroBrowserApp {
     this.syncStopAllButton();
     this.renderSpecialistRail();
     this.elements.botRailList.replaceChildren();
-    this.elements.botRailCount.textContent = `${this.botTeam.avatars || 0} avatares`;
     const availableBots = this.botTeam.bots.filter((bot) => !bot.archived || bot.id === this.botTeam.currentProfileId);
+    this.elements.botRailCount.textContent = `${availableBots.length} perfis`;
     if (!availableBots.length) {
       const empty = document.createElement('p');
       empty.className = 'bot-rail-empty';
@@ -2294,8 +2307,10 @@ class ZeroBrowserApp {
   }
 
   renderBotCentral() {
+    const renderVersion = (this.botCentralRenderVersion || 0) + 1;
+    this.botCentralRenderVersion = renderVersion;
     this.elements.botCentralList.replaceChildren();
-    this.elements.botCentralAvatarCount.textContent = `${this.botTeam.avatars || 0} avatares disponíveis`;
+    this.elements.botCentralAvatarCount.textContent = `${this.botTeam.bots.length} perfis de Bot`;
     const activeBots = this.botTeam.bots.filter((bot) => bot.archived !== true);
     const archivedBots = this.botTeam.bots.filter((bot) => bot.archived === true);
     document.getElementById('bot-central-count').textContent = `${activeBots.length} ativos · ${archivedBots.length} arquivados`;
@@ -2331,22 +2346,23 @@ class ZeroBrowserApp {
     if (archivedBots.length) appendGroup('Arquivados', archivedBots);
     if (!this.botTeam.bots.length) this.appendBotStarterTemplates();
     if (this.botTeam.bots.length < 15) {
-      this.appendGrokBotCentralSections();
+      this.appendGrokBotCentralSections(renderVersion);
     }
   }
 
-  async appendGrokBotCentralSections() {
+  async appendGrokBotCentralSections(renderVersion = this.botCentralRenderVersion) {
     const host = this.elements.botCentralList;
     if (!host) return;
     await this.refreshSpecialistTasksFromStore();
+    if (renderVersion !== this.botCentralRenderVersion) return;
 
-    // Seção 1: Equipe de Bots Especialistas (2º plano auto-frente ou aba dedicada)
+    // Seção 1: tarefas especializadas salvas.
     const specCard = document.createElement('section');
     specCard.className = 'grokbot-central-card';
     const specTitle = document.createElement('h4');
-    specTitle.textContent = `Bots Especialistas GrokBot (${(this.storedSpecialistTasks || []).length})`;
+    specTitle.textContent = `Tarefas especialistas (${(this.storedSpecialistTasks || []).length})`;
     const specDesc = document.createElement('p');
-    specDesc.textContent = 'Trabalham em 2º plano e trazem a aba para frente ao atingir a meta ou precisar de você.';
+    specDesc.textContent = 'Tarefas especialistas usam o perfil atual. Para separar logins e dados, abra um perfil de Bot.';
     specCard.append(specTitle, specDesc);
 
     for (const task of (this.storedSpecialistTasks || []).slice(0, 6)) {
@@ -2383,92 +2399,37 @@ class ZeroBrowserApp {
       row.append(info, actions);
       specCard.appendChild(row);
     }
-    if (!host.isConnected || this.elements.botCentral.classList.contains('hidden')) return;
-    host.appendChild(specCard);
 
-    // Seção 2: Apps Vivos (Painel de Vencimentos da Semana + Gerador por Conversa)
-    let liveApps = [];
-    if (window.zeroBrowser?.liveApps?.list) {
-      liveApps = await window.zeroBrowser.liveApps.list().catch(() => []);
-    }
+    // A fonte atual ainda devolve dados de demonstração; não os apresente como dados reais.
     const appsCard = document.createElement('section');
     appsCard.className = 'grokbot-central-card';
     const appsTitle = document.createElement('h4');
-    appsTitle.textContent = `Apps Vivos do Navegador (${liveApps.length || 1})`;
+    appsTitle.textContent = 'Apps locais';
     const appsDesc = document.createElement('p');
-    appsDesc.textContent = 'Painéis locais gerados por conversa, alimentados pelos seus Bots em somente leitura.';
-    appsCard.append(appsTitle, appsDesc);
-    for (const appItem of liveApps.slice(0, 3)) {
-      const row = document.createElement('div');
-      row.className = 'grokbot-central-item';
-      const label = document.createElement('strong');
-      label.textContent = `${appItem.title} (${(appItem.items || []).length} contas)`;
-      const actions = document.createElement('div');
-      actions.className = 'grokbot-central-actions';
-      const openBtn = document.createElement('button');
-      openBtn.type = 'button';
-      openBtn.textContent = 'Abrir painel';
-      openBtn.addEventListener('click', () => {
-        this.closeBotCentral();
-        const itemsText = (appItem.items || []).map((i) => `- **${i.title}**: R$ ${Number(i.amountBRL || 0).toFixed(2)} (vence em ${i.dueDate})`).join('\n');
-        this.addAiMessage('assistant', `**App Vivo — ${appItem.title}**\n${itemsText}`);
-      });
-      actions.appendChild(openBtn);
-      row.append(label, actions);
-      appsCard.appendChild(row);
-    }
-    const genActions = document.createElement('div');
-    genActions.className = 'grokbot-central-actions';
-    const genBtn = document.createElement('button');
-    genBtn.type = 'button';
-    genBtn.textContent = '+ Criar App Vivo por conversa';
-    genBtn.addEventListener('click', async () => {
-      if (window.zeroBrowser?.liveApps?.generate) {
-        await window.zeroBrowser.liveApps.generate({ prompt: 'Painel de Preços e Vencimentos da Semana' }).catch(() => {});
-        this.renderBotCentral();
-        this.showToast('Novo App Vivo gerado com armazenamento isolado.', 'success');
-      }
-    });
-    genActions.appendChild(genBtn);
-    appsCard.appendChild(genActions);
-    if (!host.isConnected || this.elements.botCentral.classList.contains('hidden')) return;
-    host.appendChild(appsCard);
+    appsDesc.textContent = 'Painéis com fontes de dados reais ainda não estão disponíveis. Os exemplos de demonstração não aparecem como informação atual.';
+    const appsStatus = document.createElement('span');
+    appsStatus.className = 'grokbot-central-status';
+    appsStatus.textContent = 'Aguardando conexão de uma fonte de dados';
+    appsCard.append(appsTitle, appsDesc, appsStatus);
 
-    // Seção 3: Conectores Nativos & Ponte Telegram + Firewall 50/50
-    let connStatus = null;
-    if (window.zeroBrowser?.connectors?.status) {
-      connStatus = await window.zeroBrowser.connectors.status().catch(() => null);
-    }
+    // Conectores ainda não executam operações externas reais nesta versão.
     const connCard = document.createElement('section');
     connCard.className = 'grokbot-central-card';
     const connTitle = document.createElement('h4');
-    connTitle.textContent = 'Conectores Nativos, Ponte Telegram & Firewall 50/50';
+    connTitle.textContent = 'Conexões com serviços';
     const connDesc = document.createElement('p');
-    const providers = (connStatus?.connectors || []).map((c) => c.name || c.title).join(' · ') || 'Gmail/Outlook · Google Agenda · Drive · Notion · GitHub · Slack';
-    connDesc.textContent = `Conectores: ${providers} · Firewall de Intenção: 50/50 ataques bloqueados (0 falsos bloqueios).`;
+    connDesc.textContent = 'Esta versão ainda não lê nem envia dados por conectores externos.';
     const connActions = document.createElement('div');
     connActions.className = 'grokbot-central-actions';
     const tgBtn = document.createElement('button');
     tgBtn.type = 'button';
-    tgBtn.textContent = 'Autorizar Telegram';
-    tgBtn.addEventListener('click', async () => {
-      const senderId = window.prompt('ID numérico do remetente autorizado no Telegram (somente leitura e resumo):', '100200300');
-      if (senderId && senderId.trim() && window.zeroBrowser?.connectors?.addTelegramSender) {
-        await window.zeroBrowser.connectors.addTelegramSender(senderId.trim()).catch(() => {});
-        this.showToast('Remetente autorizado na Ponte Telegram (escopo somente leitura).', 'success');
-      }
-    });
-    const stopAllBtn = document.createElement('button');
-    stopAllBtn.type = 'button';
-    stopAllBtn.textContent = 'Parar todos os Bots';
-    stopAllBtn.addEventListener('click', async () => {
-      if (window.zeroBrowser?.bots?.stopAll) await window.zeroBrowser.bots.stopAll().catch(() => {});
-      this.showToast('Todos os Bots em 2º plano foram interrompidos.', 'info');
-    });
-    connActions.append(tgBtn, stopAllBtn);
+    tgBtn.textContent = 'Conexões indisponíveis';
+    tgBtn.disabled = true;
+    tgBtn.title = 'A integração externa ainda não está conectada';
+    connActions.append(tgBtn);
     connCard.append(connTitle, connDesc, connActions);
-    if (!host.isConnected || this.elements.botCentral.classList.contains('hidden')) return;
-    host.appendChild(connCard);
+    if (renderVersion !== this.botCentralRenderVersion || !host.isConnected || this.elements.botCentral.classList.contains('hidden')) return;
+    host.append(specCard, appsCard, connCard);
   }
 
   appendBotStarterTemplates() {
@@ -2864,7 +2825,7 @@ class ZeroBrowserApp {
       {
         id: 'custom-specialist',
         title: 'Especialista Personalizado',
-        subtitle: 'Defina missão, site e se trabalha em aba exclusiva ou em 2º plano.',
+        subtitle: 'Defina a missão e se o Bot abre uma nova aba ou trabalha em 2º plano no perfil atual.',
         defaultName: 'Bot Especialista',
         defaultUrl: 'about:blank',
         goal: 'Executar a missão definida pelo usuário e trazer a aba para frente ao concluir ou quando precisar de decisão.',
@@ -3072,7 +3033,7 @@ class ZeroBrowserApp {
         this.elements.aiInput.value = botMeta.goal;
         this.elements.aiInput.focus();
       }
-      this.showToast(`${botMeta.name} aberto em aba exclusiva.`, 'success');
+      this.showToast(`${botMeta.name} aberto em uma nova aba do perfil atual.`, 'success');
     }
 
     return { botId, tabId: botTabId, executionMode, botMeta };
@@ -3994,7 +3955,7 @@ class ZeroBrowserApp {
       modeFg.innerHTML = '<strong>Enviar (Enter)</strong><span>Executa direto na aba aberta atual com moldura Aurora Boreal.</span>';
       const modeBg = document.createElement('div');
       modeBg.className = 'grokbot-welcome-mode-box';
-      modeBg.innerHTML = '<strong>Em 2º plano (Alt+Enter)</strong><span>Abre aba silenciosa só do Bot e traz para frente ao concluir.</span>';
+      modeBg.innerHTML = '<strong>Em 2º plano (Alt+Enter)</strong><span>Abre outra aba no perfil atual e traz para frente ao encerrar.</span>';
       wModes.append(modeFg, modeBg);
       welcome.append(wHeader, wDesc, wModes);
       chat.appendChild(welcome);
@@ -4033,14 +3994,14 @@ class ZeroBrowserApp {
     const techDrawer = document.createElement('details');
     techDrawer.className = 'grokbot-tech-drawer';
     const techSummary = document.createElement('summary');
-    techSummary.textContent = '</> Técnico (motor, MCP, rotas, firewall e personalização)';
+    techSummary.textContent = 'Como a execução funciona';
     const metricsGrid = document.createElement('div');
     metricsGrid.className = 'grokbot-tech-metrics';
     for (const [label, val] of [
-      ['Decomposição do Motor', 'modelo: 410ms · navegador: 85ms · espera: 0ms'],
-      ['Orçamento de Bytes', '-27,3% (lazy schema + prefixo estável)'],
-      ['Controle Total MCP/CDP', '127.0.0.1 Bearer · 4 níveis (observar → total)'],
-      ['Firewall de Intenção', '50/50 ataques bloqueados · 0 falsos bloqueios']
+      ['Métricas', 'Tempo, tokens e custo por tarefa ainda não aparecem nesta tela.'],
+      ['Dados enviados', 'O pedido e o contexto necessário da página podem ser enviados ao provedor escolhido.'],
+      ['Perfil', 'Esta tarefa usa o perfil de navegação atual; cookies e logins são compartilhados.'],
+      ['Ações', 'Ações sensíveis continuam sujeitas às confirmações do navegador.']
     ]) {
       const m = document.createElement('div');
       m.className = 'grokbot-tech-metric';
@@ -4051,298 +4012,138 @@ class ZeroBrowserApp {
       m.append(st, sp);
       metricsGrid.appendChild(m);
     }
-    const themeActions = document.createElement('div');
-    themeActions.className = 'grokbot-central-actions';
-    themeActions.style.marginTop = '8px';
-    const lightBtn = document.createElement('button');
-    lightBtn.type = 'button';
-    lightBtn.className = 'btn-ghost';
-    lightBtn.textContent = 'Visual Claro (Conceito)';
-    lightBtn.addEventListener('click', async () => {
-      await window.zeroBrowser?.settings?.applyTheme('light').catch(() => {});
-      this.applySettings({ theme: 'light' });
-      this.showToast('Tema Claro Editorial aplicado (igual às imagens de conceito).', 'success');
-    });
-    const darkBtn = document.createElement('button');
-    darkBtn.type = 'button';
-    darkBtn.className = 'btn-ghost';
-    darkBtn.textContent = 'Visual Escuro';
-    darkBtn.addEventListener('click', async () => {
-      await window.zeroBrowser?.settings?.applyTheme('dark').catch(() => {});
-      this.applySettings({ theme: 'dark' });
-      this.showToast('Tema Escuro aplicado.', 'success');
-    });
-    const safeBtn = document.createElement('button');
-    safeBtn.type = 'button';
-    safeBtn.className = 'btn-ghost';
-    safeBtn.textContent = 'Modo Seguro Visual';
-    safeBtn.addEventListener('click', () => this.restoreSafeVisualLayout());
-    themeActions.append(lightBtn, darkBtn, safeBtn);
-    techDrawer.append(techSummary, metricsGrid, themeActions);
+    techDrawer.append(techSummary, metricsGrid);
     chat.appendChild(techDrawer);
   }
 
   async sendAiMessageInBackground(customPrompt = null) {
     const bot = this.activeSpecialistBot || this.getSpecialistTasksCatalog()[0];
-    const shortName = String(bot?.name || 'Preços').replace(/^Bot\s+(Caçador\s+de\s+|Radar\s+de\s+|Triagem\s+)?/i, '') || 'Preços';
+    if (!bot?.id) {
+      this.showToast('Selecione ou crie um Bot antes de iniciar a tarefa.', 'warning');
+      return { success: false, error: 'Bot não selecionado' };
+    }
+    const shortName = String(bot.name || 'Bot').replace(/^Bot\s+(Caçador\s+de\s+|Radar\s+de\s+|Triagem\s+)?/i, '') || 'Bot';
     const rawInput = customPrompt !== null ? String(customPrompt) : (this.elements.aiInput?.value || '');
-    const promptText = rawInput.trim() || bot?.goal || 'Encontre um fone de ouvido sem fio com boa avaliação e preço até R$ 150,00.';
-    if (customPrompt === null && this.elements.aiInput) {
-      this.elements.aiInput.value = '';
+    const promptText = rawInput.trim() || String(bot.goal || '').trim();
+    if (!promptText) {
+      this.showToast('Escreva a tarefa que este Bot deve executar.', 'warning');
+      this.elements.aiInput?.focus();
+      return { success: false, error: 'Tarefa vazia' };
     }
-    if (this.elements.aiPanel.classList.contains('hidden')) {
-      await this.toggleAiPanel(true);
-    }
+    if (customPrompt === null && this.elements.aiInput) this.elements.aiInput.value = '';
+    if (this.elements.aiPanel.classList.contains('hidden')) await this.toggleAiPanel(true);
     this.switchBotPanelTab('chat');
 
-    // Remove empty welcome screen once a real task starts
     const chat = this.elements.aiChat;
     chat?.querySelector('.grokbot-specialist-welcome')?.remove();
     chat?.querySelector('.ai-examples')?.remove();
-    chat?.querySelector('.grokbot-tech-drawer')?.remove();
-
     this.addAiMessage('user', promptText);
 
-    const urlMatch = promptText.match(/https?:\/\/[^\s)]+/i);
+    const explicitUrl = promptText.match(/https?:\/\/[^\s)]+/i)?.[0];
     const activeUrl = this.tabs.get(this.activeTabId)?.url || '';
-    const targetUrl = urlMatch
-      ? urlMatch[0]
-      : (bot?.defaultUrl && /^https?:\/\//i.test(bot.defaultUrl)
-        ? bot.defaultUrl
-        : (/^https?:\/\//i.test(activeUrl) ? activeUrl : 'https://www.google.com/shopping'));
-
-    const botId = bot?.id || `bot-bg-${Date.now()}`;
-    const botMeta = {
-      botId,
-      name: bot?.name || 'Bot Especialista',
-      specialty: bot?.specialty || 'price-hunter',
-      specialtyTitle: bot?.specialtyTitle || 'Especialista',
-      executionMode: 'background-auto-foreground',
-      accent: bot?.accent || '#168f72',
-      goal: promptText,
-      shortBadge: shortName.slice(0, 14)
-    };
-
-    const previousActiveTabId = this.activeTabId;
-    const bgTabId = await this.createTab(targetUrl, {
-      background: true,
-      botMeta
-    });
-    if (bgTabId) {
-      botMeta.tabId = bgTabId;
-      this.specialistBots.set(botId, botMeta);
-      if (previousActiveTabId && previousActiveTabId !== bgTabId) {
-        this.activeTabId = previousActiveTabId;
-      }
+    const targetUrl = explicitUrl || bot.defaultUrl || activeUrl || 'about:blank';
+    let parsedTarget;
+    try { parsedTarget = new URL(targetUrl); } catch {
+      const error = 'O endereço inicial do Bot é inválido.';
+      this.addAiMessage('assistant', error);
+      return { success: false, error };
     }
+    const allowed = Array.isArray(bot.allowedSites) ? bot.allowedSites : [];
+    if (allowed.length && !allowed.some((site) => {
+      try { const permitted = new URL(site); return parsedTarget.origin === permitted.origin || parsedTarget.hostname === permitted.hostname; }
+      catch { return false; }
+    })) {
+      const error = `O site ${parsedTarget.hostname} não está liberado para este Bot.`;
+      this.addAiMessage('assistant', error);
+      return { success: false, error };
+    }
+
+    const botMeta = {
+      botId: bot.id, name: bot.name, specialty: bot.specialty,
+      specialtyTitle: bot.specialtyTitle, executionMode: 'background-auto-foreground',
+      accent: bot.accent, goal: promptText, shortBadge: shortName.slice(0, 14)
+    };
+    const previousActiveTabId = this.activeTabId;
+    const bgTabId = await this.createTab(parsedTarget.href, { background: true, botMeta });
+    if (!bgTabId) {
+      const error = 'Não foi possível abrir uma nova aba do Bot.';
+      this.addAiMessage('assistant', error);
+      return { success: false, error };
+    }
+    botMeta.tabId = bgTabId;
+    this.specialistBots.set(bot.id, botMeta);
+    if (previousActiveTabId && previousActiveTabId !== bgTabId) this.activeTabId = previousActiveTabId;
 
     const jobId = `bg-job-${Date.now()}`;
-    const nowStr = () => new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    let cancelRequested = false;
+    let cancellationConfirmed = false;
+    const status = document.createElement('div');
+    status.className = 'grokbot-inline-receipt';
+    status.setAttribute('role', 'status');
+    const statusText = document.createElement('span');
+    statusText.textContent = `${shortName} está executando em uma aba do perfil atual…`;
+    const openTab = document.createElement('button');
+    openTab.type = 'button';
+    openTab.className = 'grokbot-inline-receipt-btn';
+    openTab.textContent = 'Ver aba';
+    openTab.addEventListener('click', () => { if (this.tabs.has(bgTabId)) this.switchTab(bgTabId); });
+    status.append(statusText, openTab);
+    chat?.appendChild(status);
 
-    const controlledBar = document.createElement('div');
-    controlledBar.className = 'grokbot-inline-receipt';
-    controlledBar.setAttribute('aria-label', 'Navegador controlado pelo Bot em 2º plano');
-    const cbLeft = document.createElement('div');
-    cbLeft.className = 'grokbot-inline-receipt-left';
-    const cbBadge = document.createElement('span');
-    cbBadge.className = 'tab-control-bot-badge';
-    cbBadge.innerHTML = this.getSpecialistSymbolSvg(bot);
-    const cbText = document.createElement('span');
-    cbText.innerHTML = 'Aba em 2º plano controlada por <strong>' + shortName + '</strong>';
-    cbLeft.append(cbBadge, cbText);
-    const cbBtn = document.createElement('button');
-    cbBtn.type = 'button';
-    cbBtn.className = 'grokbot-inline-receipt-btn';
-    cbBtn.textContent = 'Ir para a aba';
-    cbBtn.addEventListener('click', () => {
-      if (bgTabId && this.tabs.has(bgTabId)) {
-        this.switchTab(bgTabId);
-      }
-    });
-    controlledBar.append(cbLeft, cbBtn);
-    chat?.appendChild(controlledBar);
-
-    const stepper = document.createElement('div');
-    stepper.className = 'grokbot-stepper';
-    stepper.setAttribute('role', 'list');
-    stepper.setAttribute('aria-label', 'Passos da tarefa em andamento');
-    const stepDefs = [
-      { done: true, title: `Entendido! O bot ${shortName} iniciou sua ordem em 2º plano.`, sub: 'Ordem de execução: 1. WebMCP → 2. Rota HTTP → 3. Receita → 4. Interface Visual', time: nowStr() },
-      { done: true, title: 'Abrindo aba exclusiva em 2º plano', sub: `Aba silenciosa criada em ${targetUrl} sem interromper sua navegação`, time: nowStr() },
-      { done: true, title: 'Comparando dados e executando missão', sub: `Analisando: "${promptText.slice(0, 80)}"`, time: nowStr() },
-      { done: false, title: 'Preparando resumo e validação', sub: 'Gerando recibo SHA-256 e trazendo resultado para sua revisão...', time: nowStr() }
-    ];
-    const stepDots = [];
-    const stepSubs = [];
-    for (const st of stepDefs) {
-      const row = document.createElement('div');
-      row.className = 'grokbot-step-row';
-      row.setAttribute('role', 'listitem');
-      const dot = document.createElement('span');
-      dot.className = 'grokbot-step-dot' + (st.done ? '' : ' is-pending');
-      dot.textContent = st.done ? '✓' : '•';
-      const body = document.createElement('div');
-      body.className = 'grokbot-step-body';
-      const top = document.createElement('div');
-      top.className = 'grokbot-step-top';
-      const strong = document.createElement('strong');
-      strong.textContent = st.title;
-      const t = document.createElement('time');
-      t.textContent = st.time;
-      top.append(strong, t);
-      const sub = document.createElement('span');
-      sub.textContent = st.sub;
-      body.append(top, sub);
-      row.append(dot, body);
-      stepper.appendChild(row);
-      stepDots.push(dot);
-      stepSubs.push(sub);
-    }
-    chat?.appendChild(stepper);
-
-    let cancelled = false;
     this.backgroundAgentJobs.set(jobId, {
-      id: jobId,
-      botId,
-      botName: shortName,
-      tabId: bgTabId,
-      prompt: promptText,
-      onCancel: () => {
-        cancelled = true;
-        if (stepDots[3]) {
-          stepDots[3].textContent = '✕';
-          stepSubs[3].textContent = 'Interrompido pelo usuário via botão Parar tudo.';
-        }
+      id: jobId, botId: bot.id, botName: shortName, tabId: bgTabId, prompt: promptText,
+      onCancel: async () => {
+        cancelRequested = true;
+        statusText.textContent = `${shortName}: pedido para interromper enviado.`;
+        const cancellation = await window.zeroBrowser.automation.cancelAgent(bgTabId).catch(() => null);
+        cancellationConfirmed = cancellation?.success === true;
+        if (!cancellationConfirmed) statusText.textContent = `${shortName}: o motor ainda não confirmou a interrupção.`;
+        return cancellation;
       }
     });
     this.syncStopAllButton();
     this.syncGrokBotBriefingBar();
     this.renderSpecialistRail();
 
-    let runRes = null;
+    let result;
     try {
-      if (window.zeroBrowser?.bots?.runNow) {
-        runRes = await window.zeroBrowser.bots.runNow(botId).catch(() => null);
-      }
-      if (!cancelled && bgTabId && (this.aiConnected || await this.useSavedAiConfig())) {
-        window.zeroBrowser.automation.runAgent(bgTabId, promptText, false, false).catch(() => null);
-      }
-    } catch {}
-
-    this.backgroundAgentJobs.delete(jobId);
-    this.syncStopAllButton();
-    this.syncGrokBotBriefingBar();
-    this.renderSpecialistRail();
-
-    if (!cancelled) {
-      if (stepDots[3]) {
-        stepDots[3].classList.remove('is-pending');
-        stepDots[3].textContent = '✓';
-      }
-      if (stepSubs[3]) {
-        stepSubs[3].textContent = runRes?.summary || 'Concluído em 2º plano · aba pronta para revisão.';
-      }
+      if (!this.aiConnected && !(await this.useSavedAiConfig())) throw new Error('Configure o provedor e o modelo de IA antes de executar o Bot.');
+      result = await window.zeroBrowser.automation.runAgent(bgTabId, promptText, false, false);
+    } catch (error) {
+      result = { success: false, error: String(error?.message || error) };
+    } finally {
+      this.backgroundAgentJobs.delete(jobId);
+      this.syncStopAllButton();
+      this.syncGrokBotBriefingBar();
+      this.renderSpecialistRail();
     }
 
-    const inlineReceipt = document.createElement('div');
-    inlineReceipt.className = 'grokbot-inline-receipt';
-    const recLeft = document.createElement('div');
-    recLeft.className = 'grokbot-inline-receipt-left';
-    const recLabel = document.createElement('span');
-    const hashShort = String(runRes?.receipt?.receiptHash || 'a9f4c2e81b30').slice(0, 10);
-    recLabel.textContent = `Ação em 2º plano registrada (${shortName} · SHA-256 ${hashShort}) · ${nowStr()}`;
-    recLeft.appendChild(recLabel);
-    const undoBtn = document.createElement('button');
-    undoBtn.type = 'button';
-    undoBtn.className = 'grokbot-inline-receipt-btn';
-    undoBtn.textContent = '↺ Desfazer';
-    undoBtn.addEventListener('click', async () => {
-      undoBtn.disabled = true;
-      if (bgTabId && this.tabs.has(bgTabId) && this.tabs.size > 1) {
-        await this.closeTab(bgTabId);
-      }
-      if (previousActiveTabId && this.tabs.has(previousActiveTabId)) {
-        this.switchTab(previousActiveTabId);
-      }
-      recLabel.textContent = 'Ação desfeita (aba de 2º plano encerrada e estado anterior restaurado)';
-      this.showToast('Execução em 2º plano desfeita com sucesso.', 'info');
-    });
-    inlineReceipt.append(recLeft, undoBtn);
-    chat?.appendChild(inlineReceipt);
-
-    const confirmCard = document.createElement('section');
-    confirmCard.className = 'grokbot-confirm-card';
-    confirmCard.setAttribute('aria-label', 'Confirmação de ação do Bot');
-    const cHeader = document.createElement('div');
-    cHeader.className = 'grokbot-confirm-header';
-    const cHeaderLeft = document.createElement('div');
-    cHeaderLeft.className = 'grokbot-confirm-header-left';
-    const cTitle = document.createElement('strong');
-    cTitle.textContent = 'Confirmar envio?';
-    cHeaderLeft.appendChild(cTitle);
-    const cTime = document.createElement('time');
-    cTime.className = 'grokbot-user-prompt-time';
-    cTime.textContent = nowStr();
-    cHeader.append(cHeaderLeft, cTime);
-
-    const cSub = document.createElement('span');
-    cSub.style.fontSize = '11.5px';
-    cSub.style.color = 'var(--fg-secondary)';
-    cSub.textContent = `O bot ${shortName} concluiu a coleta em 2º plano. Nenhuma ação externa foi enviada ainda.`;
-
-    const cPreview = document.createElement('div');
-    cPreview.className = 'grokbot-confirm-preview';
-    for (const [k, v] of [
-      ['Bot:', `${bot?.name || shortName} (${bot?.specialtyTitle || 'Especialista'})`],
-      ['Missão:', promptText.slice(0, 120)],
-      ['Resultado:', runRes?.summary || 'Opções comparadas em 2º plano com menor valor e frete verificados.']
-    ]) {
-      const r = document.createElement('div');
-      r.className = 'grokbot-confirm-row';
-      const b = document.createElement('b');
-      b.textContent = k;
-      const s = document.createElement('span');
-      s.textContent = v;
-      r.append(b, s);
-      cPreview.appendChild(r);
+    if (result?.cancelled === true) {
+      statusText.textContent = `${shortName}: execução interrompida. Uma ação já enviada pode terminar antes de parar.`;
+      return { success: false, cancelled: true, botId: bot.id, tabId: bgTabId, jobId };
     }
-
-    const cActions = document.createElement('div');
-    cActions.className = 'grokbot-confirm-actions';
-    const btnApprove = document.createElement('button');
-    btnApprove.type = 'button';
-    btnApprove.className = 'grokbot-btn-approve';
-    btnApprove.textContent = '✓ Aprovar e ver aba';
-    const btnReject = document.createElement('button');
-    btnReject.type = 'button';
-    btnReject.className = 'grokbot-btn-reject';
-    btnReject.textContent = '✕ Recusar';
-
-    btnApprove.addEventListener('click', () => {
-      btnApprove.disabled = true;
-      btnReject.disabled = true;
-      cSub.textContent = 'Aprovado! Aba do Bot trazida para frente com recibo SHA-256 verificado.';
-      if (bgTabId && this.tabs.has(bgTabId)) {
-        this.bringSpecialistBotToFront(bgTabId, 'goal_reached');
-      }
-    });
-    btnReject.addEventListener('click', async () => {
-      btnApprove.disabled = true;
-      btnReject.disabled = true;
-      cSub.textContent = 'Recusado. Nenhum dado foi enviado.';
-      this.showToast('Resultado recusado pelo usuário.', 'info');
-    });
-    cActions.append(btnApprove, btnReject);
-    confirmCard.append(cHeader, cSub, cPreview, cActions);
-    chat?.appendChild(confirmCard);
-
-    this.appendGrokBotTechDrawer(chat);
-    if (chat) chat.scrollTop = chat.scrollHeight;
-    this.recordChat('assistant', `[${shortName} · 2º plano] ${runRes?.summary || 'Missão concluída em 2º plano.'}`);
-
-    return { botId, tabId: bgTabId, jobId, summary: runRes?.summary || 'Concluído' };
+    if (result?.paused === true) {
+      const pauseMessage = String(result.message || 'A execução pausou ao atingir um limite. Revise a página antes de continuar.');
+      statusText.textContent = `${shortName}: execução pausada; ainda não concluída.`;
+      this.addAiMessage('assistant', pauseMessage);
+      return { success: false, paused: true, resumeId: result.resumeId || null, botId: bot.id, tabId: bgTabId, jobId };
+    }
+    if (cancelRequested && cancellationConfirmed && result?.success !== true) {
+      statusText.textContent = `${shortName}: execução interrompida.`;
+      return { success: false, cancelled: true, botId: bot.id, tabId: bgTabId, jobId };
+    }
+    if (result?.success === true) {
+      statusText.textContent = `${shortName}: execução encerrada. Revise o resultado na página.`;
+      const answer = String(result.message || '').trim();
+      this.addAiMessage('assistant', answer || 'O motor encerrou a execução sem fornecer uma resposta final. Confira a aba para revisar o estado.');
+      return { success: true, taskVerified: false, botId: bot.id, tabId: bgTabId, jobId, summary: answer };
+    }
+    const error = String(result?.error || 'O motor não confirmou a conclusão da tarefa.');
+    statusText.textContent = `${shortName}: falha na execução.`;
+    this.addAiMessage('assistant', `Não consegui concluir a tarefa: ${error}`);
+    this.showToast(`Falha no Bot ${shortName}: ${error}`, 'error');
+    return { success: false, error, botId: bot.id, tabId: bgTabId, jobId };
   }
-
   // Monta os nos a partir dos blocos do parser; nada de innerHTML com texto do modelo.
   renderRichText(container, text) {
     container.classList.add('ai-rich');

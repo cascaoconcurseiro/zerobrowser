@@ -72,6 +72,7 @@ class BotRunner {
     let shouldBringToFront = false;
     let bringToFrontReason = null;
     const outputs = [];
+    const abortController = new AbortController();
     const executeFn = stepExecutor || this.stepExecutor || (async (step) => ({ ok: true, data: step.mockData ?? null }));
 
     const notifyAttention = (reason, step = null) => {
@@ -157,12 +158,25 @@ class BotRunner {
         }
 
         const stepResult = await new Promise((resolve, reject) => {
-          controller.abort = () => resolve({ __aborted: true });
-          Promise.resolve(executeFn(step, { hiddenTab: bot.executionMode !== 'dedicated-tab', bot })).then(resolve, reject);
+          const remainingMs = Math.max(1, bot.limits.maxDurationMs - (this.now() - startedAtMs));
+          const timer = setTimeout(() => {
+            abortController.abort();
+            reject(new Error('Limite de tempo da execução atingido.'));
+          }, remainingMs);
+          controller.abort = () => {
+            abortController.abort();
+            clearTimeout(timer);
+            resolve({ __aborted: true });
+          };
+          Promise.resolve().then(() => executeFn(step, { hiddenTab: bot.executionMode !== 'dedicated-tab', bot, signal: abortController.signal }))
+            .then((result) => { clearTimeout(timer); resolve(result); }, (error) => { clearTimeout(timer); reject(error); });
         });
 
         if (controller.aborted || stepResult?.__aborted) {
           return finalize('stopped', controller.abortReason || 'Interrompido pelo usuário.');
+        }
+        if (stepResult?.ok === false || stepResult?.success === false) {
+          return finalize('failed', String(stepResult.error || 'A ferramenta não concluiu a ação.'));
         }
 
         stepsExecuted += 1;

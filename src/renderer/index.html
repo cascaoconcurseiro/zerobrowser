@@ -71,7 +71,9 @@
     </div>
 
     <aside id="delegation-rail" class="delegation-rail hidden" aria-label="Perfis de Bot">
+      <span class="bot-rail-section-label">Perfis</span>
       <div id="bot-rail-list" class="bot-rail-list" aria-label="Bots disponíveis"></div>
+      <span class="bot-rail-section-label bot-rail-specialists-label">Especialistas</span>
       <div id="grokbot-rail-specialists" class="grokbot-rail-specialists" role="group" aria-label="Bots Especialistas"></div>
       <button id="btn-bot-new" class="bot-rail-action" type="button" aria-label="Criar ou trocar perfil de Bot" title="Criar novo Bot Especialista ou perfil">+</button>
       <span id="bot-rail-count" class="delegation-rail-label">Bots</span>
@@ -81,7 +83,7 @@
         <div class="bot-central-heading">
           <span class="bot-central-kicker">Zero Browser · Delegar</span>
           <h2 id="bot-central-title">Equipe de Bots</h2>
-          <p id="bot-central-summary">Cada Bot tem uma sessão e dados de navegação próprios.</p>
+          <p id="bot-central-summary">Perfis de Bot têm sessões separadas. Tarefas especialistas usam o perfil atual.</p>
         </div>
         <button id="btn-bot-central-close" type="button" aria-label="Fechar Central de Bots" title="Fechar Central de Bots">×</button>
       </header>
@@ -95,7 +97,7 @@
         <div class="bot-central-heading">
           <span class="bot-central-kicker">Zero Browser · GrokBot Especialista</span>
           <h2 id="bot-specialist-title">Criar Bot Especialista</h2>
-          <p id="bot-specialist-summary">Escolha a especialidade e se ele abre em aba exclusiva ou trabalha em 2º plano trazendo para frente ao atingir a meta ou precisar de você.</p>
+          <p id="bot-specialist-summary">Escolha a especialidade. A nova aba usa o perfil de navegação atual; cookies e logins são compartilhados com ele.</p>
         </div>
         <button id="btn-specialist-close" type="button" aria-label="Fechar criador de Bot Especialista" title="Fechar">×</button>
       </header>
@@ -123,13 +125,13 @@
               <input type="radio" name="bot-execution-mode" id="bot-mode-background" value="background-auto-foreground" checked>
               <div class="bot-mode-copy">
                 <strong>Trabalhar em 2º plano e trazer para frente (Recomendado)</strong>
-                <span>Abre uma aba silenciosa só dele sem tirar você do que está fazendo. Traz a aba para frente automaticamente quando atingir a meta ou precisar de aprovação/ação sua.</span>
+                <span>Abre uma aba em segundo plano no perfil atual. Traz a aba para frente quando atingir a meta ou precisar de você.</span>
               </div>
             </label>
             <label class="bot-mode-option" data-mode-card="dedicated-tab">
               <input type="radio" name="bot-execution-mode" id="bot-mode-dedicated" value="dedicated-tab">
               <div class="bot-mode-copy">
-                <strong>Abrir em nova aba exclusiva dele agora</strong>
+                <strong>Abrir em uma nova aba agora</strong>
                 <span>Cria e foca imediatamente a aba dedicada do Bot com a cor e o selo dele para você acompanhar ao vivo.</span>
               </div>
             </label>
@@ -213,7 +215,7 @@
           <div class="ai-composer-actions">
             <label class="sr-only" for="ai-quick-model">Modelo do agente</label>
             <select id="ai-quick-model" class="ai-quick-model" aria-label="Modelo do agente"><option value="">Configure um modelo em Configurações</option></select>
-            <button id="btn-ai-send-bg" class="btn-secondary grokbot-send-bg-btn" type="button" title="Executar esta ordem em uma aba exclusiva de 2º plano e trazer para frente ao concluir (Alt+Enter)" aria-label="Executar ordem em 2º plano">Em 2º plano</button>
+            <button id="btn-ai-send-bg" class="btn-secondary grokbot-send-bg-btn" type="button" title="Executar esta ordem em uma aba do perfil atual e trazer para frente ao encerrar (Alt+Enter)" aria-label="Executar ordem em 2º plano">Em 2º plano</button>
             <button id="btn-ai-send" class="btn-primary" aria-label="Enviar comando">Enviar</button>
           </div>
         </div>
@@ -246,6 +248,11 @@
         <button id="btn-close-settings" class="panel-close" aria-label="Fechar configurações"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
       </div>
       <div class="settings-content">
+        <div class="settings-search">
+          <label for="settings-search-input">Buscar nas configurações</label>
+          <input id="settings-search-input" type="search" placeholder="Tema, privacidade, extensões, Bots…" autocomplete="off" aria-controls="settings-index">
+          <p id="settings-search-status" role="status" aria-live="polite"></p>
+        </div>
         <nav id="settings-index" class="settings-index" aria-label="Indice das configuracoes"></nav>
         <section class="settings-section">
           <h3>Geral</h3>

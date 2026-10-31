@@ -1,6 +1,43 @@
 # Checklist — Zero Browser
 
-## Estado atual
+## Meta de evolução total — ativa
+
+- [ ] Fechar os achados A01–A12 da auditoria integrada com implementação e evidência por item; manter explícitos os itens que dependem de provedor pago, contas de teste ou revisão humana.
+- [ ] Concluir a evolução visual a partir da referência aprovada com acabamento profissional, fluxo claro e identidade própria; ainda há telas sem revisão visual integrada.
+- [x] Tornar a Central mais clara e retirar dados/ações simulados que pareciam serviços ativos.
+- [ ] Concluir executor de Bot com isolamento, limites por tarefa, política de site aplicada no processo principal, cancelamento verificável e resultado independente.
+- [ ] Implementar agenda persistente e gatilhos reais, depois provar execução com Zero fechado e retomada.
+- [ ] Conectar serviços externos e Apps a transportes/fontes reais; manter aprovação, recibo e estado verdadeiro.
+- [ ] Fechar popup, cookies, banners e permissões por política explícita sem dispensar consentimento em nome do usuário.
+- [ ] Alinhar avatares ao símbolo de traço dentro do anel, preservar identidade estável e validar visualmente no app empacotado.
+- [ ] Finalizar hierarquia e fluxos de navegador, Bots, extensões, configurações, menus e diálogos nas referências aprovadas; revisar acessibilidade e telas compactas.
+- [ ] Medir velocidade, acerto, tokens e custo por tarefa; comparar com concorrentes em conjunto pareado, sem chamadas pagas sem orçamento aprovado.
+- [ ] Commit local e instalação verificada após cada fatia utilizável; sem push.
+
+## Fatia utilizável em preparação — 0.1.65-dev
+
+- [x] Separar visualmente Perfis e Especialistas no trilho e contar perfis, não imagens do catálogo.
+- [x] Evitar que respostas assíncronas antigas dupliquem ou reapresentem seções na Central.
+- [x] Tirar dados de demonstração e autorização simulada do fluxo visível de Apps/Conectores.
+- [x] Informar que as tarefas especialistas usam o perfil atual e diferenciar pedido de parada, pausa, interrupção confirmada e encerramento do motor.
+- [x] Remover tempos, percentuais e afirmações de segurança fixas da gaveta de detalhes; manter controles visuais em Configurações.
+- [x] Fazer a fixture Electron usar sessão temporária e verificar estados verdadeiros/ausentes.
+- [x] `npm test` 407/407; `npm run test:ui` PASS; `npm run test:bot-runtime` PASS; `npm run test:delegation-layout` PASS em seis viewports; `git diff --check` PASS.
+- [ ] Commit local, build/instalação e confirmação da versão instalada .65.
+- [ ] A execução de tarefa especialista ainda não usa perfil isolado por tarefa nem aplica a allowlist em cada navegação; não tratar como isolamento ou rotina protegida por site.
+
+## Auditoria de 31/10/2026 — estado revisado
+
+- [x] Rastrear executor, agendador, conectores, integração de Apps Vivos, catálogo visual e configuração de modelos.
+- [x] Executar verificações locais: npm test 404/405; test:bot-runtime PASS; test:ui FAIL; test:delegation-layout PASS.
+- [x] Registrar achados e limites em docs/AUDITORIA_INTEGRADA_2026-10-31.md.
+- [ ] Corrigir A01–A04: executor real, propagação de erro, cancelamento e agenda.
+- [ ] Concluir cobertura operacional pendente no relatório. A declaração histórica de todas as fases concluídas abaixo está suspensa.
+
+
+## Registro histórico antigo — não representa o estado atual
+
+Este resumo descrevia a versão 0.1.63-dev e foi superado pela auditoria de 31/10/2026 e pelo estado ativo da fatia 0.1.65-dev acima. Use o relatório integrado e o `HANDOFF.md` para o status vigente.
 
 - Código e instalação local em `0.1.63-dev`: concluídas todas as entregas locais de código, integração IPC no processo principal (`main.js` / `preload.js` / `app.js`), UI/UX, motor, Bots (Fases 1–5), Controle Total por IA (Fases 1–7, incluindo ferramentas de página, navegador e servidor HTTP/CDP loopback), Rotas Aprendidas, Firewall de Intenção (50/50 ataques bloqueados + relatório público), Apps Vivos, Conectores Nativos, Autonomia Conquistada e Paridade Essencial. Restam apenas as validações externas dependentes de chaves pagas, contas rivais ou 7–14 dias de uso real listadas na Seção 5 de `docs/CHECKLIST_PLANOS_2026-10-31.md`.
 - Na fatia `0.1.53-dev` (Design e UX): implementados os tokens de espaçamento (escala de `4px`), paleta de 8 cores de Bots com contraste WCAG ≥ `3:1` verificado nos temas claro e escuro (`BOT_ACCENT_PALETTE` e `BOT_STATE_COLORS`), anel de estado nunca só por cor (`idle`, `working`, `needs-attention` `!`, `error` `×`, `paused` `‖` + nome acessível), indicador na aba controlada (`.tab-controlled` + `#tab-control-banner`), botão `Assumir` / `Devolver ao bot` e etiqueta explícita de reversibilidade no cartão de aprovação.
@@ -74,3 +111,33 @@
 - [x] **0.1.48-dev:** carga de ferramentas sob demanda, recusas MCP em fixture e Central responsiva; commit `c3af35f`, build e instalação QA registrados no arquivo histórico.
 - [x] **0.1.49-dev:** smoke instalado corrigido para o fluxo real da UI; commit `fabe822`, build e instalação QA registrados no arquivo histórico.
 - [x] **0.1.50-dev:** aprovações no chat e autonomia Bot; `npm test` 370/370, `test:ui`, `test:bot-runtime` e smoke instalado passaram; commit `ddac732`, build e instalação QA registrados no `HANDOFF.md`.
+
+
+## Reformulação visual autorizada — referência existente
+
+- [x] Localizar e inspecionar docs/conceitos/zero-browser-modo-delegar-0.1.45-dev.png.
+- [x] Implementar primeira fatia: busca por texto sem acentos, retorno de categorias e estado sem resultados nas configurações; cartões e hierarquia visual; extensões com quebra de linha.
+- [ ] Validar visualmente busca, extensões reais e temas no executável instalado .65.
+- [x] Reorganizar parte do trilho e da Central e remover conteúdos simulados daquela superfície.
+- [ ] Unificar navegação de configurações e extensões, menus, diálogos, biblioteca e Central conforme referência.
+- [ ] Corrigir bloqueios funcionais A01–A12 da auditoria antes de declarar produto completo.
+
+## Correções da auditoria em andamento
+
+- [x] Produção recusa execução de rotina sem executor real e plano vazio no IPC; indisponibilidade explícita.
+- [x] BotRunner interrompe ferramenta com ok:false/success:false; transmite AbortSignal e prazo ao executor.
+- [x] Testes comportamentais adicionados para falha e cancelamento; novidades sincronizadas com .65.
+- [ ] Conectar executor real de rotinas; retirar fallback simulado da classe em produção por contrato explícito.
+- [x] Corrigir a fixture do UI para sessão limpa e atualizar expectativas após remover etapas e recibos simulados.
+- [ ] Concluir demais A01–A12. A execução de tarefa especialista continua no perfil atual; agendas e conectores ainda não executam operações reais.
+
+## Execução em segundo plano dos Bots — em andamento
+
+- [x] O fluxo chama o motor real na aba criada e aguarda o resultado retornado.
+- [x] Removidas etapas pré-marcadas, hash de exemplo, sucesso de fallback e ação Desfazer sem implementação.
+- [x] Erro, ausência de configuração, tarefa vazia e cancelamento passam a aparecer como estados não concluídos.
+- [x] npm test: 407/407 PASS; node --check do renderer PASS.
+- [x] Revisão independente confirmou e a interface agora declara que a tarefa especialista usa o perfil atual; não afirma que é isolada.
+- [x] Teste Electron com retorno controlado confirma que a resposta do motor aparece sem passos nem confirmação fabricada; não usa provedor real.
+- [ ] Aplicar allowlist, custo/tempo e cancelamento por execução no processo principal; confirmar pós-condição real do objetivo.
+- [ ] Após fechar a fatia: commit local, instalar e verificar versão.

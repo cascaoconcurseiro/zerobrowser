@@ -78,9 +78,15 @@ const stubs = {
     return { ...bot };
   },
   'automation:jobs': () => [],
+  'automation:run-agent': () => ({ success: true, message: 'Resultado do motor de fixture.' }),
+  'automation:cancel-agent': () => ({ success: false, error: 'Não há execução ativa.' }),
   'bots:get-presets': () => [],
   'bots:get-symbols': () => [{ id: 'radar', label: 'Radar', svgPath: 'M12 3a9 9 0 1 0 9 9' }],
-  'bots:list-tasks': () => [{ id: 'bot-spec-fixture', name: 'Bot Caçador de Preços', specialty: 'price-hunter', specialtyTitle: 'Pesquisador de Preços', executionMode: 'background-auto-foreground', defaultUrl: 'https://www.google.com/shopping', accent: '#168f72', autonomyStep: 1, memory: ['Regra inicial'], history: [] }],
+  'bots:list-tasks': () => [
+    { id: 'bot-spec-fixture', name: 'Bot Caçador de Preços', specialty: 'price-hunter', specialtyTitle: 'Pesquisador de Preços', executionMode: 'background-auto-foreground', defaultUrl: 'https://www.google.com/shopping', accent: '#168f72', autonomyStep: 1, memory: ['Regra inicial'], history: [] },
+    { id: 'bot-spec-market', name: 'Bot de Mercado', specialty: 'market-watch', specialtyTitle: 'Monitor de mercado', executionMode: 'background-auto-foreground', defaultUrl: 'https://example.test', accent: '#2480d2', autonomyStep: 1, memory: [], history: [] },
+    { id: 'bot-spec-inbox', name: 'Bot de E-mail', specialty: 'inbox-triage', specialtyTitle: 'Triagem de e-mail', executionMode: 'dedicated-tab', defaultUrl: 'https://example.test', accent: '#8966d4', autonomyStep: 1, memory: [], history: [] }
+  ],
   'bots:create-task': (_e, spec) => ({ id: `bot-task-smoke-${Date.now()}`, ...spec }),
   'bots:run-now': () => ({ status: 'completed', shouldBringToFront: true, attentionReason: 'goal_reached', summary: 'Menor valor encontrado.', receipt: { receiptHash: 'abc123456789' } }),
   'bots:stop-all': () => ({ stoppedCount: 0, elapsedMs: 0 }),
@@ -106,6 +112,7 @@ const stubs = {
   'live-apps:generate': () => ({ id: 'app-gen-1', title: 'Painel Gerado', items: [] }),
   'automation:memory': () => [],
   'browser:new-tab': () => ({ tabId: `tab-smoke-${++newTabCalls}` }),
+  'browser:close-tab': () => ({ success: true }),
   'browser:switch-tab': () => ({ tabId: 'tab-smoke' }),
   'browser:set-bookmarks-bar': () => true,
   'browser:get-downloads': () => downloads,
@@ -149,6 +156,7 @@ app.whenReady().then(async () => {
     show: false,
     webPreferences: {
       preload: path.join(__dirname, '..', 'src', 'preload', 'preload.js'),
+      partition: 'zero-ui-test',
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true
@@ -207,6 +215,7 @@ app.whenReady().then(async () => {
       currentBotAccessibleName: document.querySelector('#bot-rail-list .bot-avatar[aria-current="true"]')?.getAttribute('aria-label'),
       botAddressFocusVisible: (() => { const address = document.getElementById('address-bar'); return { focused: document.activeElement === address, matches: address.matches(':focus-visible'), outline: getComputedStyle(address).outlineStyle, color: getComputedStyle(address).outlineColor }; })(),
       botAvatarCount: document.getElementById('bot-rail-count')?.textContent,
+      botRailSections: [...document.querySelectorAll('.bot-rail-section-label')].map((label) => label.textContent.trim()),
       botCentralVisible: !document.getElementById('btn-bot-central')?.classList.contains('hidden'),
       aiButtonActive: document.getElementById('btn-ai')?.classList.contains('active'),
       resizer: (() => { const element = document.getElementById('delegation-resizer'); const rect = element?.getBoundingClientRect(); return { role: element?.getAttribute('role'), orientation: element?.getAttribute('aria-orientation'), controls: element?.getAttribute('aria-controls'), visible: Boolean(rect?.width && rect?.height) }; })(),
@@ -243,7 +252,8 @@ app.whenReady().then(async () => {
     assert.equal(shell.currentBotRole, 'img', 'Bot da janela atual aparece como identidade estática, não ação sem efeito');
     assert.equal(shell.currentBotAccessibleName, 'Bot Bot Fixture, perfil aberto nesta janela', 'avatar atual informa o perfil para leitores de tela');
     assert.equal(shell.botAddressFocusVisible.focused && shell.botAddressFocusVisible.matches && shell.botAddressFocusVisible.outline !== 'none', true, `campo de endereço mantém indicador de foco no modo Delegar (${JSON.stringify(shell.botAddressFocusVisible)})`);
-    assert.equal(shell.botAvatarCount, '200 avatares', 'a lateral deve refletir o catálogo de avatares');
+    assert.equal(shell.botAvatarCount, '2 perfis', 'a lateral conta perfis reais, não as imagens do catálogo');
+    assert.deepEqual(shell.botRailSections, ['Perfis', 'Especialistas'], 'o trilho separa perfis de Bots das tarefas especializadas');
     assert.equal(shell.botCentralVisible, true, 'Central de Bots deve estar acessível no modo Delegar');
     assert.equal(shell.aiButtonActive, true, 'botão Delegar mostra visualmente o estado ativo');
     assert.deepEqual(shell.resizer, { role: 'separator', orientation: 'vertical', controls: 'ai-panel browser-container', visible: true }, 'divisor de largura acessível está visível no modo Delegar');
@@ -270,6 +280,10 @@ app.whenReady().then(async () => {
 
     await window.webContents.executeJavaScript("document.getElementById('btn-bot-central').click()");
     await new Promise((resolve) => setTimeout(resolve, 100));
+    await window.webContents.executeJavaScript('window.app.renderBotCentral(); window.app.renderBotCentral()');
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    assert.equal(await window.webContents.executeJavaScript("document.querySelectorAll('#bot-central-list .grokbot-central-card').length"), 3,
+      'renderizações assíncronas antigas não duplicam seções da Central');
     const botCentral = await window.webContents.executeJavaScript(`({
       expanded: document.getElementById('btn-bot-central')?.getAttribute('aria-expanded'),
       rows: document.querySelectorAll('#bot-central-list .bot-central-row').length,
@@ -278,7 +292,10 @@ app.whenReady().then(async () => {
       currentProfileCursor: (() => { const row = [...document.querySelectorAll('#bot-central-list .bot-central-row')].find((entry) => entry.textContent.includes('Bot Fixture')); return row ? getComputedStyle(row).cursor : null; })(),
       currentAvatarCursor: (() => { const row = [...document.querySelectorAll('#bot-central-list .bot-central-row')].find((entry) => entry.textContent.includes('Bot Fixture')); const avatar = row?.querySelector('.bot-avatar'); return avatar ? getComputedStyle(avatar).cursor : null; })(),
       label: document.querySelector('#bot-central-list .bot-central-row strong')?.textContent,
-      dialog: document.getElementById('bot-central')?.getAttribute('role')
+      dialog: document.getElementById('bot-central')?.getAttribute('role'),
+      summary: document.getElementById('bot-central-summary')?.textContent,
+      cards: [...document.querySelectorAll('#bot-central-list .grokbot-central-card')].map((card) => card.textContent),
+      unavailableConnector: document.querySelector('#bot-central-list .grokbot-central-card button[disabled]')?.textContent
     })`);
     assert.equal(botCentral.expanded, 'true', 'abrir Central anuncia o estado no controle');
     assert.equal(botCentral.rows, 2, 'Central lista perfis Bot sincronizados');
@@ -288,6 +305,9 @@ app.whenReady().then(async () => {
     assert.equal(botCentral.currentAvatarCursor, 'default', 'retrato do perfil atual também não aparenta ser clicável');
     assert.equal(botCentral.label, 'Bot Fixture', 'Central apresenta o nome do perfil');
     assert.equal(botCentral.dialog, 'dialog', 'Central mantém semântica de diálogo');
+    assert.match(botCentral.summary, /tarefas especialistas usam o perfil atual/i, 'Central explica a diferença entre perfil isolado e tarefa especialista');
+    assert.equal(botCentral.cards.some((text) => /Energia|R\$ 248/.test(text)), false, 'Central não mostra contas de demonstração como dados reais');
+    assert.equal(botCentral.unavailableConnector, 'Conexões indisponíveis', 'Central não anuncia autorização externa simulada');
 
     await window.webContents.executeJavaScript("document.querySelector('#bot-central-list [data-bot-id=\"bot-other\"] [data-bot-action=\"archive\"]').click()");
     await new Promise((resolve) => setTimeout(resolve, 120));
@@ -351,12 +371,18 @@ app.whenReady().then(async () => {
       const memoryText = document.getElementById('bot-view-memory')?.textContent || '';
       window.app.switchBotPanelTab('chat');
       const initialFgTab = window.app.activeTabId;
+      window.app.aiConnected = true;
       const bgRun = await window.app.sendAiMessageInBackground('Encontre fone sem fio até R$ 150,00');
       const keptForeground = window.app.activeTabId === initialFgTab && bgRun.tabId !== initialFgTab;
       const hasStepper = document.querySelectorAll('.grokbot-stepper .grokbot-step-row').length === 4;
       const hasInlineReceipt = !!document.querySelector('.grokbot-inline-receipt');
       const hasConfirmCard = !!document.querySelector('.grokbot-confirm-card');
+      const motorResultVisible = document.getElementById('ai-chat')?.textContent.includes('Resultado do motor de fixture.') === true;
+      const notClaimedVerified = bgRun.taskVerified === false && document.querySelector('.grokbot-inline-receipt')?.textContent.includes('Revise o resultado') === true;
       const hasTechDrawer = !!document.querySelector('.grokbot-tech-drawer');
+      const techClaimsAreLive = !document.querySelector('.grokbot-tech-drawer')?.textContent.includes('410ms')
+        && !document.querySelector('.grokbot-tech-drawer')?.textContent.includes('27,3%');
+      const visualControlsStayInSettings = document.querySelectorAll('.grokbot-tech-drawer button').length === 0;
       if (bgRun?.tabId) await window.app.closeTab(bgRun.tabId);
       return {
         briefingVisible,
@@ -373,7 +399,11 @@ app.whenReady().then(async () => {
         hasStepper,
         hasInlineReceipt,
         hasConfirmCard,
+        motorResultVisible,
+        notClaimedVerified,
         hasTechDrawer,
+        techClaimsAreLive,
+        visualControlsStayInSettings,
         hasProviderCards: document.querySelectorAll('#ai-provider-cards .grokbot-provider-card').length === 4
       };
     })()`);
@@ -388,10 +418,14 @@ app.whenReady().then(async () => {
     assert.equal(grokbotSurface.hasRoutesOrder, true, 'aba Rotas exibe a ordem de preferência e rotas aprendidas');
     assert.equal(grokbotSurface.hasMandate, true, 'aba Agenda exibe gatilhos por evento e mandato com envelope');
     assert.equal(grokbotSurface.hasAutonomy, true, 'aba Memória exibe escada de autonomia conquistada');
-    assert.equal(grokbotSurface.hasStepper, true, 'ordem executada exibe a linha do tempo vertical de passos igual às imagens de conceito');
-    assert.equal(grokbotSurface.hasInlineReceipt, true, 'ordem executada exibe a faixa verde de ação recente com botão Desfazer');
-    assert.equal(grokbotSurface.hasConfirmCard, true, 'ordem executada exibe o cartão rico Confirmar envio? com Aprovar e Recusar');
+    assert.equal(grokbotSurface.hasStepper, false, 'a interface não inventa passos que o motor não retornou');
+    assert.equal(grokbotSurface.hasInlineReceipt, true, 'a execução mostra o estado do fluxo real do motor');
+    assert.equal(grokbotSurface.hasConfirmCard, false, 'a interface não inventa uma aprovação sem ação pendente');
+    assert.equal(grokbotSurface.motorResultVisible, true, 'a resposta do motor aparece na conversa');
+    assert.equal(grokbotSurface.notClaimedVerified, true, 'encerrar o motor não é apresentado como resultado verificado');
     assert.equal(grokbotSurface.hasTechDrawer, true, 'conversa exibe a gaveta </> Técnico com motor, MCP, firewall e personalização');
+    assert.equal(grokbotSurface.techClaimsAreLive, true, 'a gaveta não apresenta métricas fixas como medições atuais');
+    assert.equal(grokbotSurface.visualControlsStayInSettings, true, 'preferências visuais ficam em Configurações, não no chat');
     assert.equal(grokbotSurface.hasProviderCards, true, 'Configurações exibe os cartões visuais de provedor de IA');
 
     await window.webContents.executeJavaScript("window.app.openLibrary('downloads')");

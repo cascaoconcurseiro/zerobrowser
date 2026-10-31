@@ -86,7 +86,7 @@ const MIN_PAGE_VIEW_WIDTH = 320;
 const MIN_COMPACT_PAGE_VIEW_WIDTH = 160;
 const MIN_SIDE_PANEL_WIDTH = 240;
 const MIN_COMPACT_SIDE_PANEL_WIDTH = 160;
-const MAX_LEFT_SIDE_PANEL_WIDTH = 760;
+const MAX_LEFT_SIDE_PANEL_WIDTH = 640;
 let bookmarksBarVisible = false;
 let shuttingDown = false; // ao sair, as abas fecham uma a uma e não devem apagar a sessão salva
 let sessionSaveTimer = null;
@@ -264,7 +264,12 @@ async function initializeApp() {
         });
       }
     }
-    botRunner = new BotRunner({ store: botTaskStore });
+    botRunner = new BotRunner({
+      store: botTaskStore,
+      stepExecutor: async () => {
+        throw new Error('Esta rotina ainda não está conectada ao executor do navegador. Execute a tarefa pela conversa do Bot.');
+      }
+    });
     botScheduler = new BotScheduler({
       store: botTaskStore,
       runner: botRunner,
@@ -797,7 +802,7 @@ function getSidePanelWidth(contentWidth, position = sidePanelPosition, open = si
   const mobileLeftPanel = width <= 480;
   const defaultWidth = compact
     ? (mobileLeftPanel ? maximumWidth : Math.min(360, Math.floor(width * 0.4)))
-    : Math.min(480, Math.floor(width * 0.34));
+    : Math.min(640, Math.floor(width * 0.44));
   const requestedWidth = sidePanelWidthOverride ?? defaultWidth;
   const minimumWidth = Math.min(compact ? MIN_COMPACT_SIDE_PANEL_WIDTH : MIN_SIDE_PANEL_WIDTH, maximumWidth);
   return Math.max(minimumWidth, Math.min(maximumWidth, Math.round(requestedWidth)));
@@ -1664,6 +1669,9 @@ handleMainUiIpc('connectors:add-telegram-sender', (_event, senderId) => {
 });
 handleMainUiIpc('bots:run-now', (_event, botId, options = {}) => {
   if (!botRunner) return null;
+  if (!Array.isArray(options?.steps) || options.steps.length === 0) {
+    throw new Error('A rotina não possui passos executáveis. Defina e revise a tarefa antes de executar.');
+  }
   return botRunner.runBotNow(String(botId), {
     steps: Array.isArray(options?.steps) ? options.steps : [],
     onAttention: (attention) => sendToRenderer('bots:attention', attention)

@@ -17,7 +17,7 @@
   --radius: 10px;
   --transition: 150ms ease;
   --delegation-rail-width: 80px;
-  --delegation-panel-width: min(480px, 34vw);
+  --delegation-panel-width: min(640px, 44vw);
   --browser-content-top: 112px;
   --space-1: 4px;
   --space-2: 8px;
@@ -113,6 +113,17 @@ body.dark {
 .delegation-mode .toolbar-btn:hover { background: #39413e; color: #ffffff; }
 .delegation-mode .bookmarks-bar { background: #202725; border-color: #39413e; color: #d3dcd7; }
 .bot-rail-list { display: flex; flex-direction: column; align-items: center; gap: 12px; width: 100%; }
+.bot-rail-section-label {
+  width: 100%;
+  color: var(--fg-secondary);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 14px;
+  letter-spacing: 0.04em;
+  text-align: center;
+  text-transform: uppercase;
+}
+.bot-rail-specialists-label { margin-top: 2px; }
 .bot-avatar {
   width: 50px;
   min-height: 50px;
@@ -2253,9 +2264,14 @@ body.dark .ai-working-status-pill {
   align-items: center;
   gap: 8px;
   width: 100%;
+  min-height: 0;
+  flex: 1 1 auto;
   padding-top: 6px;
   margin-top: 4px;
   border-top: 1px solid var(--border);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
 }
 
 .grokbot-rail-spec-btn {
@@ -2353,3 +2369,17 @@ body.dark .ai-working-status-pill {
   flex-direction: column;
   gap: 2px;
 }
+
+/* Configurações: superfícies e hierarquia da referência visual aprovada. */
+.settings-search { display: grid; gap: 8px; padding: 8px 0 16px; }
+.settings-search label { font-size: 13px; font-weight: 600; color: var(--fg-primary); }
+.settings-search input { box-sizing: border-box; width: 100%; min-height: 44px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg-primary); color: var(--fg-primary); font: inherit; }
+.settings-search input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.settings-search p { margin: 0; color: var(--fg-secondary); font-size: 12px; }
+.settings-search p:empty { display: none; }
+#settings-panel .settings-section { padding: 16px; margin: 0 0 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg-primary); scroll-margin-top: 72px; }
+#settings-panel .settings-section h3 { color: var(--fg-primary); font-size: 14px; text-transform: none; letter-spacing: 0; }
+#settings-panel .settings-section[hidden], .settings-index button[hidden] { display: none; }
+#settings-panel .extension-item { flex-wrap: wrap; padding: 16px; border-radius: 12px; }
+#settings-panel .extension-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.settings-index button { min-height: 36px; font-size: 12px; }

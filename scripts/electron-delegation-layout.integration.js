@@ -25,17 +25,18 @@ let testWindow = null;
 let sidePanelOpen = false;
 let sidePanelPosition = 'left';
 let sidePanelWidthOverride = null;
+let activeViewportWidth = 1584;
 
 function mockSidePanelLayout() {
   const width = testWindow?.getContentBounds().width || 1200;
   const compact = width <= 800;
   const railWidth = sidePanelOpen && sidePanelPosition === 'left' ? (compact ? 64 : 80) : 0;
   const available = Math.max(0, width - railWidth - (compact ? 160 : 320));
-  const maximum = Math.min(760, available);
+  const maximum = Math.min(640, available);
   const minimum = Math.min(compact ? 160 : 240, maximum);
   const defaultWidth = compact
     ? (width <= 480 ? maximum : Math.min(360, Math.floor(width * 0.4)))
-    : Math.min(480, Math.floor(width * 0.34));
+    : Math.min(640, Math.floor(width * 0.44));
   const panelWidth = Math.max(minimum, Math.min(maximum, sidePanelWidthOverride ?? defaultWidth));
   return {
     open: sidePanelOpen,
@@ -140,6 +141,7 @@ app.whenReady().then(async () => {
     const measurements = [];
 
     for (const viewport of viewports) {
+      activeViewportWidth = viewport.width;
       if (window.isMaximized()) window.unmaximize();
       window.setSize(Math.ceil(viewport.width / displayScaleFactor), Math.ceil(viewport.height / displayScaleFactor));
       window.center();
@@ -273,7 +275,7 @@ app.whenReady().then(async () => {
       assert.equal(layout.underlyingChatHidden, true, `Central substitui visualmente o chat enquanto está aberta; ${message}`);
       assert.ok(layout.dialog.width > 0 && layout.dialog.height > 0, `Central tem área visível; ${message}`);
       assert.equal(layout.splitter.visible, false, `divisor do painel Delegar fica oculto enquanto a Central substitui o chat; ${message}`);
-      assert.ok(layout.splitter.panelWidth <= (viewport.width <= 800 ? 360 : 480) + tolerance, `largura inicial do painel acompanha o padrão compacto; ${message}`);
+      assert.ok(layout.splitter.panelWidth <= (viewport.width <= 800 ? 360 : Math.min(640, Math.floor(viewport.width * 0.44)) + 16) + tolerance, `largura inicial do painel acompanha o padrão compacto; ${message}`);
       assert.ok(layout.avatar, `Avatar pixelado aparece na Central; ${message}`);
       assert.ok(layout.avatar.spriteWidth < layout.avatar.frameWidth && layout.avatar.spriteHeight < layout.avatar.frameHeight, `Sprite cabe dentro do círculo; ${message}`);
       assert.ok(layout.avatar.centerXDelta <= 1 && layout.avatar.centerYDelta <= 1, `Sprite fica centralizado no círculo; ${message}`);
@@ -318,7 +320,7 @@ app.whenReady().then(async () => {
       const after = Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--delegation-panel-width'));
       return { before, after, valueNow: Number(divider.getAttribute('aria-valuenow')), panel: document.getElementById('ai-panel').getBoundingClientRect().width };
     })()`);
-    assert.equal(splitter.after, splitter.before + 24, `tecla de seta aumenta a largura pelo passo previsto (${JSON.stringify(splitter)})`);
+    assert.equal(splitter.after, Math.min(splitter.before + 24, 640), `tecla de seta respeita a largura máxima do painel (${JSON.stringify(splitter)})`);
     assert.equal(splitter.valueNow, splitter.after, 'ARIA anuncia a largura efetivamente aplicada');
     assert.equal(splitter.panel, splitter.after, 'conversa acompanha a largura ajustada');
 
