@@ -997,7 +997,11 @@ handleMainUiIpc('browser:tab-menu', (event, tabId, order, x, y) => {
 });
 
 // Perfis: cada um é uma pasta de dados própria e roda como um processo separado do app (logins, histórico e chaves não se misturam).
-const profilesRoot = () => path.join(app.getPath('appData'), 'zero-browser-perfis');
+const profilesRoot = () => {
+  const testRoot = zeroEnv('TEST_PROFILES_ROOT');
+  if (!app.isPackaged && testRoot) return path.resolve(testRoot);
+  return path.join(app.getPath('appData'), 'zero-browser-perfis');
+};
 
 function launchProfile(profile) {
   const env = { ...process.env };

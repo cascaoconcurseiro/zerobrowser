@@ -1,6 +1,6 @@
 {
   "name": "zero-browser",
-  "version": "0.1.44-dev",
+  "version": "0.1.45-dev",
   "description": "Zero Browser: navegador com agente de IA e arquitetura própria baseada em REA",
   "main": "src/main/main.js",
   "scripts": {
@@ -13,6 +13,7 @@
     "test:bench-store": "electron scripts/electron-bench-store.integration.js",
     "test:agent-download": "electron scripts/electron-agent-download.integration.js",
     "test:installed": "node scripts/installed-agent.integration.js",
+    "test:bot-runtime": "node scripts/bot-runtime.integration.js",
     "test:active-tab": "electron scripts/electron-extension-active-tab.integration.js",
     "bench": "node bench/avaliar.js",
     "mcp": "node scripts/mcp-stdio.js",

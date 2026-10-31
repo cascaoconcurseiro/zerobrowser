@@ -4,7 +4,10 @@
 - [x] Auditar bots no código com revisão independente: não existe entidade bot; perfis isolam processos/dados, mas aprovação, ferramentas/MCP e memória não têm escopo por bot.
 - [x] Implementar primeira fatia de Bots: processo/perfil com diretório próprio, aprovação inicial “Sempre perguntar”, aceite humano para elevar autonomia e bloqueios de dados/ações sensíveis; versão 0.1.44-dev.
 - [x] Fazer smoke local da criação de Bot pela UI e confirmar o nível inicial “Sempre perguntar”; revisão independente de código sem achados acionáveis e suíte local 362/362.
-- [ ] Validar as barreiras de Bot em fixture local via UI e MCP; cobrir runtime, login sem sinais semânticos e ciclo de vida/exclusão. `docs/PLANO_CONTROLE_TOTAL_IA.md` não está presente para comparar o inventário MCP.
+- [x] Validar via Electron/IPC, em fixtures loopback e perfil Bot temporário, tentativas de preencher senha e identificador de login sem `<form>`, inclusive com modo técnico `allow-all` sem confirmação; ambos os valores ficaram vazios.
+- [x] Criar imagem conceitual do modo Delegar conforme a direção de design do projeto e registrar que ainda não é implementação: `docs/CONCEITO_VISUAL_MODO_DELEGAR.md`.
+- [ ] Validar barreiras por MCP e ações de maior risco em runtime; diagnosticar o smoke `runAgent` que parou após a primeira chamada mockada; cobrir login sem sinais semânticos e ciclo de vida/exclusão. `docs/PLANO_CONTROLE_TOTAL_IA.md` não está presente na `main` para comparar o inventário.
+- [ ] Construir protótipo clicável do modo Delegar e testar entendimento com usuários antes da implementação da interface de produção.
 
 - [x] Commitar as 29 alterações existentes (`0c56c26`); aplicar temperatura compatível por modelo OpenAI e filtrar modelos de chat no catálogo.
 - [x] Validar chamada real pelo botão de conexão no Zero Browser 0.1.43-dev: DeepSeek `deepseek-flash` respondeu “Agente conectado: deepseek-flash”; chave permaneceu mascarada.

@@ -1,4 +1,9 @@
-# Novidades — Zero Browser 0.1.44-dev
+# Novidades — Zero Browser 0.1.45-dev
+
+## Validação de Bots e conceito do modo Delegar — 31/10/2026
+
+- Smoke Electron isolado confirmou que o perfil ativo é `Bot Fixture` e bloqueou tentativas de preencher senha e identificador de login sem formulário, mesmo com `allow-all` previamente preparado apenas nos dados temporários de teste. O campo permaneceu vazio nos dois casos; validação pelo IPC da interface, sem chamada de modelo. Ainda falta validar o caminho MCP.
+- Incluído o conceito visual do modo Delegar em `docs/CONCEITO_VISUAL_MODO_DELEGAR.md`. É uma proposta de layout, não uma tela implementada ou versão pronta para instalar.
 
 ## Espaços de Bots — 31/10/2026
 

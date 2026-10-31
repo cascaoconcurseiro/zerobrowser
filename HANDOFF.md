@@ -1,13 +1,16 @@
 # Handoff — Zero Browser
 
-## Espaços de Bot e inventário MCP — 31/10/2026
+## Bots em runtime e conceito de layout — 31/10/2026
 
-- Entrega de desenvolvimento avançou para `0.1.44-dev`. Implementados criação de Bot como processo/perfil separado, diretório de dados próprio, aprovação inicial “Sempre perguntar”, confirmação humana ao aumentar autonomia e bloqueios de ações/dados sensíveis descritos em `docs/NOVIDADES.md`.
-- A janela de desenvolvimento abriu um Bot real pelo menu. A árvore de acessibilidade mostrou `Nível de aprovação: Sempre perguntar`. Isso valida criação e estado inicial da interface; não valida a política em sites reais nem a ausência de vazamentos em runtime.
-- Revisão independente do código não encontrou achados acionáveis depois das correções. A suíte local passou 362/362. O smoke foi feito em perfil temporário isolado, sem chave de modelo, login ou chamada paga.
-- Limites conhecidos: a detecção de páginas de login depende de sinais semânticos; CUA em shadow DOM/iframe/foco desconhecido, sequência de teclas, leitura de planilha/clipboard, eval, CDP bruto e Flame são bloqueados para Bots nesta versão. O acesso a `locator_action attribute=value` também é bloqueado para Bot. Não há fluxo de exclusão de Bot nesta fatia.
-- `tools/list` real do servidor MCP (`scripts/mcp-stdio.js`) retornou 22 ferramentas; `module_run` é anunciado como desativado. Os documentos `AGENTS.md`, `docs/LEIA_ME_PRIMEIRO_IA.md`, `docs/CHECKLIST_PLANOS_2026-10-31.md` e `docs/PLANO_CONTROLE_TOTAL_IA.md` não existem neste checkout, então não há plano disponível para comparação.
-- Próximo passo concreto: validar em fixture local, sob perfil Bot temporário, as tentativas de leitura de credenciais e ações de maior risco pelo MCP e pela interface; depois fechar os gaps de login semântica e decidir o ciclo de vida/exclusão de Bots. Nenhuma chamada paga ou site externo deve ser usada para esse aceite.
+- Versão de desenvolvimento: `0.1.45-dev`; ainda não instalada. Commit anterior de código: `895fcec`.
+- `npm run test:bot-runtime` abre o app Electron em perfil temporário reconhecido como `Bot Fixture`. Com `allow-all` pré-semeado somente no perfil temporário, o IPC principal recusou preencher um campo `password` e um campo de e-mail em página de login sem `<form>`; os dois valores ficaram vazios. Isso valida as barreiras técnicas no caminho IPC da interface, sem modelo ou provedor. O perfil e os dados do teste são removidos ao final.
+- Verificações locais nesta versão: `npm run test:bot-runtime` passou nos 2 cenários; `npm test` passou 362/362; `git diff --check` será conferido antes do commit.
+- A pasta de perfis de teste pode ser isolada por `ZERO_TEST_PROFILES_ROOT` somente em build não empacotada; a versão empacotada continua usando o caminho normal do usuário.
+- O layout visual está salvo em `docs/CONCEITO_VISUAL_MODO_DELEGAR.md` e `docs/conceitos/zero-browser-modo-delegar-0.1.45-dev.png`. A imagem segue o modo Delegar aprovado no plano de design: comando único, conversa do Bot à esquerda, aba ao vivo à direita, trilho de anéis compacto, aprovação antes do envio, `Desfazer`, `Parar tudo` e `Central`. É conceito não implementado. O plano orientador está apenas na worktree `.claude/worktrees/analise-projeto-atual-bf8fc8`, sem commit na `main`.
+- Tentativa de smoke por `runAgent` com provedor mock ficou sem conclusão após a primeira resposta de ferramenta; isso não foi tomado como evidência de aprovação ou recusa. O teste está limitado ao IPC de ação direta. Falta diagnosticar esse caminho e validar o MCP real sob Bot.
+- Revisão de código anterior não encontrou achados acionáveis. Limites pendentes: login sem sinais semânticos, ações de maior risco em runtime, takeover/aprovação, MCP, ciclo de vida/exclusão de Bots e teste de compreensão do mockup.
+- Inventário MCP anterior: `tools/list` retornou 22 ferramentas; `module_run` declara estar desativado. O plano `docs/PLANO_CONTROLE_TOTAL_IA.md` não está presente na branch `main` para comparação.
+- Próximo passo concreto: rodar um cliente de fixture contra a ponte MCP do perfil Bot e verificar as mesmas recusas e a escopagem ao perfil; depois diagnosticar por que o smoke `runAgent` travou após o primeiro tool call. Sem chave ou chamada paga.
 
 ## Provedor OpenAI e catálogo — 31/10/2026
 
