@@ -92,7 +92,8 @@ mock.on('request', (req, res) => {
     observedProviderRequests.push({ path: req.url, authorization: req.headers.authorization, model: requestBody.model });
     requestCount++;
     let message;
-    if (currentScenario === 'provider-check') message = toolCall('inspect_page', {}, `provider-check-${requestBody.model}`);
+    if (currentScenario === 'provider-check' && requestCount === 1) message = toolCall('inspect_page', {}, `provider-check-${requestBody.model}`);
+    else if (currentScenario === 'provider-check') message = { role: 'assistant', content: `Conexão confirmada pela fixture (${requestBody.model}).` };
     else if (requestCount === 1) message = toolCall('inspect_page', {}, `inspect-${currentScenario}`);
     else if (currentScenario === 'cua-click' && requestCount === 2) message = toolCall('cua_action', { action: 'click', x: 100, y: 65 }, `cua-click-${currentScenario}`);
     else if (requestCount === 2) message = toolCall('click', { index: 0 }, `click-${currentScenario}`);
@@ -206,6 +207,15 @@ async function waitForPageValue(target, expression, predicate, timeoutMs = 10000
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
   throw new Error(`Valor da página não atingiu a condição esperada: ${JSON.stringify(value)}`);
+}
+
+async function ensureAiPanelOpen(target) {
+  await evaluate(target, `(()=>{
+    const panel=document.getElementById('ai-panel');
+    if(panel?.classList.contains('hidden')) document.getElementById('btn-ai')?.click();
+    return true;
+  })()`);
+  await waitForPageValue(target, `!document.getElementById('ai-panel').classList.contains('hidden')`, Boolean);
 }
 
 function clickNativeApprovalButton(buttonName) {
@@ -415,8 +425,7 @@ async function main() {
     assert.equal(oneTabState.active, 1, 'a última aba deve continuar ativa');
     assert.equal(oneTabState.focused, true, 'ao fechar de duas para uma, o foco deve acompanhar a aba mantida');
     currentStage = 'ux-agent-panel';
-    await evaluate(mainTarget, "document.getElementById('btn-ai').click()");
-    await waitForPageValue(mainTarget, "!document.getElementById('ai-panel').classList.contains('hidden')", Boolean);
+    await ensureAiPanelOpen(mainTarget);
     const panel = await evaluate(mainTarget, `(() => {
       const details = document.querySelector('.ai-chat-more');
       const toolbar = document.querySelector('.ai-chat-toolbar');
@@ -438,7 +447,7 @@ async function main() {
   const extensionList = await evaluate(mainTarget, `window.navegante.extensions.list()`);
   assert.ok(Array.isArray(extensionList), 'O IPC do gerenciador de extensões responde no executável instalado');
   currentStage = 'openrouter-model-catalog-ui';
-  await evaluate(mainTarget, `document.getElementById('btn-ai').click()`);
+  await ensureAiPanelOpen(mainTarget);
   await waitForPageValue(mainTarget, `({visible: !document.getElementById('ai-panel').classList.contains('hidden'), placeholder: document.getElementById('ai-api-key')?.placeholder || '', status: document.getElementById('ai-model-status')?.textContent || ''})`, (value) => value.visible && value.placeholder.includes('OpenRouter') && value.status.includes('Salvar chave'));
   const aiPanelBounds = await waitForPageValue(mainTarget, `window.navegante.browser.getSidePanelLayout()`, (value) => value.open && Boolean(value.bounds));
   assert.equal(aiPanelBounds.open, true, 'O processo principal reservou a lateral para o painel de IA');
@@ -455,17 +464,27 @@ async function main() {
   await evaluate(mainTarget, `document.getElementById('btn-close-settings').click()`);
   await waitForPageValue(mainTarget, `document.getElementById('settings-panel').classList.contains('hidden')`, Boolean);
   await waitForPageValue(mainTarget, `window.navegante.browser.getSidePanelLayout()`, (value) => !value.open);
-  await evaluate(mainTarget, `document.getElementById('btn-ai').click()`);
-  await waitForPageValue(mainTarget, `!document.getElementById('ai-panel').classList.contains('hidden')`, Boolean);
-  await evaluate(mainTarget, `(()=>{document.getElementById('ai-api-key').value='mock-local-openrouter-key';document.getElementById('btn-ai-refresh-models').click();return true})()`);
+  await ensureAiPanelOpen(mainTarget);
+  await evaluate(mainTarget, `(()=>{document.getElementById('ai-api-key').value='mock-local-openrouter-key';document.getElementById('btn-ai-save-key').click();return true})()`);
+  await waitForPageValue(mainTarget, `document.getElementById('ai-model-status')?.textContent || ''`, (value) => value.includes('Chave salva com segurança'));
+  await evaluate(mainTarget, `document.getElementById('btn-ai-refresh-models').click()`);
   await waitForPageValue(mainTarget, `Boolean(document.querySelector('#ai-model option[value="openai/gpt-4o-mini"]'))`, Boolean);
   providerValidation.openrouterCatalogModels = await evaluate(mainTarget, `document.querySelectorAll('#ai-model option').length`);
   assert.equal(await evaluate(mainTarget, `document.querySelector('#ai-model option[value="fixture/no-tools"]')?.disabled`), true, 'Modelos conhecidos sem chamadas de ferramenta aparecem desabilitados');
   assert.equal(await evaluate(mainTarget, `document.querySelector('#ai-model option[value="openai/gpt-4o-mini"]')?.disabled`), false, 'Modelo compatível aparece selecionável');
+  await evaluate(mainTarget, `window.app.selectAiModel('openai/gpt-4o-mini')`);
+  await waitForPageValue(mainTarget, `window.navegante.ai.getConfig('openrouter').then(config=>config.model)`, (model) => model === 'openai/gpt-4o-mini');
   currentScenario = 'provider-check';
   requestCount = 0;
+  await evaluate(mainTarget, `window.app.aiConnected = false`);
   await evaluate(mainTarget, `document.getElementById('btn-ai-connect').click()`);
-  await waitForPageValue(mainTarget, `window.app?.aiConnected === true`, Boolean);
+  await waitForCondition(() => requestCount >= 1, 'chamada do handshake OpenRouter via mock');
+  const openrouterHandshake = await waitForPageValue(mainTarget, `(()=>({connected:window.app?.aiConnected===true,
+    button:document.getElementById('btn-ai-connect')?.textContent.trim(),
+    confirmation:[...document.querySelectorAll('#ai-chat .ai-message.assistant')].some(message=>message.innerText.includes('Conectado a OpenRouter com openai/gpt-4o-mini'))}))()`,
+    (state) => state.connected && state.button === 'Testar conexão' && state.confirmation);
+  assert.equal(openrouterHandshake.confirmation, true, 'O handshake só termina depois da mensagem de conexão confirmada pela interface');
+  assert.equal(requestCount, 1, 'O fluxo de conexão executa a inspeção pedida uma vez no provedor mock');
   assert.ok(observedProviderRequests.some((request) => request.path === '/v1/chat/completions' && request.authorization === 'Bearer mock-local-openrouter-key' && request.model === 'openai/gpt-4o-mini'), 'Configuração OpenRouter chegou ao endpoint mock com seu modelo');
   assert.ok((await evaluate(mainTarget, `document.getElementById('ai-api-key').placeholder`)).includes('key'), 'Interface mostra uma dica mascarada da chave OpenRouter salva');
   await evaluate(mainTarget, `document.getElementById('btn-ai-toggle-key').click()`);
@@ -527,7 +546,7 @@ async function main() {
   const cuaHtml = `<!doctype html><html><head><title>CUA fixture</title><style>body{margin:0}button{position:absolute;left:40px;top:40px;width:120px;height:50px}</style></head><body><button id="visual" onclick="document.body.dataset.cuaClicked='trusted'">Visual fallback</button></body></html>`;
   const cuaUrl = registerFixture(cuaHtml);
   const cuaTab = JSON.parse(await evaluate(mainTarget, `(async()=>{const tab=await window.navegante.browser.newTab(${JSON.stringify(cuaUrl)});await window.navegante.browser.switchTab(tab.tabId);return JSON.stringify(tab)})()`));
-  await evaluate(mainTarget, `(()=>{if(document.getElementById('ai-panel').classList.contains('hidden'))document.getElementById('btn-ai-toggle').click();return true})()`);
+  await ensureAiPanelOpen(mainTarget);
   const cuaPage = await waitForTarget(endpoint, (target) => target.type === 'page' && target.url === cuaUrl);
   await waitForPageValue(cuaPage, `document.readyState === 'complete' && Boolean(document.getElementById('visual'))`, Boolean);
   const freezeRaceState = await evaluate(mainTarget, `(()=>{const freezing=window.navegante.browser.freezePage(true,'panel');const releasing=window.navegante.browser.freezePage(false,'panel');return Promise.all([freezing,releasing]).then(()=>window.navegante.browser.getSidePanelLayout())})()`);

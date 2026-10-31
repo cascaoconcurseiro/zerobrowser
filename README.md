@@ -29,7 +29,7 @@ O NSIS foi configurado para não abrir o navegador automaticamente ao concluir a
 - Motor opt-in, desligado por padrão: `preInspect`, `run_steps` (com pós-condições), journal de efeitos (idempotência), snapshot por diferença, cascata de modelos e streaming. Só `preInspect` tem A/B registrado.
 - Verificação em 29/10/2026: no executável instalado, smoke UX 9 verificações, integração completa com provedores mockados e biblioteca após reinício passaram em perfis temporários. A suíte da árvore reportada para esta versão: `npm test` 302/302, `npm run test:ui` PASS, auditoria npm sem vulnerabilidades reportadas e testes de extensão 12/12. Isso não valida uso autenticado do DeepSeek, conexão Ollama real, benchmark pareado nem aceite amplo do perfil real.
 
-### Código em desenvolvimento (0.1.48-dev; aguardando instalação QA)
+### Código em desenvolvimento (0.1.49-dev; candidato de atualização do teste instalado)
 
 - Espaços de Bots isolados, confirmação para elevar autonomia e proteções para não preencher ou expor credenciais. Validação e limites estão em `docs/NOVIDADES.md` e `HANDOFF.md`.
 - Modo Delegar abre por padrão; painel de conversa e perfis ficam à esquerda, página ativa à direita. A Central lista os perfis e troca/abre outros perfis em janela isolada. Takeover completo ainda não foi aceito em fluxos reais.

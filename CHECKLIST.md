@@ -1,6 +1,6 @@
 # Checklist — Zero Browser
 
-## Ciclo ativo — 0.1.48-dev (integração/release: agente principal)
+## Ciclo concluído — 0.1.48-dev (integração/release: agente principal)
 
 - [x] Pré-carregar ferramentas avançadas no primeiro pedido quando a tarefa indicar intenção positiva em português ou inglês; ignorar cues negadas e manter `advancedInput: false` como override.
 - [x] Medir a fixture: request comum 8.096 vs. 11.139 bytes de esquema (27,3% menor); intenção explícita de planilha evita uma rodada simulada do seletor. Bytes não são tokens faturados nem latência.
@@ -9,7 +9,14 @@
 - [x] Revisão independente do diff sem achados bloqueadores; incorporar ajustes para cues negadas e em inglês.
 - [x] Validar `npm test` 370/370, `npm run test:ui`, `npm run test:bot-runtime`, `npm run test:delegation-layout` e `git diff --check`.
 - [x] Gerar o NSIS 0.1.48-dev: 130.429.999 bytes; SHA-256 `BC4F4E07F938A31ACF9FBC4C6495664D68FAB5185432BBBEF2B44B26BEF1663B`. Binário desempacotado `0.1.48.0`, SHA-256 `19BAD1328AA1E0524A085DD0903F7A481A5BF7AC9F6D59B954A69B0B5D0A4143`; `app.asar` SHA-256 `F856E9EDCA9282A8EF698437E9C2B02247826BEFE66AB1CEAD217DED54D5936E`.
-- [ ] Fazer commit local de 0.1.48-dev e instalar QA após o commit; conferir versão, hashes, atalhos e visualmente a Central responsiva. O NSIS está sem assinatura Authenticode.
+- [x] Commit local `c3af35f` e instalação QA de 0.1.48-dev; smoke do executável instalado passou com endpoints mockados e perfil temporário. NSIS sem assinatura Authenticode.
+
+## Ciclo ativo — 0.1.49-dev (integração/release: agente principal)
+
+- [x] Corrigir o smoke instalado para seguir o fluxo de salvar chave, escolher modelo e concluir handshake; abrir painel de forma idempotente.
+- [x] Validar `npm run test:installed` em Zero Browser 0.1.48-dev instalado; todos os cenários reportaram PASS com mocks loopback.
+- [x] `npm test` 370/370 e gerar NSIS 0.1.49-dev (130.430.072 bytes; SHA-256 `A578153B3F4106F894D19E6A401167A114E52E5FD6F32F3E64AF7BA26E87DB1B`); instalador sem assinatura Authenticode.
+- [ ] Fazer commit local, criar backup de 0.1.48-dev, instalar 0.1.49-dev em QA e verificar versão, hashes, atalhos e abertura.
 
 - [x] Receber entregas separadas de motor, segurança MCP/Bots, concorrentes, revisão de release e acessibilidade; resolver os achados antes do pacote.
 - [x] Abrir o app diretamente no modo Delegar e conferir visualmente a build empacotada no perfil QA isolado; o modo Navegar continua disponível no controle superior.

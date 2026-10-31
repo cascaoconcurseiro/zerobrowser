@@ -1,6 +1,13 @@
 # Handoff — Zero Browser
 
-## Candidato 0.1.48-dev — 31/10/2026
+## Candidato 0.1.49-dev — 31/10/2026
+
+- Corrigido o smoke instalado: ele salvava a chave e o modelo fora da sequência real da interface e a simulação de conexão repetia a ferramenta indefinidamente. O roteiro agora salva a chave, sincroniza, seleciona o modelo e exige a chamada ao endpoint mock. Também abre o painel de IA de forma idempotente.
+- `npm run test:installed -- 'C:\Users\Wesley\AppData\Local\Programs\navegante\Zero Browser.exe'` passou contra 0.1.48-dev instalado: catálogo OpenRouter/DeepSeek, conexão mock, automação AX/CUA, abas, DNT, download e aprovações passaram em perfil temporário. Sem provedor real ou pago.
+- `npm test`: 370/370. Build gerado: `dist/Zero Browser Setup 0.1.49-dev.exe` (130.430.072 bytes; SHA-256 `A578153B3F4106F894D19E6A401167A114E52E5FD6F32F3E64AF7BA26E87DB1B`); executável `0.1.49.0` SHA-256 `9A1B322F53D8178FBFE124663720E272AF992A4DD6BB7B308D75676BD02F9CD7`; `app.asar` SHA-256 `DB7FF6EF6AC8F1B39C5D3EF5B17D02605139416B1A04FEDBFCD3B7E0D9B9C542`. Instalador sem assinatura Authenticode.
+- O código do produto não mudou nesta fatia; 0.1.49-dev atualiza o roteiro de validação instalado. Próximo passo: commit local; depois fazer backup da instalação 0.1.48 e instalar 0.1.49 em QA, verificando versão/hash/atalhos/tela.
+
+## Histórico de 0.1.48-dev — 31/10/2026
 
 - A base instalada de QA continua em `0.1.47-dev`; a árvore está em `0.1.48-dev` e aguarda commit e instalação deste candidato. O NSIS já foi gerado.
 - Motor: `advancedInput: 'auto'` pré-carrega o catálogo especializado quando encontra intenção explícita de planilha/canvas/interação visual em português ou inglês. Cues negadas são removidas sem apagar outras intenções positivas; `true` e `false` explícitos têm prioridade. Em fixture, uma tarefa comum manteve o primeiro request em 8.096 bytes contra 11.139 pré-carregado (27,3% menor); tarefa explícita de planilha eliminou uma chamada simulada ao seletor. Isso mede bytes de esquema e número de chamadas simuladas, não tokens cobrados, custo, latência real ou taxa geral de acerto.

@@ -1,4 +1,12 @@
-# Novidades — Zero Browser 0.1.48-dev
+# Novidades — Zero Browser 0.1.49-dev
+
+## Correção do smoke instalado — 31/10/2026
+
+- O smoke `test:installed` agora segue o fluxo da tela: salva a chave no cofre, sincroniza o catálogo, seleciona o modelo e espera o handshake com um servidor local. O cenário mockado responde com uma ferramenta e depois uma resposta final, evitando repetição infinita.
+- A abertura do painel de IA no roteiro é idempotente e deixa de alternar um painel que já está aberto.
+- `npm run test:installed` passou contra o executável 0.1.48 instalado, usando perfil temporário e endpoints loopback mockados. Não houve chamada paga nem conexão com provedor real.
+
+## Histórico — 0.1.48-dev
 
 ## Motor, Bots e modo Delegar — 31/10/2026
 
