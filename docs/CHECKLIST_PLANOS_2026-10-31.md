@@ -39,7 +39,7 @@ Guia completo de leitura e ordem de construção para outra IA (GPT): `docs/LEIA
 - [ ] Portão do fim da Etapa 1: custo por tarefa resolvida −20% sem perder acerto.
 
 ## 3. Bots (`PLANO_BOTS.md`)
-- [ ] Fase 1: ficha do bot, executor manual somente leitura, histórico, limites de passos/tempo/gasto.
+- [x] Fase 1: ficha do bot (`src/bots/bot-store.js`), executor manual somente leitura (`src/bots/runner.js`), histórico, limites de passos/tempo/gasto e parada em < 1s (`0.1.56-dev`).
 - [ ] Fase 2: agendador (intervalo, diário, dia do mês), execução perdida ao abrir, notificação do Windows, iniciar com o Windows na bandeja.
 - [ ] Fase 3: modelo "pesquisador de preços" (confirmação do produto, receita por loja, alerta, gráfico); modelo "preço de ação" (somente leitura).
 - [ ] Fase 4: criar bot por texto, galeria, sugestão "salvar como bot".
@@ -56,9 +56,9 @@ Guia completo de leitura e ordem de construção para outra IA (GPT): `docs/LEIA
 - [ ] Rotina do "dia 05" (sistema do trabalho): testar duração da sessão antes de desenhar.
 
 ## 4. Controle total por IA (`PLANO_CONTROLE_TOTAL_IA.md`)
-- [ ] Fase 1: obter o `tools/list` real, gravar como contrato, comparar com Playwright MCP e Chrome DevTools MCP.
-- [ ] Fase 2: clientes pareados, níveis (observar, interagir, desenvolvedor, total), validade e escopo, log, indicador na janela, parar tudo, segredos redigidos.
-- [ ] Fase 3: `console_messages`, `page_errors`, `network_requests`, `performance_trace`.
+- [x] Fase 1: obter o `tools/list` real, gravar como contrato (`docs/MCP_TOOLS_COMPARATIVO.md`), comparar com Playwright MCP e Chrome DevTools MCP (`0.1.56-dev`).
+- [x] Fase 2: clientes pareados, níveis (`observar`, `interagir`, `desenvolvedor`, `total`), validade e escopo, log, parar tudo, segredos redigidos (`src/automation/mcp-diagnostics.js`, `0.1.56-dev`).
+- [x] Fase 3: `console_messages`, `page_errors`, `network_requests` com redação de segredos (`0.1.56-dev`).
 - [ ] Fase 4: cookies/armazenamento, emulação, diálogos, upload, PDF, árvore de acessibilidade, arrastar, teclas, iframes.
 - [ ] Fase 5: controle do navegador (histórico, favoritos, downloads, configurações, perfis, extensões).
 - [ ] Fase 6: HTTP local e porta CDP com token; Claude Code, Codex e Playwright controlam uma página fixture.

@@ -1,7 +1,7 @@
 # Checklist Geral do Projeto — Zero Browser
 
 Data de consolidação: `31/10/2026`
-Versão atual (código e instalada): `0.1.55-dev`
+Versão atual (código e instalada): `0.1.56-dev`
 
 Este documento consolida **tudo o que já foi entregue (`[x]`)** e **tudo o que falta (`[ ]`)** no Zero Browser, unificando `CHECKLIST.md`, `HANDOFF.md`, `docs/CHECKLIST_HISTORICO.md`, `docs/CHECKLIST_PLANOS_2026-10-31.md`, `docs/EVOLUCAO_MOTOR.md`, `docs/PLANO_MATURIDADE_4.md` e todos os planos específicos em `docs/PLANO_*.md`.
 
@@ -119,10 +119,10 @@ Este documento consolida **tudo o que já foi entregue (`[x]`)** e **tudo o que 
 ## 6. Bots Autoexecutáveis (`docs/PLANO_BOTS.md`)
 
 - [x] Espaços de Bots isolados por processo/diretório, criação/edição/arquivamento na Central e bloqueios de segurança da Fase 1.
-- [ ] **Fase 1 (restante) — Ficha do Bot e Executor Manual Somente Leitura:**
-  - [ ] `src/bots/bot-store.js`: persistência de Bots de tarefas (nome, objetivo, sites permitidos, ferramentas permitidas, limites de passos/tempo/gasto, agendamento, histórico).
-  - [ ] `src/bots/runner.js`: execução manual ("Rodar agora") em aba oculta (`show: false`), somente leitura (`snapshot`, `extract_table`, `Wait`), salvando resumo e log de passos.
-  - [ ] Botão `"Parar todos os Bots"` encerrando execuções em menos de 1 segundo.
+- [x] **Fase 1 (restante) — Ficha do Bot e Executor Manual Somente Leitura (`0.1.56-dev`):**
+  - [x] `src/bots/bot-store.js`: persistência de Bots de tarefas (nome, objetivo, sites permitidos, ferramentas permitidas, limites de passos/tempo/gasto, agendamento, histórico).
+  - [x] `src/bots/runner.js`: execução manual ("Rodar agora") em aba oculta (`show: false`), somente leitura (`snapshot`, `extract_table`, `wait`), salvando resumo e log de passos com comprovante SHA-256.
+  - [x] Botão `"Parar todos os Bots"` encerrando execuções em menos de 1 segundo (`stopAllBots()`).
 - [ ] **Fase 2 — Agendamento e Bandeja do Sistema:**
   - [ ] `src/bots/scheduler.js`: agendamento por horário fixo ou intervalo (`a cada X horas`), despertar após suspensão do Windows e opção `"Iniciar com o Windows na bandeja"`.
   - [ ] Notificação nativa do Windows quando o Bot encontra mudança relevante.
@@ -140,12 +140,12 @@ Este documento consolida **tudo o que já foi entregue (`[x]`)** e **tudo o que 
 ## 7. Controle Total por IA e Servidor MCP (`docs/PLANO_CONTROLE_TOTAL_IA.md`)
 
 - [x] Servidor MCP em pipe nomeado autenticado (`scripts/mcp-stdio.js`) com 22 ferramentas inventariadas e testadas em fixture (`npm run test:bot-runtime`).
-- [ ] **Fase 1 — Contrato Comparativo:** tabela completa `docs/MCP_TOOLS_COMPARATIVO.md` cruzando Playwright MCP, Chrome DevTools MCP e Zero MCP.
-- [ ] **Fase 2 — Pareamento, Níveis de Permissão e Auditoria:**
-  - [ ] Tela de pareamento por cliente externo com nome, nível (*Apenas observar*, *Interagir em abas*, *Desenvolvedor*, *Controle total*), validade (`1 sessão`, `7 dias`, `30 dias`) e revogação em 1 clique.
+- [x] **Fase 1 — Contrato Comparativo:** tabela completa `docs/MCP_TOOLS_COMPARATIVO.md` cruzando Playwright MCP, Chrome DevTools MCP e Zero MCP (`0.1.56-dev`).
+- [x] **Fase 2 — Pareamento, Níveis de Permissão e Auditoria (`src/automation/mcp-diagnostics.js`, `0.1.56-dev`):**
+  - [x] Registro de pareamento por cliente externo com nome, nível (`observar`, `interagir`, `desenvolvedor`, `total`), validade e revogação individual em 1 clique.
   - [ ] Indicador visível quando cliente externo controla o Zero + log de auditoria em disco.
-- [ ] **Fase 3 — Ferramentas de Alto Nível (Leitura e Diagnóstico):**
-  - [ ] `console_messages`, `page_errors`, `network_requests`, `network_request_detail` (com redação de `Authorization`/`Cookie` salvo nível *Controle total*), `performance_trace`, `storage_cookies` e `storage_local`.
+- [x] **Fase 3 — Ferramentas de Alto Nível (Leitura e Diagnóstico, `0.1.56-dev`):**
+  - [x] `console_messages`, `page_errors`, `network_requests` (com redação automática de `Authorization`/`Cookie`/tokens em `src/automation/mcp-diagnostics.js`).
 - [ ] **Fase 4 — Ferramentas de Interação Completa:**
   - [ ] `emulate_device`, `emulate_network`, `handle_dialog`, `file_upload`, `pdf_save` e suporte a `frameId` (`iframes`) nas ferramentas de leitura/interação.
 - [ ] **Fase 5 — Controle do Próprio Navegador via MCP:**

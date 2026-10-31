@@ -1,4 +1,10 @@
-# Novidades — Zero Browser 0.1.55-dev
+# Novidades — Zero Browser 0.1.56-dev
+
+## Bots Fase 1 (store, runner, Parar tudo < 1s) e MCP comparativo/diagnóstico — 0.1.56-dev — 31/10/2026
+
+- Ficha persistente de Bots (`src/bots/bot-store.js`) com limites de passos/tempo/gasto, proteção da memória contra conteúdo externo, autonomia em degraus e exportação/importação sem segredos.
+- Executor em segundo plano (`src/bots/runner.js`) em modo somente leitura por padrão, bloqueando ações consequentes, gravando comprovante SHA-256 (`receiptHash`) no histórico e parando todos os Bots em menos de 1 segundo (`stopAllBots`).
+- Contrato comparativo MCP (`docs/MCP_TOOLS_COMPARATIVO.md`) e registro de permissões/diagnóstico (`src/automation/mcp-diagnostics.js`) com níveis `observar`, `interagir`, `desenvolvedor` e `total`, revogação individual e ferramentas `console_messages`, `page_errors` e `network_requests` com redação automática de segredos.
 
 ## Firewall de Intenção, etiquetas de origem, recibo verificado e suíte de 50 ataques — 0.1.55-dev — 31/10/2026
 

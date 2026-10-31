@@ -2,7 +2,7 @@
 
 ## Estado confirmado — 2026-10-31
 
-- Código e instalação em `0.1.55-dev` (atalho da Área de Trabalho aponta sempre para a versão mais recente instalada em `%LocalAppData%\Programs\navegante\Zero Browser.exe`).
+- Código e instalação em `0.1.56-dev` (atalho da Área de Trabalho aponta sempre para a versão mais recente instalada em `%LocalAppData%\Programs\navegante\Zero Browser.exe`).
 - Na fatia `0.1.53-dev`: concluídos os tokens do anel de estado (texto + formato do traço + selo + cor), a paleta de 8 cores de Bots com contraste ≥ `3:1` nos temas claro e escuro (`src/main/bot-avatar-catalog.js`), a escala de `4px` (`src/renderer/styles.css`), o indicador de aba controlada com botão `Assumir` / `Devolver ao bot` e a etiqueta de reversibilidade no cartão de aprovação (`src/renderer/app.js`).
 - A Central agora separa Bots Ativos/Arquivados, permite arquivar/restaurar sem mover dados do perfil, e bloqueia novas aberturas de Bot arquivado. Escritas em `perfis.json` usam coordenação entre processos.
 - O painel Delegar começa em `min(480px, 34vw)` e pode ser redimensionado por mouse/toque ou teclado; o `BrowserView` acompanha a mesma largura e mantém espaço para a página. Avatares pixel ficam menores e centralizados no anel.

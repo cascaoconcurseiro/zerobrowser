@@ -6,7 +6,7 @@ Navegador Electron para Windows com agente integrado à OpenAI, OpenRouter e Dee
 
 ## Estado atual (2026-10-31)
 
-Código-fonte e instalação atual em **0.1.55-dev**. A .55 adiciona o Firewall de Intenção com etiquetas de origem (`usuario` vs. `externo`), política de efeitos, recibo verificado com hash SHA-256 e suíte de 50 ataques nas 5 famílias com 50/50 bloqueios. Consulte `CHECKLIST.md` e `docs/CHECKLIST_GERAL_PROJETO.md` para a ordem ativa.
+Código-fonte e instalação atual em **0.1.56-dev**. A .56 adiciona a Fase 1 dos Bots (`src/bots/bot-store.js`, `src/bots/runner.js`, parada em < 1s e comprovante SHA-256) e o contrato/diagnóstico MCP (`docs/MCP_TOOLS_COMPARATIVO.md`, `src/automation/mcp-diagnostics.js` com níveis por cliente e `console_messages` / `page_errors` / `network_requests`). Consulte `CHECKLIST.md` e `docs/CHECKLIST_GERAL_PROJETO.md` para a ordem ativa.
 
 O comparativo em `docs/COMPARATIVO_CONCORRENTES_2026-10-28.md` avalia prontidão pública por rubrica editorial; não há base para participação de mercado, comparação de desempenho ou qualidade por ranking. Não houve chamada de provedor nesta fatia.
 
