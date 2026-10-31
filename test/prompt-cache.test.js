@@ -40,11 +40,13 @@ test('anthropic models get a cache breakpoint on the system message only', () =>
 });
 
 test('cache summary tells whether it paid off', () => {
-  assert.equal(cacheSummary({ inputTokens: 0 }).cacheUseful, false);
-  const empty = cacheSummary({ inputTokens: 1000, cachedInputTokens: 0 });
+  assert.equal(cacheSummary({ inputTokens: 0 }).cacheUseful, null);
+  assert.equal(cacheSummary({ inputTokens: 1000, cachedInputTokens: 0 }).cacheUseful, null);
+  assert.equal(cacheSummary({ inputTokens: 1000, cachedInputTokens: 200, cachedInputTokensAvailable: false }).cacheUseful, null);
+  const empty = cacheSummary({ inputTokens: 1000, cachedInputTokens: 0, cachedInputTokensAvailable: true });
   assert.equal(empty.cacheUseful, false);
-  assert.match(empty.note, /desligue promptCache/);
-  const hit = cacheSummary({ inputTokens: 1000, cachedInputTokens: 400 });
+  assert.match(empty.note, /zero tokens/);
+  const hit = cacheSummary({ inputTokens: 1000, cachedInputTokens: 400, cachedInputTokensAvailable: true });
   assert.equal(hit.cacheUseful, true);
   assert.equal(hit.cacheHitRate, 40);
   assert.match(hit.note, /40%/);

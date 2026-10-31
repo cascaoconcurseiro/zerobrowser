@@ -1,3 +1,80 @@
+# Handoff — Zero Browser
+
+## Motor: ferramentas avançadas sob demanda e custo — 31/10/2026
+
+- O OpenRouter agora solicita `usage.include` e o trace/benchmark registra custo reportado quando a resposta o fornece; esse valor é atribuído pelo provedor e não substitui a fatura final.
+- O catálogo avançado (clipboard, sequência de teclas, interação visual e planilhas) passa a ser ativado por `enable_advanced_tools` quando `advancedInput` não é explicitamente `true` ou `false`. A chamada padrão envia apenas o seletor compacto; `true` mantém pré-carregamento e `false` desativa. A medição estática anterior encontrou 3.325 bytes de definições avançadas, que deixam de ser enviados em cada chamada comum.
+- Não foram executados testes após a instrução do usuário. Isso é implementação com revisão estática apenas; o fluxo dinâmico de ativação e os valores de custo ainda precisam de validação quando testes forem autorizados.
+- Próximo passo concreto: revisar `runAgent`/`runTask` em `src/automation/service/index.js` e, quando autorizado, validar uma tarefa web comum e uma tarefa de planilha/canvas, comparando bytes/tokens, latência, acerto e custo reportado no mesmo provedor/modelo.
+- Bloqueio/limite: sem benchmark de modelo real; o seletor acrescenta uma rodada para tarefas que precisem de ferramentas avançadas. Nenhum ganho de acerto/latência foi alegado.
+
+## Motor: OpenAI direto e cache mensurável — 31/10/2026
+
+- Adicionado OpenAI como provedor direto (catálogo oficial `/v1/models`, Chat Completions `/v1/chat/completions`), com chave separada e opção no painel. Não altera o padrão OpenRouter. A integração foi exercitada por mock; nenhuma chave foi acessada nem chamada real/paga foi feita.
+- Benchmark aceita `--prompt-cache`; condição registrada no relatório e comparador exige `--variavel=promptCache` para permitir o A/B controlado. `run_task` encaminha o sinal para cada request. Cache continua opt-in.
+- Testes focados 69/69, `npm test` 333/333 e `npm run test:ui` PASS com asserção da opção OpenAI no seletor; `git diff --check` passou, restando avisos LF/CRLF.
+- Próximo passo concreto: no Zero empacotado e perfil de QA, configurar a chave no painel e usar “Testar conexão” sem ação de página; depois executar A/B `promptCache` desligado/ligado nas mesmas tarefas/modelo/provedor/repetições e comparar tokens de cache, acerto e latência.
+- Bloqueios/limites: sem autenticação real ou benchmark do OpenAI; nenhum ganho de custo ou acerto foi medido. O A/B pago DeepSeek segue excluído pela orientação do usuário. Ações consequentes do agente continuam sob as políticas de aprovação; “controle total” significa cobertura ampla do navegador, não remover essas verificações.
+
+## Motor: confirmação Electron da espera pós-hover — 29/10/2026
+
+- Ajuste de deadline: o renderer observa os 250 ms completos; o processo host acrescenta 10 ms de tolerância e até 50 ms reservados para a leitura final se o renderer estiver pendurado. Isso corrige o caso sem texto que podia terminar antes da janela original.
+- Último benchmark DOM em 20 pares: adaptativa mediana/P95 101/102 ms; fixa 253/265 ms; diferença pareada mediana/P95 152/164 ms. Artefato `bench/resultados/post-action-wait-electron-2026-10-29T20-27-06-417Z.json`.
+- Tarefas `runAgent` pareadas em Electron: 5 pares por cenário, ordem alternada, duas respostas mockadas iguais e pós-condição independente no DOM. Mediana da melhoria de espera: texto rápido +96 ms; lento +16 ms; sem texto −4 ms. As 30 pós-condições passaram; nenhum fallback adaptativo nesta rodada. Dados: `bench/resultados/post-action-edge-tasks-electron-2026-10-29T20-32-57-742Z.json`. Durações totais tiveram outliers de ambiente; comparação deste helper usa `waitMs` pareado.
+- `npm test`: 332/332. A primeira execução mostrou limites de tempo de teste frágeis sob concorrência do Windows; foram ajustados para tolerar atraso de agendador sem enfraquecer os limites funcionais. Nova execução passou.
+- Integração oculta Electron executou hover CSS em perfil temporário: menu “Delete” apareceu e `trace.postActionTextWait` registrou `changed=1`. Observador do renderer terminou no fallback limitado, `totalMs=251`, `fallbacks=1`; desativar background throttling no fixture não evitou o timeout. O resultado verifica atualização da UI e fallback seguro, não ganho de velocidade da espera adaptativa.
+- `runAgent` foi comparado no Electron em 20 pares com ordem alternada; janela deslocada fora da área do cursor físico, WebContents ativo, mesma fixture/política/ferramenta e fetch stub determinístico. Menu verificado em 20/20 execuções por condição e duas respostas simuladas em cada tarefa. Total adaptativo mediana/P95 73/82 ms; fixo 269/284 ms. Ganho pareado mediana/P95 195,5/208 ms (mín. 187 ms). Espera no trace: adaptativa 62 ms mediana; fixa 256,5 ms. Dados completos: `bench/resultados/post-action-task-electron-2026-10-29T18-45-28-937Z.json`. Não mede rede/modelo real, tokens faturáveis, custo ou taxa geral de acerto.
+- O helper reserva prazo no host para a leitura final de fallback, então uma chamada de leitura pendurada permanece limitada. Testes cobrem mudança 10 ms antes do deadline, texto tardio, navegação e WebContents fechado. No Electron real, navegação durante a espera usou fallback e leu o novo documento em 275 ms. A suíte Electron completa passou com os 20 pares.
+- A janela oculta provocou travamento do harness de tarefa; execução visível teve uma falha de hover intermitente. O ensaio válido desloca a janela para fora da área do cursor físico e deixa o WebContents ativo; o resultado foi reprodutível nos 20 pares desta rodada.
+- `node --test test/post-action-text.test.js`: 11/11; `npm run test:electron` passou com navegação e 20 pares completos; `npm test`: 331/331; `git diff --check` sem erro. Não rodar benchmark pago DeepSeek: o usuário pediu para ignorá-lo.
+- Corrigida a sequência do harness: casos ativos rodam antes de ocultar a janela; throttling é definido explicitamente ao ocultar/mostrar; timers de renderer atrasados no caso sem texto são tratados como resultado bounded e ficam registrados. `npm run test:electron` base passou. O modo `ZERO_POST_ACTION_EDGE_TASKS=1` grava os 15 pares e termina explicitamente após esse benchmark; não roda o restante da integração AX.
+- Próximo passo concreto: ampliar o A/B do motor para tarefas além de hover e rodar benchmarks pareados com modelo real apenas quando autorizado. A/B pago DeepSeek permanece fora de escopo.
+
+## Motor: linha de base de contexto e comparador — 29/10/2026
+
+- Fixture de tarefa longa executa 8 leituras + resposta final e confirma retenção de todos os dados exclusivos. Na última chamada: leituras repetidas totalizaram 11.145 bytes de mensagens (22.361 request); leituras com pequenos dados únicos totalizaram 30.626 bytes (41.842 request). São bytes de fixture, não tokens, acerto de modelo, custo ou latência.
+- Corrigido o comparador para exigir modelo, provedor e todos os metadados de condição presentes e iguais antes de atribuir “provável melhora/piora”; condições diferentes ou ausentes agora resultam em “incompatível”. A saída lista os campos divergentes. Relatórios alertam tarefas ausentes e repetições diferentes; o benchmark salva conjunto, flags e limites relevantes.
+- Implementado `--deduplicate-snapshots` experimental, desligado por padrão. Só reutiliza um snapshot após uma chamada imediatamente anterior também `inspect_page`, se o JSON completo e já filtrado pelo guard for idêntico e a referência for menor que a representação que a compactação normal deixaria. Preserva cada resposta de ferramenta e `tool_call_id`, mantém uma âncora completa e invalida após qualquer outra ferramenta. Não pode ser combinado com `--diff`; relatórios registram a condição e os bytes de contexto estimados.
+- Fixture com 8 leituras idênticas reduziu o request final de 22.361 para 21.440 bytes (−921; 4,1%) e a soma serializada dos 9 requests de 178.415 para 175.411 bytes (−3.004; 1,7%). O trace estima 987 bytes de contexto atual poupados frente à compactação normal. Com dados exclusivos, a opção não reutilizou nenhum snapshot e todas as evidências foram mantidas. Testes confirmam invalidação após ação e ao pausar/retomar: referências antigas são invalidadas e um snapshot fresco, protegido pelo guard, passa a ser a âncora. Esses números são bytes da fixture, não tokens.
+- Cobertura extra: `preInspect` também pode fornecer a âncora quando a primeira leitura explícita do modelo é idêntica; teste confirma referência, âncora íntegra e contador de trace.
+- Verificação: testes focados passaram 59/59; `npm test` passou 318/318; `git diff --check` sem erros. Bytes determinísticos de fixture não são tokens, acerto, custo ou latência de modelo.
+- Preflight: não havia Zero Browser aberto; o Ollama estava instalado, mas sem modelo disponível. A consulta iniciou processos do Ollama; ambos foram encerrados. Nenhuma chave foi lida, perfil pessoal alterado, modelo baixado ou chamada a provedor de IA feita.
+- Otimização pós-hover: a pausa fixa foi substituída por espera de texto visível estabilizado (60 ms quieto, teto de 250 ms) nos caminhos `hover`/`click_text`. O host reserva prazo para a leitura final no fallback e retorna vazio se o renderer continuar pendurado; trace expõe `postActionTextWait`. Há fixture VM/Electron, benchmark pareado de espera e `runAgent`; sem provedor/modelo real, token faturável ou custo medido.
+- O A/B pago DeepSeek foi adiado por orientação do usuário. Nenhuma chamada paga foi feita. O perfil temporário `C:\Users\Wesley\AppData\Local\Temp\zero-browser-paid-bench-20261029` e a janela do Zero Browser permanecem disponíveis; não inspecionar nem ler campo de chave. Retomar o benchmark somente mediante nova instrução.
+- Próximo passo concreto: cobrir mutações lentas/ausentes, navegação e fechamento no helper pós-ação; depois ampliar o A/B para tarefas diversas e modelo real quando autorizado.
+
+
+## Motor: evidência de ação e observação — 29/10/2026
+
+- Corrigida colisão entre campos da ação e do snapshot automático: valores diferentes da ação são preservados em `actionEvidence`, inclusive após snapshot posterior; URL preservada remove credenciais, query e fragmento e rejeita esquemas fora de HTTP(S). O detector de instruções suspeitas inspeciona esse campo. Revisão independente sem achado acionável no caminho avaliado.
+- `node --test test/agent-continuation.test.js test/injection-guard.test.js` 23/23; `npm test` 312/312. Testes com fixture, sem medida de tokens, custo ou latência e sem benchmark de modelo real.
+- Próximo passo: criar fixture de 8 ou mais leituras com dados repetidos e únicos para medir crescimento de `messageBytes`, `requestBytes` e preservar evidências; depois experimentar deduplicação de leituras idênticas com mesma ferramenta, argumentos, aba e estado, opt-in e com testes de retomada. Bytes não são tokens; executar benchmark pareado antes de alegar ganho ou ativar por padrão.
+
+
+## Motor: medição de cache e evidência de ações — 29/10/2026
+
+- O parser diferencia cache ausente/inválido de zero explícito; o trace marca disponibilidade incompleta quando uma resposta aceita não informa cache ou entrada válida. Métricas por tentativa não fabricam zero para entrada/saída ausentes. O resumo trata cache incompleto como desconhecido e o comparador exclui dados parciais/legados sem marcador explícito. Isso não demonstra economia real de custo ou latência.
+- Compactação de snapshots mantém campos de resultados de ações observadas e dados de planilha, removendo nós antigos e deduplicando apenas texto literal completo. Testes locais cobrem ação, seleção de planilha e cache parcial; `npm test` passou 311/311. Históricos de tarefas longas ainda podem crescer; não se provou ganho de tokens.
+- Próximo passo: investigar colisões na mesclagem de resultado de ação e snapshot em `src/automation/service/index.js` no bloco `autoObserved`; medir crescimento de contexto e implementar compactação segura com recuperação; depois rodar benchmark pareado com modelo real em perfil isolado. Não presumir uso pago autorizado.
+
+
+## Motor: preservação de evidência e medição — 29/10/2026
+
+- `src/automation/service/index.js` não corta mais silenciosamente texto exclusivo de snapshots após 2.500 caracteres nem respostas antigas de ferramentas após seis chamadas. Testes cobrem sufixo exclusivo em tarefa longa e saída não-snapshot. Isso pode aumentar tokens e exceder a janela do modelo; ainda falta orçamento de contexto com preservação/recuperação segura e benchmark pareado antes de concluir sobre custo ou velocidade.
+- `bench/comparador.js` calcula acerto apenas sobre tarefas comuns, com média balanceada por tarefa, alerta para provedores diferentes/ausentes e não afirma ausência de regressão sem pares. Cache ausente ainda pode ser registrado como zero; o relatório agora avisa que tokens não cacheados exigem confirmação. Comparação ainda precisa conferir flags, cobertura, repetições e compatibilidade dos cenários.
+- Próximo passo: diferenciar cache não informado de zero em `src/automation/usage-metrics.js` e toda a cadeia de trace/benchmark; criar política de contexto segura e medir bytes/tokens e acerto em tarefas longas. Benchmark com modelo real exige perfil isolado e autorização para consumo quando aplicável. Não há nova medição real nesta etapa.
+
+
+## Plano de maturidade — 29/10/2026
+
+- Criado `docs/PLANO_MATURIDADE_4.md` com critérios propostos, dependências, riscos e evidências para cada quesito. O plano não altera a avaliação atual nem prova paridade.
+- Próximo passo: executar a etapa 0 do plano no pacote QA `dist-active-tab-qa-20261029` em perfil temporário, incluindo fixture e captura real; registrar falhas reproduzidas e corrigir por prioridade.
+
+## Pacote QA activeTab — 29/10/2026
+
+- Build unpacked concluído em `dist-active-tab-qa-20261029/win-unpacked/Zero Browser.exe` a partir do commit `0ee0014`. Ainda falta executar o pacote em perfil descartável e validar a extensão fixture e captura nativa; build não é aceite funcional. Não foi instalado.
+- Próximo passo: usar `scripts/installed-agent.integration.js` com o executável QA e perfil temporário; depois exercitar a ação activeTab no app empacotado.
+
 ## Ação temporária de extensões activeTab — 29/10/2026
 
 - Implementado botão “Executar” no gerenciador para extensões com `action`/`browser_action` sem popup. O gesto parte do botão nativo acessível; a UI exige evento confiável, e o IPC principal só aceita a janela principal autorizada. Eventos MV3 acordam o service worker e esperam `running`; MV2 recebe `browserAction.onClicked`.
@@ -5,8 +82,6 @@
 - Revisão independente encontrou e corrigiu revogação prematura em qualquer navegação: agora revoga após commit de origem diferente. `npm test` 302/302; testes focados de extensão/IPC 16/16; `npm run test:ui` PASS; `npm run test:active-tab` PASS com service worker Electron MV3 real e perfil temporário. A captura de imagem do teste é fixture determinística; não prova captura nativa/visual. MV2 segue teste unitário, sem integração Electron real. Nenhum teste com Flame real.
 - Estado competitivo permanece sem posição numérica confiável: essa etapa reduz uma lacuna de compatibilidade, mas o Zero continua atrás dos concorrentes em UX geral, ecossistema, distribuição e validação. Pacote QA/instalado não foi atualizado nesta etapa.
 - Próximo passo concreto: gerar pacote unpacked QA a partir deste commit e validar o fluxo em perfil descartável com extensão fixture; depois exercício com Flame somente se o usuário fornecer/autorizar o pacote apropriado. Manter pendentes captura nativa, MV2 Electron, scripting/optional permissions, segurança adversarial e aceite visual amplo.
-# Handoff — Zero Browser
-
 ## Instalador sem abertura automática — 29/10/2026
 
 - Corrigida a configuração `build.nsis.runAfterFinish: false` em `package.json`. Causa confirmada: o `electron-builder` 26.15.7 documenta `runAfterFinish` com default `true`; no alvo one-click ele só define `RUN_AFTER_FINISH` quando a opção não é `false`. O template NSIS só chama o app na conclusão normal quando essa macro está definida; `--force-run` continua sendo exceção explícita.

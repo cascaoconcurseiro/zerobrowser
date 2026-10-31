@@ -1,8 +1,47 @@
 # Evolução do motor — evidências e critérios
 
+## Custo reportado e ferramentas avançadas sob demanda — 2026-10-31
+
+- Requisições OpenRouter passam `usage: { include: true }`; o trace e os relatórios do benchmark registram `usage.cost` por requisição quando presente e só calculam custo por execução com cobertura completa das chamadas bem-sucedidas. É custo reportado pela API, não necessariamente o valor final faturado.
+- A análise estática do catálogo encontrou 3.325 bytes nas definições de clipboard, sequência de teclas, interação visual e planilhas. O fluxo padrão agora envia um seletor pequeno e só inclui essas definições após `enable_advanced_tools`; modo `advancedInput: true` ainda pré-carrega e `false` as desativa. Reduz o payload de ferramentas nas chamadas comuns, ao custo possível de uma rodada extra em tarefas avançadas.
+- Nenhum teste foi executado após o usuário pedir para não testar nesta etapa. Portanto, a ativação dinâmica, compatibilidade entre provedores e efeito em acerto/latência ainda não foram verificados; bytes poupados não equivalem a tokens faturados.
+- Próximo passo: quando autorizado, validar tarefas web comuns e de planilha/canvas em condições pareadas e registrar bytes/tokens, custo reportado, latência, rodadas e acerto.
+
+## Conexão OpenAI direta e medição de cache — 2026-10-31
+
+- Adicionado OpenAI direto à lista de provedores: catálogo `GET /v1/models`, execução `POST /v1/chat/completions`, chave separada no armazenamento protegido e seleção em Configurações. OpenRouter continua disponível e o padrão não mudou. A integração segue o formato Chat Completions documentado pela [OpenAI](https://developers.openai.com/api/reference/chat-completions/overview); recursos exclusivos da Responses API não são incluídos.
+- Teste mockado confirma endpoint, Bearer key, catálogo e pedido com `prompt_cache_key` opt-in. Nenhuma credencial foi lida e nenhuma chamada real/paga foi feita.
+- Benchmark agora aceita `--prompt-cache`, grava a condição no relatório e permite A/B somente dessa variável com `--variavel=promptCache`. O teste de `run_task` confirma que a opção chega a todas as chamadas do modelo; cache permanece desligado por padrão no benchmark e a ativação no app segue o ajuste existente.
+- Verificação em 2026-10-31: testes focados `test/startup.test.js test/bench.test.js test/comparador.test.js test/prompt-cache.test.js` 69/69; suíte `npm test` 333/333; `npm run test:ui` PASS com asserção explícita de que OpenAI aparece no seletor; `git diff --check` passou, com avisos de normalização LF/CRLF.
+- Ainda falta executar uma chamada autenticada pelo usuário ao OpenAI, validar um modelo com ferramentas no app empacotado, e comparar sucesso/tokens faturáveis/latência contra baseline nas mesmas tarefas. A API do OpenAI é uma nova opção de conexão, não prova de ganho de qualidade ou custo. DeepSeek pago continua excluído por orientação do usuário.
+- Próximo passo concreto: após o usuário configurar OpenAI no painel local, executar teste de conexão sem ação de página; depois rodar A/B de `promptCache` com mesmo provedor/modelo/conjunto e registrar `cached_tokens`, acerto, chamadas e latência. Não usar nem inspecionar a chave no chat.
+
 ## Objetivo
 
 Melhorar o motor geral para tarefas com JavaScript, SPA, controles recriados, múltiplas abas, arquivos, planilhas e editores. Reduzir tokens e tempo preservando ou ampliando a taxa de acerto. Amazon e Google Planilhas foram exemplos do usuário, não fronteiras do produto.
+
+## Deduplicação experimental de snapshots — 2026-10-29
+
+- `--deduplicate-snapshots` permanece opt-in e não pode ser combinado com `--diff`. Só reutiliza `inspect_page` consecutivo se o JSON completo protegido pelo guard for idêntico e se a referência reduzir o histórico frente à compactação normal. Uma outra ferramenta ou pausa invalida a âncora; retomada cria snapshot fresco e protege o conteúdo pelo guard.
+- Fixture determinística: 8 leituras idênticas + resposta final, com 9 requests ao modelo simulado. Soma serializada de `requestBytes`: 178.415 sem a opção e 175.411 com a opção (−3.004; −1,7%). No último request: 22.361 → 21.440 bytes (−921; −4,1%). O trace estima 987 bytes do contexto corrente poupados frente à compactação normal; o relatório mostra reutilizações e essa estimativa.
+- Contraprova com dados exclusivos: 0 reutilizações, todos os 8 marcadores exclusivos continuam presentes. Testes também cobrem invalidação após ação e ao retomar; os `tool_call_id` de cada leitura permanecem.
+- Verificação local: `npm test` 318/318; testes focados de continuação, orçamento/preInspect, comparador e benchmark 59/59; `git diff --check` sem erro. Isso é evidência de fluxo e tamanho JSON, sem provedor real: bytes não equivalem a tokens faturados, precisão, custo ou latência.
+- Preflight de A/B real: nenhuma instância do Zero Browser estava ativa. Ollama está instalado, mas a API local não estava disponível e o catálogo não tinha modelos. O serviço iniciado pela consulta foi encerrado. Benchmark real pareado com tokens do provedor continua pendente; executar em perfil isolado, confirmar provedor/modelo e registrar mesmas tarefas, configurações e repetições antes de qualquer conclusão.
+- Ajuste do comparador para o A/B aprovado: a opção experimental difere necessariamente entre A e B. `--variavel=deduplicateSnapshots` declara essa única diferença; provedor, modelo, demais condições, cobertura e repetições ainda precisam ser iguais. Sem declaração, a comparação permanece incompatível. Também bloqueia declarar várias opções experimentais como se fosse um único A/B isolado. Verificação atual: testes focados de benchmark/comparador 34/34; suíte completa `npm test` 320/320; `git diff --check` sem erros.
+- A/B pago DeepSeek adiado por orientação do usuário; nenhuma chamada paga foi feita. Próximo passo depende de nova instrução para retomar o benchmark. Enquanto isso, melhorias e medições locais permanecem separadas de evidência real de tokens, custo e latência.
+
+## Espera pós-hover adaptativa — 2026-10-29
+
+- A revisão do código corrigiu a hipótese anterior de que pausas fixas de 150–250 ms ocorriam após todas as ações: o caminho comum de `click`/`type_text` não tinha essa pausa. O limite fixo de 250 ms estava nos retornos de `hover`/`click_text`; os outros usos são espera explícita, polling, navegação ou clipboard.
+- `src/automation/post-action-text.js` observa texto visível depois de `hover`/`click_text` e retorna após 60 ms sem mudança. A página mantém a janela de observação de 250 ms; o processo principal dá 10 ms de tolerância e reserva até 50 ms adicionais para a leitura de fallback se o renderer travar. O trace agrega `count`, `totalMs`, `changed` e `fallbacks` em `postActionTextWait`.
+- A cobertura VM agora valida texto imediato e assíncrono, texto que chega 10 ms antes do deadline, texto tardio, ausência de mudança, timeout do script, timeout também na leitura de fallback, rejeição por navegação e WebContents fechado; focused tests 11/11.
+- Com janela ativa, benchmark de 20 pares alternados da espera DOM deu adaptativa mediana/P95 101/102 ms e fixa 253/265 ms; ganho pareado 152/164 ms; 40/40 alterações observadas. Dados: `bench/resultados/post-action-wait-electron-2026-10-29T20-27-06-417Z.json`. Navegação durante espera pendente usou fallback e leu o novo documento em 275 ms. A integração anterior em janela oculta confirma o fallback, não ganho de velocidade.
+- Benchmark pareado de tarefa completa `runAgent` em Electron: 20 pares alternados, mesmo hover CSS e confirmação final, mesma fixture/política/ferramenta, janela movida para fora da área do cursor físico e WebContents ativo. O fetch stub determinístico devolveu uma ação e uma resposta final em cada execução. Menu/pós-condição 20/20 por condição. Total adaptativo mediana/P95 73/82 ms; fixa 269/284 ms; ganho pareado mediana/P95 195,5/208 ms (mín. 187 ms). Espera no trace: adaptativa mediana 62 ms, fixa 256,5 ms. Dados: `bench/resultados/post-action-task-electron-2026-10-29T18-45-28-937Z.json`.
+- A comparação sustenta ganho em uma tarefa sintética de hover, não taxa ampla de acerto, rede/modelo real, tokens faturáveis ou custo. As métricas dos mocks não representam uso real.
+- Tarefas `runAgent` pareadas em Electron: 5 pares por cenário, alternando ordem; duas respostas mockadas idênticas por tarefa e verificação independente do DOM. Mediana da melhoria da espera: texto rápido +96 ms, lento +16 ms, sem texto −4 ms. Todas as 30 execuções passaram suas pós-condições; não houve fallback adaptativo. Artefato: `bench/resultados/post-action-edge-tasks-electron-2026-10-29T20-32-57-742Z.json`. Duração total teve outliers de carga, portanto não é usada como medida primária deste helper.
+- Estabilização do harness: testes de renderer ativo foram movidos antes da janela oculta e o estado de throttling é explicitamente alternado. `npm run test:electron` base passou. O modo de benchmark de borda agora sai após salvar o artefato, pois roda apenas a fatia de tarefa pareada e não deve aguardar o restante dos testes AX.
+- `node --test test/post-action-text.test.js`: 12/12; `node --check scripts/electron-ax.integration.js` e `git diff --check` passaram. `npm test` anterior: 332/332. Ainda não há evidência de modelo real, tokens faturáveis, custo ou taxa geral de acerto. Benchmark pago DeepSeek permanece ignorado conforme orientação do usuário.
+- Próximo passo: ampliar o A/B do motor para tarefas além de hover e usar modelo real somente quando autorizado.
 
 ## Evidências de 2026-10-25
 
@@ -68,7 +107,7 @@ Achados sem mudança de código:
 
 - Os tokens de entrada contam o prompt inteiro a cada passo. Sistema + 17 schemas somam ~2,3 mil tokens fixos por passo, mais da metade de uma tarefa curta. Eles formam o prefixo estável e, com cache de prefixo no provedor, custam uma fração. Por isso a "seleção contextual de schemas" do próximo passo do HANDOFF pode PIORAR custo e latência: trocar o conjunto de ferramentas muda o prefixo e invalida o cache. Só promover se `cachedInputTokens` mostrar que o provedor usado não faz cache.
 - Medir antes: comparar `inputTokens - cachedInputTokens` (e não só `inputTokens`) nas rodadas de benchmark. A tabela acima usa tokens brutos e pode subestimar ganhos de cache e superestimar ganhos de compactação.
-- O tempo é dominado pelas chamadas ao modelo (~3 a 10 s cada). Esperas fixas de 150 a 250 ms após ações somam ~1 s por tarefa (cerca de 8%). Trocar por espera de estabilidade do DOM é possível, mas arrisca flakiness em SPA; só com a fixture 45/46 rodando.
+- O tempo é dominado pelas chamadas ao modelo (~3 a 10 s cada). Reinspeção do código mostrou que a estimativa de ~1 s por tarefa em pausas pós-ação não se aplicava ao caminho comum; a pausa fixa de 250 ms está sobretudo nos retornos de `hover`/`click_text`. O benchmark desta espera está em “Espera pós-hover adaptativa” acima; ainda falta comparação pareada de tarefa completa e de modelo.
 - Cada ação protegida executa `detectHumanCheck` (um `executeJavaScript`) e `setAuroraActive` (outro). São milissegundos, irrelevantes frente ao modelo.
 - `rect` de cada nó (4 números × até 250 nós) segue indo ao modelo; só ajuda `cua_action`. Rodada anterior com colunas compactadas piorou, então não mexi. Candidato a teste A/B: enviar `rect` só quando a tarefa usar coordenadas.
 

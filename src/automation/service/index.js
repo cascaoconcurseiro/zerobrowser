@@ -43,15 +43,35 @@ const { KEY_SEQUENCE_TOOL, validateSequence, flattenKeys, needsFormApproval } = 
 const { VISUAL_CLICK_TOOL, validateVisualClick, pointFromNormalized } = require('../visual-click');
 const { SHEETS_ACCESSIBILITY_TOOL, isSheetsUrl, toggleSteps } = require('../sheets');
 const { SHEETS_TOOL, validateSheetsRequest, valuesToTsv, readRangeSummary, focusNameBoxScript, readNameBoxScript, sheetsSnapshotScript } = require('../sheets-tool');
+
+const ADVANCED_TOOLS_SELECTOR = {
+  type: 'function',
+  function: {
+    name: 'enable_advanced_tools',
+    description: 'Ative ferramentas de planilhas, canvas, teclado em sequência e interação visual quando a tarefa realmente precisar delas.',
+    parameters: { type: 'object', properties: {}, additionalProperties: false }
+  }
+};
 const { accessibleName } = require('../accessible-name');
+const { waitForPostActionText } = require('../post-action-text');
 const {
   taskPolicyAllows, isLoopbackUrl, HUMAN_CHECK_GUARDED_TOOLS, compactScreenshot, dropImages,
   traceToolCall, selectOptionScript, ActionSchema, ToolSchema
 } = require('./helpers');
 
+function recordPostActionTextWait(trace, result) {
+  if (!trace || !result) return;
+  const metrics = trace.postActionTextWait || (trace.postActionTextWait = { count: 0, totalMs: 0, changed: 0, fallbacks: 0 });
+  metrics.count += 1;
+  metrics.totalMs += Math.max(0, Number(result.waitedMs) || 0);
+  if (result.changed) metrics.changed += 1;
+  if (result.fallback) metrics.fallbacks += 1;
+}
+
 class AutomationService {
   constructor({ fetchImpl = null } = {}) {
     this.fetchImpl = fetchImpl;
+    this.postActionTextWait = waitForPostActionText;
     this.wss = null;
     this.wsToken = null;
     this.pipeServer = null;
@@ -956,7 +976,7 @@ class AutomationService {
   }
 
   // `trace`, when given, is filled in place with model calls, token usage and every tool call (used by run_task).
-  async runAgent(tabId, prompt, apiKey, model, allowTools = true, provider = 'openrouter', requireToolCall = false, { maxSteps = 40, trace = null, maxDurationMs = 5 * 60 * 1000, resumable = false, resumeId = null, observeAfterActions = true, captureReadEvidence = false, preInspect = false, actionScripts = false, diffSnapshots = false, cascadeModel = null, streaming = false, effectJournal = false, verify = null, correctionRounds = 0, structuredExtraction = false, recipes = false, advancedInput = true, saveRecipe = null, promptCache = false, taskStartUrl = null, transforms = false, onEvent = null } = {}) {
+  async runAgent(tabId, prompt, apiKey, model, allowTools = true, provider = 'openrouter', requireToolCall = false, { maxSteps = 40, trace = null, maxDurationMs = 5 * 60 * 1000, resumable = false, resumeId = null, observeAfterActions = true, captureReadEvidence = false, preInspect = false, actionScripts = false, diffSnapshots = false, deduplicateSnapshots = false, cascadeModel = null, streaming = false, effectJournal = false, verify = null, correctionRounds = 0, structuredExtraction = false, recipes = false, advancedInput = 'auto', saveRecipe = null, promptCache = false, taskStartUrl = null, transforms = false, onEvent = null } = {}) {
     for (const [id, state] of this.pausedAgentRuns) {
       if (state.expiresAt <= Date.now()) this.forgetPausedRun(id);
     }
@@ -1045,7 +1065,9 @@ class AutomationService {
     if (verificationChecks.length) tools.push(structuredClone(CHECK_TASK_TOOL));
     if (recipes && this.recipeStore) tools.push(structuredClone(RECIPE_TOOL));
     if (this.memoryStore) tools.push(structuredClone(MEMORY_TOOL));
-    if (advancedInput) tools.push(structuredClone(CLIPBOARD_TOOL), structuredClone(KEY_SEQUENCE_TOOL), structuredClone(VISUAL_CLICK_TOOL), structuredClone(SHEETS_ACCESSIBILITY_TOOL), structuredClone(SHEETS_TOOL));
+    const advancedToolDefinitions = [CLIPBOARD_TOOL, KEY_SEQUENCE_TOOL, VISUAL_CLICK_TOOL, SHEETS_ACCESSIBILITY_TOOL, SHEETS_TOOL].map((tool) => structuredClone(tool));
+    if (advancedInput === true) tools.push(...advancedToolDefinitions);
+    else if (advancedInput !== false) tools.push(structuredClone(ADVANCED_TOOLS_SELECTOR));
     const approvalMode = this.settingsProvider?.().automationApprovalMode || 'low-risk';
     const approvalInstructions = approvalInstructionsFor(approvalMode);
     const messages = [
@@ -1059,7 +1081,8 @@ class AutomationService {
     if (verificationChecks.length) messages[0].content += ' O host confere o resultado final contra um contrato; chame check_task para conferir o estado antes de concluir e, se o host recusar, corrija a página antes de encerrar.';
     if (structuredExtraction) messages[0].content += ' Para tabelas, use extract_table com as colunas do cabeçalho em vez de copiar texto; confira missingColumns, totalRows e truncated antes de concluir.';
     if (recipes && this.recipeStore) messages[0].content += ' Receitas: recipe list mostra as da origem; recipe save grava passos estáveis (navigate, click_text, wait_for, sheets) com expect obrigatório — passo sheets dispensa expect — e pode declarar output (campos tipados por célula A1, validados pelo host no run); recipe run repete sem modelo, para na primeira pós-condição que falhar e devolve output/outputValid. Só grave depois de a tarefa ter sido verificada.';
-    if (advancedInput) messages[0].content += ' Em planilhas do Google, use sheets (read/write/goto com intervalo A1) — não clique em célula e não chame inspect_page antes: numa planilha ele só devolve a seleção e as abas. Agrupe o trabalho numa única chamada sheets com action "batch" (até 12 operações: ler, gravar, ler de novo; ex.: ler A1:C50 e gravar o total em E1) e confira o resultado no próprio retorno; só use sheets_accessibility se a caixa de nome não existir, e see_page + visual_click para o que só existe na imagem. Em outros editores em canvas, use clipboard write/read e key_sequence (setas, Tab).';
+    if (advancedInput === true) messages[0].content += ' Em planilhas do Google, use sheets (read/write/goto com intervalo A1) — não clique em célula e não chame inspect_page antes: numa planilha ele só devolve a seleção e as abas. Agrupe o trabalho numa única chamada sheets com action "batch" (até 12 operações: ler, gravar, ler de novo; ex.: ler A1:C50 e gravar o total em E1) e confira o resultado no próprio retorno; só use sheets_accessibility se a caixa de nome não existir, e see_page + visual_click para o que só existe na imagem. Em outros editores em canvas, use clipboard write/read e key_sequence (setas, Tab).';
+    else if (advancedInput !== false) messages[0].content += ' Se a tarefa envolver planilha, editor canvas, ação visual sem elemento DOM, área de transferência ou sequência de teclas, chame enable_advanced_tools antes de prosseguir; depois use as ferramentas especializadas. Para páginas web comuns, continue com as ferramentas atuais.';
     if (this.memoryStore) {
       try {
         const facts = await this.memoryStore.list({ origin: normalizeOrigin(tab?.webContents?.getURL?.() || '') || taskOrigin, limit: 8 });
@@ -1067,13 +1090,25 @@ class AutomationService {
       } catch {}
     }
     if (diffSnapshots) messages[0].content += ' Depois de uma ação, o snapshot pode vir como diferença (campo diff): os nodes listados substituem os de mesmo índice e os índices em diff.iguais continuam valendo como no snapshot anterior.';
+    if (deduplicateSnapshots && !diffSnapshots) messages[0].content += ' Se inspect_page devolver snapshotReused, use os nodes e o texto do resultado de ferramenta indicado; a leitura observada foi idêntica.';
     if (observeAfterActions) messages[0].content += ' A última ação de um lote pode devolver nodes e text atualizados (autoObserved): use esses índices e dados, sem pedir inspect_page de novo se já bastarem.';
     if (resumed) {
       messages.splice(1, 1, ...resumed.messages.slice(1));
       messages.push({ role: 'user', content: '[Zero Browser] O usuário pediu para continuar a mesma tarefa. A página pode ter mudado durante a pausa. O snapshot atualizado vem a seguir; use apenas seus índices. Preserve os dados já lidos e não repita envios concluídos.' });
     }
     let lastSnapshotMessage = null;
-    const compactedMessages = new WeakSet();
+    let reusableSnapshot = null;
+    const compactSnapshotContent = (message, currentSnapshot, nextCallId) => {
+      const old = JSON.parse(message.content);
+      const oldText = String(old.text || '');
+      const currentText = String(currentSnapshot.text || '');
+      const textRepeated = oldText.length > 0 && currentText.includes(oldText);
+      const { nodes: _oldNodes, text: _oldText, ...evidence } = old;
+      return JSON.stringify({
+        ...evidence, omitido: 'nodes antigos; use os índices do snapshot mais recente',
+        ...(textRepeated ? { textoRepetidoNoSnapshot: nextCallId } : { text: oldText })
+      });
+    };
     // Snapshot por diferença: a base fica inteira no histórico e até DIFF_CHAIN_MAX diffs a seguem; depois volta a um snapshot completo.
     const DIFF_CHAIN_MAX = 3;
     let previousSnapshot = null;
@@ -1173,6 +1208,12 @@ class AutomationService {
       return { key: effectKey({ tool: name, args, url: tab?.webContents?.getURL?.() || '', target }), tool: name, target };
     };
     const callTool = async (name, args) => {
+      if (name === 'enable_advanced_tools') {
+        for (const tool of advancedToolDefinitions) {
+          if (!tools.some((existing) => existing.function?.name === tool.function.name)) tools.push(tool);
+        }
+        return { success: true, enabled: advancedToolDefinitions.map((tool) => tool.function.name), note: 'As ferramentas avançadas estarão disponíveis na próxima chamada ao modelo.' };
+      }
       if (name === 'calculate') return calculate(args);
       if (name === 'check_task') {
         if (!verificationChecks.length) throw new Error('check_task não está disponível: esta tarefa não tem contrato de verificação');
@@ -1771,14 +1812,14 @@ class AutomationService {
           // Rolar com o menu aberto tira o mouse de cima dele e o fecha: só rola se o alvo estiver fora da tela.
           let r=best.e.getBoundingClientRect();
           if(r.top<0||r.left<0||r.bottom>innerHeight||r.right>innerWidth){best.e.scrollIntoView({block:'center',inline:'center'});r=best.e.getBoundingClientRect();}
-          return {x:Math.round(r.x+Math.min(r.width/2,40)),y:Math.round(r.y+r.height/2),label:(best.e.innerText||'').trim().slice(0,80)};
+          return {x:Math.round(r.x+Math.min(r.width/2,40)),y:Math.round(r.y+r.height/2),label:(best.e.innerText||'').trim().slice(0,80),textBefore:(document.body?.innerText||'').slice(0,3000)};
         })()`);
         if (!target) throw new Error(`Texto "${args.text}" não encontrado na área visível; inspecione ou role a página.`);
         tab.axCache = null;
         const result = await performCuaInput(wc, { kind: name === 'hover' ? 'cua_move' : 'cua_click', x: target.x, y: target.y });
-        await new Promise((resolve) => setTimeout(resolve, 250));
-        const after = await wc.executeJavaScript(`(document.body?.innerText||'').slice(0,3000)`).catch(() => '');
-        return { ...result, target: target.label, textAfter: after };
+        const after = await this.postActionTextWait(wc, target.textBefore);
+        recordPostActionTextWait(trace, after);
+        return { ...result, target: target.label, textAfter: after.text };
       }
       if (name === 'navigate') {
         const approval = await this.confirmConsequentialAction(tabId, { kind: 'navigate', readOnly: false, url: args.url });
@@ -1850,12 +1891,13 @@ class AutomationService {
           const nodes=[...document.querySelectorAll(selector)].filter(e=>{const s=getComputedStyle(e),r=e.getBoundingClientRect();return r.width>0&&r.height>0&&s.visibility!=='hidden'&&s.display!=='none'&&!e.closest('[aria-hidden="true"]')});
           const node=nodes[${index}];
           if(!node)return {success:false,error:'Elemento não encontrado; inspecione a página de novo'};
-          let r=node.getBoundingClientRect();if(r.top<0||r.bottom>innerHeight){node.scrollIntoView({block:'center'});r=node.getBoundingClientRect();}return {success:true,x:Math.round(r.x+r.width/2),y:Math.round(r.y+r.height/2)};
+          let r=node.getBoundingClientRect();if(r.top<0||r.bottom>innerHeight){node.scrollIntoView({block:'center'});r=node.getBoundingClientRect();}return {success:true,x:Math.round(r.x+r.width/2),y:Math.round(r.y+r.height/2),textBefore:(document.body?.innerText||'').slice(0,3000)};
         })()`);
         if (!result?.success) throw new Error(result?.error || 'A ação falhou');
         const moved = await performCuaInput(wc, { kind: 'cua_move', x: result.x, y: result.y });
-        await new Promise((resolve) => setTimeout(resolve, 250));
-        return { ...moved, textAfter: await wc.executeJavaScript(`(document.body?.innerText||'').slice(0,3000)`).catch(() => '') };
+        const after = await this.postActionTextWait(wc, result.textBefore);
+        recordPostActionTextWait(trace, after);
+        return { ...moved, textAfter: after.text };
       }
       if (name === 'scroll') {
         const approval = await this.confirmConsequentialAction(tabId, { kind: 'scroll', readOnly: true });
@@ -1878,7 +1920,7 @@ class AutomationService {
         return result;
       }
       if (name === 'locator_action') {
-        const result = await this.executeLocatorAction(tabId, args);
+        const result = await this.executeLocatorAction(tabId, args, trace);
         if (result?.cancelled) {
           const error = new Error(result.error || 'Ação locator cancelada pelo usuário');
           error.code = 'USER_DENIED';
@@ -1900,7 +1942,9 @@ class AutomationService {
           if (message.role !== 'tool') continue;
           try {
             const previous = JSON.parse(message.content);
-            if (Array.isArray(previous.nodes)) {
+            if (previous.snapshotReused) {
+              message.content = JSON.stringify({ success: true, note: 'Referência de snapshot anterior à pausa; use o snapshot atualizado desta retomada.' });
+            } else if (Array.isArray(previous.nodes)) {
               const { nodes, hiddenControls, ...reading } = previous;
               message.content = JSON.stringify({ ...reading, note: 'Controles anteriores à pausa; use o snapshot atualizado.' });
             }
@@ -1908,10 +1952,13 @@ class AutomationService {
         }
         const callId = `resume-${randomUUID()}`;
         const snapshot = await callTool('inspect_page', {});
+        const guarded = guardToolOutput(snapshot);
         messages.push({ role: 'assistant', content: null, reasoning_content: '', tool_calls: [{ id: callId, type: 'function', function: { name: 'inspect_page', arguments: '{}' } }] });
-        lastSnapshotMessage = { role: 'tool', tool_call_id: callId, content: JSON.stringify(snapshot) };
+        lastSnapshotMessage = { role: 'tool', tool_call_id: callId, content: JSON.stringify(guarded.output) };
         messages.push(lastSnapshotMessage);
+        if (deduplicateSnapshots && !diffSnapshots) reusableSnapshot = { message: lastSnapshotMessage, content: lastSnapshotMessage.content };
         rememberSnapshot(snapshot);
+        if (guarded.hits && trace) trace.injectionWarnings = (trace.injectionWarnings || 0) + 1;
       } else if (preInspect && allowTools && !captureReadEvidence && approvalMode !== 'always-ask'
         && /^https?:/i.test(tab.webContents.getURL?.() || '')) {
         // A primeira chamada ao modelo quase sempre é só "inspect_page". O host lê a página antes e entrega o snapshot
@@ -1925,6 +1972,7 @@ class AutomationService {
           messages.push({ role: 'assistant', content: null, reasoning_content: '', tool_calls: [{ id: callId, type: 'function', function: { name: 'inspect_page', arguments: '{}' } }] });
           lastSnapshotMessage = { role: 'tool', tool_call_id: callId, content: JSON.stringify(guarded.output) };
           messages.push(lastSnapshotMessage);
+          if (deduplicateSnapshots && !diffSnapshots) reusableSnapshot = { message: lastSnapshotMessage, content: lastSnapshotMessage.content };
           rememberSnapshot(snapshot);
           if (trace) {
             trace.preInspected = true;
@@ -2011,6 +2059,7 @@ class AutomationService {
               tool_choice: 'auto',
               temperature: 0.2,
               ...(cacheRequest.prompt_cache_key ? { prompt_cache_key: cacheRequest.prompt_cache_key } : {}),
+              ...(provider === 'openrouter' ? { usage: { include: true } } : {}),
               ...(streaming ? { stream: true, stream_options: { include_usage: true } } : {})
             });
             if (trace) {
@@ -2066,9 +2115,10 @@ class AutomationService {
           if (requestMetric) {
             requestMetric.durationMs = Date.now() - requestStartedAt;
             requestMetric.success = response.ok === true;
-            requestMetric.inputTokens = Number(data.usage?.prompt_tokens) || 0;
-            requestMetric.outputTokens = Number(data.usage?.completion_tokens) || 0;
+            requestMetric.inputTokens = Number.isSafeInteger(data.usage?.prompt_tokens) && data.usage.prompt_tokens >= 0 ? data.usage.prompt_tokens : null;
+            requestMetric.outputTokens = Number.isSafeInteger(data.usage?.completion_tokens) && data.usage.completion_tokens >= 0 ? data.usage.completion_tokens : null;
             requestMetric.cachedInputTokens = cachedInputTokens(data.usage);
+            requestMetric.providerReportedCostUsd = typeof data.usage?.cost === 'number' && Number.isFinite(data.usage.cost) && data.usage.cost >= 0 ? data.usage.cost : null;
           }
           // Falha passageira do provedor (limite de taxa ou erro de servidor) não deve perder a tarefa: espera e tenta de novo.
           if (provider !== 'ollama' && !response.ok && attempt < 3 && [429, 500, 502, 503, 504].includes(Number(response.status))) {
@@ -2088,13 +2138,16 @@ class AutomationService {
           : data.error?.message || `${PROVIDERS[provider].label} retornou HTTP ${response.status}`);
         if (trace) {
           trace.modelCalls++;
-          if (data.usage) {
-            trace.inputTokens += Number(data.usage.prompt_tokens) || 0;
-            trace.outputTokens += Number(data.usage.completion_tokens) || 0;
-            trace.cachedInputTokens = (trace.cachedInputTokens || 0) + cachedInputTokens(data.usage);
-          } else {
-            trace.usageAvailable = false;
-          }
+          const cached = cachedInputTokens(data.usage);
+          const input = data.usage?.prompt_tokens;
+          const inputValid = typeof input === 'number' && Number.isSafeInteger(input) && input >= 0;
+          trace.cachedInputTokensAvailable = trace.cachedInputTokensAvailable !== false && cached !== null && inputValid && cached <= input;
+          if (cached !== null) trace.cachedInputTokens = (trace.cachedInputTokens || 0) + cached;
+          const output = data.usage?.completion_tokens;
+          const outputValid = typeof output === 'number' && Number.isSafeInteger(output) && output >= 0;
+          if (inputValid) trace.inputTokens += input;
+          if (outputValid) trace.outputTokens += output;
+          if (!inputValid || !outputValid) trace.usageAvailable = false;
         }
           const message = provider === 'ollama' && data.message
             ? {
@@ -2187,6 +2240,7 @@ class AutomationService {
         const turnTools = [];
         for (const call of message.tool_calls) {
           if (runController.signal.aborted) throw Object.assign(new Error('Tarefa interrompida pelo usuário.'), { name: 'AbortError' });
+          if (call.function.name !== 'inspect_page') reusableSnapshot = null;
           let output;
           let args = {};
           const startedAt = Date.now();
@@ -2263,7 +2317,16 @@ class AutomationService {
                   if (tab.webContents.isLoading?.()) await this.waitForBrowserCondition(tab, 'load', 5000);
                   stage('auto-inspect', step);
                   const snapshot = await callTool('inspect_page', {});
-                  output = { ...output, ...snapshot, autoObserved: true };
+                  const actionEvidence = Object.fromEntries(Object.entries(output).filter(([key, value]) =>
+                    Object.prototype.hasOwnProperty.call(snapshot, key) && !Object.is(value, snapshot[key])));
+                  if (typeof actionEvidence.url === 'string') {
+                    try {
+                      const url = new URL(actionEvidence.url);
+                      url.username = ''; url.password = ''; url.search = ''; url.hash = '';
+                      actionEvidence.url = ['http:', 'https:'].includes(url.protocol) ? url.href : '[URL omitida]';
+                    } catch { actionEvidence.url = '[URL omitida]'; }
+                  }
+                  output = { ...output, ...snapshot, ...(Object.keys(actionEvidence).length ? { actionEvidence } : {}), autoObserved: true };
                   if (trace) trace.autoObservations = (trace.autoObservations || 0) + 1;
                 } catch (error) {
                   if (error.code === 'USER_DENIED') {
@@ -2326,52 +2389,61 @@ class AutomationService {
           if (guarded.hits && trace) trace.injectionWarnings = (trace.injectionWarnings || 0) + 1;
           // Só o snapshot mais recente fica inteiro no histórico; os antigos custariam tokens a cada chamada.
           if ((call.function.name === 'inspect_page' || output?.autoObserved) && output?.success !== false) {
-            // Snapshot por diferença: manda só o que mudou em relação ao anterior da mesma página; sem ganho claro, vai inteiro.
-            const delta = diffSnapshots && lastSnapshotMessage && previousSnapshot && previousSnapshot.url === output.url
-              && diffChain.length < DIFF_CHAIN_MAX && Array.isArray(output.nodes)
-              ? diffNodes(previousSnapshot.nodes, output.nodes) : null;
-            const textSame = delta && previousSnapshot.text === output.text;
-            rememberSnapshot(output);
-            if (delta) {
-              const { nodes: _fullNodes, text: _fullText, ...rest } = guarded.output;
-              const diffMessage = {
+            const snapshotContent = JSON.stringify(guarded.output);
+            const reuseContent = reusableSnapshot
+              ? JSON.stringify({ success: true, snapshotReused: reusableSnapshot.message.tool_call_id,
+                note: `Snapshot idêntico ao resultado de ferramenta ${reusableSnapshot.message.tool_call_id}; use os nodes e o texto daquele resultado.` })
+              : '';
+            const baselineCompactedContent = reusableSnapshot
+              ? compactSnapshotContent(reusableSnapshot.message, output, call.id)
+              : '';
+            const reuseBytesSaved = reuseContent ? Buffer.byteLength(baselineCompactedContent) - Buffer.byteLength(reuseContent) : 0;
+            const reusedSnapshot = Boolean(deduplicateSnapshots && !diffSnapshots && call.function.name === 'inspect_page'
+              && reusableSnapshot && reusableSnapshot.content === snapshotContent && reuseBytesSaved > 0);
+            if (reusedSnapshot) {
+              messages.push({
                 role: 'tool', tool_call_id: call.id,
-                content: JSON.stringify({
-                  ...rest, nodes: delta.nodes, ...(textSame ? { textoIgual: true } : { text: output.text }),
-                  diff: { iguais: delta.iguais, total: delta.total, nota: 'Diferença do snapshot anterior: os nodes listados substituem os de mesmo índice; os índices em iguais continuam como antes.' }
-                })
-              };
-              diffChain.push(diffMessage);
-              if (trace) trace.diffSnapshots = (trace.diffSnapshots || 0) + 1;
-              messages.push(diffMessage);
+                content: reuseContent
+              });
+              if (trace) {
+                trace.deduplicatedSnapshots = (trace.deduplicatedSnapshots || 0) + 1;
+                trace.deduplicatedSnapshotContextBytesSaved = (trace.deduplicatedSnapshotContextBytesSaved || 0) + reuseBytesSaved;
+              }
             } else {
-              // Mantém o que foi lido em telas anteriores (dados para usar adiante); só os nodes antigos saem.
-              const shrink = (message) => {
-                const old = JSON.parse(message.content);
-                const oldText = String(old.text || '').slice(0, 2500);
-                const currentText = String(output.text || '');
-                const textRepeated = oldText.length > 0 && currentText.includes(oldText);
-                message.content = JSON.stringify({
-                  omitido: 'nodes antigos; use os índices do snapshot mais recente', url: old.url, title: old.title,
-                  ...(textRepeated ? { textoRepetidoNoSnapshot: call.id } : { text: oldText })
-                });
-              };
-              if (lastSnapshotMessage) shrink(lastSnapshotMessage);
-              diffChain.forEach(shrink);
-              diffChain = [];
-              lastSnapshotMessage = { role: 'tool', tool_call_id: call.id, content: JSON.stringify(guarded.output) };
-              messages.push(lastSnapshotMessage);
+              // Snapshot por diferença: manda só o que mudou em relação ao anterior da mesma página; sem ganho claro, vai inteiro.
+              const delta = diffSnapshots && lastSnapshotMessage && previousSnapshot && previousSnapshot.url === output.url
+                && diffChain.length < DIFF_CHAIN_MAX && Array.isArray(output.nodes)
+                ? diffNodes(previousSnapshot.nodes, output.nodes) : null;
+              const textSame = delta && previousSnapshot.text === output.text;
+              rememberSnapshot(output);
+              if (delta) {
+                const { nodes: _fullNodes, text: _fullText, ...rest } = guarded.output;
+                const diffMessage = {
+                  role: 'tool', tool_call_id: call.id,
+                  content: JSON.stringify({
+                    ...rest, nodes: delta.nodes, ...(textSame ? { textoIgual: true } : { text: output.text }),
+                    diff: { iguais: delta.iguais, total: delta.total, nota: 'Diferença do snapshot anterior: os nodes listados substituem os de mesmo índice; os índices em iguais continuam como antes.' }
+                  })
+                };
+                diffChain.push(diffMessage);
+                if (trace) trace.diffSnapshots = (trace.diffSnapshots || 0) + 1;
+                messages.push(diffMessage);
+              } else {
+                // Mantém o que foi lido em telas anteriores (dados para usar adiante); só os nodes antigos saem.
+                const shrink = (message) => {
+                  message.content = compactSnapshotContent(message, output, call.id);
+                };
+                if (lastSnapshotMessage) shrink(lastSnapshotMessage);
+                diffChain.forEach(shrink);
+                diffChain = [];
+                lastSnapshotMessage = { role: 'tool', tool_call_id: call.id, content: JSON.stringify(guarded.output) };
+                messages.push(lastSnapshotMessage);
+              }
             }
+            if (deduplicateSnapshots && !diffSnapshots && !reusedSnapshot) reusableSnapshot = { message: lastSnapshotMessage, content: snapshotContent };
           } else {
             messages.push({ role: 'tool', tool_call_id: call.id, content: JSON.stringify(guarded.output) });
           }
-        }
-        // Tarefa longa: respostas grandes de 6 chamadas atrás viram um resumo; o snapshot atual fica inteiro (seus índices ainda valem).
-        const toolMessages = messages.filter((m) => m.role === 'tool');
-        for (const old of toolMessages.slice(0, -6)) {
-          if (old === lastSnapshotMessage || diffChain.includes(old) || compactedMessages.has(old) || typeof old.content !== 'string' || old.content.length <= 3000) continue;
-          old.content = JSON.stringify({ resumido: 'resposta antiga encurtada', inicio: old.content.slice(0, 1500) });
-          compactedMessages.add(old);
         }
         if (pendingImages.length) {
           dropImages(messages, 'captura antiga omitida');
@@ -2762,7 +2834,8 @@ class AutomationService {
     return { success: true, completed: steps.length, total: steps.length, results, output: verdict.output, outputValid: true };
   }
 
-  async runTask({ startUrl, prompt, maxSteps = 20, approvalPolicy = 'ask', allowedHosts = [], allowCredentials = false, keepTab = false, captureInitialText = false, captureInitialChecks = [], engine = 'navegante', maxDurationSec, observeAfterActions = true, captureReadEvidence = false, preInspect = false, actionScripts = false, diffSnapshots = false, cascadeModel = null, streaming = false, effectJournal = false, verify = null, requireVerification = false, correctionRounds = 0, structuredExtraction = false, recipes = false, advancedInput = true, saveRecipe = null, authenticationOrigins = [], promptCache = false, transforms = false }) {
+  async runTask({ startUrl, prompt, maxSteps = 20, approvalPolicy = 'ask', allowedHosts = [], allowCredentials = false, keepTab = false, captureInitialText = false, captureInitialChecks = [], engine = 'navegante', maxDurationSec, observeAfterActions = true, captureReadEvidence = false, preInspect = false, actionScripts = false, diffSnapshots = false, deduplicateSnapshots = false, cascadeModel = null, streaming = false, effectJournal = false, verify = null, requireVerification = false, correctionRounds = 0, structuredExtraction = false, recipes = false, advancedInput = 'auto', saveRecipe = null, authenticationOrigins = [], promptCache = false, transforms = false }) {
+    if (diffSnapshots && deduplicateSnapshots) return { success: false, error: 'diffSnapshots e deduplicateSnapshots são modos de compactação mutuamente exclusivos.' };
     const maxDurationMs = maxDurationSec ? maxDurationSec * 1000 : undefined;
     if (approvalPolicy === 'public-sites' && engine === 'flame') return { success: false, error: 'A política public-sites ainda não vale para o Flame' };
     if (engine === 'flame') return this.runFlameTask({ startUrl, prompt, maxSteps, approvalPolicy, keepTab, maxDurationMs });
@@ -2797,7 +2870,7 @@ class AutomationService {
         : undefined;
       const initialLocatorChecks = [];
       for (const check of captureInitialChecks) {
-        const result = await this.executeLocatorAction(tabId, check);
+        const result = await this.executeLocatorAction(tabId, check, trace);
         initialLocatorChecks.push({
           strategy: check.strategy,
           query: check.query,
@@ -2807,7 +2880,7 @@ class AutomationService {
           error: result?.success === false ? String(result.error || 'Leitura inicial falhou') : ''
         });
       }
-      const result = await this.runAgent(tabId, prompt, apiKey, model, true, provider, false, { maxSteps, trace, maxDurationMs, observeAfterActions, captureReadEvidence, preInspect, actionScripts, diffSnapshots, cascadeModel, streaming, effectJournal, verify, correctionRounds, structuredExtraction, recipes, advancedInput, saveRecipe, promptCache, taskStartUrl: startUrl, transforms });
+      const result = await this.runAgent(tabId, prompt, apiKey, model, true, provider, false, { maxSteps, trace, maxDurationMs, observeAfterActions, captureReadEvidence, preInspect, actionScripts, diffSnapshots, deduplicateSnapshots, cascadeModel, streaming, effectJournal, verify, correctionRounds, structuredExtraction, recipes, advancedInput, saveRecipe, promptCache, taskStartUrl: startUrl, transforms });
       const finalUrl = tab.webContents.isDestroyed() ? '' : tab.webContents.getURL();
       let verification = result.verification || null;
       if (!verification && Array.isArray(verify) && verify.length) {
@@ -3045,7 +3118,7 @@ class AutomationService {
     }
   }
 
-  async executeLocatorAction(tabId, request) {
+  async executeLocatorAction(tabId, request, trace = null) {
     const tab = this.tabs.get(tabId);
     if (!tab?.webContents || tab.webContents.isDestroyed()) return { success: false, error: 'Aba indisponível' };
     const { strategy, query, action, exact = false, name, attribute, value, timeout = 3000 } = request;
@@ -3078,7 +3151,7 @@ class AutomationService {
         const axNodes=[...document.querySelectorAll(interactive)].filter(visible).slice(0,1000);
         let registry=window.__naveganteTargetRegistry;
         if(!registry){registry={pageId:(crypto.randomUUID?.()||Math.random().toString(36).slice(2)+Date.now().toString(36)),ids:new WeakMap(),next:0};Object.defineProperty(window,'__naveganteTargetRegistry',{value:registry,configurable:false});}
-        return {success:true,count:matched.length,matches:matched.slice(0,50).map((e)=>{const target=e.matches(interactive)?e:e.closest(interactive);const r=e.getBoundingClientRect();const type=String(e.type||'').toLowerCase(),autocomplete=(e.getAttribute('autocomplete')||'').toLowerCase(),fieldName=(e.name||'').toLowerCase();const sensitiveInput=['password','one-time-code','cc-number','cc-csc','cc-exp','current-password','new-password'].includes(type)||/password|one-time-code|cc-number|cc-csc|cc-exp/.test(autocomplete)||/password|one-time-code|cc-number|cc-csc|cc-exp/.test(fieldName);let targetId=target&&registry.ids.get(target);if(target&&!targetId){targetId=registry.pageId+':'+(++registry.next);registry.ids.set(target,targetId);}return {index:target?axNodes.indexOf(target):-1,targetId,tag:e.tagName.toLowerCase(),role:roleOf(e),name:nameOf(e).slice(0,240),text:normalize(e.innerText||e.textContent).slice(0,1000),value:sensitiveInput?undefined:('value'in e?String(e.value).slice(0,500):undefined),attributeNames:[...e.attributes].map(a=>a.name),visible:true,enabled:!e.disabled,checked:!!e.checked,sensitiveInput,rect:{x:Math.round(r.x),y:Math.round(r.y),width:Math.round(r.width),height:Math.round(r.height)}}})};
+        return {success:true,count:matched.length,...(action==='hover'?{pageText:(document.body?.innerText||'').slice(0,3000)}:{}),matches:matched.slice(0,50).map((e)=>{const target=e.matches(interactive)?e:e.closest(interactive);const r=e.getBoundingClientRect();const type=String(e.type||'').toLowerCase(),autocomplete=(e.getAttribute('autocomplete')||'').toLowerCase(),fieldName=(e.name||'').toLowerCase();const sensitiveInput=['password','one-time-code','cc-number','cc-csc','cc-exp','current-password','new-password'].includes(type)||/password|one-time-code|cc-number|cc-csc|cc-exp/.test(autocomplete)||/password|one-time-code|cc-number|cc-csc|cc-exp/.test(fieldName);let targetId=target&&registry.ids.get(target);if(target&&!targetId){targetId=registry.pageId+':'+(++registry.next);registry.ids.set(target,targetId);}return {index:target?axNodes.indexOf(target):-1,targetId,tag:e.tagName.toLowerCase(),role:roleOf(e),name:nameOf(e).slice(0,240),text:normalize(e.innerText||e.textContent).slice(0,1000),value:sensitiveInput?undefined:('value'in e?String(e.value).slice(0,500):undefined),attributeNames:[...e.attributes].map(a=>a.name),visible:true,enabled:!e.disabled,checked:!!e.checked,sensitiveInput,rect:{x:Math.round(r.x),y:Math.round(r.y),width:Math.round(r.width),height:Math.round(r.height)}}})};
       })()`);
       if (!resolved.success || resolved.count > 0 || action !== 'waitFor' || Date.now() >= deadline) break;
       await new Promise((resolve) => setTimeout(resolve, 100));
@@ -3105,10 +3178,10 @@ class AutomationService {
         x: first.rect.x + Math.round(first.rect.width / 2),
         y: first.rect.y + Math.round(first.rect.height / 2)
       });
-      await new Promise((resolve) => setTimeout(resolve, 250));
       tab.axCache = null;
-      const textAfter = await tab.webContents.executeJavaScript(`(document.body?.innerText||'').slice(0,3000)`).catch(() => '');
-      return { ...moved, actionExecuted: true, hovered: first.name || first.text, textAfter };
+      const after = await this.postActionTextWait(tab.webContents, resolved.pageText);
+      recordPostActionTextWait(trace, after);
+      return { ...moved, actionExecuted: true, hovered: first.name || first.text, textAfter: after.text };
     }
     if (action === 'fill' && first.tag === 'select') {
       const selectApproval = await this.confirmConsequentialAction(tabId, { kind: 'set_value', elementIndex: first.index, targetId: first.targetId, value: String(value ?? '') });
@@ -3478,6 +3551,7 @@ class AutomationService {
           preInspect: z.boolean().optional(),
           actionScripts: z.boolean().optional(),
           diffSnapshots: z.boolean().optional(),
+          deduplicateSnapshots: z.boolean().optional(),
           cascadeModel: z.string().min(1).max(200).optional(),
           streaming: z.boolean().optional(),
           effectJournal: z.boolean().optional(),

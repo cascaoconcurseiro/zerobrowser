@@ -40,6 +40,7 @@ test('API keys with provider-specific capitalization are classified as secrets',
   assert.equal(isSecretKey('automation.apiKey'), true);
   assert.equal(isSecretKey('automation.openrouterApiKey'), true);
   assert.equal(isSecretKey('automation.deepseekApiKey'), true);
+  assert.equal(isSecretKey('automation.openaiApiKey'), true);
   assert.equal(isSecretKey('browser.defaultHomepage'), false);
 });
 
@@ -49,6 +50,8 @@ test('DeepSeek API key saves independently of model selection and never returns 
   const result = await saveProviderKey('deepseek', '  deepseek-fixture-secret  ', storage);
   assert.deepEqual(result, { provider: 'deepseek', hasApiKey: true, keyHint: '••••••••cret' });
   assert.deepEqual([...values.entries()], [['automation.deepseekApiKey', 'deepseek-fixture-secret']]);
+  await saveProviderKey('openai', '  openai-fixture-secret  ', storage);
+  assert.equal(values.get('automation.openaiApiKey'), 'openai-fixture-secret');
   await assert.rejects(saveProviderKey('deepseek', '', storage), /chave de API válida/);
 });
 
@@ -128,11 +131,12 @@ test('automatic download names stay inside the chosen directory and avoid overwr
   assert.equal(makeUniqueDownloadPath('C:\\downloads', '..\\report.pdf', (file) => existing.has(file)), join('C:\\downloads', 'report (2).pdf'));
 });
 
-test('provider catalogs normalize OpenRouter and DeepSeek metadata without exposing arbitrary endpoints', async () => {
+test('provider catalogs normalize OpenAI, OpenRouter, and DeepSeek metadata without exposing arbitrary endpoints', async () => {
   const calls = [];
   const fetchFixture = async (url, options) => {
     calls.push({ url, options });
     const openrouter = String(url).includes('openrouter');
+    const openai = String(url).includes('api.openai.com');
     return {
       ok: true,
       json: async () => ({ data: openrouter
@@ -140,7 +144,9 @@ test('provider catalogs normalize OpenRouter and DeepSeek metadata without expos
           { id: 'z/without-tools', name: 'No tools', supported_parameters: ['temperature'] },
           { id: 'a/with-tools', name: 'Agent model', supported_parameters: ['tools', 'tool_choice'], context_length: 64000, pricing: { prompt: '0.1' } }
         ]
-        : [{ id: 'deepseek-flash', name: 'DeepSeek Flash', input_modalities: ['text'], context_window: 1048576 }]
+        : openai
+          ? [{ id: 'gpt-test', object: 'model' }]
+          : [{ id: 'deepseek-flash', name: 'DeepSeek Flash', input_modalities: ['text'], context_window: 1048576 }]
       })
     };
   };
@@ -149,17 +155,21 @@ test('provider catalogs normalize OpenRouter and DeepSeek metadata without expos
   assert.equal(calls[0].options.headers.Authorization, 'Bearer openrouter-fixture-key');
   assert.deepEqual(openrouterModels.map((model) => [model.id, model.supportsTools]), [['a/with-tools', true], ['z/without-tools', false]]);
   assert.equal(openrouterModels[0].contextLength, 64000);
+  const openaiModels = await listModels('openai', 'openai-fixture-key', fetchFixture, {});
+  assert.equal(calls[1].url, 'https://api.openai.com/v1/models');
+  assert.equal(calls[1].options.headers.Authorization, 'Bearer openai-fixture-key');
+  assert.deepEqual(openaiModels.map((model) => [model.id, model.supportsTools]), [['gpt-test', null]]);
   const deepseekModels = await listModels('deepseek', 'deepseek-fixture-key', fetchFixture, {});
-  assert.equal(calls[1].url, 'https://api.deepseek.com/models');
-  assert.equal(calls[1].options.headers.Authorization, 'Bearer deepseek-fixture-key');
+  assert.equal(calls[2].url, 'https://api.deepseek.com/models');
+  assert.equal(calls[2].options.headers.Authorization, 'Bearer deepseek-fixture-key');
   assert.equal(deepseekModels[0].id, 'deepseek-flash');
   assert.equal(deepseekModels[0].supportsTools, null, 'compatibilidade individual não publicada não é presumida');
   const localModels = await listModels('ollama', '', async (url, options) => {
     calls.push({ url, options });
     return { ok: true, json: async () => ({ models: [{ name: 'qwen3:8b', model: 'qwen3:8b' }] }) };
   }, { NAVEGANTE_TEST_OPENROUTER_MODELS_URL: 'http://127.0.0.1:4567/redirect' });
-  assert.equal(calls[2].url, 'http://127.0.0.1:11434/api/tags', 'endpoint Ollama permanece fixo em loopback');
-  assert.equal(calls[2].options.headers.Authorization, undefined, 'Ollama não recebe credenciais');
+  assert.equal(calls[3].url, 'http://127.0.0.1:11434/api/tags', 'endpoint Ollama permanece fixo em loopback');
+  assert.equal(calls[3].options.headers.Authorization, undefined, 'Ollama não recebe credenciais');
   assert.deepEqual(localModels.map(({ id, provider, supportsTools }) => [id, provider, supportsTools]), [['qwen3:8b', 'ollama', null]]);
   assert.equal(endpointFor('ollama', 'completion', { NAVEGANTE_TEST_OLLAMA_URL: 'http://example.com' }), 'http://127.0.0.1:11434/api/chat');
   assert.throws(() => endpointFor('openrouter', 'models', { NAVEGANTE_TEST_OPENROUTER_MODELS_URL: 'http://example.com/models' }), /loopback/);
@@ -234,6 +244,36 @@ test('the browser agent calls the provider and returns its final response', asyn
     assert.deepEqual(result, { success: true, message: 'Tarefa concluída.' });
     assert.equal(requests.length, 1);
     assert.equal(requests[0].messages.at(-1).content, 'Resuma esta página');
+    assert.deepEqual(requests[0].usage, { include: true }, 'OpenRouter should return cost and usage metadata');
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
+test('OpenAI direct connector uses its own endpoint, key, and opt-in prompt cache', async () => {
+  const { AutomationService } = require('../src/automation/service');
+  const service = new AutomationService();
+  service.tabs.set('tab-openai', {
+    webContents: { isDestroyed: () => false, executeJavaScript: async () => ({ title: 'Fixture', text: 'Safe read only page' }), getURL: () => 'https://example.test/' }
+  });
+  service.getAccessibilityTree = async () => ({ success: true, tree: { url: 'https://example.test/', title: 'Fixture', nodes: [] } });
+  const originalFetch = global.fetch;
+  const calls = [];
+  global.fetch = async (url, options) => {
+    calls.push({ url, options, body: JSON.parse(options.body) });
+    const message = calls.length === 1
+      ? { role: 'assistant', tool_calls: [{ id: 'openai-inspect', type: 'function', function: { name: 'inspect_page', arguments: '{}' } }] }
+      : { role: 'assistant', content: 'Conexão OpenAI confirmada.' };
+    return { ok: true, json: async () => ({ choices: [{ message }], usage: { prompt_tokens: 120, completion_tokens: 8, prompt_tokens_details: { cached_tokens: 0 } } }) };
+  };
+  try {
+    const result = await service.runAgent('tab-openai', 'Confirme a conexão', 'openai-fixture-secret', 'gpt-test', true, 'openai', false, { promptCache: true });
+    assert.equal(result.success, true);
+    assert.equal(calls.length, 2, 'the model should be able to call a browser tool and continue');
+    assert.ok(calls.every((call) => call.url === 'https://api.openai.com/v1/chat/completions'));
+    assert.ok(calls.every((call) => call.options.headers.Authorization === 'Bearer openai-fixture-secret'));
+    assert.ok(calls.every((call) => /^zb-[a-f0-9]{40}$/.test(call.body.prompt_cache_key)));
+    assert.ok(calls[1].body.messages.some((message) => message.role === 'tool'), 'the browser tool result must return to the model');
   } finally {
     global.fetch = originalFetch;
   }

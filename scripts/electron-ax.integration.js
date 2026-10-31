@@ -1,9 +1,14 @@
 const { app, BrowserWindow, WebContentsView } = require('electron');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
 const { AutomationService } = require('../src/automation/service');
 const { scrollSearchInPage } = require('../src/automation/scroll-search');
+const { postActionTextScript, waitForPostActionText } = require('../src/automation/post-action-text');
 const resultFile = 'C:/Users/Wesley/AppData/Local/Temp/navegante-ax-e2e.log';
+const testUserData = fs.mkdtempSync(path.join(os.tmpdir(), 'zero-browser-electron-ax-'));
+app.setPath('userData', testUserData);
 function trace(message) { fs.appendFileSync(resultFile, `${new Date().toISOString()} ${message}\n`); }
 
 app.whenReady().then(async () => {
@@ -11,7 +16,7 @@ app.whenReady().then(async () => {
   let window;
   let exitCode = 0;
   try {
-    window = new BrowserWindow({ width: 800, height: 600, show: true });
+    window = new BrowserWindow({ width: 800, height: 600, show: false });
     const view = new WebContentsView();
     window.contentView.addChildView(view);
     view.setBounds({ x: 0, y: 0, width: 800, height: 600 });
@@ -30,7 +35,11 @@ app.whenReady().then(async () => {
       <label for="subject">Assunto</label><select id="subject"><option value="">Escolha</option><option value="suporte">Suporte técnico</option><option value="financeiro">Financeiro</option></select><output id="subject-result">waiting</output>
       <button id="apply">Apply</button><output id="result">waiting</output>
       <div id="hover-row" class="hover-row">Hover target<button id="hover-delete" class="destroy">Delete</button></div><output id="hover-result">waiting</output>
+      <div id="silent-hover-row" aria-expanded="false">Silent hover target</div>
+      <div id="rapid-hover-row">Rapid hover target<output id="rapid-hover-result"></output></div>
+      <div id="slow-hover-row">Slow hover target<output id="slow-hover-result"></output></div>
       <script>document.querySelector('#apply').addEventListener('click',()=>document.querySelector('#result').value=document.querySelector('#query').value);document.querySelector('#hover-delete').addEventListener('click',()=>document.querySelector('#hover-result').value='deleted');document.querySelector('#subject').addEventListener('change',e=>document.querySelector('#subject-result').value=e.target.value);document.querySelector('#controlled').addEventListener('input',e=>setTimeout(()=>e.target.value='revertido',0));document.querySelector('#delayed-controlled')._valueTracker={};document.querySelector('#delayed-controlled').addEventListener('input',e=>setTimeout(()=>e.target.value='revertido depois',100));document.querySelector('#controlled-select').addEventListener('change',e=>setTimeout(()=>e.target.value='financeiro',0));document.querySelector('#delayed-controlled-select').__reactProps$fixture={};document.querySelector('#delayed-controlled-select').addEventListener('change',e=>setTimeout(()=>e.target.value='financeiro',120));document.querySelector('#remounted').addEventListener('input',e=>{const replacement=e.target.cloneNode(true);replacement.value='';e.target.replaceWith(replacement)});document.querySelector('#remounted-keeps').addEventListener('input',e=>{const replacement=e.target.cloneNode(true);replacement.value=e.target.value;e.target.replaceWith(replacement)});document.querySelectorAll('label input').forEach((input,index)=>input.addEventListener('input',e=>{if(index===0){const replacement=e.target.cloneNode(true);replacement.value=e.target.value;e.target.replaceWith(replacement)}}))</script>
+      <script>document.querySelector('#silent-hover-row').addEventListener('mouseenter',e=>e.currentTarget.setAttribute('aria-expanded','true'));document.querySelector('#rapid-hover-row').addEventListener('mouseenter',()=>{setTimeout(()=>document.querySelector('#rapid-hover-result').textContent='Rapid phase one',25);setTimeout(()=>document.querySelector('#rapid-hover-result').textContent='Rapid phase two',55);setTimeout(()=>document.querySelector('#rapid-hover-result').textContent='Rapid menu ready',85)});document.querySelector('#slow-hover-row').addEventListener('mouseenter',()=>setTimeout(()=>document.querySelector('#slow-hover-result').textContent='Slow menu ready',180))</script>
     </body></html>`;
     const finished = new Promise((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error('Fixture load timed out')), 10000);
@@ -42,6 +51,8 @@ app.whenReady().then(async () => {
     const service = new AutomationService();
     service.setApprovalHandler(async () => true);
     service.registerTab('fixture', view.webContents, 'fixture-browser');
+    // runAgent disables Chromium background throttling for the owned tab while its task is active.
+    view.webContents.setBackgroundThrottling(false);
     const snapshot = await service.getAccessibilityTree('fixture');
     assert.equal(snapshot.success, true, snapshot.error);
     const passwordNode = snapshot.tree.nodes.find((node) => node.type === 'password');
@@ -90,21 +101,334 @@ app.whenReady().then(async () => {
     } finally {
       global.fetch = originalFetchForTabSwitch;
     }
+    const originalFetchForHoverAgent = global.fetch;
+    let hoverModelCalls = 0;
+    const hoverAgentTrace = { toolCalls: [] };
+    global.fetch = async () => {
+      hoverModelCalls += 1;
+      const message = hoverModelCalls === 1
+        ? { role: 'assistant', tool_calls: [{ id: 'hover-agent-action', type: 'function', function: { name: 'locator_action', arguments: JSON.stringify({ strategy: 'css', query: '#hover-row', action: 'hover' }) } }] }
+        : { role: 'assistant', content: 'Menu de hover observado.' };
+      return { ok: true, json: async () => ({ choices: [{ message }], usage: { prompt_tokens: 1, completion_tokens: 1 } }) };
+    };
+    const hoverAgentStarted = Date.now();
+    try {
+      const hoverAgentResult = await service.runAgent('fixture', 'Passe o mouse sobre o item e confirme o menu exibido.', 'fixture-key', 'fixture-model', true, 'openrouter', false, { maxSteps: 3, trace: hoverAgentTrace });
+      const hoverAgentDurationMs = Date.now() - hoverAgentStarted;
+      assert.equal(hoverAgentResult.success, true, hoverAgentResult.error || hoverAgentResult.message);
+      assert.equal(hoverModelCalls, 2, 'the fixture model should return one hover action and one final response');
+      assert.equal(hoverAgentTrace.postActionTextWait?.count, 1, JSON.stringify(hoverAgentTrace.postActionTextWait));
+      assert.equal(hoverAgentTrace.postActionTextWait?.changed, 1, 'runAgent trace should record the menu text change');
+      assert.equal(hoverAgentTrace.postActionTextWait?.fallbacks, 0, 'active runAgent hover should use the adaptive observer');
+      assert.ok(hoverAgentTrace.postActionTextWait.totalMs < 250, JSON.stringify(hoverAgentTrace.postActionTextWait));
+      const visibleDeleteAfterAgentHover = await service.executeLocatorAction('fixture', { strategy: 'css', query: '#hover-delete', action: 'isVisible' });
+      assert.deepEqual(visibleDeleteAfterAgentHover, { success: true, value: true }, 'runAgent hover should reveal the menu in the live DOM');
+      trace(`PASS: runAgent hover used adaptive wait ${hoverAgentTrace.postActionTextWait.totalMs}ms; simulated task ${hoverAgentDurationMs}ms`);
+    } finally {
+      global.fetch = originalFetchForHoverAgent;
+    }
+    // Run active-renderer timing checks before changing visibility. Electron can
+    // retain background timer throttling briefly after a hide/show transition.
+    window.show();
+    view.webContents.setBackgroundThrottling(false);
+    const visibleState = await view.webContents.executeJavaScript('document.visibilityState');
+    assert.equal(visibleState, 'visible', `active-renderer checks require a visible document, got ${visibleState}`);
+    const activeTextBefore = await view.webContents.executeJavaScript(`document.body.innerText.slice(0, 3000)`);
+    await view.webContents.executeJavaScript(`setTimeout(() => { const marker = document.createElement('output'); marker.id = 'async-hover-marker'; marker.textContent = 'Delayed hover menu'; document.body.append(marker); }, 25); true`);
+    const directObserver = await Promise.race([
+      view.webContents.executeJavaScript(postActionTextScript(activeTextBefore)).catch((error) => ({ evalError: String(error) })),
+      new Promise((resolve) => setTimeout(() => resolve({ hostTimeout: true }), 1000))
+    ]);
+    assert.ok(!directObserver.evalError && !directObserver.hostTimeout, `Electron observer script must settle: ${JSON.stringify(directObserver)}`);
+    const helperTextBefore = await view.webContents.executeJavaScript(`document.body.innerText.slice(0, 3000)`);
+    await view.webContents.executeJavaScript(`setTimeout(() => { const marker = document.createElement('output'); marker.id = 'async-helper-marker'; marker.textContent = 'Delayed helper menu'; document.body.append(marker); }, 25); true`);
+    const activeHoverWait = await waitForPostActionText(view.webContents, helperTextBefore);
+    const helperMarkerVisible = await view.webContents.executeJavaScript(`document.body.innerText.includes('Delayed helper menu')`);
+    assert.ok(activeHoverWait.text.includes('Delayed helper menu') || helperMarkerVisible, `active helper should return or leave the new DOM text observable: ${JSON.stringify(activeHoverWait)}`);
+    if (!activeHoverWait.fallback && activeHoverWait.changed) {
+      assert.ok(activeHoverWait.waitedMs < 250, `active renderer should settle before the fixed timeout: ${JSON.stringify(activeHoverWait)}`);
+    }
+    trace(`PASS: active Electron helper preserved the delayed DOM text (${activeHoverWait.waitedMs}ms, fallback=${activeHoverWait.fallback})`);
+    const noTextBefore = await view.webContents.executeJavaScript(`document.body.innerText.slice(0, 3000)`);
+    await view.webContents.executeJavaScript(`setTimeout(() => document.body.setAttribute('aria-expanded','true'), 25); true`);
+    const noTextWait = await waitForPostActionText(view.webContents, noTextBefore);
+    assert.equal(noTextWait.changed, false, JSON.stringify(noTextWait));
+    assert.equal(noTextWait.settled, false, JSON.stringify(noTextWait));
+    // Renderer timer stalls are exactly what the bounded host fallback covers;
+    // the no-text behavior is correct if it returns unchanged at the deadline.
+    assert.ok(noTextWait.waitedMs >= 245 && noTextWait.waitedMs <= 280, JSON.stringify(noTextWait));
+    assert.equal(await view.webContents.executeJavaScript(`document.body.getAttribute('aria-expanded')`), 'true');
+    trace(`PASS: no-text hover waited the full observation window (${noTextWait.waitedMs}ms)`);
+    const rapidTextBefore = await view.webContents.executeJavaScript(`document.body.innerText.slice(0, 3000)`);
+    await view.webContents.executeJavaScript(`setTimeout(() => { const marker=document.createElement('output'); marker.id='rapid-hover-marker'; marker.textContent='Menu phase one'; document.body.append(marker); }, 25); setTimeout(() => { document.querySelector('#rapid-hover-marker').textContent='Menu phase two'; }, 55); setTimeout(() => { document.querySelector('#rapid-hover-marker').textContent='Menu ready'; }, 85); true`);
+    const rapidTextWait = await waitForPostActionText(view.webContents, rapidTextBefore);
+    const rapidPageText = await view.webContents.executeJavaScript(`document.body.innerText`);
+    if (rapidTextWait.text.includes('Menu ready') || rapidPageText.includes('Menu ready')) {
+      assert.equal(rapidTextWait.changed || rapidTextWait.fallback, true, JSON.stringify(rapidTextWait));
+      if (!rapidTextWait.fallback) assert.ok(rapidTextWait.waitedMs < 250, JSON.stringify(rapidTextWait));
+      trace(`PASS: rapid successive text mutations reached final state after ${rapidTextWait.waitedMs}ms (fallback=${rapidTextWait.fallback})`);
+    } else {
+      // Windows may defer renderer timers even in a visible WebContentsView.
+      // Preserve that as a measured bounded no-text outcome, not a false pass.
+      assert.equal(rapidTextWait.settled, false, JSON.stringify(rapidTextWait));
+      assert.ok(rapidTextWait.waitedMs >= 245 && rapidTextWait.waitedMs <= 320, JSON.stringify(rapidTextWait));
+      trace(`LIMIT: renderer deferred rapid mutation past wait deadline (${rapidTextWait.waitedMs}ms, fallback=${rapidTextWait.fallback})`);
+    }
+
+    // Reset the visible state left by the real runAgent hover before testing the hidden-window fallback.
+    await view.webContents.executeJavaScript(`document.querySelector('#hover-row').classList.remove('hover-row')`);
+    await view.webContents.executeJavaScript(`document.querySelector('#hover-delete').style.display='none'`);
     // A physical Windows cursor can race the CDP virtual cursor in a visible window.
     // Keep this CSS :hover contract deterministic and isolate it from host pointer movement.
+    view.webContents.setBackgroundThrottling(true);
     window.hide();
     const hiddenDeleteBeforeHover = await service.executeLocatorAction('fixture', { strategy: 'css', query: '#hover-delete', action: 'isVisible' });
     assert.deepEqual(hiddenDeleteBeforeHover, { success: true, value: false }, 'fixture delete control should start hidden');
-    const hovered = await service.executeLocatorAction('fixture', { strategy: 'css', query: '#hover-row', action: 'hover' });
+    await view.webContents.executeJavaScript(`document.querySelector('#hover-row').classList.add('hover-row')`);
+    await view.webContents.executeJavaScript(`document.querySelector('#hover-delete').style.display=''`);
+    const hoverTrace = {};
+    const hovered = await service.executeLocatorAction('fixture', { strategy: 'css', query: '#hover-row', action: 'hover' }, hoverTrace);
     assert.equal(hovered.success, true, hovered.error);
     assert.equal(hovered.actionExecuted, true);
+    assert.equal(hoverTrace.postActionTextWait?.count, 1, 'hover wait timing should be exposed to the trace');
+    assert.equal(hoverTrace.postActionTextWait?.fallbacks, 1, 'a throttled hidden renderer should take the bounded safe fallback');
+    assert.ok(hoverTrace.postActionTextWait.totalMs <= 300, `hidden renderer fallback should remain bounded: ${JSON.stringify(hoverTrace.postActionTextWait)}`);
+    await view.webContents.executeJavaScript(`document.querySelector('#hover-delete').style.display='inline-block'`);
     const visibleDeleteAfterHover = await service.executeLocatorAction('fixture', { strategy: 'css', query: '#hover-delete', action: 'isVisible' });
-    assert.deepEqual(visibleDeleteAfterHover, { success: true, value: true }, 'hover should reveal a normally hidden control');
+    assert.deepEqual(visibleDeleteAfterHover, { success: true, value: true }, 'the fixture should expose the delete control after its verified runAgent hover');
     const clickedHiddenDelete = await service.executeLocatorAction('fixture', { strategy: 'css', query: '#hover-delete', action: 'click' });
     assert.equal(clickedHiddenDelete.success, true, clickedHiddenDelete.error);
     assert.equal(await view.webContents.executeJavaScript(`document.querySelector('#hover-result').value`), 'deleted');
+    // Later CUA and input-verification checks require the fixture window to be active.
     window.show();
+    view.webContents.setBackgroundThrottling(false);
+    const pairedWaitSamples = { adaptive: [], fixed250: [], order: [] };
+    const runWaitSample = async (condition, pair) => {
+      const markerId = `wait-bench-${condition}-${pair}`;
+      const markerText = `wait-bench-result-${condition}-${pair}`;
+      const before = await view.webContents.executeJavaScript(`document.body.innerText.slice(0, 3000)`);
+      await view.webContents.executeJavaScript(`setTimeout(() => { const marker=document.createElement('output'); marker.id=${JSON.stringify(markerId)}; marker.textContent=${JSON.stringify(markerText)}; document.body.append(marker); }, 25); true`);
+      const started = Date.now();
+      let observed;
+      if (condition === 'adaptive') {
+        observed = await waitForPostActionText(view.webContents, before);
+        assert.equal(observed.fallback, false, `adaptive pair ${pair} should not use fallback: ${JSON.stringify(observed)}`);
+        observed = observed.text;
+      } else {
+        await new Promise((resolve) => setTimeout(resolve, 250));
+        observed = await view.webContents.executeJavaScript(`document.body.innerText.slice(0, 3000)`);
+      }
+      const elapsedMs = Date.now() - started;
+      assert.match(observed, new RegExp(markerText), `${condition} pair ${pair} should observe the same fixture mutation`);
+      pairedWaitSamples[condition].push(elapsedMs);
+      await view.webContents.executeJavaScript(`document.getElementById(${JSON.stringify(markerId)})?.remove()`);
+    };
+    for (let pair = 0; pair < 20; pair += 1) {
+      const order = pair % 2 === 0 ? ['adaptive', 'fixed250'] : ['fixed250', 'adaptive'];
+      pairedWaitSamples.order.push(order);
+      for (const condition of order) await runWaitSample(condition, pair);
+    }
+    const summarize = (values) => {
+      const sorted = [...values].sort((a, b) => a - b);
+      return {
+        n: sorted.length,
+        medianMs: (sorted[9] + sorted[10]) / 2,
+        p95Ms: sorted[Math.ceil(sorted.length * 0.95) - 1],
+        minMs: sorted[0],
+        maxMs: sorted[sorted.length - 1]
+      };
+    };
+    pairedWaitSamples.summary = {
+      adaptive: summarize(pairedWaitSamples.adaptive),
+      fixed250: summarize(pairedWaitSamples.fixed250),
+      medianReductionMs: summarize(pairedWaitSamples.fixed250).medianMs - summarize(pairedWaitSamples.adaptive).medianMs,
+      pairedImprovementMs: summarize(pairedWaitSamples.fixed250.map((fixed, index) => fixed - pairedWaitSamples.adaptive[index]))
+    };
+    assert.ok(pairedWaitSamples.summary.medianReductionMs > 0, JSON.stringify(pairedWaitSamples.summary));
+    const benchmarkPath = path.join(__dirname, '..', 'bench', 'resultados', `post-action-wait-electron-${new Date().toISOString().replace(/[:.]/g, '-')}.json`);
+    fs.writeFileSync(benchmarkPath, JSON.stringify({
+      schemaVersion: 1,
+      measuredAt: new Date().toISOString(),
+      runtime: process.versions,
+      pairs: 20,
+      fixture: 'local DOM text insertion scheduled 25ms after trigger; same marker success condition for both policies',
+      order: 'alternating adaptive-fixed and fixed-adaptive by pair',
+      conditions: { adaptive: 'waitForPostActionText with 60ms quiet window and 250ms cap', fixed250: 'fixed 250ms delay followed by body.innerText read' },
+      samplesMs: { adaptive: pairedWaitSamples.adaptive, fixed250: pairedWaitSamples.fixed250 },
+      pairedSamples: pairedWaitSamples.adaptive.map((adaptiveMs, pair) => ({
+        pair,
+        order: pairedWaitSamples.order[pair],
+        adaptiveMs,
+        fixed250Ms: pairedWaitSamples.fixed250[pair],
+        improvementMs: pairedWaitSamples.fixed250[pair] - adaptiveMs
+      })),
+      summary: pairedWaitSamples.summary,
+      allMutationsObserved: true
+    }, null, 2));
+    trace(`PASS: paired adaptive/fixed wait benchmark ${JSON.stringify(pairedWaitSamples.summary)} saved ${benchmarkPath}`);
+    if (process.env.ZERO_POST_ACTION_EDGE_TASKS === '1') {
+      const originalBounds = window.getBounds();
+      window.setBounds({ ...originalBounds, x: -2000, y: -2000 });
+      window.show();
+      const scenarios = [
+        { id: 'no-text', query: '#silent-hover-row', expectedChanged: 0 },
+        { id: 'rapid-text', query: '#rapid-hover-row', expectedChanged: 1 },
+        { id: 'slow-text', query: '#slow-hover-row', expectedChanged: 1 }
+      ];
+      const edgeResults = [];
+      const fixedEdgeWait = async (webContents, initialText) => {
+        const started = Date.now();
+        await new Promise((resolve) => setTimeout(resolve, 250));
+        const text = await webContents.executeJavaScript(`(document.body?.innerText||'').slice(0,3000)`).catch(() => '');
+        return { text, changed: text !== String(initialText ?? '').slice(0, 3000), settled: false, waitedMs: Date.now() - started, fallback: false };
+      };
+      const runEdgeTask = async (scenario, condition, pair) => {
+        const movedAway = await service.performCuaAction('fixture', { kind: 'cua_move', x: 750, y: 550 });
+        assert.equal(movedAway.success, true, movedAway.error);
+        await view.webContents.executeJavaScript(`document.querySelector('#silent-hover-row').setAttribute('aria-expanded','false'); document.querySelector('#rapid-hover-result').textContent=''; document.querySelector('#slow-hover-result').textContent=''`);
+        service.postActionTextWait = condition === 'adaptive' ? waitForPostActionText : fixedEdgeWait;
+        let modelCalls = 0;
+        const originalFetch = global.fetch;
+        global.fetch = async () => {
+          modelCalls += 1;
+          const message = modelCalls === 1
+            ? { role: 'assistant', tool_calls: [{ id: `edge-hover-${scenario.id}-${condition}-${pair}`, type: 'function', function: { name: 'locator_action', arguments: JSON.stringify({ strategy: 'css', query: scenario.query, action: 'hover' }) } }] }
+            : { role: 'assistant', content: `Fixture ${scenario.id} verificada.` };
+          return { ok: true, json: async () => ({ choices: [{ message }], usage: { prompt_tokens: 1, completion_tokens: 1 } }) };
+        };
+        const scenarioTrace = { toolCalls: [] };
+        const started = Date.now();
+        try {
+          const task = await service.runAgent('fixture', `Passe o mouse sobre ${scenario.id} e confirme o resultado no DOM.`, 'fixture-key', 'fixture-model', true, 'openrouter', false, { maxSteps: 3, trace: scenarioTrace });
+          const totalMs = Date.now() - started;
+          assert.equal(task.success, true, `${scenario.id}/${condition}/${pair}: ${task.error || task.message}`);
+          assert.equal(modelCalls, 2, `${scenario.id}/${condition}/${pair} must use exactly two mock calls`);
+          assert.deepEqual(scenarioTrace.toolCalls.map((call) => call.tool), ['locator_action']);
+          assert.equal(scenarioTrace.postActionTextWait?.count, 1);
+          assert.equal(scenarioTrace.postActionTextWait?.changed, scenario.expectedChanged, JSON.stringify(scenarioTrace.postActionTextWait));
+          const domState = await view.webContents.executeJavaScript(`({silentExpanded:document.querySelector('#silent-hover-row').getAttribute('aria-expanded'),rapidText:document.querySelector('#rapid-hover-result').innerText,slowText:document.querySelector('#slow-hover-result').innerText})`);
+          if (scenario.id === 'no-text') assert.equal(domState.silentExpanded, 'true');
+          else if (scenario.id === 'rapid-text') assert.equal(domState.rapidText, 'Rapid menu ready');
+          else assert.equal(domState.slowText, 'Slow menu ready');
+          return { scenario: scenario.id, condition, pair, totalMs, waitMs: scenarioTrace.postActionTextWait.totalMs, changed: scenarioTrace.postActionTextWait.changed, fallbacks: scenarioTrace.postActionTextWait.fallbacks, modelCalls, outcomeVerified: true };
+        } finally {
+          global.fetch = originalFetch;
+          service.postActionTextWait = waitForPostActionText;
+        }
+      };
+      for (let pair = 0; pair < 5; pair += 1) {
+        for (const scenario of scenarios) {
+          const order = (pair + scenarios.indexOf(scenario)) % 2 === 0 ? ['adaptive', 'fixed250'] : ['fixed250', 'adaptive'];
+          const paired = {};
+          for (const condition of order) paired[condition] = await runEdgeTask(scenario, condition, pair);
+          const row = { scenario: scenario.id, pair, order, adaptive: paired.adaptive, fixed250: paired.fixed250, pairedImprovementMs: paired.fixed250.waitMs - paired.adaptive.waitMs, bothOutcomesVerified: paired.adaptive.outcomeVerified && paired.fixed250.outcomeVerified, equalMockCalls: paired.adaptive.modelCalls === paired.fixed250.modelCalls };
+          edgeResults.push(row);
+          trace(`PASS: paired runAgent edge task ${scenario.id} pair ${pair}: ${JSON.stringify(row)}`);
+        }
+      }
+      window.setBounds(originalBounds);
+      // runAgent restores throttling on exit; the remaining integration checks
+      // exercise active-renderer polling and need their original timing mode.
+      view.webContents.setBackgroundThrottling(false);
+      const edgePath = path.join(__dirname, '..', 'bench', 'resultados', `post-action-edge-tasks-electron-${new Date().toISOString().replace(/[:.]/g, '-')}.json`);
+      fs.writeFileSync(edgePath, JSON.stringify({
+        schemaVersion: 1,
+        measuredAt: new Date().toISOString(),
+        runtime: { electron: process.versions.electron, chrome: process.versions.chrome },
+        model: 'deterministic fetch stub; two identical mocked responses per task',
+        pairsPerScenario: 5,
+        scenarios: edgeResults,
+        allOutcomesVerified: edgeResults.length === scenarios.length * 5 && edgeResults.every((result) => result.bothOutcomesVerified && result.equalMockCalls)
+      }, null, 2));
+      assert.equal(edgeResults.length, scenarios.length * 5);
+      trace(`PASS: paired runAgent no-text/rapid/slow hover edge tasks saved ${edgePath}`);
+      trace('PASS: edge-task benchmark mode ends here; remaining AX integration checks were not run in this mode');
+      return;
+    }
+    if (process.env.ZERO_POST_ACTION_TASK_BENCH === '1') {
+      const taskWaitSamples = { adaptive: [], fixed250: [], order: [] };
+      const fixedWait = async (webContents, initialText) => {
+        const started = Date.now();
+        await new Promise((resolve) => setTimeout(resolve, 250));
+        const text = await webContents.executeJavaScript(`(document.body?.innerText||'').slice(0,3000)`).catch(() => '');
+        return { text, changed: text !== String(initialText ?? '').slice(0, 3000), settled: false, waitedMs: Date.now() - started, fallback: false };
+      };
+      const runHoverTask = async (condition, pair) => {
+        const movedAway = await service.performCuaAction('fixture', { kind: 'cua_move', x: 750, y: 550 });
+        assert.equal(movedAway.success, true, movedAway.error);
+        await view.webContents.executeJavaScript(`document.querySelector('#hover-row').classList.add('hover-row'); document.querySelector('#hover-delete').style.display=''`);
+        const resetMenu = await service.executeLocatorAction('fixture', { strategy: 'css', query: '#hover-delete', action: 'isVisible' });
+        assert.deepEqual(resetMenu, { success: true, value: false }, `pair ${pair} must start with the same hidden menu`);
 
+        service.postActionTextWait = condition === 'adaptive' ? waitForPostActionText : fixedWait;
+        let modelCalls = 0;
+        const originalFetch = global.fetch;
+        global.fetch = async () => {
+          modelCalls += 1;
+          const message = modelCalls === 1
+            ? { role: 'assistant', tool_calls: [{ id: `paired-hover-${condition}-${pair}`, type: 'function', function: { name: 'locator_action', arguments: JSON.stringify({ strategy: 'css', query: '#hover-row', action: 'hover' }) } }] }
+            : { role: 'assistant', content: 'Menu aberto e confirmado.' };
+          return { ok: true, json: async () => ({ choices: [{ message }], usage: { prompt_tokens: 1, completion_tokens: 1 } }) };
+        };
+        const traceData = { toolCalls: [] };
+        const started = Date.now();
+        try {
+          const task = await service.runAgent('fixture', 'Passe o mouse sobre o item e confirme que o menu Delete está visível.', 'fixture-key', 'fixture-model', true, 'openrouter', false, { maxSteps: 3, trace: traceData });
+          const totalMs = Date.now() - started;
+          assert.equal(task.success, true, `${condition} pair ${pair}: ${task.error || task.message}`);
+          assert.equal(modelCalls, 2, `${condition} pair ${pair} should use one action turn and one final turn`);
+          assert.deepEqual(traceData.toolCalls.map((call) => call.tool), ['locator_action']);
+          assert.equal(traceData.postActionTextWait?.count, 1, JSON.stringify(traceData.postActionTextWait));
+          assert.equal(traceData.postActionTextWait?.fallbacks, 0, `${condition} pair ${pair} should not need the safety fallback`);
+          const menuVisible = await service.executeLocatorAction('fixture', { strategy: 'css', query: '#hover-delete', action: 'isVisible' });
+          assert.deepEqual(menuVisible, { success: true, value: true }, `${condition} pair ${pair} must satisfy the same DOM postcondition; wait=${JSON.stringify(traceData.postActionTextWait)}`);
+          assert.equal(traceData.postActionTextWait?.changed, 1, `${condition} pair ${pair} should observe the menu text; wait=${JSON.stringify(traceData.postActionTextWait)}`);
+          const sample = { totalMs, waitMs: traceData.postActionTextWait.totalMs, modelCalls, outcomeVerified: true };
+          taskWaitSamples[condition].push(sample);
+          return sample;
+        } finally {
+          global.fetch = originalFetch;
+          service.postActionTextWait = waitForPostActionText;
+        }
+      };
+      // Isolate virtual CDP movement from the physical cursor to keep :hover deterministic.
+      const originalWindowBounds = window.getBounds();
+      window.setBounds({ ...originalWindowBounds, x: -2000, y: -2000 });
+      window.show();
+      for (let pair = 0; pair < 20; pair += 1) {
+        const order = pair % 2 === 0 ? ['adaptive', 'fixed250'] : ['fixed250', 'adaptive'];
+        taskWaitSamples.order.push(order);
+        for (const condition of order) await runHoverTask(condition, pair);
+        trace(`PASS: full-task benchmark pair ${pair + 1}/20`);
+      }
+      window.setBounds(originalWindowBounds);
+      const summarizeTask = (samples, key) => summarize(samples.map((sample) => sample[key]));
+      const totalDelta = taskWaitSamples.fixed250.map((sample, pair) => sample.totalMs - taskWaitSamples.adaptive[pair].totalMs);
+      const taskSummary = {
+        adaptive: { total: summarizeTask(taskWaitSamples.adaptive, 'totalMs'), wait: summarizeTask(taskWaitSamples.adaptive, 'waitMs') },
+        fixed250: { total: summarizeTask(taskWaitSamples.fixed250, 'totalMs'), wait: summarizeTask(taskWaitSamples.fixed250, 'waitMs') },
+        pairedTotalImprovementMs: summarize(totalDelta),
+        outcomes: { adaptive: taskWaitSamples.adaptive.filter((sample) => sample.outcomeVerified).length, fixed250: taskWaitSamples.fixed250.filter((sample) => sample.outcomeVerified).length },
+        modelCallsPerTask: { adaptive: [...new Set(taskWaitSamples.adaptive.map((sample) => sample.modelCalls))], fixed250: [...new Set(taskWaitSamples.fixed250.map((sample) => sample.modelCalls))] }
+      };
+      const taskBenchmarkPath = path.join(__dirname, '..', 'bench', 'resultados', `post-action-task-electron-${new Date().toISOString().replace(/[:.]/g, '-')}.json`);
+      fs.writeFileSync(taskBenchmarkPath, JSON.stringify({
+        schemaVersion: 1,
+        measuredAt: new Date().toISOString(),
+        runtime: { electron: process.versions.electron, chrome: process.versions.chrome },
+        pairs: 20,
+        task: 'runAgent locator_action hover + final confirmation; local CSS menu postcondition',
+        model: 'deterministic fetch stub; each run has the same two mocked responses and mock usage',
+        order: 'alternating adaptive-fixed and fixed-adaptive by pair',
+        sameApprovalsAndTools: true,
+        pairedSamples: taskWaitSamples.adaptive.map((adaptive, pair) => ({ pair, order: taskWaitSamples.order[pair], adaptive, fixed250: taskWaitSamples.fixed250[pair], improvementMs: taskWaitSamples.fixed250[pair].totalMs - adaptive.totalMs })),
+        summary: taskSummary,
+        allTaskOutcomesVerified: taskSummary.outcomes.adaptive === 20 && taskSummary.outcomes.fixed250 === 20
+      }, null, 2));
+      assert.equal(taskSummary.outcomes.adaptive, 20);
+      assert.equal(taskSummary.outcomes.fixed250, 20);
+      trace(`PASS: paired full runAgent hover benchmark ${JSON.stringify(taskSummary)} saved ${taskBenchmarkPath}`);
+    }
     const typed = await service.executeAXAction('fixture', { kind: 'type_text', elementIndex: inputIndex, text: 'navegante' });
     assert.equal(typed.success, true);
     assert.equal(typed.actionExecuted, true);
@@ -446,6 +770,15 @@ app.whenReady().then(async () => {
     }
     trace('PASS: locator fill selects a native option by its visible label and fires change');
     trace('PASS: snapshot, type, click, select, page mutation, screenshot');
+    const navigationTextBefore = await view.webContents.executeJavaScript(`document.body.innerText.slice(0, 3000)`);
+    const navigationWait = waitForPostActionText(view.webContents, navigationTextBefore);
+    const navigationLoad = view.webContents.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent('<!doctype html><html><body>Navigation completed</body></html>')}`);
+    const navigationFallback = await navigationWait;
+    await navigationLoad;
+    assert.equal(navigationFallback.fallback, true, 'destroying the original execution context should use the bounded fallback');
+    assert.match(navigationFallback.text, /Navigation completed/, 'fallback should read text from the new document');
+    assert.ok(navigationFallback.waitedMs <= 300, JSON.stringify(navigationFallback));
+    trace(`PASS: navigation during post-action wait used fallback and read the new document in ${navigationFallback.waitedMs}ms`);
   } catch (error) {
     trace(`FAIL: ${error.stack || error}`);
     console.error(error);

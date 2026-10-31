@@ -1,4 +1,9 @@
 const PROVIDERS = Object.freeze({
+  openai: {
+    modelsUrl: 'https://api.openai.com/v1/models',
+    completionUrl: 'https://api.openai.com/v1/chat/completions',
+    label: 'OpenAI'
+  },
   openrouter: {
     modelsUrl: 'https://openrouter.ai/api/v1/models?output_modalities=all',
     completionUrl: 'https://openrouter.ai/api/v1/chat/completions',
@@ -19,6 +24,7 @@ const PROVIDERS = Object.freeze({
 });
 
 const TEST_ENV = Object.freeze({
+  openai: { models: 'NAVEGANTE_TEST_OPENAI_MODELS_URL', completion: 'NAVEGANTE_TEST_OPENAI_URL' },
   openrouter: { models: 'NAVEGANTE_TEST_OPENROUTER_MODELS_URL', completion: 'NAVEGANTE_TEST_OPENROUTER_URL' },
   deepseek: { models: 'NAVEGANTE_TEST_DEEPSEEK_MODELS_URL', completion: 'NAVEGANTE_TEST_DEEPSEEK_URL' }
 });

@@ -104,6 +104,7 @@ app.whenReady().then(async () => {
       manageChat: ['btn-ai-rename-chat','btn-ai-pin-chat','btn-ai-delete-chat','btn-ai-recipes','btn-ai-modules'].every((id) => !!document.getElementById(id)),
       headerHeight: Math.round(document.querySelector('#ai-panel .panel-header')?.getBoundingClientRect().height || 0),
       settingsIndex: document.querySelectorAll('#settings-index button').length,
+      aiProviders: [...(document.getElementById('ai-provider')?.options || [])].map((option) => option.value),
       tipografia: getComputedStyle(document.querySelector('.ai-message')).fontSize,
       libraryTabs: document.querySelectorAll('.library-tab').length,
       libraryGroupRole: document.querySelector('.library-tabs')?.getAttribute('role'),
@@ -131,6 +132,7 @@ app.whenReady().then(async () => {
     assert.ok(shell.newTab && shell.newTab.width >= 24, 'botão + de nova aba precisa estar visível');
     assert.equal(shell.newTab.afterTab, true, 'botão + deve ficar logo depois da última aba');
     assert.ok(shell.settingsIndex >= 8, `indice das configuracoes incompleto (${shell.settingsIndex})`);
+    assert.ok(shell.aiProviders.includes('openai'), 'OpenAI direto precisa estar disponível no seletor de provedores');
     assert.equal(shell.tipografia, '13px', `escala tipografica do chat fora do padrao (${shell.tipografia})`);
     assert.equal(shell.libraryTabs, 3, 'biblioteca precisa das tres abas');
     assert.equal(shell.libraryGroupRole, 'group', 'categorias da biblioteca são controles de alternância, não uma tablist incompleta');

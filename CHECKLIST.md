@@ -1,5 +1,18 @@
 # Checklist — Zero Browser
 
+- [x] Adicionar telemetria de custo reportado pelo OpenRouter e exposição sob demanda do catálogo avançado para reduzir contexto por requisição comum; revisão estática concluída, testes não executados por instrução do usuário.
+- [ ] Validar ativação lazy de ferramentas avançadas e medir tokens/custo/latência/acerto em pares controlados quando testes forem autorizados.
+
+- [x] Preservar evidências antigas exclusivas no histórico do agente e corrigir acerto pareado do comparador; verificações locais de regressão adicionadas.
+- [x] Distinguir cache ausente de zero em trace, resumo e comparador; preservar campos de ação observada e dados de planilha em snapshots antigos.
+- [x] Preservar colisões entre resultado de ação e snapshot, sanitizar URL e inspecionar evidências aninhadas contra instruções suspeitas; revisão e testes locais concluídos.
+- [x] Medir bytes de contexto em fixture de 8 leituras repetidas e únicas; reforçar comparador com validação de compatibilidade, cobertura e repetição.
+- [x] Criar compactação experimental opt-in para snapshots idênticos; preservar âncora e `tool_call_id`, manter conteúdo exclusivo, cobrir `preInspect` e invalidar após outra ferramenta e retomada. Fixture de 8 leituras reduz requests serializados acumulados em 3.004 bytes (1,7%) sem colapsar dados únicos; `npm test` 318/318.
+- [ ] Rodar benchmark A/B com modelo/provedor reais e condições pareadas; confirmar acerto, tokens/custo e latência antes de considerar ativação padrão.
+
+- [x] Criar plano de maturidade 4/5 com critérios e dependências em `docs/PLANO_MATURIDADE_4.md`.
+- [ ] Executar etapa 0 e registrar evidências; manter critérios posteriores pendentes até validação.
+
 ## Registro da instalação 0.1.43-dev — 29/10/2026
 
 - [x] Corrigir abertura automática pós-instalação: configurar `build.nsis.runAfterFinish: false` e gerar NSIS em pasta isolada; `builder-debug.yml` confirma ausência de `RUN_AFTER_FINISH`. Não executar o instalador nesta etapa nem alterar o perfil pessoal.
@@ -650,3 +663,22 @@ Para evitar duplicar tarefas e confundir implementação com aceite, a tabela de
 - [x] `npm test` 302/302 e `npm run test:ui` PASS após inclusão do provider.
 - [x] Empacotar candidato atualizado em `dist-ollama-20261028`; smoke 9/9, integração empacotada e persistência da biblioteca após reinício PASS em perfis temporários.
 - [ ] Testar visualmente e por teclado o build mais recente; conexão real Ollama, DeepSeek/OpenRouter autenticados e benchmark pareado permanecem gates abertos.
+- [x] Comparador A/B: aceitar apenas uma opção experimental declarada com `--variavel`, mantendo iguais provedor/modelo, demais condições, cobertura e repetições; testes focados 34/34 e `npm test` 320/320.
+- [x] Espera pós-hover/texto adaptativa: retorno após 60 ms estável; página observa até 250 ms, host concede 10 ms de tolerância e reserva até 50 ms para leitura final de fallback; trace mede a espera. `npm test` 332/332.
+- [x] Confirmar em Electron a integração pós-hover em janela oculta: fixture revela menu e trace registra texto alterado; renderer ativa fallback bounded em 251 ms (`fallbacks=1`).
+- [x] Benchmark pareado Electron da espera DOM, 20 pares alternados: adaptativa mediana/P95 101/102 ms; fixa 250 mediana/P95 253/265 ms; ganho pareado mediano/P95 152/164 ms; 40/40 mudanças observadas. JSON: `bench/resultados/post-action-wait-electron-2026-10-29T20-27-06-417Z.json`.
+- [x] Benchmark pareado completo `runAgent` em Electron, 20 pares alternados; hover + confirmação, mesma fixture/aprovações/ferramentas, exatamente 2 respostas simuladas por tarefa. Pós-condição 20/20; tarefa adaptativa mediana/P95 73/82 ms, fixa 269/284 ms; melhoria pareada mediana/P95 195,5/208 ms. Dados: `bench/resultados/post-action-task-electron-2026-10-29T18-45-28-937Z.json`.
+- [x] Cobrir no helper mudança 10 ms antes do deadline, texto tardio, renderer pendurado inclusive na leitura final, rejeição por navegação e WebContents fechado; suíte completa 332/332. Electron confirmou navegação durante espera: fallback leu o novo documento em 275 ms.
+- [x] Benchmark pareado `runAgent`, 5 pares em cada cenário (texto ausente/rápido/lento): mediana da diferença de espera adaptativa vs. fixa −4/+96/+16 ms; as 30 pós-condições passaram e cada tarefa fez 2 chamadas simuladas. Sem fallback adaptativo nesta rodada. Dados `bench/resultados/post-action-edge-tasks-electron-2026-10-29T20-32-57-742Z.json`. Resultado total ruidoso; mediana de espera é métrica do helper.
+- [x] Estabilizar harness Electron: executar verificações do renderer ativo antes do ciclo oculto, alternar background throttling explicitamente e encerrar o modo de benchmark de borda após salvar o seu próprio artefato. `npm run test:electron` base passou; o modo de borda isolado saiu com código 0. A espera durante navegação está coberta no modo base, não repetida no modo de borda.
+- [ ] Modelo real e tokens/custo continuam sem medição paga.
+- [ ] A/B pago DeepSeek em perfil `ZERO_USER_DATA` isolado: ignorado por solicitação do usuário; nenhuma chamada realizada. Não retomar sem nova instrução.
+
+## Motor — conexões de IA e benchmark 31/10/2026
+
+- [x] Adicionar provedor OpenAI direto com catálogo, endpoint Chat Completions, armazenamento de chave isolado e opção em Configurações; OpenRouter segue como padrão.
+- [x] Medir por mocks a separação do endpoint e da chave OpenAI; chamada real/autenticada permanece pendente.
+- [x] Expor `--prompt-cache` no benchmark e declarar `promptCache` como variável A/B; verificar propagação pela chamada `run_task`.
+- [x] Testes focados 69/69 e suíte completa `npm test` 333/333; `git diff --check` passou (avisos apenas LF/CRLF).
+- [x] `npm run test:ui` PASS após adicionar verificação explícita de que o seletor de provedores exibe OpenAI direto.
+- [ ] Validar conexão OpenAI autenticada no app empacotado e fazer benchmark pareado de tokens reportados pelo provedor, acerto, custo e latência.

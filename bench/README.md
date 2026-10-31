@@ -35,6 +35,8 @@ Opções:
 - `--data-dir=PASTA`: use quando o Zero Browser roda com outra pasta de dados.
 - `--servidor`: só sobe as páginas e mostra os endereços, para abrir à mão.
 - `--preinspect`: o host lê a página inicial e a entrega pronta antes da primeira chamada ao modelo, poupando a volta que só pediria `inspect_page`. Desligado por padrão; não vale quando a tarefa captura evidência de leitura (tarefa 44). Marcado no relatório (`preInspect`) e no trace (`preInspected`).
+- `--deduplicate-snapshots`: experimental e desligado por padrão. Se um `inspect_page` consecutivo produzir exatamente o mesmo resultado que a última leitura, mantém o resultado âncora completo e substitui a nova cópia por uma referência com o `tool_call_id` preservado, somente quando isso reduz o histórico frente à compactação normal. Qualquer outra ferramenta invalida a reutilização; `--diff` não pode ser combinado com esta flag. O relatório registra a flag e os bytes de contexto estimados para impedir comparações incompatíveis. Compare base/candidato com o mesmo modelo, provedor e condições; bytes locais não substituem tokens, acerto, latência ou custo reais.
+- `--prompt-cache`: ativa o suporte explícito de cache já implementado para provedores que aceitam esses campos. Desligado por padrão. Para comparar com cache desligado, use `--variavel=promptCache`; o comparador continua exigindo mesmo provedor, modelo, conjunto, cobertura e repetições. Compare tokens faturáveis/cache retornados pelo provedor, não apenas bytes locais.
 - `--comparar A.json B.json`: compara duas rodadas de forma pareada por tarefa (ver abaixo).
 
 ## Comparação pareada (`--comparar`)
@@ -43,7 +45,11 @@ Opções:
 node bench/avaliar.js --comparar bench/resultados/base__....json bench/resultados/novo__....json
 ```
 
-A = referência, B = candidato. Mostra acerto (e quais tarefas pioraram ou melhoraram) e, para cada métrica, média de A e B, variação percentual e intervalo de 95% da diferença B−A. Métricas: passos, tempo, chamadas ao modelo, tokens de entrada brutos, **tokens de entrada não cacheados** (entrada menos `cachedInputTokens`), tokens de saída. Cada tarefa vira a média das suas repetições e a diferença é tirada tarefa a tarefa.
+Quando B altera uma única opção experimental, declare-a explicitamente, por exemplo `--variavel=deduplicateSnapshots` ou `--variavel=promptCache`. O comparador ainda exige que todas as demais condições, provedor, modelo, cobertura e repetições sejam iguais; mudanças não declaradas continuam incompatíveis. Não use essa opção para mascarar mudanças em várias condições.
+
+A = referência, B = candidato. Mostra acerto (e quais tarefas pioraram ou melhoraram) e, para cada métrica, média de A e B, variação percentual e intervalo de 95% da diferença B−A. Métricas: passos, tempo, chamadas ao modelo, tokens de entrada brutos, **tokens de entrada não cacheados** (entrada menos `cachedInputTokens`), tokens de saída e custo USD reportado. Custo só entra se todas as execuções pareadas tiverem dados válidos; não se estima preço ausente.
+
+O trace também registra esperas de hover/texto em `postActionTextWait` (`count`, `totalMs`, `changed`, `fallbacks`). Use esses campos para medir o impacto em uma rodada real; testes simulados não provam ganho de latência ponta a ponta.
 
 Como ler:
 
@@ -51,7 +57,9 @@ Como ler:
 - Rode A e B com o MESMO modelo e provedor; o relatório avisa quando diferem. Alterne a ordem das rodadas (A, B, B, A) para não confundir com variação de horário do provedor.
 - Só promova uma mudança a padrão se o acerto não piorar em nenhuma tarefa e a métrica alvo tiver leitura "B menor" nas rodadas repetidas.
 - Tarefas sem tokens informados pelo provedor ficam fora das métricas de tokens.
-- O intervalo usa aproximação normal; com 5 a 10 tarefas ele é otimista. Trate como indício, não prova.
+- Tokens não cacheados exigem indicador explícito de cache completo em todas as respostas aceitas; relatórios antigos sem esse indicador e medições parciais não entram nessa métrica. Dados de tentativas e de respostas aceitas têm escopos diferentes.
+- O OpenRouter recebe `usage: {include:true}` para reportar `usage.cost`; o custo é o valor retornado pelo serviço, não necessariamente o total que aparecerá na fatura do usuário (por exemplo, BYOK pode ter cobrança adicional). Outros provedores sem custo por resposta permanecem como custo desconhecido. Veja [usage e cost no OpenRouter](https://openrouter.ai/blog/announcements/smarter-charts-inline-svgs-and-live-usage-accounting/).
+- O IC pareado usa t de Student até 30 tarefas e aproximação normal acima disso, reduzindo falsos sinais de melhora em amostras pequenas. Continua sendo um intervalo exploratório: tarefas do conjunto não são uma amostra aleatória de toda a web e execuções do mesmo modelo podem variar; confirme resultados com repetições e mais tarefas.
 
 ## Segurança durante o benchmark
 

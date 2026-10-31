@@ -54,6 +54,31 @@ test('pre-inspection saves the first round by delivering the snapshot ready', as
   }
 });
 
+test('deduplicated snapshot can reuse a guarded pre-inspection anchor', async () => {
+  const service = serviceWithTab();
+  service.getAccessibilityTree = async () => ({ success: true, tree: {
+    url: 'https://exemplo.test/painel', title: 'Exemplo', nodes: []
+  } });
+  const provider = fakeProvider((round) => round === 0
+    ? call('inspect_page', {}, 'inspect-after-preinspect')
+    : { role: 'assistant', content: 'Feito.' });
+  const trace = { requestMetrics: [], toolCalls: [], modelCalls: 0, inputTokens: 0, outputTokens: 0, usageAvailable: true };
+  try {
+    const result = await service.runAgent('tab-b', 'Leia a página', 'k', 'm', true, 'openrouter', false, {
+      preInspect: true, deduplicateSnapshots: true, trace
+    });
+    assert.equal(result.success, true, result.error);
+    assert.equal(trace.deduplicatedSnapshots, 1);
+    const messages = provider.requests[1].messages;
+    const reused = JSON.parse(messages.find((message) => message.tool_call_id === 'inspect-after-preinspect').content);
+    assert.ok(reused.snapshotReused?.startsWith('preinspect-'));
+    const anchor = JSON.parse(messages.find((message) => message.tool_call_id === reused.snapshotReused).content);
+    assert.ok(Array.isArray(anchor.nodes), 'a âncora completa é preservada');
+  } finally {
+    provider.restore();
+  }
+});
+
 test('repeated read-only rounds earn a host nudge instead of silence', async () => {
   const service = serviceWithTab();
   const provider = fakeProvider((round) => (round < 3 ? call('inspect_page', {}) : { role: 'assistant', content: 'Parei de inspecionar.' }));

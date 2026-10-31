@@ -16,7 +16,7 @@ function isSecretStoreKey(key) {
 
 async function getProviderKey(provider) {
   if (provider === 'ollama') return '';
-  const keyName = provider === 'deepseek' ? 'automation.deepseekApiKey' : 'automation.openrouterApiKey';
+  const keyName = provider === 'deepseek' ? 'automation.deepseekApiKey' : provider === 'openai' ? 'automation.openaiApiKey' : 'automation.openrouterApiKey';
   return await store.get(keyName) || (provider === 'openrouter' ? await store.get('automation.apiKey') : '');
 }
 
@@ -31,7 +31,8 @@ async function saveProviderKey(provider, apiKey, storage = store) {
   if (!PROVIDERS[provider]) throw new Error('Provedor de IA inválido');
   if (PROVIDERS[provider].requiresApiKey === false) throw new Error('Ollama local não usa chave de API');
   if (typeof apiKey !== 'string' || apiKey.length > 4096 || !apiKey.trim()) throw new Error('Informe uma chave de API válida');
-  await storage.set(provider === 'deepseek' ? 'automation.deepseekApiKey' : 'automation.openrouterApiKey', apiKey.trim());
+  const keyName = provider === 'deepseek' ? 'automation.deepseekApiKey' : provider === 'openai' ? 'automation.openaiApiKey' : 'automation.openrouterApiKey';
+  await storage.set(keyName, apiKey.trim());
   if (provider === 'openrouter') await storage.set('automation.apiKey', apiKey.trim());
   return { provider, hasApiKey: true, keyHint: maskApiKey(apiKey.trim()) };
 }
@@ -79,7 +80,8 @@ function setupIpc(assertTrustedUi) {
     await store.set(`automation.model.${provider}`, model.trim());
     if (provider === 'openrouter') await store.set('automation.model', model.trim());
     if (apiKey?.trim()) {
-      await store.set(provider === 'deepseek' ? 'automation.deepseekApiKey' : 'automation.openrouterApiKey', apiKey.trim());
+      const keyName = provider === 'deepseek' ? 'automation.deepseekApiKey' : provider === 'openai' ? 'automation.openaiApiKey' : 'automation.openrouterApiKey';
+      await store.set(keyName, apiKey.trim());
       if (provider === 'openrouter') await store.set('automation.apiKey', apiKey.trim());
     }
     const savedKey = apiKey?.trim() || await getProviderKey(provider);

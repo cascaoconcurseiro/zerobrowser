@@ -9,7 +9,7 @@ Navegador desktop próprio, pensado para navegação humana e controle amplo e s
 - Dados: electron-store (configurações e chaves, só dica mascarada na interface); `node:sqlite` para favoritos e histórico (`biblioteca.sqlite` na pasta de dados)
 - Extensões: Flame (`lume-aipex/extension`) carregado por `session.extensions`, com as APIs `chrome.*` que faltam no Electron completadas por um shim
 - Validação de ferramentas: zod
-- Provedores de modelo: OpenRouter e DeepSeek (API estilo chat-completions)
+- Provedores de modelo: OpenAI direto, OpenRouter e DeepSeek pela API Chat Completions; Ollama local pela API nativa em loopback
 - Testes: `node --test`
 
 ## Estrutura de diretórios
@@ -32,6 +32,7 @@ Navegador desktop próprio, pensado para navegação humana e controle amplo e s
 | Data | Decisão | Motivo |
 |------|---------|--------|
 | 2026-10 | Rede dos provedores via `net.fetch` do Electron | Usa o repositório de certificados do Windows sem desligar TLS |
+| 2026-10-31 | OpenAI direto usa endpoints oficiais de catálogo e Chat Completions, com chave própria separada por provedor | Permite conexão sem gateway OpenRouter; mantém o contrato de ferramentas atual e não altera o provedor padrão |
 | 2026-10 | Servidor MCP JSON-RPC em pipe nomeado do Windows, caminho único por usuário/pasta de dados; WebSocket de compatibilidade em loopback exige token aleatório e rejeita cabeçalho Origin | Controle local autenticado sem aceitar conexão de páginas/websites |
 | 2026-10-25 | Ferramenta `run_task` e políticas de aprovação por aba (`ask`, `local-fixture`, `deny`) | Medir o agente sem diálogo, mantendo senha/cartão e site externo sempre recusados |
 | 2026-10-25 | Benchmark local inspirado no BrowserGym (tarefa + página + verificador) | Saber a taxa de sucesso real antes e depois de cada melhoria |

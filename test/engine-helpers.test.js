@@ -45,8 +45,12 @@ test('cachedInputTokens lê os campos de cache dos provedores', () => {
   assert.equal(cachedInputTokens({ prompt_cache_hit_tokens: 900 }), 900);
   assert.equal(cachedInputTokens({ prompt_tokens_details: { cached_tokens: 512 } }), 512);
   assert.equal(cachedInputTokens({ cache_read_input_tokens: 7 }), 7);
-  assert.equal(cachedInputTokens(undefined), 0);
-  assert.equal(cachedInputTokens({ prompt_tokens: 100 }), 0);
+  assert.equal(cachedInputTokens(undefined), null);
+  assert.equal(cachedInputTokens({ prompt_tokens: 100 }), null);
+  assert.equal(cachedInputTokens({ prompt_cache_hit_tokens: 0 }), 0);
+  assert.equal(cachedInputTokens({ prompt_cache_hit_tokens: -1 }), null);
+  assert.equal(cachedInputTokens({ prompt_cache_hit_tokens: [] }), null);
+  assert.equal(cachedInputTokens({ prompt_cache_hit_tokens: '  ' }), null);
 });
 
 test('compactHref mantém links curtos e encurta links de rastreamento', () => {

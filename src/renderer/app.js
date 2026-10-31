@@ -934,7 +934,7 @@ class ZeroBrowserApp {
     this.aiProviderConfigs.set(provider, config);
     this.elements.aiApiKey.value = '';
     this.resetAiKeyVisibility();
-    const providerName = provider === 'deepseek' ? 'DeepSeek' : provider === 'ollama' ? 'Ollama local' : 'OpenRouter';
+    const providerName = provider === 'openai' ? 'OpenAI' : provider === 'deepseek' ? 'DeepSeek' : provider === 'ollama' ? 'Ollama local' : 'OpenRouter';
     const local = provider === 'ollama';
     this.elements.aiApiKey.closest('label')?.toggleAttribute('hidden', local);
     this.elements.aiSaveKey.hidden = local;
@@ -996,7 +996,7 @@ class ZeroBrowserApp {
       this.resetAiKeyVisibility();
       this.elements.aiApiKey.placeholder = `Salva: ${saved.keyHint || config.keyHint || '••••••••'} (vazio mantém a atual)`;
       this.elements.aiModelStatus.textContent = 'Chave salva com segurança. Agora atualize o catálogo e escolha um modelo.';
-      this.showToast(`Chave ${provider === 'deepseek' ? 'DeepSeek' : 'OpenRouter'} salva com segurança.`, 'success');
+      this.showToast(`Chave ${provider === 'openai' ? 'OpenAI' : provider === 'deepseek' ? 'DeepSeek' : 'OpenRouter'} salva com segurança.`, 'success');
       return saved;
     } catch (error) {
       this.elements.aiModelStatus.textContent = `Não foi possível salvar a chave: ${error.message}`;
@@ -1061,7 +1061,7 @@ class ZeroBrowserApp {
       this.syncQuickModel();
       this.marcarCarregando(this.elements.aiModelStatus, false);
       this.elements.aiModelStatus.textContent = `${models.length} modelos sincronizados; ${enabledCount} selecionáveis para o agente.`;
-      if (!quiet) this.showToast(`Catálogo ${provider === 'deepseek' ? 'DeepSeek' : 'OpenRouter'} atualizado: ${models.length} modelos.`, 'success');
+      if (!quiet) this.showToast(`Catálogo ${provider === 'openai' ? 'OpenAI' : provider === 'deepseek' ? 'DeepSeek' : provider === 'ollama' ? 'Ollama local' : 'OpenRouter'} atualizado: ${models.length} modelos.`, 'success');
     } catch (error) {
       this.marcarCarregando(this.elements.aiModelStatus, false);
       this.elements.aiModelStatus.textContent = `Falha ao sincronizar: ${error.message}`;
@@ -1515,11 +1515,11 @@ class ZeroBrowserApp {
 
     try {
       const saved = await window.zeroBrowser.ai.saveConfig({ provider, model, apiKey: apiKey || undefined });
-      if (!saved.hasApiKey) throw new Error(`Informe a chave API do ${provider === 'deepseek' ? 'DeepSeek' : 'OpenRouter'}`);
+      if (!saved.hasApiKey) throw new Error(`Informe a chave API do ${provider === 'openai' ? 'OpenAI' : provider === 'deepseek' ? 'DeepSeek' : 'OpenRouter'}`);
       const result = await window.zeroBrowser.automation.runAgent(this.activeTabId, 'Use inspect_page exatamente uma vez para confirmar que as chamadas de ferramenta funcionam. Não clique, navegue ou altere nada.', true, true);
       if (!result.success) throw new Error(result.error);
       this.aiConnected = true;
-      this.addAiMessage('assistant', `Conectado a ${provider === 'deepseek' ? 'DeepSeek' : provider === 'ollama' ? 'Ollama local' : 'OpenRouter'} com ${model}. Posso operar a aba ativa usando as ferramentas disponíveis.`);
+      this.addAiMessage('assistant', `Conectado a ${provider === 'openai' ? 'OpenAI' : provider === 'deepseek' ? 'DeepSeek' : provider === 'ollama' ? 'Ollama local' : 'OpenRouter'} com ${model}. Posso operar a aba ativa usando as ferramentas disponíveis.`);
       this.aiProviderConfigs.set(provider, saved);
       this.elements.aiApiKey.value = '';
       this.resetAiKeyVisibility();

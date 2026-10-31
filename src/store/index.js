@@ -58,6 +58,7 @@ async function initStore() {
         'automation.model': 'openai/gpt-4o-mini',
         'automation.apiKey': '',
         'automation.openrouterApiKey': '',
+        'automation.openaiApiKey': '',
         'automation.deepseekApiKey': '',
         'browser.defaultHomepage': 'https://www.google.com',
         'browser.showFullUrl': false,

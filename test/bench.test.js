@@ -6,7 +6,21 @@ const vm = require('node:vm');
 const { tarefas } = require('../bench/tarefas');
 const { tarefasReais } = require('../bench/tarefas-reais');
 const { iniciarServidor } = require('../bench/servidor');
-const { resumir, relatorioMarkdown, lerTextoVisivelEFecharAba } = require('../bench/avaliar');
+const { lerArgumentos, resumir, relatorioMarkdown, lerTextoVisivelEFecharAba } = require('../bench/avaliar');
+
+test('snapshot deduplication is opt-in in benchmark arguments', () => {
+  assert.equal(lerArgumentos([]).deduplicateSnapshots, false);
+  assert.equal(lerArgumentos([]).promptCache, false);
+  assert.equal(lerArgumentos(['--prompt-cache']).promptCache, true);
+  assert.equal(lerArgumentos(['--deduplicate-snapshots']).deduplicateSnapshots, true);
+  assert.throws(() => lerArgumentos(['--diff', '--deduplicate-snapshots']), /não podem ser usados juntos/);
+});
+
+test('benchmark comparator accepts only one declared experimental variable', () => {
+  assert.deepEqual(lerArgumentos(['--comparar', 'a.json', 'b.json', '--variavel=deduplicateSnapshots']).variaveisComparadas, ['deduplicateSnapshots']);
+  assert.throws(() => lerArgumentos(['--comparar', 'a.json', 'b.json', '--variavel=deduplicateSnapshots,stream']), /somente uma opção experimental/);
+  assert.deepEqual(lerArgumentos(['--comparar', 'a.json', 'b.json', '--variavel=promptCache']).variaveisComparadas, ['promptCache']);
+});
 
 test('public JavaScript ecommerce verifier requires the observed cart state, not the model answer', () => {
   const task = tarefasReais.find((entry) => entry.id === 'r09-js-carrinho-demo');
@@ -204,7 +218,7 @@ test('the fixture server serves task pages and keeps per-task state only on loop
 
 test('the benchmark report counts success rate per category', () => {
   const execucoes = [
-    { id: 'a', categoria: 'clique', aprovado: true, motivo: 'ok', parada: 'final_answer', passos: 3, ms: 2000, tokensDisponiveis: true, tokensEntrada: 100, tokensSaida: 10, trace: { requestMetrics: [{ attempt: 1, success: true, durationMs: 30 }, { attempt: 2, success: true, durationMs: 100 }, { attempt: 1, success: false, durationMs: 60 }] } },
+    { id: 'a', categoria: 'clique', aprovado: true, motivo: 'ok', parada: 'final_answer', passos: 3, ms: 2000, tokensDisponiveis: true, tokensEntrada: 100, tokensSaida: 10, custoDisponivel: true, custoUsd: 0.002, trace: { deduplicatedSnapshots: 2, deduplicatedSnapshotContextBytesSaved: 300, requestMetrics: [{ attempt: 1, success: true, durationMs: 30 }, { attempt: 2, success: true, durationMs: 100 }, { attempt: 1, success: false, durationMs: 60 }] } },
     { id: 'b', categoria: 'clique', aprovado: false, motivo: 'nada', parada: 'max_steps', passos: 5, ms: 4000, tokensDisponiveis: false, tokensEntrada: 0, tokensSaida: 0 }
   ];
   const resumo = resumir(execucoes);
@@ -218,11 +232,20 @@ test('the benchmark report counts success rate per category', () => {
   assert.equal(resumo.latenciaTentativaP50Ms, 60);
   assert.equal(resumo.latenciaTentativaP90Ms, 100);
   assert.equal(resumo.tokensParciais, true);
+  assert.equal(resumo.custoReportadoUsd, 0.002);
+  assert.equal(resumo.execucoesComCustoReportado, 1);
+  assert.equal(resumo.custoReportadoParcial, true);
+  assert.equal(resumo.snapshotsReutilizados, 2);
+  assert.equal(resumo.bytesContextoSnapshotEvitados, 300);
   const md = relatorioMarkdown({ rotulo: 'teste', inicio: 'agora', maxPassos: 20, modelo: 'm', provedor: 'p', resumo, execucoes });
   assert.match(md, /Taxa de sucesso: 50%/);
   assert.match(md, /Latência aceita p50\/p90: 30\/100 ms/);
   assert.match(md, /Tentativas totais p50\/p90: 60\/100 ms/);
+  assert.match(md, /Custo reportado pelo provedor: \$0\.002000 USD em 1\/2 execuções \(parcial\)/);
   assert.match(md, /\| b \| falhou \| nada \| max_steps \|/);
+  const dedupMd = relatorioMarkdown({ rotulo: 'teste', inicio: 'agora', maxPassos: 20, modelo: 'm', provedor: 'p', resumo, execucoes, deduplicateSnapshots: true });
+  assert.match(dedupMd, /Snapshots reutilizados: 2 · bytes de contexto evitados: 300/);
+  assert.match(dedupMd, /frente à compactação normal/);
 });
 
 function servicoComAbaLocal(url = 'http://127.0.0.1:5000/t/x') {
@@ -302,21 +325,26 @@ test('run_task opens a tab, runs the agent with a trace, keeps typed text out of
   service.executeLocatorAction = async (_tabId, check) => ({ success: true, value: check.action === 'isEnabled' ? false : true });
   const originalFetch = global.fetch;
   let call = 0;
-  global.fetch = async () => {
+  const requestBodies = [];
+  global.fetch = async (_url, options) => {
+    requestBodies.push(JSON.parse(options.body));
     call++;
     const message = call === 1
       ? { role: 'assistant', tool_calls: [{ id: 't1', type: 'function', function: { name: 'inspect_page', arguments: '{}' } }] }
       : call === 2
         ? { role: 'assistant', tool_calls: [{ id: 't2', type: 'function', function: { name: 'type_text', arguments: '{"index":0,"text":"segredo"}' } }] }
       : { role: 'assistant', content: 'Feito.' };
-    return { ok: true, json: async () => ({ choices: [{ message }], usage: { prompt_tokens: 50, completion_tokens: 5 } }) };
+    return { ok: true, json: async () => ({ choices: [{ message }], usage: { prompt_tokens: 50, completion_tokens: 5, cost: 0.002 } }) };
   };
   try {
-    const result = await service.runTask({ startUrl: 'http://127.0.0.1:5000/t/x', prompt: 'Preencha o nome', approvalPolicy: 'local-fixture', captureInitialChecks: [{ strategy: 'css', query: '#field', action: 'isEnabled' }] });
+    const result = await service.runTask({ startUrl: 'http://127.0.0.1:5000/t/x', prompt: 'Preencha o nome', approvalPolicy: 'local-fixture', promptCache: true, captureInitialChecks: [{ strategy: 'css', query: '#field', action: 'isEnabled' }] });
     assert.equal(result.success, true);
     assert.equal(result.message, 'Feito.');
     assert.equal(result.trace.stopReason, 'final_answer');
     assert.equal(result.trace.modelCalls, 3);
+    assert.ok(requestBodies.every((body) => /^zb-[a-f0-9]{40}$/.test(body.prompt_cache_key)), 'run_task must forward the opt-in cache flag to every request');
+    assert.ok(requestBodies.every((body) => body.usage?.include === true), 'OpenRouter must receive the usage/cost reporting option');
+    assert.ok(result.trace.requestMetrics.every((metric) => metric.providerReportedCostUsd === 0.002));
     assert.equal(result.trace.inputTokens, 150);
     assert.equal(result.trace.requestMetrics.length, 3);
     assert.ok(result.trace.requestMetrics.every((metric) => Number.isFinite(metric.durationMs) && metric.success === true));
@@ -516,12 +544,12 @@ test('the agent follows a tab opened by a link, keeps the task policy on it and 
   }
 });
 
-test('old large tool outputs get summarized after six newer ones', async () => {
+test('old large tool outputs retain unique evidence after six newer ones', async () => {
   const { service } = servicoComAbaLocal();
   service.setBrowserControls({ createTab: async () => ({ tabId: 'tab-bench' }), closeTab: async (tabId) => { service.tabs.delete(tabId); } });
   service.setAgentConfigProvider(async () => ({ provider: 'openrouter', model: 'test-model', apiKey: 'test-key' }));
   service.getAccessibilityTree = async () => ({ success: true, tree: { url: 'http://127.0.0.1:5000/t/x', nodes: [{ index: 0, role: 'button', tag: 'button', name: 'Ver' }] } });
-  service.executeAXAction = async () => ({ success: true, detalhe: 'x'.repeat(5000) });
+  service.executeAXAction = async () => ({ success: true, detalhe: `${'x'.repeat(5000)} evidence-at-end` });
   const passos = [
     { name: 'inspect_page', arguments: '{}' },
     { name: 'click', arguments: '{"index":0}' },
@@ -541,8 +569,7 @@ test('old large tool outputs get summarized after six newer ones', async () => {
     assert.equal(result.success, true);
     assert.equal(ultimo.messages[1].content, 'Some');
     const clique = ultimo.messages.find((m) => m.role === 'tool' && m.tool_call_id === 't2');
-    assert.match(clique.content, /resumido/);
-    assert.ok(clique.content.length < 2000);
+    assert.match(clique.content, /evidence-at-end/);
   } finally {
     global.fetch = originalFetch;
   }

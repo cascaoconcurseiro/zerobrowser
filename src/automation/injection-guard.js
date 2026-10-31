@@ -17,6 +17,9 @@ function textOf(output) {
   if (!output || typeof output !== 'object') return typeof output === 'string' ? output : '';
   const parts = [];
   if (typeof output.text === 'string') parts.push(output.text);
+  if (output.actionEvidence && typeof output.actionEvidence === 'object') {
+    try { parts.push(JSON.stringify(output.actionEvidence)); } catch {}
+  }
   if (Array.isArray(output.nodes)) {
     for (const n of output.nodes) {
       if (n && typeof n === 'object') parts.push(n.name, n.text, n.label, n.title, n.value);

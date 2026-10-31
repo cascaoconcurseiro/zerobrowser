@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // Roda as tarefas do benchmark no Zero Browser aberto (pela ponte MCP) e grava o relatório de taxa de sucesso.
-// Uso: node bench/avaliar.js [rotulo] [--conjunto=basico|dificeis|stress|todos|reais] [--tarefas=01,07] [--repeticoes=N] [--max-passos=N] [--tempo=SEGUNDOS] [--data-dir=PASTA] [--observe]
+// Uso: node bench/avaliar.js [rotulo] [--conjunto=basico|dificeis|stress|todos|reais] [--tarefas=01,07] [--repeticoes=N] [--max-passos=N] [--tempo=SEGUNDOS] [--data-dir=PASTA] [--observe] [--prompt-cache]
 //      node bench/avaliar.js --servidor            (só sobe as páginas, para testar à mão)
-//      node bench/avaliar.js --comparar A.json B.json
+//      node bench/avaliar.js --comparar A.json B.json [--variavel=promptCache]
 const fs = require('fs');
 const net = require('net');
 const path = require('path');
@@ -23,7 +23,7 @@ const RESULTADOS = path.join(__dirname, 'resultados');
 const TEMPO_POR_TAREFA_MS = 10 * 60 * 1000;
 
 function lerArgumentos(argv) {
-  const opcoes = { rotulo: 'execucao', conjunto: 'todos', tarefas: null, repeticoes: 1, maxPassos: 20, tempo: 0, dataDir: '', servidor: false, comparar: null, motor: 'navegante', observeAfterActions: true, preInspect: false, scripts: false, diff: false, cascade: '', stream: false, journal: false };
+  const opcoes = { rotulo: 'execucao', conjunto: 'todos', tarefas: null, repeticoes: 1, maxPassos: 20, tempo: 0, dataDir: '', servidor: false, comparar: null, variaveisComparadas: [], motor: 'navegante', observeAfterActions: true, preInspect: false, scripts: false, diff: false, deduplicateSnapshots: false, promptCache: false, cascade: '', stream: false, journal: false };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     const [chave, valor] = arg.split('=');
@@ -40,12 +40,17 @@ function lerArgumentos(argv) {
     else if (chave === '--preinspect') opcoes.preInspect = true;
     else if (chave === '--scripts') opcoes.scripts = true;
     else if (chave === '--diff') opcoes.diff = true;
+    else if (chave === '--deduplicate-snapshots') opcoes.deduplicateSnapshots = true;
+    else if (chave === '--prompt-cache') opcoes.promptCache = true;
     else if (chave === '--cascade') opcoes.cascade = valor || '';
     else if (chave === '--stream') opcoes.stream = true;
     else if (chave === '--journal') opcoes.journal = true;
     else if (chave === '--comparar') { opcoes.comparar = [argv[i + 1], argv[i + 2]]; i += 2; }
+    else if (chave === '--variavel') opcoes.variaveisComparadas = (valor || '').split(',').map((v) => v.trim()).filter(Boolean);
     else if (!arg.startsWith('--')) opcoes.rotulo = arg.replace(/[^\w.-]/g, '_');
   }
+  if (opcoes.diff && opcoes.deduplicateSnapshots) throw new Error('--diff e --deduplicate-snapshots não podem ser usados juntos.');
+  if (opcoes.variaveisComparadas.length > 1) throw new Error('Declare somente uma opção experimental em --variavel.');
   return opcoes;
 }
 
@@ -113,7 +118,10 @@ function resumir(execucoes) {
     if (e.aprovado) c.aprovadas += 1;
   }
   const comTokens = execucoes.filter((e) => e.tokensDisponiveis);
+  const comCustoReportado = execucoes.filter((e) => e.custoDisponivel === true && Number.isFinite(e.custoUsd) && e.custoUsd >= 0);
   const chamadas = execucoes.flatMap((e) => e.trace?.requestMetrics || []);
+  const snapshotsReutilizados = execucoes.reduce((soma, e) => soma + (e.trace?.deduplicatedSnapshots || 0), 0);
+  const bytesContextoSnapshotEvitados = execucoes.reduce((soma, e) => soma + (e.trace?.deduplicatedSnapshotContextBytesSaved || 0), 0);
   const respostasValidas = chamadas.filter((chamada) => chamada.success === true && Number.isFinite(chamada.durationMs));
   const latencias = respostasValidas.map((chamada) => chamada.durationMs);
   const latenciasTentativas = chamadas.filter((chamada) => Number.isFinite(chamada.durationMs)).map((chamada) => chamada.durationMs);
@@ -125,6 +133,11 @@ function resumir(execucoes) {
     mediaSegundos: media(execucoes.map((e) => e.ms / 1000)),
     tokensEntrada: comTokens.reduce((s, e) => s + e.tokensEntrada, 0),
     tokensSaida: comTokens.reduce((s, e) => s + e.tokensSaida, 0),
+    custoReportadoUsd: comCustoReportado.length ? comCustoReportado.reduce((s, e) => s + e.custoUsd, 0) : null,
+    execucoesComCustoReportado: comCustoReportado.length,
+    custoReportadoParcial: comCustoReportado.length > 0 && comCustoReportado.length < execucoes.length,
+    snapshotsReutilizados,
+    bytesContextoSnapshotEvitados,
     chamadasModelo: respostasValidas.length,
     tentativasRepetidas: chamadas.filter((chamada) => chamada.attempt > 1).length,
     latenciaP50Ms: percentil(latencias, 0.5),
@@ -226,6 +239,8 @@ function relatorioMarkdown(relatorio) {
     `**Taxa de sucesso: ${pct(r.aprovadas, r.total)}** (${r.aprovadas} de ${r.total})`,
     '',
     `Média de passos: ${r.mediaPassos.toFixed(1)} · Tempo médio: ${r.mediaSegundos.toFixed(1)} s · Tokens: ${r.tokensEntrada} entrada / ${r.tokensSaida} saída${r.tokensParciais ? ' (o provedor não informou em todas)' : ''}`,
+    `Custo reportado pelo provedor: ${r.custoReportadoUsd === null ? 'não informado' : `$${r.custoReportadoUsd.toFixed(6)} USD em ${r.execucoesComCustoReportado}/${r.total} execuções${r.custoReportadoParcial ? ' (parcial)' : ''}`}`,
+    ...(relatorio.deduplicateSnapshots ? [`Snapshots reutilizados: ${r.snapshotsReutilizados} · bytes de contexto evitados: ${r.bytesContextoSnapshotEvitados} frente à compactação normal (estimativa serializada; não equivale a tokens)`] : []),
     `Chamadas aceitas: ${r.chamadasModelo} · Retentativas: ${r.tentativasRepetidas} · Latência aceita p50/p90: ${r.latenciaP50Ms}/${r.latenciaP90Ms} ms · Tentativas totais p50/p90: ${r.latenciaTentativaP50Ms}/${r.latenciaTentativaP90Ms} ms`,
     '',
     '## Por categoria',
@@ -243,11 +258,11 @@ function relatorioMarkdown(relatorio) {
   return `${linhas.join('\n')}\n`;
 }
 
-function comparar(arquivoA, arquivoB) {
+function comparar(arquivoA, arquivoB, variaveisComparadas = []) {
   const [a, b] = [arquivoA, arquivoB].map((f) => JSON.parse(fs.readFileSync(f, 'utf8')));
   const taxa = (rel) => pct(rel.resumo.aprovadas, rel.resumo.total);
   console.log(`${a.rotulo}: ${taxa(a)}  →  ${b.rotulo}: ${taxa(b)}`);
-  console.log(`\n${comparacaoMarkdown(compararRelatorios(a, b))}`);
+  console.log(`\n${comparacaoMarkdown(compararRelatorios(a, b, { variaveis: variaveisComparadas }))}`);
   const ids = [...new Set([...a.execucoes, ...b.execucoes].map((e) => e.id))];
   for (const id of ids) {
     const estado = (rel) => {
@@ -261,7 +276,7 @@ function comparar(arquivoA, arquivoB) {
 
 async function principal() {
   const opcoes = lerArgumentos(process.argv.slice(2));
-  if (opcoes.comparar) return comparar(...opcoes.comparar);
+  if (opcoes.comparar) return comparar(...opcoes.comparar, opcoes.variaveisComparadas);
 
   const servidor = await iniciarServidor();
   if (opcoes.servidor) {
@@ -288,7 +303,7 @@ async function principal() {
     await servidor.fechar();
     throw new Error('O Zero Browser aberto é uma versão antiga, sem a ferramenta run_task. Feche-o e abra a versão nova com "npm start".');
   }
-  const relatorio = { rotulo: opcoes.rotulo, motor: opcoes.motor, observeAfterActions: opcoes.observeAfterActions, preInspect: opcoes.preInspect, scripts: opcoes.scripts, diff: opcoes.diff, cascade: opcoes.cascade || null, stream: opcoes.stream, inicio: new Date().toISOString(), maxPassos: opcoes.maxPassos, provedor: null, modelo: null, execucoes: [] };
+  const relatorio = { rotulo: opcoes.rotulo, motor: opcoes.motor, observeAfterActions: opcoes.observeAfterActions, preInspect: opcoes.preInspect, scripts: opcoes.scripts, diff: opcoes.diff, deduplicateSnapshots: opcoes.deduplicateSnapshots, promptCache: opcoes.promptCache, cascade: opcoes.cascade || null, stream: opcoes.stream, journal: opcoes.journal, tempo: opcoes.tempo || null, conjunto: opcoes.conjunto, inicio: new Date().toISOString(), maxPassos: opcoes.maxPassos, provedor: null, modelo: null, execucoes: [] };
   try {
     for (let rodada = 1; rodada <= opcoes.repeticoes; rodada += 1) {
       for (const tarefa of selecionadas) {
@@ -299,7 +314,7 @@ async function principal() {
         try {
           const resposta = await mcp.chamar('tools/call', {
             name: 'run_task',
-            arguments: { startUrl: tarefa.startUrl || servidor.urlDa(tarefa.id), prompt: tarefa.pedido, maxSteps: opcoes.maxPassos, ...(tarefa.hosts ? { approvalPolicy: 'public-sites', allowedHosts: tarefa.hosts, ...(tarefa.credenciais ? { allowCredentials: true } : {}) } : { approvalPolicy: 'local-fixture' }), ...(tarefa.id === '44-estoque-filiais' ? { captureReadEvidence: true } : {}), ...(tarefa.verificarPagina ? { keepTab: true } : {}), ...(tarefa.capturarTextoInicial ? { captureInitialText: true } : {}), ...(tarefa.captureInitialChecks ? { captureInitialChecks: tarefa.captureInitialChecks.map(({ esperado, ...check }) => check) } : {}), engine: opcoes.motor, observeAfterActions: opcoes.observeAfterActions, ...(opcoes.preInspect ? { preInspect: true } : {}), ...(opcoes.scripts ? { actionScripts: true } : {}), ...(opcoes.diff ? { diffSnapshots: true } : {}), ...(opcoes.cascade ? { cascadeModel: opcoes.cascade } : {}), ...(opcoes.stream ? { streaming: true } : {}), ...(opcoes.journal ? { effectJournal: true } : {}), ...(opcoes.tempo ? { maxDurationSec: opcoes.tempo } : {}) }
+            arguments: { startUrl: tarefa.startUrl || servidor.urlDa(tarefa.id), prompt: tarefa.pedido, maxSteps: opcoes.maxPassos, ...(tarefa.hosts ? { approvalPolicy: 'public-sites', allowedHosts: tarefa.hosts, ...(tarefa.credenciais ? { allowCredentials: true } : {}) } : { approvalPolicy: 'local-fixture' }), ...(tarefa.id === '44-estoque-filiais' ? { captureReadEvidence: true } : {}), ...(tarefa.verificarPagina ? { keepTab: true } : {}), ...(tarefa.capturarTextoInicial ? { captureInitialText: true } : {}), ...(tarefa.captureInitialChecks ? { captureInitialChecks: tarefa.captureInitialChecks.map(({ esperado, ...check }) => check) } : {}), engine: opcoes.motor, observeAfterActions: opcoes.observeAfterActions, ...(opcoes.preInspect ? { preInspect: true } : {}), ...(opcoes.scripts ? { actionScripts: true } : {}), ...(opcoes.diff ? { diffSnapshots: true } : {}), ...(opcoes.deduplicateSnapshots ? { deduplicateSnapshots: true } : {}), ...(opcoes.promptCache ? { promptCache: true } : {}), ...(opcoes.cascade ? { cascadeModel: opcoes.cascade } : {}), ...(opcoes.stream ? { streaming: true } : {}), ...(opcoes.journal ? { effectJournal: true } : {}), ...(opcoes.tempo ? { maxDurationSec: opcoes.tempo } : {}) }
           }, opcoes.tempo ? (opcoes.tempo + 60) * 1000 : TEMPO_POR_TAREFA_MS);
           resultado = resposta?.structuredContent || {};
         } catch (erro) {
@@ -345,6 +360,8 @@ async function principal() {
           tokensDisponiveis: trace.usageAvailable !== false && trace.inputTokens !== undefined,
           tokensEntrada: trace.inputTokens || 0,
           tokensSaida: trace.outputTokens || 0,
+          custoDisponivel: resultado.provider === 'openrouter' && Array.isArray(trace.requestMetrics) && trace.requestMetrics.some((metric) => metric.success === true) && trace.requestMetrics.filter((metric) => metric.success === true).every((metric) => Number.isFinite(metric.providerReportedCostUsd) && metric.providerReportedCostUsd >= 0),
+          custoUsd: resultado.provider === 'openrouter' ? (trace.requestMetrics || []).filter((metric) => metric.success === true && Number.isFinite(metric.providerReportedCostUsd) && metric.providerReportedCostUsd >= 0).reduce((sum, metric) => sum + metric.providerReportedCostUsd, 0) : null,
           mensagem: String(resultado.message || resultado.error || '').slice(0, 500),
           ...(verificacaoPagina ? { verificacaoPagina } : {}),
           trace

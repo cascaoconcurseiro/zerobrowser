@@ -34,8 +34,11 @@ function cacheRequestFields({ provider, model, messages, enabled, seed }) {
 // Usa o que o provedor devolveu em usage para dizer se o cache valeu a pena.
 function cacheSummary(trace) {
   const input = Number(trace?.inputTokens) || 0;
-  const cached = Number(trace?.cachedInputTokens) || 0;
-  if (!input) return { cachedInputTokens: cached, cacheHitRate: 0, cacheUseful: false, note: 'O provedor não informou tokens de entrada.' };
+  if (trace?.cachedInputTokensAvailable !== true || trace?.usageAvailable === false || !Number.isFinite(trace?.cachedInputTokens)) {
+    return { cachedInputTokens: null, cacheHitRate: null, cacheUseful: null, note: 'O provedor não informou dados de cache completos para todas as chamadas.' };
+  }
+  const cached = trace.cachedInputTokens;
+  if (!input) return { cachedInputTokens: cached, cacheHitRate: null, cacheUseful: null, note: 'O provedor não informou tokens de entrada.' };
   const rate = Math.round((cached / input) * 1000) / 10;
   return {
     cachedInputTokens: cached,
@@ -43,7 +46,7 @@ function cacheSummary(trace) {
     cacheUseful: cached > 0,
     note: cached > 0
       ? `${rate}% da entrada veio do cache de prefixo.`
-      : 'Nenhum token veio do cache; desligue promptCache para este provedor/modelo.'
+      : 'O provedor informou zero tokens em cache nesta execução.'
   };
 }
 

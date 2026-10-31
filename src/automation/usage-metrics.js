@@ -1,12 +1,13 @@
 // Tokens de entrada que o provedor serviu do cache de prefixo (mais baratos e rápidos). Cada provedor usa um campo.
 // DeepSeek: prompt_cache_hit_tokens. OpenAI/OpenRouter: prompt_tokens_details.cached_tokens. Anthropic: cache_read_input_tokens.
 function cachedInputTokens(usage) {
-  if (!usage || typeof usage !== 'object') return 0;
+  if (!usage || typeof usage !== 'object') return null;
   const value = usage.prompt_cache_hit_tokens
     ?? usage.prompt_tokens_details?.cached_tokens
-    ?? usage.cache_read_input_tokens
-    ?? 0;
-  return Number.isFinite(Number(value)) ? Number(value) : 0;
+    ?? usage.cache_read_input_tokens;
+  if (typeof value !== 'number') return null;
+  const count = value;
+  return Number.isSafeInteger(count) && count >= 0 ? count : null;
 }
 
 // Links de rastreamento (lojas, buscadores) passam de 300 caracteres e custam tokens a cada passo sem ajudar a escolher
