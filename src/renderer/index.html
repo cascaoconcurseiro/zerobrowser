@@ -72,7 +72,8 @@
 
     <aside id="delegation-rail" class="delegation-rail hidden" aria-label="Perfis de Bot">
       <div id="bot-rail-list" class="bot-rail-list" aria-label="Bots disponíveis"></div>
-      <button id="btn-bot-new" class="bot-rail-action" type="button" aria-label="Criar ou trocar perfil de Bot" title="Criar ou trocar perfil de Bot">+</button>
+      <div id="grokbot-rail-specialists" class="grokbot-rail-specialists" role="group" aria-label="Bots Especialistas"></div>
+      <button id="btn-bot-new" class="bot-rail-action" type="button" aria-label="Criar ou trocar perfil de Bot" title="Criar novo Bot Especialista ou perfil">+</button>
       <span id="bot-rail-count" class="delegation-rail-label">Bots</span>
     </aside>
     <section id="bot-central" class="bot-central hidden" role="dialog" aria-modal="false" aria-labelledby="bot-central-title" aria-describedby="bot-central-summary">
@@ -160,11 +161,11 @@
       </div>
       <div id="grokbot-briefing-bar" class="grokbot-briefing-bar" role="region" aria-label="Bot Especialista ativo">
         <div class="grokbot-briefing-identity">
-          <span id="grokbot-active-ring" class="grokbot-active-ring" data-bot-state="working" aria-hidden="true"></span>
+          <span id="grokbot-active-ring" class="grokbot-active-ring" data-bot-state="idle" aria-hidden="true"></span>
           <div class="grokbot-briefing-copy">
             <div class="grokbot-briefing-title-row">
               <strong id="grokbot-active-name">Preços</strong>
-              <span id="grokbot-active-status" class="grokbot-status-pill">● Trabalhando</span>
+              <span id="grokbot-active-status" class="grokbot-status-pill is-idle">● Pronto</span>
             </div>
             <span id="grokbot-active-meta">Comparando preços de fone sem fio conforme sua solicitação.</span>
           </div>
@@ -212,6 +213,7 @@
           <div class="ai-composer-actions">
             <label class="sr-only" for="ai-quick-model">Modelo do agente</label>
             <select id="ai-quick-model" class="ai-quick-model" aria-label="Modelo do agente"><option value="">Configure um modelo em Configurações</option></select>
+            <button id="btn-ai-send-bg" class="btn-secondary grokbot-send-bg-btn" type="button" title="Executar esta ordem em uma aba exclusiva de 2º plano e trazer para frente ao concluir (Alt+Enter)" aria-label="Executar ordem em 2º plano">Em 2º plano</button>
             <button id="btn-ai-send" class="btn-primary" aria-label="Enviar comando">Enviar</button>
           </div>
         </div>

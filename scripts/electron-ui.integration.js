@@ -331,6 +331,14 @@ app.whenReady().then(async () => {
 
     const grokbotSurface = await window.webContents.executeJavaScript(`(async () => {
       const briefingVisible = !document.getElementById('grokbot-briefing-bar')?.classList.contains('hidden');
+      const stopHiddenWhenIdle = document.getElementById('btn-stop-task')?.classList.contains('hidden') === true;
+      const idleStatusText = document.getElementById('grokbot-active-status')?.textContent?.trim();
+      const railSpecBtns = [...document.querySelectorAll('#grokbot-rail-specialists .grokbot-rail-spec-btn')];
+      const railSpecialistsCount = railSpecBtns.length;
+      const hasSendBgBtn = !document.getElementById('btn-ai-send-bg')?.classList.contains('hidden');
+      if (railSpecBtns[1]) railSpecBtns[1].click();
+      const switchedSessionId = window.app.chatSession?.id || '';
+      if (railSpecBtns[0]) railSpecBtns[0].click();
       const tabNames = [...document.querySelectorAll('.bot-panel-tab')].map((b) => b.dataset.botTab);
       window.app.switchBotPanelTab('routes');
       await new Promise((r) => setTimeout(r, 80));
@@ -342,27 +350,47 @@ app.whenReady().then(async () => {
       await new Promise((r) => setTimeout(r, 80));
       const memoryText = document.getElementById('bot-view-memory')?.textContent || '';
       window.app.switchBotPanelTab('chat');
+      const initialFgTab = window.app.activeTabId;
+      const bgRun = await window.app.sendAiMessageInBackground('Encontre fone sem fio até R$ 150,00');
+      const keptForeground = window.app.activeTabId === initialFgTab && bgRun.tabId !== initialFgTab;
+      const hasStepper = document.querySelectorAll('.grokbot-stepper .grokbot-step-row').length === 4;
+      const hasInlineReceipt = !!document.querySelector('.grokbot-inline-receipt');
+      const hasConfirmCard = !!document.querySelector('.grokbot-confirm-card');
+      const hasTechDrawer = !!document.querySelector('.grokbot-tech-drawer');
+      if (bgRun?.tabId) await window.app.closeTab(bgRun.tabId);
       return {
         briefingVisible,
+        stopHiddenWhenIdle,
+        idleStatusText,
+        railSpecialistsCount,
+        hasSendBgBtn,
+        switchedBotSession: switchedSessionId.startsWith('bot-chat-'),
+        keptForeground,
         tabNames,
         hasRoutesOrder: routesText.includes('WebMCP'),
         hasMandate: agendaText.includes('Mandato Delegado'),
         hasAutonomy: memoryText.includes('Autonomia Conquistada'),
-        hasStepper: document.querySelectorAll('.grokbot-stepper .grokbot-step-row').length === 4,
-        hasInlineReceipt: !!document.querySelector('.grokbot-inline-receipt'),
-        hasConfirmCard: !!document.querySelector('.grokbot-confirm-card'),
-        hasTechDrawer: !!document.querySelector('.grokbot-tech-drawer'),
+        hasStepper,
+        hasInlineReceipt,
+        hasConfirmCard,
+        hasTechDrawer,
         hasProviderCards: document.querySelectorAll('#ai-provider-cards .grokbot-provider-card').length === 4
       };
     })()`);
     assert.equal(grokbotSurface.briefingVisible, true, 'barra do Bot Especialista ativo está visível');
+    assert.equal(grokbotSurface.stopHiddenWhenIdle, true, 'botão Parar tudo fica oculto quando nenhuma tarefa está rodando');
+    assert.equal(grokbotSurface.idleStatusText, '● Pronto', 'Bot Especialista inicia com estado Pronto em vez de tarefa fictícia');
+    assert.ok(grokbotSurface.railSpecialistsCount >= 3, 'trilho lateral exibe os Bots Especialistas para troca direta de conversa');
+    assert.equal(grokbotSurface.hasSendBgBtn, true, 'compositor tem botão dedicado Em 2º plano ao lado de Enviar');
+    assert.equal(grokbotSurface.switchedBotSession, true, 'clicar em outro Bot Especialista troca para a conversa exclusiva daquele Bot');
+    assert.equal(grokbotSurface.keptForeground, true, 'enviar ordem em 2º plano abre aba oculta do Bot mantendo a aba atual');
     assert.deepEqual(grokbotSurface.tabNames, ['chat', 'agenda', 'memory', 'routes', 'history'], 'painel do Bot tem as 5 abas GrokBot');
     assert.equal(grokbotSurface.hasRoutesOrder, true, 'aba Rotas exibe a ordem de preferência e rotas aprendidas');
     assert.equal(grokbotSurface.hasMandate, true, 'aba Agenda exibe gatilhos por evento e mandato com envelope');
     assert.equal(grokbotSurface.hasAutonomy, true, 'aba Memória exibe escada de autonomia conquistada');
-    assert.equal(grokbotSurface.hasStepper, true, 'conversa exibe a linha do tempo vertical de passos igual às imagens de conceito');
-    assert.equal(grokbotSurface.hasInlineReceipt, true, 'conversa exibe a faixa verde de ação recente com botão Desfazer');
-    assert.equal(grokbotSurface.hasConfirmCard, true, 'conversa exibe o cartão rico Confirmar envio? com Aprovar e Recusar');
+    assert.equal(grokbotSurface.hasStepper, true, 'ordem executada exibe a linha do tempo vertical de passos igual às imagens de conceito');
+    assert.equal(grokbotSurface.hasInlineReceipt, true, 'ordem executada exibe a faixa verde de ação recente com botão Desfazer');
+    assert.equal(grokbotSurface.hasConfirmCard, true, 'ordem executada exibe o cartão rico Confirmar envio? com Aprovar e Recusar');
     assert.equal(grokbotSurface.hasTechDrawer, true, 'conversa exibe a gaveta </> Técnico com motor, MCP, firewall e personalização');
     assert.equal(grokbotSurface.hasProviderCards, true, 'Configurações exibe os cartões visuais de provedor de IA');
 
