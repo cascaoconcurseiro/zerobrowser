@@ -55,6 +55,7 @@ let activeBrowserTabId = null;
 let quitCleanupStarted = false;
 let quitCleanupComplete = false;
 let sidePanelOpen = false;
+let sidePanelPosition = 'right';
 const PROFILE_PARTITION = 'persist:navegante';
 const FLAME_PANEL_WIDTH = 420;
 let extensionHost = null;
@@ -642,7 +643,8 @@ function updateBrowserViewBounds() {
   const flameOpen = flamePanels.has(activeBrowserTabId) && !flamePanelHidden;
   const sidePanelWidth = flameOpen
     ? Math.min(FLAME_PANEL_WIDTH, Math.floor(contentBounds.width * 0.45))
-    : sidePanelOpen ? Math.min(360, Math.floor(contentBounds.width * 0.4)) : 0;
+    : sidePanelOpen ? Math.min(sidePanelPosition === 'left' ? 420 : 360, Math.floor(contentBounds.width * 0.4)) : 0;
+  const delegationRailWidth = sidePanelOpen && sidePanelPosition === 'left' ? 56 : 0;
   const top = tabBarHeight + addressBarHeight;
   for (const panel of flamePanels.values()) {
     if (!panel.webContents.isDestroyed()) {
@@ -653,9 +655,9 @@ function updateBrowserViewBounds() {
   browserViews.forEach(({ view }) => {
     if (!view.webContents.isDestroyed()) {
       view.setBounds({
-        x: 0,
+        x: delegationRailWidth + (sidePanelPosition === 'left' && sidePanelOpen ? sidePanelWidth : 0),
         y: tabBarHeight + addressBarHeight,
-        width: Math.max(320, contentBounds.width - sidePanelWidth),
+        width: Math.max(320, contentBounds.width - sidePanelWidth - delegationRailWidth),
         height: contentBounds.height - tabBarHeight - addressBarHeight
       });
     }
@@ -812,11 +814,13 @@ handleMainUiIpc('browser:whats-new', async (event) => {
   return { success: true };
 });
 
-handleMainUiIpc('browser:set-side-panel-open', (event, isOpen) => {
+handleMainUiIpc('browser:set-side-panel-open', (event, state) => {
   if (!mainWindow || event.sender !== mainWindow.webContents) {
     throw new Error('Somente a janela principal pode alterar o layout do navegador.');
   }
-  sidePanelOpen = isOpen === true;
+  const panelState = state && typeof state === 'object' ? state : { open: state === true };
+  sidePanelOpen = panelState.open === true;
+  sidePanelPosition = panelState.position === 'left' ? 'left' : 'right';
   const bounds = updateBrowserViewBounds();
   return { open: sidePanelOpen, bounds };
 });

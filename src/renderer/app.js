@@ -46,6 +46,8 @@ class ZeroBrowserApp {
       btnExtensions: document.getElementById('btn-extensions'),
       btnSettings: document.getElementById('btn-settings'),
       btnAi: document.getElementById('btn-ai'),
+      delegationRail: document.getElementById('delegation-rail'),
+      btnBotNew: document.getElementById('btn-bot-new'),
       btnAppMenu: document.getElementById('btn-app-menu'),
       appMenu: document.getElementById('app-menu'),
       libraryPanel: document.getElementById('library-panel'),
@@ -128,6 +130,7 @@ class ZeroBrowserApp {
     });
 
     this.elements.btnAi.addEventListener('click', () => this.toggleAiPanel());
+    this.elements.btnBotNew.addEventListener('click', () => window.zeroBrowser.browser.openProfileMenu(72, 96).catch(() => {}));
     this.elements.btnCloseAi.addEventListener('click', () => this.closeAiPanel());
     this.elements.btnSettings.addEventListener('click', () => this.toggleSettingsPanel());
     this.elements.btnCloseSettings.addEventListener('click', () => this.closeSettingsPanel());
@@ -1184,7 +1187,13 @@ class ZeroBrowserApp {
     this.elements.settingsPanel.classList.add('hidden');
     this.elements.libraryPanel.classList.add('hidden');
     this.closeAppMenu();
-    window.zeroBrowser.browser.setSidePanelOpen(opening);
+    document.getElementById('app').classList.toggle('delegation-mode', opening);
+    this.elements.delegationRail.classList.toggle('hidden', !opening);
+    this.elements.btnAi.setAttribute('aria-pressed', String(opening));
+    this.elements.btnAi.querySelector('.ai-copilot-label').textContent = opening ? 'Navegar' : 'Delegar';
+    this.elements.btnAi.setAttribute('aria-label', opening ? 'Voltar ao modo Navegar' : 'Abrir modo Delegar');
+    this.elements.btnAi.title = opening ? 'Voltar ao modo Navegar' : 'Abrir modo Delegar (Ctrl+Shift+A)';
+    window.zeroBrowser.browser.setSidePanelOpen(opening, 'left');
     if (opening) {
       await this.releasePageOverlay('panel');
       this.elements.aiInput.focus();
@@ -1195,14 +1204,25 @@ class ZeroBrowserApp {
 
   closeAiPanel() {
     this.elements.aiPanel.classList.add('hidden');
+    this.clearDelegationMode();
     if (this.elements.settingsPanel.classList.contains('hidden')) window.zeroBrowser.browser.setSidePanelOpen(false);
     if (this.elements.settingsPanel.classList.contains('hidden') && this.elements.libraryPanel.classList.contains('hidden')) this.releasePageOverlay('panel');
+  }
+
+  clearDelegationMode() {
+    document.getElementById('app').classList.remove('delegation-mode');
+    this.elements.delegationRail.classList.add('hidden');
+    this.elements.btnAi.setAttribute('aria-pressed', 'false');
+    this.elements.btnAi.querySelector('.ai-copilot-label').textContent = 'Delegar';
+    this.elements.btnAi.setAttribute('aria-label', 'Abrir modo Delegar');
+    this.elements.btnAi.title = 'Abrir modo Delegar (Ctrl+Shift+A)';
   }
 
   toggleSettingsPanel() {
     const opening = this.elements.settingsPanel.classList.contains('hidden');
     this.elements.settingsPanel.classList.toggle('hidden', !opening);
     this.elements.aiPanel.classList.add('hidden');
+    this.clearDelegationMode();
     this.elements.libraryPanel.classList.add('hidden');
     this.closeAppMenu();
     window.zeroBrowser.browser.setSidePanelOpen(opening);
@@ -1270,6 +1290,7 @@ class ZeroBrowserApp {
   async openExtensionsManager() {
     this.elements.settingsPanel.classList.remove('hidden');
     this.elements.aiPanel.classList.add('hidden');
+    this.clearDelegationMode();
     this.elements.libraryPanel.classList.add('hidden');
     this.closeAppMenu();
     window.zeroBrowser.browser.setSidePanelOpen(true);
@@ -1425,6 +1446,7 @@ class ZeroBrowserApp {
     const libraryWasOpen = !this.elements.libraryPanel.classList.contains('hidden');
     this.elements.libraryPanel.classList.remove('hidden');
     this.elements.aiPanel.classList.add('hidden');
+    this.clearDelegationMode();
     this.elements.settingsPanel.classList.add('hidden');
     this.closeAppMenu();
     this.libraryMode = mode;

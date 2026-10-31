@@ -61,6 +61,62 @@ body.dark {
   box-shadow: -12px 0 32px rgba(20, 28, 24, 0.08);
 }
 
+/* Modo Delegar: conversa e controles do Bot à esquerda, página ao vivo à direita. */
+.delegation-rail {
+  position: fixed;
+  z-index: 101;
+  top: 80px;
+  bottom: 0;
+  left: 0;
+  width: 56px;
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  gap: 14px;
+  padding: 14px 6px;
+  box-sizing: border-box;
+  background: var(--bg-primary);
+  border-right: 1px solid var(--border);
+}
+.delegation-rail.hidden { display: none; }
+.delegation-mode #ai-panel {
+  left: 56px;
+  right: auto;
+  width: min(420px, 40vw);
+  border-left: 0;
+  border-right: 1px solid var(--border);
+  box-shadow: 10px 0 28px rgba(20, 28, 24, 0.06);
+}
+.delegation-mode #ai-panel .panel-header { padding: 14px 16px; }
+.bot-avatar {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 2px solid var(--accent);
+  border-radius: 50%;
+  color: var(--accent);
+  font-size: 24px;
+  line-height: 1;
+}
+.bot-avatar-active { background: color-mix(in srgb, var(--accent) 10%, var(--bg-secondary)); }
+.bot-rail-action {
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--bg-secondary);
+  color: var(--fg-primary);
+  font-size: 21px;
+  cursor: pointer;
+}
+.bot-rail-action:hover, .bot-rail-action:focus-visible { border-color: var(--accent); color: var(--accent); }
+.delegation-rail-label { color: var(--fg-secondary); font-size: 10px; }
+.delegation-mode #btn-ai { background: var(--accent); color: #fff; }
+@media (max-width: 800px) {
+  .delegation-mode #ai-panel { width: min(420px, 40vw); }
+}
+
 .panel-header {
   min-height: 76px;
   padding: 14px 18px;

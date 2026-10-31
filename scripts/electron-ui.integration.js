@@ -140,7 +140,7 @@ app.whenReady().then(async () => {
     assert.equal(shell.selectedLibraryMode, 'history', 'modo de histórico inicia anunciado como selecionado');
     assert.equal(shell.libraryButtonsNativeAndTabbable, true, 'categorias são botões nativos incluídos na ordem sequencial de Tab');
     assert.equal(shell.libraryButton, true, 'botao Biblioteca ausente no painel');
-    assert.equal(shell.aiButtonLabel, 'Agente IA', 'toolbar precisa usar o nome do produto e evitar marca de terceiro');
+    assert.equal(shell.aiButtonLabel, 'Delegar', 'toolbar precisa indicar o modo de delegação');
     assert.equal(shell.manageChat, true, 'ações de conversa ausentes');
 
     await window.webContents.executeJavaScript("window.app.openLibrary('downloads')");

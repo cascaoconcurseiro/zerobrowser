@@ -11,7 +11,7 @@ const browserApi = {
     reload: (tabId) => ipcRenderer.invoke('browser:reload', tabId),
     getTabs: () => ipcRenderer.invoke('browser:get-tabs'),
     getTab: (tabId) => ipcRenderer.invoke('browser:get-tab', tabId),
-    setSidePanelOpen: (isOpen) => ipcRenderer.invoke('browser:set-side-panel-open', isOpen),
+    setSidePanelOpen: (isOpen, position = 'right') => ipcRenderer.invoke('browser:set-side-panel-open', { open: isOpen === true, position }),
     getSidePanelLayout: () => ipcRenderer.invoke('browser:get-side-panel-layout'),
     setBookmarksBar: (visible) => ipcRenderer.invoke('browser:set-bookmarks-bar', visible),
     freezePage: (frozen, reason) => ipcRenderer.invoke('browser:freeze-page', frozen, reason),

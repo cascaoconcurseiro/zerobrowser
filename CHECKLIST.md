@@ -7,7 +7,8 @@
 - [x] Validar via Electron/IPC, em fixtures loopback e perfil Bot temporário, tentativas de preencher senha e identificador de login sem `<form>`, inclusive com modo técnico `allow-all` sem confirmação; ambos os valores ficaram vazios.
 - [x] Criar imagem conceitual do modo Delegar conforme a direção de design do projeto e registrar que ainda não é implementação: `docs/CONCEITO_VISUAL_MODO_DELEGAR.md`.
 - [ ] Validar barreiras por MCP e ações de maior risco em runtime; diagnosticar o smoke `runAgent` que parou após a primeira chamada mockada; cobrir login sem sinais semânticos e ciclo de vida/exclusão. `docs/PLANO_CONTROLE_TOTAL_IA.md` não está presente na `main` para comparar o inventário.
-- [ ] Construir protótipo clicável do modo Delegar e testar entendimento com usuários antes da implementação da interface de produção.
+- [x] Implementar a primeira interface funcional do modo Delegar: painel de conversa à esquerda, página ativa à direita, alternância Navegar/Delegar e atalho ao menu de perfis Bot; interrupção limitada à tarefa atual.
+- [ ] Testar entendimento do modo Delegar com usuários; implementar Central, takeover completo e controles de equipe Bot com escopo validado.
 
 - [x] Commitar as 29 alterações existentes (`0c56c26`); aplicar temperatura compatível por modelo OpenAI e filtrar modelos de chat no catálogo.
 - [x] Validar chamada real pelo botão de conexão no Zero Browser 0.1.43-dev: DeepSeek `deepseek-flash` respondeu “Agente conectado: deepseek-flash”; chave permaneceu mascarada.

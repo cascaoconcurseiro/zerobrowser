@@ -1,12 +1,15 @@
 # Handoff — Zero Browser
 
-## Bots em runtime e conceito de layout — 31/10/2026
+## Modo Delegar funcional e Bots — 31/10/2026
 
-- Versão de desenvolvimento: `0.1.45-dev`; ainda não instalada. Commit anterior de código: `895fcec`.
+- Versão de desenvolvimento: `0.1.46-dev`. Esta entrega inclui um layout funcional: painel de conversa à esquerda, página ativa à direita, alternância Navegar/Delegar e acesso ao menu de perfis Bot. `Parar` interrompe a tarefa atual. Central e takeover completo seguem pendentes.
+- `npm run test:ui` passou; `npm test` passou 362/362; `npm run build` gerou `dist/Zero Browser Setup 0.1.46-dev.exe` (124.491.015 bytes). O instalador foi executado depois do commit; Registro informa `0.1.46-dev` e os hashes do `Zero Browser.exe`/`app.asar` instalado coincidem com o pacote candidato. A tela Delegar foi aberta e conferida no app instalado.
+- O app foi aberto com perfil QA novo em `%LOCALAPPDATA%\ZeroBrowserQA\0.1.46-dev`; o perfil principal não foi aberto nem alterado. Nenhum teste autenticado com provedor foi executado nesta fatia.
+- O perfil QA da versão 0.1.45 estava isolado do perfil pessoal. A nova instalação usa outro perfil QA; não copiar dados pessoais.
 - `npm run test:bot-runtime` abre o app Electron em perfil temporário reconhecido como `Bot Fixture`. Com `allow-all` pré-semeado somente no perfil temporário, o IPC principal recusou preencher um campo `password` e um campo de e-mail em página de login sem `<form>`; os dois valores ficaram vazios. Isso valida as barreiras técnicas no caminho IPC da interface, sem modelo ou provedor. O perfil e os dados do teste são removidos ao final.
-- Verificações locais nesta versão: `npm run test:bot-runtime` passou nos 2 cenários; `npm test` passou 362/362; `git diff --check` será conferido antes do commit.
+- Verificações anteriores de Bots: `npm run test:bot-runtime` passou nos 2 cenários; revisão de código sem achados acionáveis.
 - A pasta de perfis de teste pode ser isolada por `ZERO_TEST_PROFILES_ROOT` somente em build não empacotada; a versão empacotada continua usando o caminho normal do usuário.
-- O layout visual está salvo em `docs/CONCEITO_VISUAL_MODO_DELEGAR.md` e `docs/conceitos/zero-browser-modo-delegar-0.1.45-dev.png`. A imagem segue o modo Delegar aprovado no plano de design: comando único, conversa do Bot à esquerda, aba ao vivo à direita, trilho de anéis compacto, aprovação antes do envio, `Desfazer`, `Parar tudo` e `Central`. É conceito não implementado. O plano orientador está apenas na worktree `.claude/worktrees/analise-projeto-atual-bf8fc8`, sem commit na `main`.
+- O conceito aprovado permanece em `docs/CONCEITO_VISUAL_MODO_DELEGAR.md` e `docs/conceitos/zero-browser-modo-delegar-0.1.45-dev.png`; a imagem proposta inclui controles que ainda não existem no produto (Central, takeover completo e Desfazer universal).
 - Tentativa de smoke por `runAgent` com provedor mock ficou sem conclusão após a primeira resposta de ferramenta; isso não foi tomado como evidência de aprovação ou recusa. O teste está limitado ao IPC de ação direta. Falta diagnosticar esse caminho e validar o MCP real sob Bot.
 - Revisão de código anterior não encontrou achados acionáveis. Limites pendentes: login sem sinais semânticos, ações de maior risco em runtime, takeover/aprovação, MCP, ciclo de vida/exclusão de Bots e teste de compreensão do mockup.
 - Inventário MCP anterior: `tools/list` retornou 22 ferramentas; `module_run` declara estar desativado. O plano `docs/PLANO_CONTROLE_TOTAL_IA.md` não está presente na branch `main` para comparação.

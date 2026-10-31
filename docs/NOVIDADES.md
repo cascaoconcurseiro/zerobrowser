@@ -1,4 +1,11 @@
-# Novidades — Zero Browser 0.1.45-dev
+# Novidades — Zero Browser 0.1.46-dev
+
+## Modo Delegar — 31/10/2026
+
+- O botão da barra alterna entre Navegar e Delegar. Em Delegar, a conversa fica à esquerda e a página controlada permanece visível à direita.
+- O trilho de perfis Bot abre o menu de perfis existente para criar ou trocar de perfil. A ação “Parar” interrompe a tarefa atual pelo mecanismo já existente.
+- A Central e takeover completo ainda não estão ligados; o layout não os apresenta como ações disponíveis.
+- `npm run test:ui` passou e `npm test` passou 362/362. O instalador foi gerado, commitado e instalado em perfil QA; a tela foi conferida no app instalado.
 
 ## Validação de Bots e conceito do modo Delegar — 31/10/2026
 
