@@ -169,6 +169,20 @@ class ZeroBrowserApp {
       const element = document.getElementById(id);
       element.addEventListener('change', async () => {
         const value = element.type === 'checkbox' ? element.checked : element.value;
+        if (key === 'automation.approvalMode') {
+          const modes = ['always-ask', 'allow-read', 'low-risk', 'allow-all'];
+          const previous = this.settings[key] || 'low-risk';
+          const previousRank = modes.indexOf(previous);
+          const nextRank = modes.indexOf(value);
+          if (nextRank < 0) {
+            element.value = previous;
+            return;
+          }
+          if (nextRank > previousRank && !window.confirm('Aumentar a autonomia deste espaço permite que a IA faça mais ações sem perguntar. No nível escolhido, ela pode interagir com páginas autenticadas. Em “Permitir todas automaticamente”, também pode enviar formulários, publicar, comprar ou excluir sem confirmação. Deseja continuar?')) {
+            element.value = previous;
+            return;
+          }
+        }
         try {
           if (key === 'theme') await window.zeroBrowser.settings.applyTheme(value);
           else await window.zeroBrowser.store.set(key, value);

@@ -67,12 +67,24 @@ function classifyIntent(context) {
 
 function isSensitiveField({ type = '', autocomplete = '', name = '', label = '' } = {}) {
   if (SENSITIVE_TYPES.has(String(type).toLowerCase())) return true;
+  if (/^(username|login|current-username)$/i.test(String(autocomplete).trim())) return true;
   return SENSITIVE_HINT.test(`${autocomplete} ${name} ${label}`);
+}
+
+function isAuthenticationIdentifier({ type = '', autocomplete = '', name = '', label = '', formAction = '', formName = '', formLabel = '', formText = '', submitLabels = '', pageUrl = '', pageTitle = '', nearbyText = '', ctaLabels = '', containerName = '' } = {}) {
+  if (/^(username|login|current-username)$/i.test(String(autocomplete).trim())) return true;
+  const field = `${name} ${label}`.toLowerCase();
+  const isIdentifier = String(type).toLowerCase() === 'email'
+    || /(^|[^a-z0-9])(e-?mail|username|user|login|identifier|account|usuario|utilizador|conta)([^a-z0-9]|$)/i.test(field);
+  if (!isIdentifier) return false;
+  const authContext = `${formAction} ${formName} ${formLabel} ${formText} ${submitLabels} ${pageUrl} ${pageTitle} ${nearbyText} ${ctaLabels} ${containerName}`;
+  return /sign[ -]?in|log[ -]?in|auth(?:enticate|entication)?|identity|session|continue|next|verify|entrar|acessar|continuar|prosseguir|avancar|autenticar|identificar|verificar/i.test(authContext);
 }
 
 function classifyRisk({ node, context = '' } = {}) {
   const target = node && typeof node === 'object' ? node : {};
-  if (target.sensitiveInput === true || isSensitiveField(target)) {
+  if (target.sensitiveInput === true || isSensitiveField({ ...target, name: `${target.name || ''} ${target.fieldName || ''}`, label: target.fieldLabel || target.label || '' })
+    || isAuthenticationIdentifier({ ...target, name: `${target.name || ''} ${target.fieldName || ''}`, label: target.fieldLabel || target.label || '' })) {
     return { level: 'credential', reason: 'Campo de senha, código de verificação ou pagamento' };
   }
   const intent = classifyIntent(context);
@@ -92,4 +104,4 @@ function approvalReasonForMode(mode, { readOnly = false } = {}) {
   return null;
 }
 
-module.exports = { INTENTS, classifyIntent, classifyRisk, isSensitiveField, approvalReasonForMode, normalize };
+module.exports = { INTENTS, classifyIntent, classifyRisk, isSensitiveField, isAuthenticationIdentifier, approvalReasonForMode, normalize };

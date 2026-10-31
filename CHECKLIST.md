@@ -1,5 +1,16 @@
 # Checklist — Zero Browser
 
+- [x] Inventariar o MCP real via `scripts/mcp-stdio.js` em perfil de desenvolvimento isolado: `tools/list` retornou 22 ferramentas; não houve chamada a modelo.
+- [x] Auditar bots no código com revisão independente: não existe entidade bot; perfis isolam processos/dados, mas aprovação, ferramentas/MCP e memória não têm escopo por bot.
+- [x] Implementar primeira fatia de Bots: processo/perfil com diretório próprio, aprovação inicial “Sempre perguntar”, aceite humano para elevar autonomia e bloqueios de dados/ações sensíveis; versão 0.1.44-dev.
+- [x] Fazer smoke local da criação de Bot pela UI e confirmar o nível inicial “Sempre perguntar”; revisão independente de código sem achados acionáveis e suíte local 362/362.
+- [ ] Validar as barreiras de Bot em fixture local via UI e MCP; cobrir runtime, login sem sinais semânticos e ciclo de vida/exclusão. `docs/PLANO_CONTROLE_TOTAL_IA.md` não está presente para comparar o inventário MCP.
+
+- [x] Commitar as 29 alterações existentes (`0c56c26`); aplicar temperatura compatível por modelo OpenAI e filtrar modelos de chat no catálogo.
+- [x] Validar chamada real pelo botão de conexão no Zero Browser 0.1.43-dev: DeepSeek `deepseek-flash` respondeu “Agente conectado: deepseek-flash”; chave permaneceu mascarada.
+- [x] Extrair `runAgent` para `src/automation/service/agent-runtime.js`, preservando a assinatura pública e o contexto `this`; sem alterar os chamadores.
+- [x] Suíte completa após a extração: `npm test` 334/334; teste focado da integração de provedor/catálogo 30/30 e regressões de continuidade/planilhas/hover 43/43.
+
 - [x] Adicionar telemetria de custo reportado pelo OpenRouter e exposição sob demanda do catálogo avançado para reduzir contexto por requisição comum; revisão estática concluída, testes não executados por instrução do usuário.
 - [ ] Validar ativação lazy de ferramentas avançadas e medir tokens/custo/latência/acerto em pares controlados quando testes forem autorizados.
 

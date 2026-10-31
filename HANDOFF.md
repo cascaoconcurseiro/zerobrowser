@@ -1,5 +1,23 @@
 # Handoff — Zero Browser
 
+## Espaços de Bot e inventário MCP — 31/10/2026
+
+- Entrega de desenvolvimento avançou para `0.1.44-dev`. Implementados criação de Bot como processo/perfil separado, diretório de dados próprio, aprovação inicial “Sempre perguntar”, confirmação humana ao aumentar autonomia e bloqueios de ações/dados sensíveis descritos em `docs/NOVIDADES.md`.
+- A janela de desenvolvimento abriu um Bot real pelo menu. A árvore de acessibilidade mostrou `Nível de aprovação: Sempre perguntar`. Isso valida criação e estado inicial da interface; não valida a política em sites reais nem a ausência de vazamentos em runtime.
+- Revisão independente do código não encontrou achados acionáveis depois das correções. A suíte local passou 362/362. O smoke foi feito em perfil temporário isolado, sem chave de modelo, login ou chamada paga.
+- Limites conhecidos: a detecção de páginas de login depende de sinais semânticos; CUA em shadow DOM/iframe/foco desconhecido, sequência de teclas, leitura de planilha/clipboard, eval, CDP bruto e Flame são bloqueados para Bots nesta versão. O acesso a `locator_action attribute=value` também é bloqueado para Bot. Não há fluxo de exclusão de Bot nesta fatia.
+- `tools/list` real do servidor MCP (`scripts/mcp-stdio.js`) retornou 22 ferramentas; `module_run` é anunciado como desativado. Os documentos `AGENTS.md`, `docs/LEIA_ME_PRIMEIRO_IA.md`, `docs/CHECKLIST_PLANOS_2026-10-31.md` e `docs/PLANO_CONTROLE_TOTAL_IA.md` não existem neste checkout, então não há plano disponível para comparação.
+- Próximo passo concreto: validar em fixture local, sob perfil Bot temporário, as tentativas de leitura de credenciais e ações de maior risco pelo MCP e pela interface; depois fechar os gaps de login semântica e decidir o ciclo de vida/exclusão de Bots. Nenhuma chamada paga ou site externo deve ser usada para esse aceite.
+
+## Provedor OpenAI e catálogo — 31/10/2026
+
+- Commit das 29 alterações solicitado: `0c56c26` (`feat: improve automation engine and provider metrics`). Sem push.
+- Após o commit, temperatura passou a ser omitida em modelos OpenAI das famílias de raciocínio incompatíveis com sampling explícito; demais provedores mantêm o valor atual. O catálogo OpenAI agora limita a seleção a modelos de chat e exclui IDs de áudio, realtime, transcrição, TTS, imagem, embedding, moderação, Codex e search-preview.
+- Validação real no Zero Browser instalado 0.1.43-dev: configuração DeepSeek direto, modelo `deepseek-flash`, chave indicada como salva (dica mascarada); botão “Testar conexão” respondeu “Agente conectado: deepseek-flash”. A chave não foi aberta, copiada ou exibida.
+- Em seguida, extraída a implementação de `runAgent` para `src/automation/service/agent-runtime.js`; `AutomationService.runAgent` mantém a assinatura e encaminha com o mesmo `this`. Chamadores em IPC, painel, `run_task` e scripts não mudaram. A divisão é estrutural; sem alegação de ganho de velocidade.
+- Verificações: `npm test` passou 334/334 após a extração e limpeza de imports; `node --check`/parse de todos os JS passou na suíte; `git diff --check` será conferido no fechamento. O primeiro teste completo expôs dependências ausentes na extração; foram restauradas, e a segunda suíte completa passou.
+- Próximo passo concreto: revisar a comparação final de `src/automation/service/index.js` e `src/automation/service/agent-runtime.js`; depois decidir separadamente sobre commit. Sem push.
+
 ## Motor: ferramentas avançadas sob demanda e custo — 31/10/2026
 
 - O OpenRouter agora solicita `usage.include` e o trace/benchmark registra custo reportado quando a resposta o fornece; esse valor é atribuído pelo provedor e não substitui a fatura final.

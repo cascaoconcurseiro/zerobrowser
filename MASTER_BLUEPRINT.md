@@ -18,7 +18,8 @@ Navegador desktop próprio, pensado para navegação humana e controle amplo e s
 ├── src/main/          processo principal, janela, abas, políticas, perfis, downloads
 ├── src/main/extensions/  host de extensões (shim chrome.*, painel lateral, executor do Flame)
 ├── src/main/library/  favoritos, histórico, sugestões e importação de outros navegadores
-├── src/automation/    serviço de automação (agente, AX, MCP no pipe), helpers/prompt, guardas, cascata
+├── src/automation/    ferramentas, AX, guardas e cascata
+│   └── service/      ciclo de vida/MCP em index.js; execução de runAgent em agent-runtime.js
 ├── src/ipc/           ponte renderer ↔ main (chaves, config do agente)
 ├── src/preload/       API exposta à interface
 ├── src/renderer/      interface (painel do agente)
@@ -33,6 +34,8 @@ Navegador desktop próprio, pensado para navegação humana e controle amplo e s
 |------|---------|--------|
 | 2026-10 | Rede dos provedores via `net.fetch` do Electron | Usa o repositório de certificados do Windows sem desligar TLS |
 | 2026-10-31 | OpenAI direto usa endpoints oficiais de catálogo e Chat Completions, com chave própria separada por provedor | Permite conexão sem gateway OpenRouter; mantém o contrato de ferramentas atual e não altera o provedor padrão |
+| 2026-10-31 | `AutomationService.runAgent` mantém a interface pública, mas sua implementação vive em `service/agent-runtime.js` | Isola a maior parte do fluxo do agente sem mudar callers, contexto de instância nem políticas do host |
+| 2026-10-31 | Cada Bot criado nesta primeira fatia usa processo e diretório de dados próprios, começa em “Sempre perguntar” e só eleva autonomia após confirmação humana | Reduz compartilhamento acidental de estado e mantém a decisão de elevar autonomia com o usuário; barreiras de ferramentas ainda exigem aceite em runtime |
 | 2026-10 | Servidor MCP JSON-RPC em pipe nomeado do Windows, caminho único por usuário/pasta de dados; WebSocket de compatibilidade em loopback exige token aleatório e rejeita cabeçalho Origin | Controle local autenticado sem aceitar conexão de páginas/websites |
 | 2026-10-25 | Ferramenta `run_task` e políticas de aprovação por aba (`ask`, `local-fixture`, `deny`) | Medir o agente sem diálogo, mantendo senha/cartão e site externo sempre recusados |
 | 2026-10-25 | Benchmark local inspirado no BrowserGym (tarefa + página + verificador) | Saber a taxa de sucesso real antes e depois de cada melhoria |

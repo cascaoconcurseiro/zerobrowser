@@ -15,7 +15,11 @@ function listProfiles(root) {
     const parsed = JSON.parse(fs.readFileSync(listFile(root), 'utf8'));
     if (!Array.isArray(parsed)) return [];
     return parsed.filter((item) => item && /^[a-z0-9-]{1,40}$/.test(String(item.id)) && typeof item.name === 'string')
-      .map((item) => ({ id: item.id, name: item.name.slice(0, MAX_NAME) }));
+      .map((item) => ({
+        id: item.id,
+        name: item.name.slice(0, MAX_NAME),
+        ...(item.type === 'bot' ? { type: 'bot', initialApprovalMode: 'always-ask' } : {})
+      }));
   } catch {
     return [];
   }
@@ -54,6 +58,28 @@ function createProfile(root, name) {
   return profile;
 }
 
+// Bots usam o mesmo isolamento por processo/perfil, com aprovação inicial conservadora.
+// Credenciais de sites não fazem parte dos metadados do bot; o login acontece manualmente na janela aberta.
+function createBot(root, name) {
+  const profiles = listProfiles(root);
+  let cleanName = String(name || '').replace(/\s+/g, ' ').trim().slice(0, MAX_NAME);
+  if (!cleanName) {
+    let n = 1;
+    while (profiles.some((profile) => profile.name.toLowerCase() === `bot ${n}`)) n++;
+    cleanName = `Bot ${n}`;
+  }
+  if (profiles.some((profile) => profile.name.toLowerCase() === cleanName.toLowerCase()) || cleanName.toLowerCase() === MAIN_PROFILE.name.toLowerCase()) {
+    throw new Error('Já existe um perfil ou bot com esse nome');
+  }
+  const base = cleanName.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 30) || 'bot';
+  let id = base;
+  for (let i = 2; profiles.some((profile) => profile.id === id) || fs.existsSync(path.join(root, id)); i++) id = `${base}-${i}`;
+  const bot = { id, name: cleanName, type: 'bot', initialApprovalMode: 'always-ask' };
+  fs.mkdirSync(profileDir(root, id), { recursive: true });
+  saveProfiles(root, [...profiles, bot]);
+  return bot;
+}
+
 // Qual perfil está em uso, pela pasta de dados atual.
 function currentProfile(root, userDataDir) {
   const resolved = path.resolve(userDataDir);
@@ -82,15 +108,16 @@ function buildProfileMenuTemplate({ current, profiles, defaultDirAvailable = tru
     ...(current.id !== MAIN_PROFILE.id && defaultDirAvailable ? [MAIN_PROFILE] : []),
     ...profiles.filter((p) => p.id !== current.id)
   ];
-  const deletable = profiles.filter((p) => p.id !== current.id);
+  const deletable = profiles.filter((p) => p.id !== current.id && p.type !== 'bot');
   return [
-    { label: `Perfil atual: ${current.name}`, enabled: false },
+    { label: `${current.type === 'bot' ? 'Bot' : 'Perfil'} atual: ${current.name}`, enabled: false },
     { type: 'separator' },
-    ...others.map((p) => ({ label: `Abrir ${p.name}`, click: () => actions.open(p) })),
+    ...others.map((p) => ({ label: p.type === 'bot' ? `Abrir bot: ${p.name}` : `Abrir ${p.name}`, click: () => actions.open(p) })),
     ...(others.length ? [{ type: 'separator' }] : []),
     { label: 'Novo perfil', click: () => actions.create() },
+    { label: 'Novo bot', click: () => actions.createBot() },
     ...(deletable.length ? [{ label: 'Excluir perfil', submenu: deletable.map((p) => ({ label: p.name, click: () => actions.remove(p) })) }] : [])
   ];
 }
 
-module.exports = { MAIN_PROFILE, listProfiles, createProfile, currentProfile, deleteProfile, profileDir, buildProfileMenuTemplate };
+module.exports = { MAIN_PROFILE, listProfiles, createProfile, createBot, currentProfile, deleteProfile, profileDir, buildProfileMenuTemplate };

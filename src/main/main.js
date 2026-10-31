@@ -99,6 +99,11 @@ app.on('second-instance', () => {
 
 async function initializeApp() {
   await store.setupStore();
+  const activeProfile = profiles.currentProfile(profilesRoot(), app.getPath('userData'));
+  if (activeProfile.type === 'bot' && !await store.get('bot.approvalInitialized')) {
+    await store.set('automation.approvalMode', 'always-ask');
+    await store.set('bot.approvalInitialized', true);
+  }
   const providerFetch = (...args) => net.fetch(...args);
   setProviderFetch(providerFetch);
   setupIpc(assertTrustedMainUi);
@@ -111,7 +116,8 @@ async function initializeApp() {
   automationService.setClipboard({ readText: () => clipboard.readText(), writeText: (text) => clipboard.writeText(String(text)) });
   automationService.setSettingsProvider(() => ({
     developerCdpEnabled: store.getStore().get('developer.cdpEnabled') === true,
-    automationApprovalMode: store.getStore().get('automation.approvalMode') || 'low-risk'
+    automationApprovalMode: store.getStore().get('automation.approvalMode') || 'low-risk',
+    isBotProfile: activeProfile.type === 'bot'
   }));
   automationService.setAgentConfigProvider(getAgentConfig);
   process.env.NAVEGANTE_DATA_DIR = app.getPath('userData');
@@ -1017,6 +1023,9 @@ handleMainUiIpc('browser:profile-menu', (event, x, y) => {
       open: (profile) => launchProfile(profile),
       create: () => {
         try { launchProfile(profiles.createProfile(root)); } catch (error) { logError(error); dialog.showErrorBox('Novo perfil', error.message); }
+      },
+      createBot: () => {
+        try { launchProfile(profiles.createBot(root)); } catch (error) { logError(error); dialog.showErrorBox('Novo bot', error.message); }
       },
       remove: async (profile) => {
         const { response } = await dialog.showMessageBox(mainWindow, {

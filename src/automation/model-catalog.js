@@ -70,6 +70,19 @@ function normalizeModel(provider, model) {
   };
 }
 
+function isOpenAIChatModel(model) {
+  const id = String(model?.id || '').toLowerCase();
+  if (!/^(?:gpt-|o[134](?:-|$)|chatgpt-)/.test(id)) return false;
+  return !/(?:audio|realtime|transcri|tts|image|embedding|moderation|codex|instruct|search-preview)/.test(id);
+}
+
+function modelSupportsTemperature(provider, model) {
+  if (provider !== 'openai') return true;
+  const id = String(model || '').toLowerCase();
+  // OpenAI reasoning generations reject explicit sampling controls in their default reasoning mode.
+  return /^(?:gpt-(?:3\.5(?:-|$)|4(?:o(?:-|$)|(?:\.[0-9]+)?(?:-|$)))|chatgpt-4)/.test(id);
+}
+
 function providerNetworkError(error, provider, url) {
   const label = PROVIDERS[provider]?.label || 'provedor de IA';
   const host = (() => { try { return new URL(url).hostname; } catch { return 'endpoint configurado'; } })();
@@ -109,8 +122,8 @@ async function listModels(provider, apiKey, fetchImpl = globalThis.fetch, env = 
   if (provider === 'ollama' ? !Array.isArray(localModels) : !Array.isArray(models)) throw new Error(`Resposta de modelos inválida do ${PROVIDERS[provider].label}`);
   const normalized = provider === 'ollama'
     ? localModels.filter((model) => typeof model?.name === 'string' && model.name.trim()).map((model) => ({ id: model.name, name: model.name, description: 'Modelo instalado localmente', contextLength: null, inputModalities: [], outputModalities: [], supportsTools: null, promptPrice: null, completionPrice: null, provider }))
-    : models.map((model) => normalizeModel(provider, model)).filter(Boolean);
+    : models.filter((model) => provider !== 'openai' || isOpenAIChatModel(model)).map((model) => normalizeModel(provider, model)).filter(Boolean);
   return normalized.sort((a, b) => a.name.localeCompare(b.name));
 }
 
-module.exports = { PROVIDERS, endpointFor, normalizeModel, providerNetworkError, listModels };
+module.exports = { PROVIDERS, endpointFor, normalizeModel, isOpenAIChatModel, modelSupportsTemperature, providerNetworkError, listModels };

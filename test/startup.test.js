@@ -8,7 +8,7 @@ const WebSocket = require('ws');
 const net = require('node:net');
 const { permissionGrantsForSession, permissionOrigin, isTopLevelPermissionRequest } = require('../src/main/permissions');
 const { isSameSite, isAllowedRendererNavigation, rewriteRequestHeaders, rewriteResponseHeaders, makeUniqueDownloadPath } = require('../src/main/browser-policy');
-const { endpointFor, listModels } = require('../src/automation/model-catalog');
+const { endpointFor, listModels, modelSupportsTemperature } = require('../src/automation/model-catalog');
 const { isSecretKey } = require('../src/store');
 const { saveProviderKey, maskApiKey } = require('../src/ipc');
 
@@ -145,7 +145,16 @@ test('provider catalogs normalize OpenAI, OpenRouter, and DeepSeek metadata with
           { id: 'a/with-tools', name: 'Agent model', supported_parameters: ['tools', 'tool_choice'], context_length: 64000, pricing: { prompt: '0.1' } }
         ]
         : openai
-          ? [{ id: 'gpt-test', object: 'model' }]
+          ? [
+            { id: 'gpt-test', object: 'model' },
+            { id: 'gpt-4o-mini', object: 'model' },
+            { id: 'gpt-5.4', object: 'model' },
+            { id: 'o3', object: 'model' },
+            { id: 'gpt-4o-realtime-preview', object: 'model' },
+            { id: 'text-embedding-3-small', object: 'model' },
+            { id: 'gpt-image-1', object: 'model' },
+            { id: 'gpt-5.4-codex', object: 'model' }
+          ]
           : [{ id: 'deepseek-flash', name: 'DeepSeek Flash', input_modalities: ['text'], context_window: 1048576 }]
       })
     };
@@ -158,7 +167,13 @@ test('provider catalogs normalize OpenAI, OpenRouter, and DeepSeek metadata with
   const openaiModels = await listModels('openai', 'openai-fixture-key', fetchFixture, {});
   assert.equal(calls[1].url, 'https://api.openai.com/v1/models');
   assert.equal(calls[1].options.headers.Authorization, 'Bearer openai-fixture-key');
-  assert.deepEqual(openaiModels.map((model) => [model.id, model.supportsTools]), [['gpt-test', null]]);
+  assert.deepEqual(openaiModels.map((model) => [model.id, model.supportsTools]), [
+    ['gpt-4o-mini', null], ['gpt-5.4', null], ['gpt-test', null], ['o3', null]
+  ]);
+  assert.equal(modelSupportsTemperature('openai', 'gpt-4o-mini'), true);
+  assert.equal(modelSupportsTemperature('openai', 'gpt-5.4'), false);
+  assert.equal(modelSupportsTemperature('openai', 'o3'), false);
+  assert.equal(modelSupportsTemperature('deepseek', 'deepseek-chat'), true);
   const deepseekModels = await listModels('deepseek', 'deepseek-fixture-key', fetchFixture, {});
   assert.equal(calls[2].url, 'https://api.deepseek.com/models');
   assert.equal(calls[2].options.headers.Authorization, 'Bearer deepseek-fixture-key');
@@ -267,13 +282,18 @@ test('OpenAI direct connector uses its own endpoint, key, and opt-in prompt cach
     return { ok: true, json: async () => ({ choices: [{ message }], usage: { prompt_tokens: 120, completion_tokens: 8, prompt_tokens_details: { cached_tokens: 0 } } }) };
   };
   try {
-    const result = await service.runAgent('tab-openai', 'Confirme a conexão', 'openai-fixture-secret', 'gpt-test', true, 'openai', false, { promptCache: true });
+    const result = await service.runAgent('tab-openai', 'Confirme a conexão', 'openai-fixture-secret', 'gpt-4o-mini', true, 'openai', false, { promptCache: true });
     assert.equal(result.success, true);
     assert.equal(calls.length, 2, 'the model should be able to call a browser tool and continue');
     assert.ok(calls.every((call) => call.url === 'https://api.openai.com/v1/chat/completions'));
     assert.ok(calls.every((call) => call.options.headers.Authorization === 'Bearer openai-fixture-secret'));
     assert.ok(calls.every((call) => /^zb-[a-f0-9]{40}$/.test(call.body.prompt_cache_key)));
+    assert.ok(calls.every((call) => call.body.temperature === 0.2));
     assert.ok(calls[1].body.messages.some((message) => message.role === 'tool'), 'the browser tool result must return to the model');
+    calls.length = 0;
+    const reasoningResult = await service.runAgent('tab-openai', 'Confirme a conexão', 'openai-fixture-secret', 'gpt-5.4', true, 'openai', false);
+    assert.equal(reasoningResult.success, true);
+    assert.ok(calls.every((call) => !Object.hasOwn(call.body, 'temperature')));
   } finally {
     global.fetch = originalFetch;
   }

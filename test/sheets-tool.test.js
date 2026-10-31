@@ -120,6 +120,47 @@ test('sheets writes TSV and reads the range back without clicking cells', async 
   assert.equal(result.trace.sheetsCells, 4);
 });
 
+test('bot profiles cannot read sheets through clipboard or a mixed batch', async () => {
+  const { AutomationService } = require('../src/automation/service');
+  const service = new AutomationService();
+  const url = 'https://docs.google.com/spreadsheets/d/abc/edit';
+  let clipboardReads = 0;
+  service.setSettingsProvider(() => ({ isBotProfile: true, automationApprovalMode: 'allow-all' }));
+  service.setClipboard({ readText: () => { clipboardReads++; return 'secret'; }, writeText: () => {} });
+  const tab = { webContents: { getURL: () => url } };
+  await assert.rejects(service.sheetsAction('tab-bot-sheet', tab, { action: 'read', range: 'A1' }), /Leitura de planilha.*indisponível/);
+  await assert.rejects(service.sheetsAction('tab-bot-sheet', tab, {
+    action: 'batch', operations: [{ action: 'write', range: 'A1', values: [['x']] }, { action: 'read', range: 'A1' }]
+  }), /Leitura de planilha.*indisponível/);
+  assert.equal(clipboardReads, 0, 'nenhuma leitura do clipboard ocorre, nem em lote');
+});
+
+test('bot profiles can still write a TSV to Sheets without reading the clipboard', async () => {
+  const { AutomationService } = require('../src/automation/service');
+  const service = new AutomationService();
+  const url = 'https://docs.google.com/spreadsheets/d/abc/edit';
+  let clipboardReads = 0;
+  let clipboardWrite = '';
+  service.setSettingsProvider(() => ({ isBotProfile: true, automationApprovalMode: 'allow-all' }));
+  service.setClipboard({ readText: () => { clipboardReads++; return ''; }, writeText: (text) => { clipboardWrite = text; } });
+  const calls = [];
+  const tab = {
+    webContents: {
+      isDestroyed: () => false,
+      getURL: () => url,
+      executeJavaScript: async () => ({ found: true, selector: '#t-name-box', value: 'A1' }),
+      insertText: async (text) => calls.push(['insertText', text]),
+      debugger: { isAttached: () => false, attach: () => {}, detach: () => {}, sendCommand: async (method, params) => { calls.push([method, params]); return {}; } }
+    }
+  };
+  service.tabs.set('tab-bot-sheet', tab);
+  const result = await service.sheetsAction('tab-bot-sheet', tab, { action: 'write', range: 'A1', values: [['Produto', 'Estoque'], ['Cadeira', '20']] });
+  assert.equal(result.success, true);
+  assert.equal(clipboardWrite, 'Produto\tEstoque\nCadeira\t20');
+  assert.equal(clipboardReads, 0);
+  assert.ok(calls.some(([method, params]) => method === 'Input.dispatchKeyEvent' && params.key === 'v' && params.modifiers === 2));
+});
+
 test('sheets refuses a page that is not a spreadsheet', async () => {
   const { AutomationService } = require('../src/automation/service');
   const service = new AutomationService();

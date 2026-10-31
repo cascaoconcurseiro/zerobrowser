@@ -1,4 +1,11 @@
-# Novidades — Zero Browser 0.1.43-dev
+# Novidades — Zero Browser 0.1.44-dev
+
+## Espaços de Bots — 31/10/2026
+
+- Cada Bot abre em processo e perfil de dados próprios, criado pelo menu de perfis; bots começam em “Sempre perguntar”. A interface ainda não oferece exclusão de Bots.
+- O login é feito manualmente pelo usuário; o cadastro do Bot não tem campo para senha. Depois do login, os cookies da sessão ficam no perfil isolado do Bot.
+- Aumentar a autonomia pede confirmação explícita; reduzir o nível é imediato. Para bots, são recusados preenchimento de credenciais, leitura da área de transferência, leitura de planilhas via clipboard, sequências de teclas, JavaScript livre, CDP bruto/eventos e motor Flame.
+- Screenshots são negados quando controles sensíveis são detectados ou a inspeção não é completa. Entrada visual em controles de shadow DOM, iframes ou foco indefinido também é recusada. Formulários personalizados sem sinais semânticos ainda podem escapar à classificação; login deve ser feito pelo usuário.
 
 ## Continuação da auditoria (28/10/2026)
 

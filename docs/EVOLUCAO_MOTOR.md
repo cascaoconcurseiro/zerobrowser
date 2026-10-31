@@ -1,5 +1,13 @@
 # Evolução do motor — evidências e critérios
 
+## Compatibilidade OpenAI e extração do agente — 2026-10-31
+
+- O envio de `temperature` é feito apenas para modelos OpenAI de chat nas famílias compatíveis; GPT-5+ e `o` reasoning usam o padrão do modelo. O catálogo da OpenAI oculta IDs de modalidades/rotas fora de chat (áudio, realtime, transcrição, TTS, imagem, embeddings, moderação, Codex, instruct e search-preview). Fixtures cobrem filtros e ambos os caminhos do payload, sem chamada OpenAI real.
+- Chamada real “Testar conexão” pelo Zero Browser instalado 0.1.43-dev, provedor DeepSeek direto, modelo `deepseek-flash`: a UI confirmou “Agente conectado: deepseek-flash”. Credencial salva confirmada apenas pela dica mascarada; não foi exibida. Isso prova conectividade e formato de solicitação, não qualidade, custo, latência de tarefa ou taxa de acerto. Nenhum benchmark pago foi executado.
+- Extraída a implementação de `runAgent` para `src/automation/service/agent-runtime.js`; `AutomationService.runAgent` mantém assinatura, `.length` e contexto `this`. Testes completos: `npm test` 334/334; as 43 regressões focadas passaram, assim como os 30 testes de integração/catalogação.
+- Primeira suíte após a extração encontrou referências ausentes causadas por uma limpeza excessiva de imports no service principal. Dependências exigidas por MCP, receitas, planilhas e ferramenta visual foram restauradas; a segunda suíte completa passou. O corte é estrutural e não tem medição de velocidade atribuída.
+- Próximo passo: acompanhar o A/B pareado do motor (modelo/provedor/tarefas iguais), medir latência, sucesso, tokens e custo reportado; depois escolher outro módulo do service pelo blast radius e evidência de manutenção.
+
 ## Custo reportado e ferramentas avançadas sob demanda — 2026-10-31
 
 - Requisições OpenRouter passam `usage: { include: true }`; o trace e os relatórios do benchmark registram `usage.cost` por requisição quando presente e só calculam custo por execução com cobertura completa das chamadas bem-sucedidas. É custo reportado pela API, não necessariamente o valor final faturado.
