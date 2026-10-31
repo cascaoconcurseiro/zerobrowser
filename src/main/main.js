@@ -16,6 +16,10 @@ const { loadDownloadHistory, saveDownloadHistory, nextDownloadSequence, DEFAULT_
 const { buildTabMenuTemplate } = require('./tab-menu');
 const profiles = require('./profiles');
 const { BotAvatarCatalog } = require('./bot-avatar-catalog');
+const { BotTaskStore, SPECIALIST_BOT_PRESETS } = require('../bots/bot-store');
+const { BotRunner } = require('../bots/runner');
+const { BotScheduler } = require('../bots/scheduler');
+const { LiveAppEngine, createWeeklyDueAppPrototype } = require('../live-apps/live-app-engine');
 const { zeroEnv } = require('../env');
 const { spawn } = require('child_process');
 const { pathToFileURL } = require('url');
@@ -66,6 +70,10 @@ const flamePanels = new Map(); // tabId -> WebContentsView do painel do Flame da
 let flamePanelHidden = false;
 let library = null; // favoritos e histórico (SQLite)
 let botAvatarCatalog = null;
+let botTaskStore = null;
+let botRunner = null;
+let botScheduler = null;
+let liveAppEngine = null;
 const closedTabs = []; // para Ctrl+Shift+T
 const TAB_BAR_HEIGHT = 60;
 const TOOLBAR_HEIGHT = 52;
@@ -236,6 +244,16 @@ async function initializeApp() {
     );
     botAvatarCatalog.seed();
     botAvatarCatalog.syncProfiles(profiles.listProfiles(profilesRoot()).filter((profile) => profile.type === 'bot'));
+    botTaskStore = new BotTaskStore({ filePath: path.join(app.getPath('userData'), 'bot-tasks.json') });
+    botRunner = new BotRunner({ store: botTaskStore });
+    botScheduler = new BotScheduler({
+      store: botTaskStore,
+      runner: botRunner,
+      notify: (item) => sendToRenderer('bots:notification', item)
+    });
+    botScheduler.pauseStaleBots();
+    botScheduler.runMissedSchedulesOnce().catch(logError);
+    liveAppEngine = new LiveAppEngine({ storageDir: path.join(app.getPath('userData'), 'live-apps') });
   } catch (error) {
     logError(error);
   }
@@ -1472,6 +1490,20 @@ handleMainUiIpc('flame:toggle-panel', (event) => {
 });
 
 handleMainUiIpc('flame:status', () => ({ available: Boolean(extensionHost?.primary), open: flamePanels.has(activeBrowserTabId) && !flamePanelHidden }));
+handleMainUiIpc('bots:get-presets', () => SPECIALIST_BOT_PRESETS);
+handleMainUiIpc('bots:list-tasks', () => (botTaskStore ? botTaskStore.listBots() : []));
+handleMainUiIpc('bots:create-task', (_event, spec = {}) => (botTaskStore ? botTaskStore.createBot(spec) : null));
+handleMainUiIpc('bots:run-now', (_event, botId, options = {}) => {
+  if (!botRunner) return null;
+  return botRunner.runBotNow(String(botId), {
+    steps: Array.isArray(options?.steps) ? options.steps : [],
+    onAttention: (attention) => sendToRenderer('bots:attention', attention)
+  });
+});
+handleMainUiIpc('bots:stop-all', () => (botRunner ? botRunner.stopAllBots() : { stoppedCount: 0, elapsedMs: 0 }));
+handleMainUiIpc('bots:run-missed-schedules', () => (botScheduler ? botScheduler.runMissedSchedulesOnce() : []));
+handleMainUiIpc('live-apps:list', () => (liveAppEngine ? liveAppEngine.listApps() : []));
+handleMainUiIpc('live-apps:create-weekly-due', () => (liveAppEngine ? createWeeklyDueAppPrototype(liveAppEngine) : null));
 
 app.whenReady().then(initializeApp);
 

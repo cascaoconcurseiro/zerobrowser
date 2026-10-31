@@ -50,7 +50,7 @@ class BotRunner {
     };
   }
 
-  async runBotNow(botId, { steps = [], stepExecutor = null } = {}) {
+  async runBotNow(botId, { steps = [], stepExecutor = null, onAttention = null } = {}) {
     const bot = this.store.getBot(botId);
     if (!bot) throw new Error(`Bot "${botId}" não encontrado.`);
 
@@ -69,8 +69,20 @@ class BotRunner {
     let stepsExecuted = 0;
     let spendUsd = 0;
     let tokensUsed = 0;
+    let shouldBringToFront = false;
+    let bringToFrontReason = null;
     const outputs = [];
     const executeFn = stepExecutor || this.stepExecutor || (async (step) => ({ ok: true, data: step.mockData ?? null }));
+
+    const notifyAttention = (reason, step = null) => {
+      shouldBringToFront = true;
+      bringToFrontReason = reason;
+      if (typeof onAttention === 'function') {
+        try {
+          onAttention({ botId, botName: bot.name, runId, reason, step });
+        } catch {}
+      }
+    };
 
     const finalize = (status, error = null) => {
       this.activeRuns.delete(runId);
@@ -90,7 +102,9 @@ class BotRunner {
         usedRecipeOnly: steps.every((s) => !s.usesModel),
         output: outputs,
         error,
-        receiptHash
+        receiptHash,
+        shouldBringToFront,
+        bringToFrontReason
       });
     };
 
@@ -112,9 +126,21 @@ class BotRunner {
           return finalize('stopped_limit', `Limite de gasto por execução atingido ($${bot.limits.maxSpendUsd}).`);
         }
 
+        if (step.requiresHumanIntervention && bot.autoForegroundOnIntervention !== false) {
+          notifyAttention('human_intervention', step);
+          return finalize('needs_attention', step.interventionMessage || 'O Bot precisa de verificação humana (CAPTCHA ou login) na aba.');
+        }
+
         const tool = String(step.tool || 'snapshot').trim();
         const isWriteTool = step.effect === 'escreve' || WRITE_TOOLS.has(tool) || !READ_ONLY_TOOLS.includes(tool);
+        if (step.requiresApproval && bot.autoForegroundOnIntervention !== false) {
+          notifyAttention('approval_needed', step);
+          return finalize('needs_attention', step.approvalMessage || `O Bot solicita sua aprovação para executar "${tool}".`);
+        }
         if (bot.permission === 'somente-leitura' && isWriteTool) {
+          if (bot.autoForegroundOnIntervention !== false) {
+            notifyAttention('approval_needed', step);
+          }
           return finalize('blocked', `Ação consequente "${tool}" bloqueada: o Bot está em modo somente leitura.`);
         }
 
@@ -132,7 +158,7 @@ class BotRunner {
 
         const stepResult = await new Promise((resolve, reject) => {
           controller.abort = () => resolve({ __aborted: true });
-          Promise.resolve(executeFn(step, { hiddenTab: true, bot })).then(resolve, reject);
+          Promise.resolve(executeFn(step, { hiddenTab: bot.executionMode !== 'dedicated-tab', bot })).then(resolve, reject);
         });
 
         if (controller.aborted || stepResult?.__aborted) {
@@ -143,6 +169,14 @@ class BotRunner {
         spendUsd = nextSpend;
         tokensUsed += Number(step.tokens) || 0;
         outputs.push(redactSecrets(stepResult?.data ?? stepResult));
+
+        if ((step.goalReached || stepResult?.goalReached) && bot.autoForegroundOnGoal !== false) {
+          notifyAttention('goal_reached', step);
+        }
+      }
+
+      if (!shouldBringToFront && bot.executionMode === 'background-auto-foreground' && bot.autoForegroundOnGoal !== false && steps.length > 0) {
+        notifyAttention('goal_reached', steps[steps.length - 1]);
       }
 
       return finalize('completed', null);

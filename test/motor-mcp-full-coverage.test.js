@@ -202,3 +202,71 @@ test('Paridade Essencial: bloqueador de rastreadores com contador por página e 
   assert.match(pdfPayload.prompt, /Cláusula 8/);
 });
 
+test('GrokBot Especialistas: 6 especialidades prontas, aba exclusiva vs. 2º plano com auto-foreground ao atingir meta ou precisar do usuário', async () => {
+  const { BotTaskStore, SPECIALIST_BOT_PRESETS, EXECUTION_MODES } = require('../src/bots/bot-store');
+  const { BotRunner } = require('../src/bots/runner');
+
+  assert.equal(SPECIALIST_BOT_PRESETS.length, 6, 'Deve oferecer 6 especialidades de Bot');
+  assert.equal(EXECUTION_MODES.DEDICATED_TAB, 'dedicated-tab');
+  assert.equal(EXECUTION_MODES.BACKGROUND_AUTO_FOREGROUND, 'background-auto-foreground');
+
+  const store = new BotTaskStore();
+  const priceBot = store.createBot({
+    name: 'Caçador de Ofertas',
+    specialty: 'price-hunter',
+    executionMode: 'background-auto-foreground'
+  });
+  assert.equal(priceBot.specialty, 'price-hunter');
+  assert.equal(priceBot.specialtyTitle, 'Pesquisador de Preços');
+  assert.equal(priceBot.executionMode, 'background-auto-foreground');
+  assert.equal(priceBot.autoForegroundOnGoal, true);
+  assert.equal(priceBot.autoForegroundOnIntervention, true);
+
+  const erpBot = store.createBot({
+    name: 'Operador Fiscal',
+    specialty: 'erp-operator',
+    executionMode: 'dedicated-tab'
+  });
+  assert.equal(erpBot.executionMode, 'dedicated-tab');
+
+  const runner = new BotRunner({ store });
+  const attentionEvents = [];
+
+  // 1. Execução em 2º plano que atinge a meta deve sinalizar shouldBringToFront: true ('goal_reached')
+  const goalRun = await runner.runBotNow(priceBot.id, {
+    steps: [
+      { tool: 'snapshot', mockData: { price: 1899 } },
+      { tool: 'extract_table', goalReached: true, mockData: { lowestPrice: 1749 } }
+    ],
+    onAttention: (ev) => attentionEvents.push(ev)
+  });
+  assert.equal(goalRun.status, 'completed');
+  assert.equal(goalRun.shouldBringToFront, true);
+  assert.equal(goalRun.bringToFrontReason, 'goal_reached');
+  assert.equal(attentionEvents.length, 1);
+  assert.equal(attentionEvents[0].reason, 'goal_reached');
+
+  // 2. Execução em 2º plano que encontra CAPTCHA/login deve pausar e trazer para frente ('human_intervention')
+  const captchaRun = await runner.runBotNow(priceBot.id, {
+    steps: [
+      { tool: 'snapshot', requiresHumanIntervention: true, interventionMessage: 'Resolva o CAPTCHA na loja.' }
+    ],
+    onAttention: (ev) => attentionEvents.push(ev)
+  });
+  assert.equal(captchaRun.status, 'needs_attention');
+  assert.equal(captchaRun.shouldBringToFront, true);
+  assert.equal(captchaRun.bringToFrontReason, 'human_intervention');
+
+  // 3. Execução que pede aprovação antes de enviar traz para frente ('approval_needed')
+  const approvalRun = await runner.runBotNow(erpBot.id, {
+    steps: [
+      { tool: 'submit_form', requiresApproval: true, approvalMessage: 'Confirmar envio do lote fiscal?' }
+    ],
+    onAttention: (ev) => attentionEvents.push(ev)
+  });
+  assert.equal(approvalRun.status, 'needs_attention');
+  assert.equal(approvalRun.shouldBringToFront, true);
+  assert.equal(approvalRun.bringToFrontReason, 'approval_needed');
+});
+
+

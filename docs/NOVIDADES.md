@@ -1,4 +1,12 @@
-# Novidades — Zero Browser 0.1.60-dev
+# Novidades — Zero Browser 0.1.61-dev
+
+## GrokBot dos Navegadores: Bots Especialistas + Execução em 2º Plano com Auto-Foreground e Integração IPC — 0.1.61-dev — 31/10/2026
+
+- **Criador de Bot Especialista (`#bot-specialist-modal` em `src/renderer/index.html`, `src/renderer/app.js`, `src/renderer/styles.css`):** ao clicar em `+ Criar Bot` na barra lateral ou na Central, o usuário escolhe entre 6 especialidades prontas (`Pesquisador de Preços`, `Radar Financeiro e Ações`, `Triagem de E-mail e Agenda`, `Operador de Trabalho e ERP`, `Vigia de Editais, Vagas e Estoque` e `Especialista Personalizado`).
+- **Dois Modos de Execução de Aba (`EXECUTION_MODES` em `src/bots/bot-store.js` e `src/bots/runner.js`):**
+  1. **Trabalhar em 2º plano e trazer para frente (`background-auto-foreground`, padrão GrokBot):** cria uma aba silenciosa exclusiva do Bot identificada com a cor e o selo dele (`.tab-bot-badge`) sem roubar o foco da aba atual do usuário. Assim que o Bot **atinge a meta (`goal_reached`)**, **pede aprovação de escrita (`approval_needed`)** ou **encontra verificação humana/CAPTCHA (`human_intervention`)**, o Zero Browser traz automaticamente a aba do Bot para a frente (`bringSpecialistBotToFront`), destaca a aba (`.tab-bot-attention`) e abre o painel com o motivo.
+  2. **Aba exclusiva visível agora (`dedicated-tab`):** abre e foca imediatamente a aba dedicada do Bot Especialista para acompanhamento ao vivo.
+- **Integração IPC Completa no Processo Principal (`src/main/main.js` e `src/preload/preload.js`):** `bots:get-presets`, `bots:list-tasks`, `bots:create-task`, `bots:run-now`, `bots:stop-all`, `bots:run-missed-schedules`, `bots:attention`, `live-apps:list` e `live-apps:create-weekly-due` conectados fim a fim.
 
 ## Conclusão de Design/UX, Decomposição do Motor, Controle Total MCP (Fases 4–6) e Paridade — 0.1.60-dev — 31/10/2026
 

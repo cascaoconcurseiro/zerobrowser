@@ -89,6 +89,60 @@
       <p id="bot-central-status" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></p>
       <footer class="bot-central-footer"><span id="bot-central-avatar-count">200 avatares disponíveis</span><button id="btn-bot-central-new" type="button"><span aria-hidden="true">+</span><span>Criar Bot</span></button></footer>
     </section>
+    <section id="bot-specialist-modal" class="bot-specialist-modal hidden" role="dialog" aria-modal="false" aria-labelledby="bot-specialist-title">
+      <header class="bot-central-header">
+        <div class="bot-central-heading">
+          <span class="bot-central-kicker">Zero Browser · GrokBot Especialista</span>
+          <h2 id="bot-specialist-title">Criar Bot Especialista</h2>
+          <p id="bot-specialist-summary">Escolha a especialidade e se ele abre em aba exclusiva ou trabalha em 2º plano trazendo para frente ao atingir a meta ou precisar de você.</p>
+        </div>
+        <button id="btn-specialist-close" type="button" aria-label="Fechar criador de Bot Especialista" title="Fechar">×</button>
+      </header>
+      <div class="bot-specialist-body">
+        <div class="bot-specialist-field">
+          <span class="bot-specialist-label">1. Especialidade do Bot</span>
+          <div id="bot-specialist-presets" class="bot-specialist-presets" role="group" aria-label="Especialidades disponíveis"></div>
+        </div>
+        <label class="bot-specialist-field" for="bot-specialist-name">
+          <span class="bot-specialist-label">Nome do Especialista</span>
+          <input id="bot-specialist-name" class="ai-input" type="text" maxlength="60" placeholder="Ex.: Bot Caçador de Preços">
+        </label>
+        <label class="bot-specialist-field" for="bot-specialist-url">
+          <span class="bot-specialist-label">Site inicial (ou about:blank para usar a página atual)</span>
+          <input id="bot-specialist-url" class="ai-input" type="text" maxlength="240" placeholder="https://www.google.com/shopping">
+        </label>
+        <label class="bot-specialist-field" for="bot-specialist-goal">
+          <span class="bot-specialist-label">Missão e gatilho de alerta</span>
+          <textarea id="bot-specialist-goal" class="ai-textarea bot-specialist-textarea" rows="3" placeholder="Descreva o que o Bot deve monitorar ou executar e quando deve chamar você"></textarea>
+        </label>
+        <div class="bot-specialist-field">
+          <span class="bot-specialist-label">2. Como este Bot deve trabalhar?</span>
+          <div class="bot-specialist-modes" role="radiogroup" aria-label="Modo de operação da aba do Bot">
+            <label class="bot-mode-option" data-mode-card="background-auto-foreground">
+              <input type="radio" name="bot-execution-mode" id="bot-mode-background" value="background-auto-foreground" checked>
+              <div class="bot-mode-copy">
+                <strong>Trabalhar em 2º plano e trazer para frente (Recomendado)</strong>
+                <span>Abre uma aba silenciosa só dele sem tirar você do que está fazendo. Traz a aba para frente automaticamente quando atingir a meta ou precisar de aprovação/ação sua.</span>
+              </div>
+            </label>
+            <label class="bot-mode-option" data-mode-card="dedicated-tab">
+              <input type="radio" name="bot-execution-mode" id="bot-mode-dedicated" value="dedicated-tab">
+              <div class="bot-mode-copy">
+                <strong>Abrir em nova aba exclusiva dele agora</strong>
+                <span>Cria e foca imediatamente a aba dedicada do Bot com a cor e o selo dele para você acompanhar ao vivo.</span>
+              </div>
+            </label>
+          </div>
+        </div>
+      </div>
+      <footer class="bot-specialist-footer">
+        <button id="btn-specialist-profile-menu" class="btn-secondary" type="button" title="Abrir menu de perfis isolados em janela separada">Janela isolada…</button>
+        <div class="bot-specialist-footer-right">
+          <button id="btn-specialist-cancel" class="btn-secondary" type="button">Cancelar</button>
+          <button id="btn-specialist-launch" class="btn-primary" type="button">Lançar Bot Especialista</button>
+        </div>
+      </footer>
+    </section>
     <div id="ai-panel" class="panel hidden" aria-label="Modo Delegar">
       <div class="panel-header">
         <div class="panel-heading">
@@ -347,48 +401,7 @@
             <input type="number" id="setting-spend-per-bot-steps" class="ai-input tabular-nums" value="25" min="5" max="100">
           </label>
         </section>
-        <section class="settings-section" id="bots-settings-section">
-          <h3>Bots</h3>
-          <p class="setting-description">Gerencie seus Bots isolados, permissões padrão e agendamentos locais.</p>
-          <label class="setting-field" for="setting-bot-default-permission">
-            <span>Permissão padrão ao criar novo Bot</span>
-            <select id="setting-bot-default-permission">
-              <option value="read-only" selected>Somente leitura (recomendado)</option>
-              <option value="ask-write">Perguntar antes de clicar ou enviar</option>
-            </select>
-          </label>
-          <label class="setting-item">
-            <input type="checkbox" id="setting-bot-auto-pause-stale" checked>
-            <span>Pausar agendas sem uso após 14 dias</span>
-          </label>
-        </section>
-        <section class="settings-section" id="mcp-clients-settings-section">
-          <h3>Clientes de IA</h3>
-          <p class="setting-description">Conecte Claude Desktop, Cursor ou scripts locais via protocolo MCP sem abrir portas externas.</p>
-          <label class="setting-field" for="setting-mcp-default-level">
-            <span>Nível de acesso MCP</span>
-            <select id="setting-mcp-default-level">
-              <option value="somente-leitura" selected>Somente leitura</option>
-              <option value="interagir-perguntando">Interagir perguntando</option>
-              <option value="interagir-automatico">Interagir automático</option>
-              <option value="total">Controle total (requer confirmação)</option>
-            </select>
-          </label>
-        </section>
-        <section class="settings-section" id="spend-limits-settings-section">
-          <h3>Limites de gasto</h3>
-          <p class="setting-description">Teto de chamadas e passos por Bot e por dia. Valores com alinhamento numérico tabular.</p>
-          <label class="setting-field" for="setting-spend-daily-calls">
-            <span>Máximo de chamadas ao modelo por dia</span>
-            <input type="number" id="setting-spend-daily-calls" class="ai-input tabular-nums" value="120" min="10" max="5000">
-          </label>
-          <label class="setting-field" for="setting-spend-per-bot-steps">
-            <span>Máximo de passos por execução de Bot</span>
-            <input type="number" id="setting-spend-per-bot-steps" class="ai-input tabular-nums" value="25" min="5" max="100">
-          </label>
-        </section>
-        </section>
-      </div>
+              </div>
     </div>
 
     <div id="toast-container" class="toast-container" role="status" aria-live="polite" aria-atomic="true"></div>

@@ -15,6 +15,9 @@ class ZeroBrowserApp {
     this.aiKeyRevealed = false;
     this.aiRevealedStoredKey = false;
     this.botTeam = { bots: [], avatars: 0, currentProfileId: null };
+    this.botTabs = new Map();
+    this.specialistBots = new Map();
+    this.selectedSpecialistPresetId = "price-hunter";
     this.botAvatarSheets = new Map();
     this.pendingApprovalCards = new Map();
     this.approvalUiReady = false;
@@ -166,8 +169,9 @@ class ZeroBrowserApp {
     });
 
     this.elements.btnAi.addEventListener('click', () => this.toggleAiPanel());
-    this.elements.btnBotNew.addEventListener('click', () => window.zeroBrowser.browser.openProfileMenu(72, 96).catch(() => {}));
+    this.elements.btnBotNew.addEventListener('click', () => this.openSpecialistBotModal());
     this.elements.btnStopTask.addEventListener('click', () => {
+      if (window.zeroBrowser?.bots?.stopAll) window.zeroBrowser.bots.stopAll().catch(() => {});
       if (this.aiRunning) window.zeroBrowser.automation.cancelAgent(this.runningAgentTabId || this.activeTabId);
     });
     this.elements.btnBotCentral.addEventListener('click', () => this.toggleBotCentral());
@@ -175,8 +179,8 @@ class ZeroBrowserApp {
     this.elements.btnAiTeach?.addEventListener('click', () => this.startTeachTaskFlow());
     this.elements.btnBotCentralClose.addEventListener('click', () => this.closeBotCentral({ restoreFocus: true }));
     this.elements.btnBotCentralNew.addEventListener('click', () => {
-      this.closeBotCentral();
-      window.zeroBrowser.browser.openProfileMenu(72, 96).catch(() => {});
+      this.closeBotCentral({ restorePanel: false });
+      this.openSpecialistBotModal();
     });
     this.elements.btnCloseAi.addEventListener('click', () => this.closeAiPanel());
     this.elements.btnSettings.addEventListener('click', () => this.toggleSettingsPanel());
@@ -185,6 +189,7 @@ class ZeroBrowserApp {
 
     this.elements.btnAiConnect.addEventListener('click', () => this.connectAi());
     this.elements.btnAiSend.addEventListener('click', () => {
+      if (window.zeroBrowser?.bots?.stopAll) window.zeroBrowser.bots.stopAll().catch(() => {});
       if (this.aiRunning) window.zeroBrowser.automation.cancelAgent(this.runningAgentTabId || this.activeTabId);
       else this.sendAiMessage();
     });
@@ -349,7 +354,8 @@ class ZeroBrowserApp {
   // The agent paused on a CAPTCHA; the user solves it on the page and the agent resumes.
   showHumanCheckBanner({ id, origin }) {
     this.hideHumanCheckBanner();
-    if (this.elements.aiPanel.classList.contains('hidden')) this.toggleAiPanel();
+    this.promoteBackgroundBotTabIfNeeded('human_intervention', origin);
+    if (this.elements.aiPanel.classList.contains('hidden')) this.toggleAiPanel(true);
     const banner = document.createElement('div');
     banner.className = 'human-check-banner';
     banner.dataset.id = id;
@@ -919,17 +925,24 @@ class ZeroBrowserApp {
     return this.sendAiMessage();
   }
 
-  async createTab(url = 'about:blank') {
+  async createTab(url = 'about:blank', options = {}) {
     try {
       const result = await window.zeroBrowser.browser.newTab(url);
       if (result && result.tabId) {
         this.addTabToUI(result.tabId, url);
-        this.switchTab(result.tabId);
+        if (options && options.botMeta) {
+          this.attachBotMetaToTab(result.tabId, options.botMeta);
+        }
+        if (!options || !options.background) {
+          this.switchTab(result.tabId);
+        }
+        return result.tabId;
       }
     } catch (err) {
       console.error('Failed to create tab:', err);
       this.showToast('Erro ao criar aba', 'error');
     }
+    return null;
   }
 
   addTabToUI(tabId, url) {
@@ -1678,6 +1691,7 @@ class ZeroBrowserApp {
     }
     pending.queued = false;
     pending.rendering = true;
+    this.promoteBackgroundBotTabIfNeeded('approval_needed', request.origin);
     if (!this.elements.botCentral.classList.contains('hidden')) this.closeBotCentral();
     try {
       if (this.elements.aiPanel.classList.contains('hidden')) await this.toggleAiPanel(true);
@@ -2368,161 +2382,328 @@ class ZeroBrowserApp {
     for (const tab of document.querySelectorAll('.bot-panel-tab')) {
       tab.addEventListener('click', () => this.switchBotPanelTab(tab.dataset.botTab));
     }
+    this.initSpecialistBotModal();
   }
 
-  switchBotPanelTab(tabName = 'chat') {
-    this.activeBotTab = tabName;
-    for (const tab of document.querySelectorAll('.bot-panel-tab')) {
-      const selected = tab.dataset.botTab === tabName;
-      tab.classList.toggle('ativo', selected);
-      tab.setAttribute('aria-pressed', String(selected));
-    }
-    const isChat = tabName === 'chat';
-    this.elements.aiChat?.classList.toggle('hidden', !isChat);
-    document.querySelector('.ai-chat-toolbar')?.classList.toggle('hidden', !isChat);
-    document.querySelector('.ai-input-area')?.classList.toggle('hidden', !isChat);
-    const agendaView = document.getElementById('bot-view-agenda');
-    const memoryView = document.getElementById('bot-view-memory');
-    const historyView = document.getElementById('bot-view-history');
-    agendaView?.classList.toggle('hidden', tabName !== 'agenda');
-    memoryView?.classList.toggle('hidden', tabName !== 'memory');
-    historyView?.classList.toggle('hidden', tabName !== 'history');
-    if (tabName === 'agenda') this.renderBotAgendaView(agendaView);
-    if (tabName === 'memory') this.renderBotMemoryView(memoryView);
-    if (tabName === 'history') this.renderBotHistoryView(historyView);
-  }
-
-  renderBotAgendaView(container) {
-    if (!container) return;
-    container.replaceChildren();
-    const header = document.createElement('div');
-    header.className = 'bot-subview-header';
-    const title = document.createElement('strong');
-    title.textContent = 'Rotinas agendadas deste Bot';
-    const addBtn = document.createElement('button');
-    addBtn.type = 'button';
-    addBtn.className = 'btn-ghost';
-    addBtn.textContent = '+ Agendar tarefa';
-    addBtn.addEventListener('click', () => {
-      const taskName = window.prompt('Qual tarefa o Bot deve repetir em somente leitura?', 'Verificar variações de preço');
-      if (!taskName || !taskName.trim()) return;
-      this.botAgendaItems.unshift({
-        id: `ag-${Date.now()}`,
-        title: taskName.trim().slice(0, 80),
-        cadence: 'Diariamente às 09:00',
-        mode: 'Somente leitura',
-        active: true
-      });
-      this.renderBotAgendaView(container);
-    });
-    header.append(title, addBtn);
-    container.appendChild(header);
-    for (const item of this.botAgendaItems) {
-      const card = document.createElement('div');
-      card.className = 'ai-receipt-card';
-      const copy = document.createElement('div');
-      copy.className = 'ai-receipt-copy';
-      const h = document.createElement('strong');
-      h.textContent = item.title;
-      const meta = document.createElement('span');
-      meta.textContent = `${item.cadence} · ${item.mode} · ${item.active ? 'Ativa' : 'Pausada'}`;
-      copy.append(h, meta);
-      const toggle = document.createElement('button');
-      toggle.type = 'button';
-      toggle.className = 'btn-ghost btn-undo-receipt';
-      toggle.textContent = item.active ? 'Pausar' : 'Retomar';
-      toggle.addEventListener('click', () => {
-        item.active = !item.active;
-        this.renderBotAgendaView(container);
-      });
-      card.append(copy, toggle);
-      container.appendChild(card);
-    }
-  }
-
-  async renderBotMemoryView(container) {
-    if (!container) return;
-    container.replaceChildren();
-    let memories = [];
-    try {
-      memories = await window.zeroBrowser.automation.memory('list');
-    } catch {}
-    const header = document.createElement('div');
-    header.className = 'bot-subview-header';
-    const title = document.createElement('strong');
-    title.textContent = `Memória isolada (${memories.length})`;
-    header.appendChild(title);
-    container.appendChild(header);
-    if (!memories.length) {
-      const empty = document.createElement('p');
-      empty.className = 'ai-memory-empty';
-      empty.textContent = 'Nenhum fato salvo neste perfil. Somente dados de origem do usuário ou aprovados entram na memória.';
-      container.appendChild(empty);
-      return;
-    }
-    for (const mem of memories) {
-      const card = document.createElement('div');
-      card.className = 'ai-receipt-card';
-      const copy = document.createElement('div');
-      copy.className = 'ai-receipt-copy';
-      const h = document.createElement('strong');
-      h.textContent = mem.text || '';
-      const meta = document.createElement('span');
-      meta.textContent = `${mem.origin || 'geral'} · origem verificada`;
-      copy.append(h, meta);
-      card.appendChild(copy);
-      container.appendChild(card);
-    }
-  }
-
-  renderBotHistoryView(container) {
-    if (!container) return;
-    container.replaceChildren();
-    const header = document.createElement('div');
-    header.className = 'bot-subview-header';
-    const title = document.createElement('strong');
-    title.textContent = `Recibos de execução (${(this.actionReceipts || []).length})`;
-    const exportBtn = document.createElement('button');
-    exportBtn.type = 'button';
-    exportBtn.className = 'btn-ghost';
-    exportBtn.textContent = 'Exportar recibos';
-    exportBtn.addEventListener('click', () => {
-      const payload = JSON.stringify(this.actionReceipts || [], null, 2);
-      this.copiarTexto(payload);
-      this.showToast('Recibos copiados em JSON auditável.', 'success');
-    });
-    header.append(title, exportBtn);
-    container.appendChild(header);
-    if (!this.actionReceipts?.length) {
-      const empty = document.createElement('p');
-      empty.className = 'ai-memory-empty';
-      empty.textContent = 'Nenhuma execução registrada nesta sessão ainda.';
-      container.appendChild(empty);
-      return;
-    }
-    for (const rec of this.actionReceipts) {
-      const card = document.createElement('div');
-      card.className = 'ai-receipt-card';
-      const copy = document.createElement('div');
-      copy.className = 'ai-receipt-copy';
-      const h = document.createElement('strong');
-      h.textContent = rec.title;
-      const meta = document.createElement('span');
-      meta.textContent = rec.detail || 'Auditado';
-      copy.append(h, meta);
-      card.appendChild(copy);
-      container.appendChild(card);
-    }
-  }
-
-  initBotPanelTabs() {
-    this.activeBotTab = 'chat';
-    this.botAgendaItems = [
-      { id: 'ag-1', title: 'Monitor de preços matinal', cadence: 'Diariamente às 09:00', mode: 'Somente leitura', active: true }
+  getDefaultSpecialistPresets() {
+    return [
+      {
+        id: 'price-hunter',
+        title: 'Pesquisador de Preços',
+        subtitle: 'Compara lojas e frete em 2º plano e traz para frente ao achar o menor valor.',
+        defaultName: 'Bot Caçador de Preços',
+        defaultUrl: 'https://www.google.com/shopping',
+        goal: 'Comparar preços e frete nas lojas abertas, montar tabela comparativa e trazer a aba para frente quando atingir a meta.',
+        permission: 'somente-leitura',
+        executionMode: 'background-auto-foreground',
+        accent: '#168f72'
+      },
+      {
+        id: 'market-radar',
+        title: 'Radar Financeiro e Ações',
+        subtitle: 'Vigia cotações e variações em silêncio até atingir seu gatilho.',
+        defaultName: 'Bot Radar de Mercado',
+        defaultUrl: 'https://www.google.com/finance',
+        goal: 'Monitorar cotação do ativo em somente leitura e trazer a aba para frente se atingir a faixa de alerta.',
+        permission: 'somente-leitura',
+        executionMode: 'background-auto-foreground',
+        accent: '#1677d9'
+      },
+      {
+        id: 'inbox-triage',
+        title: 'Triagem de E-mail e Agenda',
+        subtitle: 'Separa urgências e prepara resumos sem responder sozinho.',
+        defaultName: 'Bot Triagem Executiva',
+        defaultUrl: 'about:blank',
+        goal: 'Ler mensagens visíveis, classificar urgências do dia e trazer para frente quando houver item crítico.',
+        permission: 'somente-leitura',
+        executionMode: 'background-auto-foreground',
+        accent: '#7b4fd4'
+      },
+      {
+        id: 'erp-operator',
+        title: 'Operador de Trabalho e ERP',
+        subtitle: 'Extrai tabelas e prepara formulários, chamando você antes de gravar.',
+        defaultName: 'Bot Operador ERP',
+        defaultUrl: 'about:blank',
+        goal: 'Extrair dados operacionais do sistema, preencher rascunho e trazer a aba para frente pedindo aprovação antes de enviar.',
+        permission: 'escrita-aprovada',
+        executionMode: 'dedicated-tab',
+        accent: '#c95f18'
+      },
+      {
+        id: 'page-sentinel',
+        title: 'Vigia de Editais e Estoque',
+        subtitle: 'Monitora mudanças na página em 2º plano e abre na frente ao detectar novidade.',
+        defaultName: 'Bot Vigia de Mudanças',
+        defaultUrl: 'about:blank',
+        goal: 'Inspecionar conteúdo da página em segundo plano e trazer a aba para frente assim que detectar atualização ou estoque.',
+        permission: 'somente-leitura',
+        executionMode: 'background-auto-foreground',
+        accent: '#b8860b'
+      },
+      {
+        id: 'custom-specialist',
+        title: 'Especialista Personalizado',
+        subtitle: 'Defina missão, site e se trabalha em aba exclusiva ou em 2º plano.',
+        defaultName: 'Bot Especialista',
+        defaultUrl: 'about:blank',
+        goal: 'Executar a missão definida pelo usuário e trazer a aba para frente ao concluir ou quando precisar de decisão.',
+        permission: 'somente-leitura',
+        executionMode: 'background-auto-foreground',
+        accent: '#0d9488'
+      }
     ];
-    for (const tab of document.querySelectorAll('.bot-panel-tab')) {
-      tab.addEventListener('click', () => this.switchBotPanelTab(tab.dataset.botTab));
+  }
+
+  initSpecialistBotModal() {
+    this.specialistPresets = this.getDefaultSpecialistPresets();
+    if (window.zeroBrowser?.bots?.getPresets) {
+      window.zeroBrowser.bots.getPresets().then((list) => {
+        if (Array.isArray(list) && list.length) this.specialistPresets = list;
+      }).catch(() => {});
     }
+    if (window.zeroBrowser?.bots?.onAttention) {
+      window.zeroBrowser.bots.onAttention((attention) => {
+        if (attention?.botId) this.bringSpecialistBotToFront(attention.botId, attention.reason || 'goal_reached');
+      });
+    }
+    document.getElementById('btn-specialist-close')?.addEventListener('click', () => this.closeSpecialistBotModal());
+    document.getElementById('btn-specialist-cancel')?.addEventListener('click', () => this.closeSpecialistBotModal());
+    document.getElementById('btn-specialist-launch')?.addEventListener('click', () => this.launchSpecialistBotFromModal());
+    document.getElementById('btn-specialist-profile-menu')?.addEventListener('click', () => {
+      this.closeSpecialistBotModal();
+      window.zeroBrowser.browser.openProfileMenu(72, 96).catch(() => {});
+    });
+  }
+
+  openSpecialistBotModal(presetId = 'price-hunter') {
+    const modal = document.getElementById('bot-specialist-modal');
+    if (!modal) return;
+    if (this.elements.aiPanel.classList.contains('hidden')) {
+      this.toggleAiPanel(true);
+    }
+    this.elements.aiPanel.classList.add('hidden');
+    modal.classList.remove('hidden');
+    this.renderSpecialistPresetButtons(presetId);
+    this.selectSpecialistPreset(presetId);
+    document.getElementById('bot-specialist-name')?.focus();
+  }
+
+  closeSpecialistBotModal() {
+    const modal = document.getElementById('bot-specialist-modal');
+    if (!modal || modal.classList.contains('hidden')) return;
+    modal.classList.add('hidden');
+    if (document.getElementById('app')?.classList.contains('delegation-mode') && this.elements.botCentral.classList.contains('hidden')) {
+      this.elements.aiPanel.classList.remove('hidden');
+      this.elements.aiPanel.inert = false;
+      this.elements.aiPanel.removeAttribute('aria-hidden');
+      window.zeroBrowser.browser.setSidePanelOpen(true, 'left', 'ai').catch(() => {});
+    }
+  }
+
+  renderSpecialistPresetButtons(selectedId) {
+    const container = document.getElementById('bot-specialist-presets');
+    if (!container) return;
+    container.replaceChildren();
+    for (const preset of this.specialistPresets || this.getDefaultSpecialistPresets()) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = `bot-specialist-preset-btn${preset.id === selectedId ? ' ativo' : ''}`;
+      btn.dataset.presetId = preset.id;
+      btn.style.setProperty('--preset-accent', preset.accent || '#168f72');
+      btn.setAttribute('aria-pressed', String(preset.id === selectedId));
+      const title = document.createElement('strong');
+      title.textContent = preset.title;
+      const sub = document.createElement('span');
+      sub.textContent = preset.subtitle;
+      btn.append(title, sub);
+      btn.addEventListener('click', () => this.selectSpecialistPreset(preset.id));
+      container.appendChild(btn);
+    }
+  }
+
+  selectSpecialistPreset(presetId) {
+    const presets = this.specialistPresets || this.getDefaultSpecialistPresets();
+    const preset = presets.find((p) => p.id === presetId) || presets[0];
+    if (!preset) return;
+    this.selectedSpecialistPresetId = preset.id;
+    for (const btn of document.querySelectorAll('.bot-specialist-preset-btn')) {
+      const active = btn.dataset.presetId === preset.id;
+      btn.classList.toggle('ativo', active);
+      btn.setAttribute('aria-pressed', String(active));
+    }
+    const nameInput = document.getElementById('bot-specialist-name');
+    const urlInput = document.getElementById('bot-specialist-url');
+    const goalInput = document.getElementById('bot-specialist-goal');
+    if (nameInput) nameInput.value = preset.defaultName || preset.title;
+    if (urlInput) {
+      const activeTabUrl = this.tabs.get(this.activeTabId)?.url;
+      urlInput.value = preset.defaultUrl && preset.defaultUrl !== 'about:blank'
+        ? preset.defaultUrl
+        : (activeTabUrl && !activeTabUrl.includes('newtab') ? activeTabUrl : 'about:blank');
+    }
+    if (goalInput) goalInput.value = preset.goal || '';
+    const bgRadio = document.getElementById('bot-mode-background');
+    const dedRadio = document.getElementById('bot-mode-dedicated');
+    if (preset.executionMode === 'dedicated-tab' && dedRadio) dedRadio.checked = true;
+    else if (bgRadio) bgRadio.checked = true;
+  }
+
+  attachBotMetaToTab(tabId, botMeta = {}) {
+    this.botTabs.set(tabId, botMeta);
+    const tabEntry = this.tabs.get(tabId);
+    const tabEl = tabEntry?.element || this.elements.tabsContainer.querySelector(`.tab[data-tab-id="${tabId}"]`);
+    if (!tabEl) return;
+    tabEl.classList.add('tab-bot-owned');
+    tabEl.dataset.botId = botMeta.botId || '';
+    tabEl.dataset.botExecutionMode = botMeta.executionMode || 'background-auto-foreground';
+    tabEl.style.setProperty('--tab-bot-accent', botMeta.accent || '#168f72');
+    const selectBtn = tabEl.querySelector('.tab-select');
+    if (selectBtn && !selectBtn.querySelector('.tab-bot-badge')) {
+      const badge = document.createElement('span');
+      badge.className = 'tab-bot-badge';
+      badge.textContent = botMeta.shortBadge || botMeta.name || 'Bot';
+      selectBtn.prepend(badge);
+    }
+  }
+
+  async launchSpecialistBotFromModal() {
+    const presets = this.specialistPresets || this.getDefaultSpecialistPresets();
+    const preset = presets.find((p) => p.id === this.selectedSpecialistPresetId) || presets[0];
+    const name = (document.getElementById('bot-specialist-name')?.value || preset.defaultName || 'Bot Especialista').trim();
+    const rawUrl = (document.getElementById('bot-specialist-url')?.value || preset.defaultUrl || 'about:blank').trim();
+    const goal = (document.getElementById('bot-specialist-goal')?.value || preset.goal || '').trim();
+    const executionMode = document.getElementById('bot-mode-dedicated')?.checked
+      ? 'dedicated-tab'
+      : 'background-auto-foreground';
+    this.closeSpecialistBotModal();
+    return this.launchSpecialistBot({
+      name,
+      specialty: preset.id,
+      specialtyTitle: preset.title,
+      defaultUrl: rawUrl,
+      goal,
+      permission: preset.permission || 'somente-leitura',
+      executionMode,
+      accent: preset.accent || '#168f72'
+    });
+  }
+
+  async launchSpecialistBot(spec = {}) {
+    const executionMode = spec.executionMode === 'dedicated-tab' ? 'dedicated-tab' : 'background-auto-foreground';
+    const isBackground = executionMode === 'background-auto-foreground';
+    const targetUrl = spec.defaultUrl && /^(https?:\/\/|about:blank|zero:\/\/newtab)/i.test(spec.defaultUrl)
+      ? spec.defaultUrl
+      : 'about:blank';
+
+    let createdTask = null;
+    if (window.zeroBrowser?.bots?.createTask) {
+      try {
+        createdTask = await window.zeroBrowser.bots.createTask({
+          name: spec.name || 'Bot Especialista',
+          specialty: spec.specialty || 'custom-specialist',
+          specialtyTitle: spec.specialtyTitle || 'Especialista',
+          executionMode,
+          defaultUrl: targetUrl,
+          accent: spec.accent || '#168f72',
+          goal: spec.goal || '',
+          permission: spec.permission || 'somente-leitura'
+        });
+      } catch {}
+    }
+
+    const botId = createdTask?.id || `bot-spec-${Date.now()}`;
+    const botMeta = {
+      botId,
+      name: spec.name || createdTask?.name || 'Bot Especialista',
+      specialty: spec.specialty || 'custom-specialist',
+      specialtyTitle: spec.specialtyTitle || createdTask?.specialtyTitle || 'Especialista',
+      executionMode,
+      accent: spec.accent || createdTask?.accent || '#168f72',
+      goal: spec.goal || createdTask?.goal || '',
+      shortBadge: (spec.name || 'Bot').replace(/^Bot\s+/i, '').slice(0, 14)
+    };
+
+    const previousActiveTabId = this.activeTabId;
+    const botTabId = await this.createTab(targetUrl, {
+      background: isBackground,
+      botMeta
+    });
+    if (botTabId) {
+      botMeta.tabId = botTabId;
+      this.specialistBots.set(botId, botMeta);
+      if (isBackground && previousActiveTabId && previousActiveTabId !== botTabId) {
+        this.activeTabId = previousActiveTabId;
+      }
+    }
+
+    this.recordActionReceipt({
+      title: `${botMeta.name} (${botMeta.specialtyTitle})`,
+      detail: isBackground
+        ? 'Em 2º plano · trará a aba para frente ao atingir a meta ou precisar de você'
+        : 'Aba dedicada aberta e ativa'
+    });
+
+    if (isBackground) {
+      this.showToast(`${botMeta.name} iniciado em 2º plano. Ele trará a aba para frente quando atingir a meta ou precisar de você.`, 'info');
+    } else {
+      this.switchBotPanelTab('chat');
+      if (this.elements.aiInput && botMeta.goal) {
+        this.elements.aiInput.value = botMeta.goal;
+        this.elements.aiInput.focus();
+      }
+      this.showToast(`${botMeta.name} aberto em aba exclusiva.`, 'success');
+    }
+
+    return { botId, tabId: botTabId, executionMode, botMeta };
+  }
+
+  bringSpecialistBotToFront(botIdOrTabId, reason = 'goal_reached') {
+    let meta = this.specialistBots.get(botIdOrTabId) || this.botTabs.get(botIdOrTabId);
+    if (!meta) {
+      for (const candidate of this.specialistBots.values()) {
+        if (candidate.tabId === botIdOrTabId || candidate.botId === botIdOrTabId) {
+          meta = candidate;
+          break;
+        }
+      }
+    }
+    const targetTabId = meta?.tabId || (this.tabs.has(botIdOrTabId) ? botIdOrTabId : null);
+    if (!targetTabId || !this.tabs.has(targetTabId)) return false;
+
+    this.switchTab(targetTabId);
+    const tabEl = this.tabs.get(targetTabId)?.element;
+    if (tabEl) {
+      tabEl.classList.add('tab-bot-attention');
+    }
+    if (this.elements.aiPanel.classList.contains('hidden')) {
+      this.toggleAiPanel(true);
+    }
+    this.switchBotPanelTab('chat');
+
+    const reasonLabel = reason === 'approval_needed'
+      ? 'precisa da sua aprovação para prosseguir'
+      : reason === 'human_intervention'
+        ? 'encontrou verificação humana (CAPTCHA/login) na aba'
+        : 'atingiu a meta configurada';
+
+    this.recordActionReceipt({
+      title: `${meta?.name || 'Bot Especialista'} trouxe a aba para frente`,
+      detail: `Motivo: ${reasonLabel}`
+    });
+    this.showToast(`${meta?.name || 'Bot Especialista'}: ${reasonLabel}.`, reason === 'goal_reached' ? 'success' : 'warning');
+    return true;
+  }
+
+  promoteBackgroundBotTabIfNeeded(reason = 'approval_needed') {
+    for (const [tabId, meta] of this.botTabs.entries()) {
+      if (meta.executionMode === 'background-auto-foreground' && this.activeTabId !== tabId) {
+        this.bringSpecialistBotToFront(tabId, reason);
+        return true;
+      }
+    }
+    return false;
   }
 
   switchBotPanelTab(tabName = 'chat') {
@@ -2560,6 +2741,9 @@ class ZeroBrowserApp {
     addBtn.textContent = '+ Agendar tarefa';
     addBtn.addEventListener('click', () => {
       const taskName = window.prompt('Qual tarefa o Bot deve repetir em somente leitura?', 'Verificar variações de preço');
+      if (taskName && taskName.trim() && window.zeroBrowser?.bots?.createTask) {
+        window.zeroBrowser.bots.createTask({ name: taskName.trim().slice(0, 80), goal: taskName.trim().slice(0, 80), permission: 'somente-leitura', schedule: { enabled: true, kind: 'daily', dailyAt: '09:00' } }).catch(() => {});
+      }
       if (!taskName || !taskName.trim()) return;
       this.botAgendaItems.unshift({
         id: `ag-${Date.now()}`,
@@ -2668,7 +2852,6 @@ class ZeroBrowserApp {
       card.appendChild(copy);
       container.appendChild(card);
     }
-  }
   }
 
   async openExtensionsManager() {

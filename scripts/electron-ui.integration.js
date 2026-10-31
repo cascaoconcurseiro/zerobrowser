@@ -78,6 +78,12 @@ const stubs = {
     return { ...bot };
   },
   'automation:jobs': () => [],
+  'bots:get-presets': () => [],
+  'bots:list-tasks': () => [],
+  'bots:create-task': (_e, spec) => ({ id: `bot-task-smoke-${Date.now()}`, ...spec }),
+  'bots:run-now': () => ({ status: 'completed', shouldBringToFront: true, bringToFrontReason: 'goal_reached' }),
+  'bots:stop-all': () => ({ stoppedCount: 0, elapsedMs: 0 }),
+  'bots:run-missed-schedules': () => [],
   'automation:memory': () => [],
   'browser:new-tab': () => ({ tabId: `tab-smoke-${++newTabCalls}` }),
   'browser:switch-tab': () => ({ tabId: 'tab-smoke' }),
@@ -285,6 +291,23 @@ app.whenReady().then(async () => {
       ariaHidden: document.getElementById('ai-panel').getAttribute('aria-hidden')
     })`);
     assert.deepEqual(botChatRestored, { visible: true, inert: false, ariaHidden: null }, 'fechar a Central restaura o chat acessível');
+
+    const specialistFlow = await window.webContents.executeJavaScript(`(async () => {
+      const initialTabId = window.app.activeTabId;
+      window.app.openSpecialistBotModal('price-hunter');
+      const modalVisible = !document.getElementById('bot-specialist-modal').classList.contains('hidden');
+      const presetCount = document.querySelectorAll('#bot-specialist-presets .bot-specialist-preset-btn').length;
+      const launched = await window.app.launchSpecialistBotFromModal();
+      const keptBackground = window.app.activeTabId === initialTabId && launched.tabId !== initialTabId;
+      const promoted = window.app.bringSpecialistBotToFront(launched.botId, 'goal_reached');
+      const switchedToBotTab = window.app.activeTabId === launched.tabId;
+      window.app.closeTab(launched.tabId);
+      return { modalVisible, presetCount, keptBackground, promoted, switchedToBotTab };
+    })()`);
+    assert.equal(specialistFlow.modalVisible, true, 'clicar em Criar Bot abre o criador de Bot Especialista');
+    assert.equal(specialistFlow.presetCount, 6, 'criador exibe as 6 especialidades prontas');
+    assert.equal(specialistFlow.keptBackground, true, 'modo em 2º plano cria a aba do Bot sem roubar o foco da aba atual');
+    assert.equal(specialistFlow.promoted && specialistFlow.switchedToBotTab, true, 'atingir a meta ou precisar de ação traz a aba do Bot automaticamente para frente');
 
     await window.webContents.executeJavaScript("window.app.openLibrary('downloads')");
     assert.equal(await window.webContents.executeJavaScript("document.querySelector('.library-tab[aria-pressed=\"true\"]')?.dataset.modo"), 'downloads', 'modo ativo da biblioteca atualiza seu estado acessível');

@@ -6,7 +6,7 @@ Navegador Electron para Windows com agente integrado à OpenAI, OpenRouter e Dee
 
 ## Estado atual (2026-10-31)
 
-Código-fonte e instalação atual em **0.1.60-dev**. A .60 conclui a revisão de Design/UX do navegador (`#bot-panel-tabs`, novas seções de Configurações, menu `⋮`, galeria de 3 modelos e 24 símbolos de traço), a decomposição de tempo do motor (`src/automation/service/time-decomposition.js`), as Fases 4–6 do Controle Total por IA (`src/automation/mcp-diagnostics.js` e `src/automation/mcp-http-server.js`), o portão de cobertura de comandos da UI (`verifyUiCommandCoverage`), o filtro de rastreadores com contador por página (`AdTrackerListFilter`) e os relatórios `docs/COMPATIBILIDADE_EXTENSOES_CHROME.md` e `docs/RELATORIO_FIREWALL_ATAQUES.md`. Consulte `CHECKLIST.md` e `docs/CHECKLIST_GERAL_PROJETO.md` para a ordem ativa.
+Código-fonte e instalação atual em **0.1.61-dev**. A .61 integra `BotTaskStore`, `BotRunner`, `BotScheduler` e `LiveAppEngine` diretamente nos canais IPC do processo principal (`src/main/main.js` e `src/preload/preload.js`) e na interface (`src/renderer/app.js`), somando-se à revisão de Design/UX, decomposição do motor e Fases 4–6 do MCP entregues na .60. Consulte `CHECKLIST.md` e `docs/CHECKLIST_GERAL_PROJETO.md` para a ordem ativa.
 
 O comparativo em `docs/COMPARATIVO_CONCORRENTES_2026-10-28.md` avalia prontidão pública por rubrica editorial; não há base para participação de mercado, comparação de desempenho ou qualidade por ranking. Não houve chamada de provedor nesta fatia.
 

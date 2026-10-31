@@ -143,6 +143,23 @@ const browserApi = {
     applyTheme: (theme) => ipcRenderer.invoke('settings:apply-theme', theme)
   },
 
+  bots: {
+    getPresets: () => ipcRenderer.invoke('bots:get-presets'),
+    listTasks: () => ipcRenderer.invoke('bots:list-tasks'),
+    createTask: (spec) => ipcRenderer.invoke('bots:create-task', spec),
+    runNow: (botId, options = {}) => ipcRenderer.invoke('bots:run-now', botId, options),
+    stopAll: () => ipcRenderer.invoke('bots:stop-all'),
+    runMissedSchedules: () => ipcRenderer.invoke('bots:run-missed-schedules'),
+    onAttention: (callback) => {
+      const handler = (_event, data) => callback(data);
+      ipcRenderer.on('bots:attention', handler);
+      return () => ipcRenderer.removeListener('bots:attention', handler);
+    }
+  },
+  liveApps: {
+    list: () => ipcRenderer.invoke('live-apps:list'),
+    createWeeklyDuePrototype: () => ipcRenderer.invoke('live-apps:create-weekly-due')
+  },
   platform: process.platform,
   versions: process.versions
 };
