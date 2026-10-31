@@ -1,4 +1,15 @@
-# Novidades — Zero Browser 0.1.46-dev
+# Novidades — Zero Browser 0.1.47-dev
+
+## Delegar e equipe Bot — 31/10/2026
+
+- O Zero abre diretamente em Delegar; o botão composto retorna a Navegar. O campo superior aceita endereço, pesquisa e comandos para o Bot.
+- A equipe Bot aparece no trilho lateral e na Central, com perfis isolados e identidades pixel art. São 200 retratos indexados em duas folhas guardadas no SQLite do perfil; cada Bot mantém uma associação estável. Os retratos não representam 200 agentes já configurados.
+- O avatar do perfil atual anima enquanto a tarefa está em execução; a preferência por movimento reduzido é respeitada.
+- O teste de UI verifica a abertura em Delegar e a renderização da Central; o teste de catálogo verifica armazenamento, associação e remoção de perfis obsoletos.
+- O carregamento sob demanda das ferramentas avançadas reduziu o esquema serializado do primeiro pedido de 11.139 para 8.096 bytes (27,3%) na fixture. Isso não mede tokens faturados, latência ou precisão com provedor real.
+- Avaliação comparativa atualizada em `docs/COMPARATIVO_CONCORRENTES_2026-10-28.md`; a nota mede prontidão pública, não desempenho pareado.
+
+## Histórico — 0.1.46-dev
 
 ## Modo Delegar — 31/10/2026
 

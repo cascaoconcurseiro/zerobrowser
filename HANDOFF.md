@@ -1,5 +1,15 @@
 # Handoff — Zero Browser
 
+## Candidato 0.1.47-dev — 31/10/2026
+
+- O modo Delegar agora abre por padrão; a barra superior combina pesquisa, navegação e envio de tarefa. A tela foi conferida na build empacotada extraída (`dist/win-unpacked`) com perfil isolado em `%LOCALAPPDATA%\ZeroBrowserQA\0.1.47-dev`.
+- A Central lista os perfis Bot existentes; o retrato do perfil atual é estático e os outros perfis abrem janelas separadas. O pacote inclui 200 retratos pixel art em duas folhas PNG, guardadas uma vez cada no SQLite comum de perfis. Isso não cria 200 agentes.
+- O catálogo remove mapeamentos de perfis excluídos e serializa atribuições com `BEGIN IMMEDIATE`. O override de teste empacotado só usa diretórios dentro de `ZeroBrowserQA`; a execução confirmou o banco QA em `%LOCALAPPDATA%\ZeroBrowserQA\profiles` e não encontrou catálogo no caminho padrão `%APPDATA%\zero-browser-perfis`.
+- Motor: ferramentas avançadas sob demanda reduziram bytes serializados do primeiro pedido de 11.139 para 8.096 (27,3%) na fixture; são bytes do esquema, não tokens faturados, qualidade ou latência real.
+- Validações locais: `npm test` 368/368, `npm run test:ui` PASS, `npm run test:bot-runtime` PASS (22 ferramentas; senha, identificador de login e CDP bruto recusados na fixture), focados catálogo/motor 5/5 e perfis/isolamento 4/4. Build NSIS gerado: `dist/Zero Browser Setup 0.1.47-dev.exe` (130.428.819 bytes).
+- A instalação do NSIS após o commit ainda está pendente. Nenhum provedor foi chamado nesta etapa. Benchmark pago/pareado, fluxo de navegação com aprovação por MCP, envio externo e ciclo completo de exclusão de Bots seguem pendentes.
+- Próximo passo concreto: depois do commit, executar o instalador 0.1.47-dev, abrir pelo atalho com `ZERO_USER_DATA` e `ZERO_TEST_PROFILES_ROOT` limitados ao QA, conferir versão/hash e manter a janela Delegar em primeiro plano.
+
 ## Modo Delegar funcional e Bots — 31/10/2026
 
 - Versão de desenvolvimento: `0.1.46-dev`. Esta entrega inclui um layout funcional: painel de conversa à esquerda, página ativa à direita, alternância Navegar/Delegar e acesso ao menu de perfis Bot. `Parar` interrompe a tarefa atual. Central e takeover completo seguem pendentes.

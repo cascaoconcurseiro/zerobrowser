@@ -6,6 +6,20 @@ const path = require('path');
 const MAIN_PROFILE = { id: 'principal', name: 'Principal' };
 const MAX_NAME = 40;
 
+function resolveProfilesRoot({ appData, userData, testRoot, isPackaged, localAppData }) {
+  if (!testRoot) return path.join(appData, 'zero-browser-perfis');
+  if (!isPackaged) return path.resolve(testRoot);
+  if (!localAppData) return path.join(appData, 'zero-browser-perfis');
+
+  const qaRoot = path.resolve(localAppData, 'ZeroBrowserQA');
+  const isInsideQaRoot = (candidate) => {
+    const relative = path.relative(qaRoot, path.resolve(candidate));
+    return relative !== '' && relative !== '..' && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative);
+  };
+  if (isInsideQaRoot(userData) && isInsideQaRoot(testRoot)) return path.resolve(testRoot);
+  return path.join(appData, 'zero-browser-perfis');
+}
+
 function listFile(root) {
   return path.join(root, 'perfis.json');
 }
@@ -120,4 +134,4 @@ function buildProfileMenuTemplate({ current, profiles, defaultDirAvailable = tru
   ];
 }
 
-module.exports = { MAIN_PROFILE, listProfiles, createProfile, createBot, currentProfile, deleteProfile, profileDir, buildProfileMenuTemplate };
+module.exports = { MAIN_PROFILE, listProfiles, createProfile, createBot, currentProfile, deleteProfile, profileDir, buildProfileMenuTemplate, resolveProfilesRoot };

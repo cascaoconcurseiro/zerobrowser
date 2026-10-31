@@ -53,6 +53,25 @@ Para dar 4 a um quesito: todos os critérios essenciais abaixo passam no candida
 
 ## Organização e prioridades
 
-Responsáveis sugeridos: produto/UX para jornadas e aceite; engenharia de navegador/extensões para etapas 2–3; segurança para etapa 1 e revisão dos gates; agente/IA para etapa 4; QA/performance para 0 e 5; release/operações para 6; revisão independente e documentação para 7. São papéis de trabalho, não compromissos de contratação. Segurança e diagnóstico podem ocorrer em paralelo com UX e medição; acesso privilegiado e release dependem dos respectivos gates.
+### Donos e limites de cada frente
 
-Prioridade imediata: validar o pacote QA atual, corrigir qualquer regressão reproduzida e fechar a revisão de permissões. Gargalos prováveis: compatibilidade real de extensões, segurança do sandbox, testes com provedores e concorrentes, assinatura e sync. Não há estimativa confiável de calendário sem dimensionar equipe, acesso, orçamento e resultados da linha de base; estimar após a etapa 0 por entregas e incerteza.
+| Frente | Dono | Escopo de escrita | Saída verificável | Dependência/limite |
+|---|---|---|---|---|
+| Integração e release | Agente principal | `main.js`, pacote, versão, checklist/handoff e integração | Candidato único, testes consolidados, commit local e instalação QA com hash conferido | Só integra mudanças revisadas; nenhum especialista faz commit, instala ou altera a versão |
+| Motor e custo | Especialista de motor | `src/automation/service/agent-runtime.js`, testes do motor e `docs/EVOLUCAO_MOTOR.md` | Uma hipótese por vez, fixture reproduzível e antes/depois; benchmark real registra modelo, custo, latência e acerto | Trabalha em paralelo com UX após a linha de base; chamada paga só com orçamento/chave autorizados |
+| Bots e segurança MCP | Especialista de segurança/Bots | Guardas do runtime Bot e `scripts/bot-runtime.integration.js` | Testes negativos para credenciais, CDP, navegação, envio externo, aprovação e recuperação | A etapa 1 bloqueia novas ferramentas privilegiadas; uma pessoa é dona do fluxo Bot por vez |
+| UX e acessibilidade | Especialista de UX/a11y | `src/renderer/**` e testes de UI | Critérios visuais/teclado para Delegar, Central, takeover e estados responsivos | Pode avançar em paralelo após a base; não altera guardas de segurança nem IPC |
+| Extensões e integração externa | Especialista de extensões | código/tests de `src/extensions/**`, `src/host/**` e docs de compatibilidade | Matriz por API e fixtures de concessão/revogação; Flame real é evidência separada | Depende da revisão de segurança; nenhum agente altera o motor ou a UI sem coordenação |
+| Medição e mercado | Especialista de benchmark/concorrência | `bench/**` e `docs/COMPARATIVO_CONCORRENTES_*.md` | Tarefas versionadas, pós-condições independentes e rubrica com limites/fonte | Não mistura anúncios com resultados operacionais; só pontua desempenho com condições comparáveis |
+
+### Ordem de execução e paralelismo
+
+1. **Fechar etapa 0:** instalar o candidato 0.1.47-dev em QA, conferir versão/hash/atalho e registrar a mesma baseline para todas as frentes.
+2. **Abrir em paralelo depois da baseline:** (a) motor em fixtures sem custo, (b) UX responsiva e teclado, (c) definição do conjunto de benchmark. Cada frente trabalha em arquivos próprios e entrega critério/teste; ninguém integra diretamente na mesma pasta de trabalho da outra frente.
+3. **Fechar o gate de segurança:** Bot/MCP cobre navegação com aprovação, envio externo e recuperação em fixture; achados críticos/altos bloqueiam novos acessos privilegiados.
+4. **Validar extensões após o gate:** matriz de compatibilidade e fixtures; Flame real somente em perfil descartável e fluxo autorizado.
+5. **Integrar uma fatia por vez:** agente principal revisa os diffs, executa a suíte e instala após o commit; só então começa a próxima versão. Especialistas não alteram arquivos fora da frente designada.
+6. **Medição real e nota de mercado:** depende de baseline e orçamento/provedor aprovado; 200 avatares e redução de bytes de esquema não entram como evidência de qualidade do modelo.
+7. **Aceite final:** executa etapas 0–7 do plano com revisão independente; publica nota 4 apenas quando cada critério essencial passar no pacote e instalação QA.
+
+**Gargalos:** validação do provedor real com custo, superfícies de extensão/Flame e aceite de usuário. Não há estimativa confiável de calendário até concluir a baseline e dimensionar acesso, orçamento e resultados. O backlog detalhado do `CHECKLIST.md` continua sendo referência; esta ordem define quais itens podem começar e quem os integra.

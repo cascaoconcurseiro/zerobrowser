@@ -295,6 +295,8 @@ async function runAgent(tabId, prompt, apiKey, model, allowTools = true, provide
         for (const tool of advancedToolDefinitions) {
           if (!tools.some((existing) => existing.function?.name === tool.function.name)) tools.push(tool);
         }
+        const selectorIndex = tools.findIndex((tool) => tool.function?.name === 'enable_advanced_tools');
+        if (selectorIndex >= 0) tools.splice(selectorIndex, 1);
         return { success: true, enabled: advancedToolDefinitions.map((tool) => tool.function.name), note: 'As ferramentas avançadas estarão disponíveis na próxima chamada ao modelo.' };
       }
       if (name === 'calculate') return calculate(args);

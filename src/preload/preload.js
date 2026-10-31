@@ -18,6 +18,9 @@ const browserApi = {
     reopenClosedTab: () => ipcRenderer.invoke('browser:reopen-closed-tab'),
     openTabMenu: (tabId, order, x, y) => ipcRenderer.invoke('browser:tab-menu', tabId, order, x, y),
     openProfileMenu: (x, y) => ipcRenderer.invoke('browser:profile-menu', x, y),
+    getBots: () => ipcRenderer.invoke('browser:get-bots'),
+    getBotAvatarSheet: (sheetId) => ipcRenderer.invoke('browser:get-bot-avatar-sheet', sheetId),
+    openBotProfile: (profileId) => ipcRenderer.invoke('browser:open-bot-profile', profileId),
     getAppInfo: () => ipcRenderer.invoke('browser:app-info'),
     getLastSession: () => ipcRenderer.invoke('browser:get-last-session'),
     getDownloads: () => ipcRenderer.invoke('browser:get-downloads'),
@@ -26,7 +29,7 @@ const browserApi = {
     minimize: () => ipcRenderer.invoke('window:minimize'),
     maximize: () => ipcRenderer.invoke('window:toggle-maximize'),
     onTabEvent: (callback) => {
-      const channels = ['tab:created', 'tab:closed', 'tab:switched', 'tab:navigated', 'tab:navigation-start', 'tab:title-updated', 'tab:favicon-updated', 'tab:console', 'tab:load-error', 'download:event', 'browser:shortcut', 'browser:open-ai'];
+      const channels = ['tab:created', 'tab:closed', 'tab:switched', 'tab:navigated', 'tab:navigation-start', 'tab:title-updated', 'tab:favicon-updated', 'tab:console', 'tab:load-error', 'download:event', 'browser:shortcut', 'browser:open-ai', 'browser:bots-changed'];
       const handlers = channels.map((channel) => {
         const handler = (_event, data) => callback({ ...data, type: channel });
         ipcRenderer.on(channel, handler);

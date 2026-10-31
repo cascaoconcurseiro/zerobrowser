@@ -9,6 +9,8 @@ class ZeroBrowserApp {
     this.aiProviderConfigs = new Map();
     this.aiKeyRevealed = false;
     this.aiRevealedStoredKey = false;
+    this.botTeam = { bots: [], avatars: 0, currentProfileId: null };
+    this.botAvatarSheets = new Map();
     this.init();
   }
 
@@ -17,6 +19,8 @@ class ZeroBrowserApp {
     this.bindEvents();
     await this.loadSettings();
     await this.createInitialTab();
+    await this.loadBotProfiles();
+    await this.toggleAiPanel(true);
     this.initLibraryUi();
     this.initSettingsIndex();
     this.initLibraryTabs();
@@ -47,7 +51,16 @@ class ZeroBrowserApp {
       btnSettings: document.getElementById('btn-settings'),
       btnAi: document.getElementById('btn-ai'),
       delegationRail: document.getElementById('delegation-rail'),
+      botRailList: document.getElementById('bot-rail-list'),
+      botRailCount: document.getElementById('bot-rail-count'),
       btnBotNew: document.getElementById('btn-bot-new'),
+      btnStopTask: document.getElementById('btn-stop-task'),
+      btnBotCentral: document.getElementById('btn-bot-central'),
+      botCentral: document.getElementById('bot-central'),
+      botCentralList: document.getElementById('bot-central-list'),
+      btnBotCentralClose: document.getElementById('btn-bot-central-close'),
+      btnBotCentralNew: document.getElementById('btn-bot-central-new'),
+      botCentralAvatarCount: document.getElementById('bot-central-avatar-count'),
       btnAppMenu: document.getElementById('btn-app-menu'),
       appMenu: document.getElementById('app-menu'),
       libraryPanel: document.getElementById('library-panel'),
@@ -131,6 +144,15 @@ class ZeroBrowserApp {
 
     this.elements.btnAi.addEventListener('click', () => this.toggleAiPanel());
     this.elements.btnBotNew.addEventListener('click', () => window.zeroBrowser.browser.openProfileMenu(72, 96).catch(() => {}));
+    this.elements.btnStopTask.addEventListener('click', () => {
+      if (this.aiRunning) window.zeroBrowser.automation.cancelAgent(this.runningAgentTabId || this.activeTabId);
+    });
+    this.elements.btnBotCentral.addEventListener('click', () => this.toggleBotCentral());
+    this.elements.btnBotCentralClose.addEventListener('click', () => this.closeBotCentral({ restoreFocus: true }));
+    this.elements.btnBotCentralNew.addEventListener('click', () => {
+      this.closeBotCentral();
+      window.zeroBrowser.browser.openProfileMenu(72, 96).catch(() => {});
+    });
     this.elements.btnCloseAi.addEventListener('click', () => this.closeAiPanel());
     this.elements.btnSettings.addEventListener('click', () => this.toggleSettingsPanel());
     this.elements.btnCloseSettings.addEventListener('click', () => this.closeSettingsPanel());
@@ -242,7 +264,10 @@ class ZeroBrowserApp {
         e.preventDefault();
         this.openLibrary('downloads');
       }
-      if (e.key === 'Escape') this.closeAppMenu({ restoreFocus: true });
+      if (e.key === 'Escape') {
+        if (!this.elements.botCentral.classList.contains('hidden')) this.closeBotCentral({ restoreFocus: true });
+        this.closeAppMenu({ restoreFocus: true });
+      }
       if (e.ctrlKey && e.key === 'w') {
         e.preventDefault();
         this.closeActiveTab();
@@ -617,8 +642,24 @@ class ZeroBrowserApp {
     if (e.key === 'Enter') {
       if (open && this.suggestionIndex >= 0) return this.chooseSuggestion(this.suggestionIndex);
       this.closeSuggestions();
-      this.navigate(this.elements.addressBar.value);
+      const text = this.elements.addressBar.value.trim();
+      if (document.getElementById('app').classList.contains('delegation-mode') && text && !this.isUrlInput(text)) {
+        e.preventDefault();
+        this.elements.addressBar.value = '';
+        return this.sendAiMessageFromPrompt(text);
+      }
+      this.navigate(text);
     }
+  }
+
+  isUrlInput(text) {
+    return /^(https?:\/\/|file:\/\/|zero:\/\/|www\.)/i.test(text) || /^(localhost|(?:[\w-]+\.)+[a-z]{2,})(?::\d+)?(?:[/?#]|$)/i.test(text);
+  }
+
+  async sendAiMessageFromPrompt(text) {
+    if (this.elements.aiPanel.classList.contains('hidden')) await this.toggleAiPanel(true);
+    this.elements.aiInput.value = text;
+    return this.sendAiMessage();
   }
 
   async createTab(url = 'about:blank') {
@@ -838,6 +879,9 @@ class ZeroBrowserApp {
         break;
       case 'browser:open-ai':
         this.toggleAiPanel(true);
+        break;
+      case 'browser:bots-changed':
+        this.loadBotProfiles();
         break;
       case 'browser:shortcut':
         this.handleBrowserShortcut(data);
@@ -1193,8 +1237,13 @@ class ZeroBrowserApp {
     this.elements.btnAi.querySelector('.ai-copilot-label').textContent = opening ? 'Navegar' : 'Delegar';
     this.elements.btnAi.setAttribute('aria-label', opening ? 'Voltar ao modo Navegar' : 'Abrir modo Delegar');
     this.elements.btnAi.title = opening ? 'Voltar ao modo Navegar' : 'Abrir modo Delegar (Ctrl+Shift+A)';
+    this.elements.addressBar.placeholder = opening ? 'Pesquise, navegue ou peça ao Bot…' : 'Pesquise ou digite um endereço';
+    this.elements.addressBar.setAttribute('aria-label', opening ? 'Pesquisar, navegar ou delegar ao Bot' : 'Endereço ou pesquisa');
+    this.elements.btnBotCentral.classList.toggle('hidden', !opening);
+    if (!opening) this.closeBotCentral();
     window.zeroBrowser.browser.setSidePanelOpen(opening, 'left');
     if (opening) {
+      await this.loadBotProfiles();
       await this.releasePageOverlay('panel');
       this.elements.aiInput.focus();
       this.loadAiSettings();
@@ -1216,6 +1265,137 @@ class ZeroBrowserApp {
     this.elements.btnAi.querySelector('.ai-copilot-label').textContent = 'Delegar';
     this.elements.btnAi.setAttribute('aria-label', 'Abrir modo Delegar');
     this.elements.btnAi.title = 'Abrir modo Delegar (Ctrl+Shift+A)';
+    this.elements.addressBar.placeholder = 'Pesquise ou digite um endereço';
+    this.elements.addressBar.setAttribute('aria-label', 'Endereço ou pesquisa');
+    this.elements.btnBotCentral.classList.add('hidden');
+    this.closeBotCentral();
+  }
+
+  async loadBotProfiles() {
+    try {
+      const team = await window.zeroBrowser.browser.getBots();
+      this.botTeam = team && Array.isArray(team.bots) ? team : { bots: [], avatars: 0, currentProfileId: null };
+      for (const bot of this.botTeam.bots) {
+        const sheetId = bot.avatar?.sheetId;
+        if (!sheetId || this.botAvatarSheets.has(sheetId)) continue;
+        const imageData = await window.zeroBrowser.browser.getBotAvatarSheet(sheetId);
+        if (imageData) this.botAvatarSheets.set(sheetId, imageData);
+      }
+    } catch (error) {
+      this.botTeam = { bots: [], avatars: 0, currentProfileId: null };
+      console.error('Não foi possível carregar os perfis Bot:', error);
+    }
+    this.renderBotRail();
+    if (!this.elements.botCentral.classList.contains('hidden')) this.renderBotCentral();
+  }
+
+  createBotAvatarButton(bot) {
+    const isCurrent = bot.id === this.botTeam.currentProfileId;
+    const button = document.createElement(isCurrent ? 'div' : 'button');
+    if (isCurrent) {
+      button.setAttribute('role', 'img');
+      button.setAttribute('aria-label', `Bot ${bot.name}, perfil aberto nesta janela`);
+      button.setAttribute('aria-current', 'true');
+    } else {
+      button.type = 'button';
+      button.setAttribute('aria-label', `Abrir Bot ${bot.name}`);
+      button.title = `${bot.name} · perfil isolado`;
+    }
+    button.className = 'bot-avatar';
+    button.style.setProperty('--bot-accent', bot.avatar?.accent || '#168f72');
+    if (this.aiRunning && isCurrent) button.classList.add('is-working');
+
+    const image = document.createElement('span');
+    image.className = 'pixel-avatar';
+    image.setAttribute('aria-hidden', 'true');
+    const sheet = this.botAvatarSheets.get(bot.avatar?.sheetId);
+    if (sheet) image.style.backgroundImage = `url("${sheet}")`;
+    const frame = Number(bot.avatar?.frameIndex) || 0;
+    const columns = Math.max(1, Number(bot.avatar?.columns) || 10);
+    const rows = Math.max(1, Number(bot.avatar?.rows) || 10);
+    const column = frame % columns;
+    const row = Math.floor(frame / columns);
+    image.style.backgroundPosition = `${columns > 1 ? column / (columns - 1) * 100 : 0}% ${rows > 1 ? row / (rows - 1) * 100 : 0}%`;
+    button.appendChild(image);
+    if (!isCurrent) button.addEventListener('click', () => {
+      window.zeroBrowser.browser.openBotProfile(bot.id).catch((error) => this.showToast(`Não foi possível abrir ${bot.name}: ${error.message}`, 'error'));
+    });
+    return button;
+  }
+
+  renderBotRail() {
+    this.elements.botRailList.replaceChildren();
+    this.elements.botRailCount.textContent = `${this.botTeam.avatars || 0} avatares`;
+    if (!this.botTeam.bots.length) {
+      const empty = document.createElement('p');
+      empty.className = 'bot-rail-empty';
+      empty.textContent = 'Crie seu primeiro Bot';
+      this.elements.botRailList.appendChild(empty);
+      return;
+    }
+    for (const bot of this.botTeam.bots) this.elements.botRailList.appendChild(this.createBotAvatarButton(bot));
+  }
+
+  async toggleBotCentral() {
+    const opening = this.elements.botCentral.classList.contains('hidden');
+    if (opening) await this.loadBotProfiles();
+    this.elements.botCentral.classList.toggle('hidden', !opening);
+    this.elements.btnBotCentral.setAttribute('aria-expanded', String(opening));
+    if (opening) {
+      this.renderBotCentral();
+      this.elements.btnBotCentralClose.focus();
+    }
+  }
+
+  closeBotCentral({ restoreFocus = false } = {}) {
+    if (!this.elements.botCentral) return;
+    const wasOpen = !this.elements.botCentral.classList.contains('hidden');
+    this.elements.botCentral.classList.add('hidden');
+    this.elements.btnBotCentral.setAttribute('aria-expanded', 'false');
+    if (wasOpen && restoreFocus) this.elements.btnBotCentral.focus();
+  }
+
+  renderBotCentral() {
+    this.elements.botCentralList.replaceChildren();
+    this.elements.botCentralAvatarCount.textContent = `${this.botTeam.avatars || 0} avatares pixel art no catálogo`;
+    if (!this.botTeam.bots.length) {
+      const empty = document.createElement('p');
+      empty.className = 'bot-central-empty';
+      empty.textContent = 'Nenhum perfil Bot criado. Crie um Bot para ter uma sessão separada, um login próprio e um avatar pixel art.';
+      this.elements.botCentralList.appendChild(empty);
+      return;
+    }
+    for (const bot of this.botTeam.bots) {
+      const isCurrent = bot.id === this.botTeam.currentProfileId;
+      const row = document.createElement(isCurrent ? 'div' : 'button');
+      if (!isCurrent) row.type = 'button';
+      else row.setAttribute('aria-current', 'true');
+      row.className = 'bot-central-row';
+      if (isCurrent) row.classList.add('bot-central-current');
+      row.style.setProperty('--bot-accent', bot.avatar?.accent || '#168f72');
+      const image = document.createElement('span');
+      image.className = 'bot-avatar';
+      image.setAttribute('aria-hidden', 'true');
+      const sprite = document.createElement('span');
+      sprite.className = 'pixel-avatar';
+      const sheet = this.botAvatarSheets.get(bot.avatar?.sheetId);
+      if (sheet) sprite.style.backgroundImage = `url("${sheet}")`;
+      const frame = Number(bot.avatar?.frameIndex) || 0;
+      sprite.style.backgroundPosition = `${frame % 10 / 9 * 100}% ${Math.floor(frame / 10) / 9 * 100}%`;
+      image.appendChild(sprite);
+      const copy = document.createElement('span');
+      copy.className = 'bot-central-row-copy';
+      const name = document.createElement('strong');
+      name.textContent = bot.name;
+      const state = document.createElement('span');
+      state.textContent = bot.id === this.botTeam.currentProfileId ? 'Perfil nesta janela' : 'Perfil isolado · abrir janela';
+      copy.append(name, state);
+      row.append(image, copy);
+      if (!isCurrent) row.addEventListener('click', () => {
+        window.zeroBrowser.browser.openBotProfile(bot.id).catch((error) => this.showToast(`Não foi possível abrir ${bot.name}: ${error.message}`, 'error'));
+      });
+      this.elements.botCentralList.appendChild(row);
+    }
   }
 
   toggleSettingsPanel() {
@@ -2016,6 +2196,8 @@ class ZeroBrowserApp {
 
     this.aiRunning = true;
     this.runningAgentTabId = this.activeTabId;
+    this.elements.btnStopTask.classList.remove('hidden');
+    this.renderBotRail();
     document.getElementById('app')?.classList.add('agent-active');
     document.getElementById('browser-container')?.classList.add('agent-active');
     this.elements.btnAiSend.disabled = false;
@@ -2117,6 +2299,8 @@ class ZeroBrowserApp {
       document.getElementById('browser-container')?.classList.remove('agent-active');
       this.aiRunning = false;
       this.runningAgentTabId = null;
+      this.elements.btnStopTask.classList.add('hidden');
+      this.renderBotRail();
       this.elements.btnAiSend.disabled = false;
       this.elements.btnAiSend.textContent = 'Enviar';
       this.elements.btnAiSend.setAttribute('aria-label', 'Enviar comando');

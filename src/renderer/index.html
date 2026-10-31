@@ -24,16 +24,18 @@
         <button id="btn-home" class="toolbar-btn" title="Início"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></button>
       </div>
       <div class="toolbar-group address-bar-container">
-        <input type="text" id="address-bar" class="address-bar" placeholder="Digite um URL ou termo de pesquisa" spellcheck="false"
+        <input type="text" id="address-bar" class="address-bar" placeholder="Pesquise ou digite um endereço" spellcheck="false"
           role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="url-suggestions" aria-label="Endereço ou pesquisa">
         <button id="btn-bookmark" class="bookmark-star" type="button" aria-pressed="false" aria-label="Adicionar aos favoritos (Ctrl+D)" title="Adicionar aos favoritos (Ctrl+D)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></button>
+        <button id="btn-ai" class="toolbar-btn ai-copilot-btn" title="Abrir modo Delegar (Ctrl+Shift+A)" aria-label="Abrir modo Delegar" aria-pressed="false"><svg class="copilot-sparkle" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/><path d="M19 3v4"/><path d="M21 5h-4"/></svg><span class="ai-copilot-label">Delegar</span><span class="mode-chevron" aria-hidden="true">⌄</span></button>
+        <button id="btn-stop-task" class="delegation-top-stop hidden" type="button" aria-label="Parar a tarefa atual">Parar tarefa</button>
+        <button id="btn-bot-central" class="delegation-top-central hidden" type="button" aria-haspopup="dialog" aria-expanded="false">Central</button>
         <ul id="url-suggestions" class="url-suggestions hidden" role="listbox" aria-label="Sugestões"></ul>
       </div>
       <div class="toolbar-group">
         <button id="btn-flame" class="toolbar-btn hidden" title="Flame (agente da extensão)" aria-label="Abrir o Flame" aria-pressed="false"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg></button>
         <button id="btn-extensions" class="toolbar-btn" title="Extensões"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11a2 2 0 0 1 2-2h2a2 2 0 1 0 4 0h2a2 2 0 0 1 2 2v2a2 2 0 1 0 0 4v2a2 2 0 0 1-2 2h-2a2 2 0 1 0-4 0H6a2 2 0 0 1-2-2v-2a2 2 0 1 0 0-4Z"/></svg></button>
         <button id="btn-settings" class="toolbar-btn" title="Configurações"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
-        <button id="btn-ai" class="toolbar-btn ai-copilot-btn" title="Abrir modo Delegar (Ctrl+Shift+A)" aria-label="Abrir modo Delegar" aria-pressed="false"><svg class="copilot-sparkle" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/><path d="M19 3v4"/><path d="M21 5h-4"/></svg><span class="ai-copilot-label">Delegar</span></button>
         <button id="btn-app-menu" class="toolbar-btn" title="Menu do Zero Browser" aria-label="Menu do Zero Browser" aria-haspopup="menu" aria-expanded="false"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg></button>
       </div>
     </div>
@@ -62,10 +64,15 @@
     </div>
 
     <aside id="delegation-rail" class="delegation-rail hidden" aria-label="Perfis de Bot">
-      <div class="bot-avatar" aria-hidden="true"><span>—</span></div>
+      <div id="bot-rail-list" class="bot-rail-list" aria-label="Bots disponíveis"></div>
       <button id="btn-bot-new" class="bot-rail-action" type="button" aria-label="Criar ou trocar perfil de Bot" title="Criar ou trocar perfil de Bot">+</button>
-      <span class="delegation-rail-label">Perfis</span>
+      <span id="bot-rail-count" class="delegation-rail-label">Bots</span>
     </aside>
+    <section id="bot-central" class="bot-central hidden" role="dialog" aria-modal="false" aria-labelledby="bot-central-title">
+      <header class="bot-central-header"><div><strong id="bot-central-title">Central de Bots</strong><span id="bot-central-summary">Perfis isolados deste navegador</span></div><button id="btn-bot-central-close" type="button" aria-label="Fechar Central de Bots">×</button></header>
+      <div id="bot-central-list" class="bot-central-list"></div>
+      <footer><span id="bot-central-avatar-count">200 avatares pixel art no catálogo</span><button id="btn-bot-central-new" type="button">Criar Bot</button></footer>
+    </section>
     <div id="ai-panel" class="panel hidden" aria-label="Modo Delegar">
       <div class="panel-header">
         <div class="panel-heading">

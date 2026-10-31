@@ -21,7 +21,16 @@ const stubs = {
   'browser:get-last-session': () => [],
   'browser:get-tabs': () => [],
   'browser:get-side-panel-layout': () => ({ open: false }),
-  'browser:app-info': () => ({ version: '0.1.43-dev', profile: 'Principal' }),
+  'browser:get-bots': () => ({
+    bots: [
+      { id: 'bot-fixture', name: 'Bot Fixture', avatarId: 'pixel-001', avatar: { sheetId: 'pixel-animals-01', frameIndex: 0, columns: 10, rows: 10, accent: '#129b78' } },
+      { id: 'bot-other', name: 'Bot Outro', avatarId: 'pixel-002', avatar: { sheetId: 'pixel-animals-01', frameIndex: 1, columns: 10, rows: 10, accent: '#1686d9' } }
+    ],
+    avatars: 200,
+    currentProfileId: 'bot-fixture'
+  }),
+  'browser:get-bot-avatar-sheet': () => null,
+  'browser:app-info': () => ({ version: '0.1.47-dev', profile: 'Principal' }),
   'browser:freeze-page': () => null,
   'browser:set-side-panel-open': () => true,
   'automation:jobs': () => [],
@@ -86,6 +95,12 @@ app.whenReady().then(async () => {
     await loaded;
     await new Promise((resolve) => setTimeout(resolve, 800));
 
+    window.show();
+    window.focus();
+    await window.webContents.executeJavaScript("document.getElementById('address-bar').focus()");
+    sendTab(window.webContents);
+    sendTab(window.webContents, { shift: true });
+
     const shell = await window.webContents.executeJavaScript(`(() => {
       document.getElementById('ai-panel')?.classList.remove('hidden');
       return ({
@@ -113,6 +128,14 @@ app.whenReady().then(async () => {
       libraryButtonsNativeAndTabbable: [...document.querySelectorAll('.library-tab')].every((button) => button.tagName === 'BUTTON' && button.tabIndex === 0),
       libraryButton: !!document.getElementById('btn-ai-library'),
       aiButtonLabel: document.querySelector('#btn-ai .ai-copilot-label')?.textContent.trim(),
+      delegationModeOnStartup: document.getElementById('app')?.classList.contains('delegation-mode'),
+      botRailVisible: !document.getElementById('delegation-rail')?.classList.contains('hidden'),
+      botAvatarButtons: document.querySelectorAll('#bot-rail-list button.bot-avatar').length,
+      currentBotRole: document.querySelector('#bot-rail-list .bot-avatar[aria-current="true"]')?.getAttribute('role'),
+      currentBotAccessibleName: document.querySelector('#bot-rail-list .bot-avatar[aria-current="true"]')?.getAttribute('aria-label'),
+      botAddressFocusVisible: (() => { const address = document.getElementById('address-bar'); return { focused: document.activeElement === address, matches: address.matches(':focus-visible'), outline: getComputedStyle(address).outlineStyle, color: getComputedStyle(address).outlineColor }; })(),
+      botAvatarCount: document.getElementById('bot-rail-count')?.textContent,
+      botCentralVisible: !document.getElementById('btn-bot-central')?.classList.contains('hidden'),
       newTab: (() => { const b = document.getElementById('btn-new-tab'); const t = document.querySelector('.tab'); if (!b) return null; const r = b.getBoundingClientRect(); return { width: Math.round(r.width), afterTab: t ? Math.round(r.left) >= Math.round(t.getBoundingClientRect().right) - 2 : true }; })()
     }); })()`);
 
@@ -140,8 +163,38 @@ app.whenReady().then(async () => {
     assert.equal(shell.selectedLibraryMode, 'history', 'modo de histórico inicia anunciado como selecionado');
     assert.equal(shell.libraryButtonsNativeAndTabbable, true, 'categorias são botões nativos incluídos na ordem sequencial de Tab');
     assert.equal(shell.libraryButton, true, 'botao Biblioteca ausente no painel');
-    assert.equal(shell.aiButtonLabel, 'Delegar', 'toolbar precisa indicar o modo de delegação');
+    assert.equal(shell.delegationModeOnStartup, true, 'o app precisa abrir no novo modo Delegar');
+    assert.equal(shell.botRailVisible, true, 'a equipe Bot precisa aparecer no modo Delegar');
+    assert.equal(shell.botAvatarButtons, 1, 'perfil de outro Bot deve ser acionável na lateral');
+    assert.equal(shell.currentBotRole, 'img', 'Bot da janela atual aparece como identidade estática, não ação sem efeito');
+    assert.equal(shell.currentBotAccessibleName, 'Bot Bot Fixture, perfil aberto nesta janela', 'avatar atual informa o perfil para leitores de tela');
+    assert.equal(shell.botAddressFocusVisible.focused && shell.botAddressFocusVisible.matches && shell.botAddressFocusVisible.outline !== 'none', true, `campo de endereço mantém indicador de foco no modo Delegar (${JSON.stringify(shell.botAddressFocusVisible)})`);
+    assert.equal(shell.botAvatarCount, '200 avatares', 'a lateral deve refletir o catálogo de avatares');
+    assert.equal(shell.botCentralVisible, true, 'Central de Bots deve estar acessível no modo Delegar');
+    assert.equal(shell.aiButtonLabel, 'Navegar', 'o controle deve oferecer retorno ao modo Navegar');
     assert.equal(shell.manageChat, true, 'ações de conversa ausentes');
+
+    await window.webContents.executeJavaScript("document.getElementById('btn-bot-central').click()");
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    const botCentral = await window.webContents.executeJavaScript(`({
+      expanded: document.getElementById('btn-bot-central')?.getAttribute('aria-expanded'),
+      rows: document.querySelectorAll('#bot-central-list .bot-central-row').length,
+      openButtons: document.querySelectorAll('#bot-central-list button.bot-central-row').length,
+      currentProfileText: [...document.querySelectorAll('#bot-central-list .bot-central-row')].find((row) => row.textContent.includes('Bot Fixture'))?.textContent,
+      currentProfileCursor: (() => { const row = [...document.querySelectorAll('#bot-central-list .bot-central-row')].find((entry) => entry.textContent.includes('Bot Fixture')); return row ? getComputedStyle(row).cursor : null; })(),
+      currentAvatarCursor: (() => { const row = [...document.querySelectorAll('#bot-central-list .bot-central-row')].find((entry) => entry.textContent.includes('Bot Fixture')); const avatar = row?.querySelector('.bot-avatar'); return avatar ? getComputedStyle(avatar).cursor : null; })(),
+      label: document.querySelector('#bot-central-list .bot-central-row strong')?.textContent,
+      dialog: document.getElementById('bot-central')?.getAttribute('role')
+    })`);
+    assert.equal(botCentral.expanded, 'true', 'abrir Central anuncia o estado no controle');
+    assert.equal(botCentral.rows, 2, 'Central lista perfis Bot sincronizados');
+    assert.equal(botCentral.openButtons, 1, 'Central oferece ações de abertura apenas para outra janela');
+    assert.match(botCentral.currentProfileText, /Perfil nesta janela/, 'Central identifica sem botão o Bot já aberto');
+    assert.equal(botCentral.currentProfileCursor, 'default', 'perfil aberto não aparenta ser uma ação de clique');
+    assert.equal(botCentral.currentAvatarCursor, 'default', 'retrato do perfil atual também não aparenta ser clicável');
+    assert.equal(botCentral.label, 'Bot Fixture', 'Central apresenta o nome do perfil');
+    assert.equal(botCentral.dialog, 'dialog', 'Central mantém semântica de diálogo');
+    await window.webContents.executeJavaScript("document.getElementById('btn-bot-central-close').click()");
 
     await window.webContents.executeJavaScript("window.app.openLibrary('downloads')");
     assert.equal(await window.webContents.executeJavaScript("document.querySelector('.library-tab[aria-pressed=\"true\"]')?.dataset.modo"), 'downloads', 'modo ativo da biblioteca atualiza seu estado acessível');

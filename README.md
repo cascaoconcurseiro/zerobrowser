@@ -4,7 +4,13 @@ Marca visível: **Zero Browser**. O identificador interno `navegante` e o `appId
 
 Navegador Electron para Windows com agente integrado à OpenRouter, DeepSeek e, em modo opcional, Ollama local.
 
-## Estado atual (2026-10-29)
+## Estado atual (2026-10-31)
+
+A versão de desenvolvimento da árvore é **0.1.47-dev**. O instalador NSIS foi gerado e a build empacotada extraída foi conferida com diretórios QA isolados; a instalação após o commit ainda está pendente. A suíte local passou em 368/368, o smoke Electron de UI passou e o runtime de Bot/MCP recusou tentativas de senha, identificador de login e CDP bruto em fixtures. Consulte `HANDOFF.md` para limites, hashes e próximos passos.
+
+O comparativo em `docs/COMPARATIVO_CONCORRENTES_2026-10-28.md` avalia prontidão pública por rubrica editorial; não há base para participação de mercado, comparação de desempenho ou qualidade por ranking. Não houve chamada de provedor nesta fatia.
+
+### Registro histórico da versão instalada 0.1.43-dev (2026-10-29)
 
 O executável instalado foi atualizado para **0.1.43-dev**. O exe tem SHA-256 `09500e83e556859e888679392d92e7f3ad4d1204854c8404ff052e4236d27e11` e `app.asar` `c04a29dd9e1159c8c242f36114571640509cb4ebbad34451b7b598dfee477c20`. Integrações do executável instalado passaram em perfis temporários (smoke UX 9 verificações, agente e biblioteca após reinício); isso não é aceite amplo do perfil real. O backup pré-instalação verificável está em `backups/2026-10-28-before-0.1.43-install/`. O instalador iniciou o app automaticamente no perfil padrão e houve uma diferença de uma linha no banco de cookies (293 para 292); integridade SQLite passou, mas a linha removida não estava expirada e sua identidade não foi determinada. Consulte o registro detalhado em `HANDOFF.md` e `manifest.json`; não restaure o backup sem decidir, pois isso reverteria o perfil inteiro.
 

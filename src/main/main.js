@@ -15,6 +15,7 @@ const { applyNewtabTheme } = require('./newtab-theme');
 const { loadDownloadHistory, saveDownloadHistory, nextDownloadSequence, DEFAULT_LIMIT: DOWNLOAD_HISTORY_LIMIT } = require('./download-history');
 const { buildTabMenuTemplate } = require('./tab-menu');
 const profiles = require('./profiles');
+const { BotAvatarCatalog } = require('./bot-avatar-catalog');
 const { zeroEnv } = require('../env');
 const { spawn } = require('child_process');
 const { pathToFileURL } = require('url');
@@ -62,6 +63,7 @@ let extensionHost = null;
 const flamePanels = new Map(); // tabId -> WebContentsView do painel do Flame daquela aba
 let flamePanelHidden = false;
 let library = null; // favoritos e histórico (SQLite)
+let botAvatarCatalog = null;
 const closedTabs = []; // para Ctrl+Shift+T
 const BOOKMARKS_BAR_HEIGHT = 32;
 let bookmarksBarVisible = false;
@@ -216,6 +218,16 @@ async function initializeApp() {
   try {
     library = new Library(path.join(app.getPath('userData'), 'biblioteca.sqlite'));
     library.onChange((area) => sendToRenderer('library:changed', { area }));
+  } catch (error) {
+    logError(error);
+  }
+  try {
+    botAvatarCatalog = new BotAvatarCatalog(
+      path.join(profilesRoot(), 'bot-avatar-catalog.sqlite'),
+      path.join(__dirname, '../../assets/bots')
+    );
+    botAvatarCatalog.seed();
+    botAvatarCatalog.syncProfiles(profiles.listProfiles(profilesRoot()).filter((profile) => profile.type === 'bot'));
   } catch (error) {
     logError(error);
   }
@@ -643,8 +655,8 @@ function updateBrowserViewBounds() {
   const flameOpen = flamePanels.has(activeBrowserTabId) && !flamePanelHidden;
   const sidePanelWidth = flameOpen
     ? Math.min(FLAME_PANEL_WIDTH, Math.floor(contentBounds.width * 0.45))
-    : sidePanelOpen ? Math.min(sidePanelPosition === 'left' ? 420 : 360, Math.floor(contentBounds.width * 0.4)) : 0;
-  const delegationRailWidth = sidePanelOpen && sidePanelPosition === 'left' ? 56 : 0;
+    : sidePanelOpen ? Math.min(sidePanelPosition === 'left' ? 640 : 360, Math.floor(contentBounds.width * (sidePanelPosition === 'left' ? 0.42 : 0.4))) : 0;
+  const delegationRailWidth = sidePanelOpen && sidePanelPosition === 'left' ? 80 : 0;
   const top = tabBarHeight + addressBarHeight;
   for (const panel of flamePanels.values()) {
     if (!panel.webContents.isDestroyed()) {
@@ -1002,9 +1014,13 @@ handleMainUiIpc('browser:tab-menu', (event, tabId, order, x, y) => {
 
 // Perfis: cada um é uma pasta de dados própria e roda como um processo separado do app (logins, histórico e chaves não se misturam).
 const profilesRoot = () => {
-  const testRoot = zeroEnv('TEST_PROFILES_ROOT');
-  if (!app.isPackaged && testRoot) return path.resolve(testRoot);
-  return path.join(app.getPath('appData'), 'zero-browser-perfis');
+  return profiles.resolveProfilesRoot({
+    appData: app.getPath('appData'),
+    userData: app.getPath('userData'),
+    testRoot: zeroEnv('TEST_PROFILES_ROOT'),
+    isPackaged: app.isPackaged,
+    localAppData: process.env.LOCALAPPDATA
+  });
 };
 
 function launchProfile(profile) {
@@ -1033,7 +1049,12 @@ handleMainUiIpc('browser:profile-menu', (event, x, y) => {
         try { launchProfile(profiles.createProfile(root)); } catch (error) { logError(error); dialog.showErrorBox('Novo perfil', error.message); }
       },
       createBot: () => {
-        try { launchProfile(profiles.createBot(root)); } catch (error) { logError(error); dialog.showErrorBox('Novo bot', error.message); }
+        try {
+          const bot = profiles.createBot(root);
+          botAvatarCatalog?.assignProfile(bot);
+          sendToRenderer('browser:bots-changed');
+          launchProfile(bot);
+        } catch (error) { logError(error); dialog.showErrorBox('Novo bot', error.message); }
       },
       remove: async (profile) => {
         const { response } = await dialog.showMessageBox(mainWindow, {
@@ -1043,11 +1064,37 @@ handleMainUiIpc('browser:profile-menu', (event, x, y) => {
         });
         if (response !== 1) return;
         try { profiles.deleteProfile(root, profile.id, app.getPath('userData')); } catch (error) { logError(error); dialog.showErrorBox('Excluir perfil', error.message); }
+        sendToRenderer('browser:bots-changed');
       }
     }
   });
   Menu.buildFromTemplate(template).popup({ window: mainWindow, x: Math.round(Number(x) || 0), y: Math.round(Number(y) || 0) });
   return { current };
+});
+
+handleMainUiIpc('browser:get-bots', () => {
+  if (!botAvatarCatalog) return { bots: [], avatars: 0, currentProfileId: null };
+  const root = profilesRoot();
+  const botProfiles = profiles.listProfiles(root).filter((profile) => profile.type === 'bot');
+  const bots = botAvatarCatalog.syncProfiles(botProfiles).map((bot) => ({
+    ...bot,
+    avatar: botAvatarCatalog.getAvatar(bot.avatarId)
+  }));
+  const current = profiles.currentProfile(root, app.getPath('userData'));
+  return { bots, avatars: botAvatarCatalog.count(), currentProfileId: current.type === 'bot' ? current.id : null };
+});
+
+handleMainUiIpc('browser:get-bot-avatar-sheet', (_event, sheetId) => {
+  if (typeof sheetId !== 'string' || sheetId.length > 40) throw new TypeError('Folha de avatares inválida');
+  return botAvatarCatalog?.getSheetDataUri(sheetId) || null;
+});
+
+handleMainUiIpc('browser:open-bot-profile', (_event, profileId) => {
+  if (typeof profileId !== 'string' || !/^[a-z0-9-]{1,40}$/.test(profileId)) throw new TypeError('Perfil de Bot inválido');
+  const profile = profiles.listProfiles(profilesRoot()).find((entry) => entry.id === profileId && entry.type === 'bot');
+  if (!profile) throw new Error('Perfil de Bot não encontrado');
+  launchProfile(profile);
+  return true;
 });
 
 handleMainUiIpc('browser:reopen-closed-tab', (event) => {

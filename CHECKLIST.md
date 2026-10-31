@@ -1,5 +1,28 @@
 # Checklist — Zero Browser
 
+## Ciclo ativo — 0.1.47-dev (integração/release: agente principal)
+
+- [x] Receber entregas separadas de motor, segurança MCP/Bots, concorrentes, revisão de release e acessibilidade; resolver os achados antes do pacote.
+- [x] Abrir o app diretamente no modo Delegar e conferir visualmente a build empacotada no perfil QA isolado; o modo Navegar continua disponível no controle superior.
+- [x] Integrar Central de Bots, trilho de perfis e avatares pixel art animados em uso; catálogo SQLite armazena duas folhas PNG e 200 quadros indexados, sem afirmar que são 200 agentes configurados.
+- [x] Sincronizar e remover mapeamentos de perfis Bot obsoletos; serializar atribuições simultâneas com transação SQLite.
+- [x] Melhorar acessibilidade: foco visível no endereço, identidade estática para o Bot desta janela e botões apenas para os perfis que abrem outra janela.
+- [x] Isolar teste empacotado: `ZERO_TEST_PROFILES_ROOT` só é aceito dentro de `%LOCALAPPDATA%\ZeroBrowserQA` quando o `userData` também está nesse diretório; sem `LOCALAPPDATA`, usa o caminho normal.
+- [x] Reduzir o primeiro esquema serializado de 11.139 para 8.096 bytes (27,3%) na fixture, com ferramentas avançadas sob demanda; ainda não é medição de tokens cobrados, latência ou acerto real.
+- [x] Atualizar comparativo com nota editorial de prontidão pública e limites, sem atribuir participação de mercado nem ranking de qualidade.
+- [x] Validar `npm test` 368/368; `test:ui` PASS; `test:bot-runtime` PASS (22 ferramentas; recusas de senha/login-id/CDP); focados catálogo/motor 5/5; perfis/isolamento 4/4; gerar NSIS 0.1.47-dev.
+- [ ] Fechar release QA 0.1.47-dev após commit: instalar NSIS, conferir versão/hash/atalho e registrar o perfil QA isolado.
+
+## Frentes seguintes — começam depois de confirmar a baseline 0.1.47-dev
+
+- [ ] Motor (especialista de motor; `src/automation/service/agent-runtime.js` + `bench/**`): medir tarefas fixture em pares, registrar acerto, rodadas, tempo e bytes; preparar chamadas reais só quando orçamento/provedor estiver autorizado.
+- [ ] Bots/segurança MCP (especialista Bot; runtime/fixture próprios): cobrir aprovação de navegação, envio externo, login sem sinais semânticos e recuperação; achado crítico/alto bloqueia novas capacidades.
+- [ ] UX/acessibilidade (especialista UX; `src/renderer/**` + smoke UI): revisar viewport, foco, estados Delegar/Central e takeover; separar aceite automatizado de avaliação por usuários.
+- [ ] Extensões (especialista de extensão; arquivos `src/extensions/**`, `src/host/**`): revisar MV2/MV3, Flame, scripting/optional permissions e concessão/revogação após o gate de segurança.
+- [ ] Benchmark/mercado (especialista de benchmark; `bench/**` + comparativo): fechar conjunto versionado de 30 tarefas e rubrica; não atribuir ranking de desempenho sem testes pareados.
+- [ ] Medir A/B DeepSeek pago somente depois de confirmar orçamento e credencial isolada; nenhuma chamada paga ocorreu nesta versão.
+- [ ] Atualizar critérios e notas 4/5 apenas com pacote e evidência reproduzível de cada etapa; 200 avatares e bytes de esquema não são acerto/qualidade.
+
 - [x] Inventariar o MCP real via `scripts/mcp-stdio.js` em perfil de desenvolvimento isolado: `tools/list` retornou 22 ferramentas; não houve chamada a modelo.
 - [x] Auditar bots no código com revisão independente: não existe entidade bot; perfis isolam processos/dados, mas aprovação, ferramentas/MCP e memória não têm escopo por bot.
 - [x] Implementar primeira fatia de Bots: processo/perfil com diretório próprio, aprovação inicial “Sempre perguntar”, aceite humano para elevar autonomia e bloqueios de dados/ações sensíveis; versão 0.1.44-dev.
