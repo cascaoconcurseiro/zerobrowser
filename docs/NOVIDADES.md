@@ -1,4 +1,10 @@
-# Novidades — Zero Browser 0.1.58-dev
+# Novidades — Zero Browser 0.1.59-dev
+
+## Apps Vivos, Conectores Nativos, Autonomia Conquistada e Paridade Essencial — 0.1.59-dev — 31/10/2026
+
+- Motor de Apps Vivos (`src/live-apps/live-app-engine.js`) com CSP offline estrito (`connect-src 'none'`), protótipo `"Meus vencimentos da semana"` juntando 3 fontes, coleta somente leitura, ações protegidas por Firewall de Intenção + Recibo Verificado e exportação de pacotes sem dados pessoais.
+- Conectores Nativos (`src/connectors/index.js`) em 2 fases (leitura etiquetada como `externo` e escrita com rascunho + Recibo Verificado), cliente MCP externo (`ExternalMcpClient` com aviso de risco para servidores de terceiros) e ponte de mensageria autorizada (`AuthorizedMessagingBridge`).
+- Autonomia Conquistada (`EarnedAutonomyTracker` em `src/main/parity-essentials.js`), verificador de atualização assinada (`SignedUpdateVerifier` com SHA-512 + assinatura Ed25519 + rollback automático), importador de senhas CSV com destruição segura do CSV temporário (`SecureCsvPasswordImporter`), divisão de tela (`SplitViewManager`) e guia `docs/COMO_CONECTAR_IA_EXTERNA.md`.
 
 ## Rotas Aprendidas (observador, compilador, queda automática, biblioteca, WebMCP) e Gêmeo Local — 0.1.58-dev — 31/10/2026
 

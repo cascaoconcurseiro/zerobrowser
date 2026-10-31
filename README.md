@@ -6,7 +6,7 @@ Navegador Electron para Windows com agente integrado à OpenAI, OpenRouter e Dee
 
 ## Estado atual (2026-10-31)
 
-Código-fonte e instalação atual em **0.1.58-dev**. A .58 adiciona as Rotas Aprendidas (`src/automation/learned-routes.js`: observador de rede, compilador parametrizado, executor com queda automática, biblioteca sem segredos, ponte WebMCP em 4 níveis de preferência) e o ensaio em Gêmeo Local (`LocalTwinSandbox`). Consulte `CHECKLIST.md` e `docs/CHECKLIST_GERAL_PROJETO.md` para a ordem ativa.
+Código-fonte e instalação atual em **0.1.59-dev**. A .59 adiciona o motor de Apps Vivos (`src/live-apps/live-app-engine.js`), os Conectores Nativos e ponte de mensageria (`src/connectors/index.js`), a Autonomia Conquistada, verificador de atualização assinada com rollback automático e utilitários de paridade (`src/main/parity-essentials.js`), além do guia `docs/COMO_CONECTAR_IA_EXTERNA.md`. Consulte `CHECKLIST.md` e `docs/CHECKLIST_GERAL_PROJETO.md` para a ordem ativa.
 
 O comparativo em `docs/COMPARATIVO_CONCORRENTES_2026-10-28.md` avalia prontidão pública por rubrica editorial; não há base para participação de mercado, comparação de desempenho ou qualidade por ranking. Não houve chamada de provedor nesta fatia.
 

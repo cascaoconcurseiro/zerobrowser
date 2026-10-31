@@ -2,7 +2,7 @@
 
 ## Estado atual
 
-- Código e instalação local em `0.1.58-dev`: Rotas Aprendidas (`src/automation/learned-routes.js`), ponte WebMCP com ordem de preferência (`WebMCP -> Rota -> Receita -> Clique`) e ensaio em Gêmeo Local (`LocalTwinSandbox`).
+- Código e instalação local em `0.1.59-dev`: Apps Vivos (`src/live-apps/live-app-engine.js`), Conectores Nativos e ponte de mensageria (`src/connectors/index.js`), Autonomia Conquistada, atualização assinada com rollback, importador CSV seguro e divisão de tela (`src/main/parity-essentials.js`) e guia `docs/COMO_CONECTAR_IA_EXTERNA.md`.
 - Na fatia `0.1.53-dev` (Design e UX): implementados os tokens de espaçamento (escala de `4px`), paleta de 8 cores de Bots com contraste WCAG ≥ `3:1` verificado nos temas claro e escuro (`BOT_ACCENT_PALETTE` e `BOT_STATE_COLORS`), anel de estado nunca só por cor (`idle`, `working`, `needs-attention` `!`, `error` `×`, `paused` `‖` + nome acessível), indicador na aba controlada (`.tab-controlled` + `#tab-control-banner`), botão `Assumir` / `Devolver ao bot` e etiqueta explícita de reversibilidade no cartão de aprovação.
 
 ## Entrega atual — Tokens de estado, paleta 8 cores, indicador de aba controlada e Assumir (0.1.53-dev)

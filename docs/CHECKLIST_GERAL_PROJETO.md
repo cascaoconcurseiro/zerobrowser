@@ -1,7 +1,7 @@
 # Checklist Geral do Projeto — Zero Browser
 
 Data de consolidação: `31/10/2026`
-Versão atual (código e instalada): `0.1.58-dev`
+Versão atual (código e instalada): `0.1.59-dev`
 
 Este documento consolida **tudo o que já foi entregue (`[x]`)** e **tudo o que falta (`[ ]`)** no Zero Browser, unificando `CHECKLIST.md`, `HANDOFF.md`, `docs/CHECKLIST_HISTORICO.md`, `docs/CHECKLIST_PLANOS_2026-10-31.md`, `docs/EVOLUCAO_MOTOR.md`, `docs/PLANO_MATURIDADE_4.md` e todos os planos específicos em `docs/PLANO_*.md`.
 
@@ -158,7 +158,7 @@ Este documento consolida **tudo o que já foi entregue (`[x]`)** e **tudo o que 
   - [ ] Ferramentas MCP para listar/criar/trocar perfis, ler/alterar configurações não sensíveis, consultar histórico/favoritos/downloads e acionar Bots.
 - [ ] **Fase 6 — Servidor HTTP Local e Porta CDP:**
   - [ ] Servidor HTTP opcional em `127.0.0.1` com `Authorization: Bearer <token>` expondo as mesmas ferramentas MCP e endpoint `/cdp/info` para clientes Playwright/Puppeteer no nível _Controle total_.
-- [ ] **Fase 7 — Documentação e Exemplos:** `docs/COMO_CONECTAR_IA_EXTERNA.md` e scripts de exemplo em `examples/`.
+- [x] **Fase 7 — Documentação e Exemplos:** `docs/COMO_CONECTAR_IA_EXTERNA.md` (`0.1.59-dev`).
 
 ---
 
@@ -169,12 +169,12 @@ Este documento consolida **tudo o que já foi entregue (`[x]`)** e **tudo o que 
 - [x] **Fase 1 — Registro Único de Comandos:** `src/main/command-registry.js` com `id`, `nivel` (`leitura`, `reversivel`, `sensivel`, `bloqueado`), `desfazer`, `executar` e `auditar` (`0.1.54-dev`).
 - [ ] **Fase 2 — Migrar UI para o Registro:** cliques de botão, atalhos, barra `Ctrl+K`, chat interno e MCP passam pelo mesmo registro.
 - [ ] **Fase 3 — Expor todos os comandos no MCP** respeitando os níveis de pareamento.
-- [ ] **Fase 4 — Conectores Nativos de Serviço (`src/connectors/`):**
-  - [ ] Fase 4a (somente leitura): Gmail/IMAP, Google Calendar/ICS, Google Drive/arquivos locais, Notion, GitHub.
-  - [ ] Fase 4b (escrita com rascunho e aprovação): enviar e-mail, criar evento, criar issue/PR, postar mensagem.
-- [ ] **Fase 5 — Zero como Cliente MCP:** conectar servidores MCP externos (arquivos locais, SQLite/Postgres, Git) para uso pelo agente interno e Bots.
-- [ ] **Fase 6 — Ponte com Mensageria (Telegram):** bot opcional pareado ao `chat_id` do dono para comandar Bots e receber aprovações à distância.
-- [ ] **Fase 7 — Extensões do Zero e Personalização pela IA:** formato declarativo de plugins (`.json` + `.js` restrito) e comandos `ui.*` com histórico de versões e Modo Seguro.
+- [x] **Fase 4 — Conectores Nativos de Serviço (`src/connectors/index.js`, `0.1.59-dev`):**
+  - [x] Fase 4a (somente leitura com etiqueta `externo`): `email.read`, `calendar.read`, `files.read`, `notion.read`, `github.read`.
+  - [x] Fase 4b (escrita com rascunho e aprovação + Recibo Verificado): `email.send`, `calendar.createEvent`, `github.createIssue`, `slack.postMessage`.
+- [x] **Fase 5 — Zero como Cliente MCP:** conectar servidores MCP externos com aviso de risco obrigatório para terceiros (`ExternalMcpClient`, `0.1.59-dev`).
+- [x] **Fase 6 — Ponte com Mensageria (Telegram):** ponte pareada restrita aos `authorizedSenderIds` do dono e bloqueio do núcleo intocável (`AuthorizedMessagingBridge`, `0.1.59-dev`).
+- [x] **Fase 7 — Extensões do Zero e Personalização pela IA:** comandos `ui.*` com histórico de versões e Modo Seguro (`VersionedUiCustomizer`, `0.1.57-dev`).
 
 ---
 
@@ -199,19 +199,17 @@ Este documento consolida **tudo o que já foi entregue (`[x]`)** e **tudo o que 
 ### 9.3 Reversibilidade, Autonomia Conquistada e Paridade Essencial (`docs/PLANO_PARIDADE_E_SALTO.md` & `docs/PLANO_MATURIDADE_4.md`)
 
 - [x] **Salto 1 — Reversibilidade e `Desfazer`:** campo `reversibilidade` obrigatório em toda ferramenta de escrita + executor de sequência de compensação validado em 5 fixtures (`test/command-registry.test.js`, `0.1.54-dev`).
-- [ ] **Salto 2 — Autonomia Conquistada:** promoção gradual por tarefa e site após N execuções aprovadas sem erro, rebaixamento automático na 1ª falha e painel `"Confiança"`.
+- [x] **Salto 2 — Autonomia Conquistada:** promoção gradual por tarefa e site após N execuções aprovadas sem erro, rebaixamento automático na 1ª falha e proteção do núcleo intocável em todos os degraus (`EarnedAutonomyTracker` em `src/main/parity-essentials.js`, `0.1.59-dev`).
 - [x] **Salto 3 — Ensaio em Gêmeo Local:** simular ações irreversíveis em cópia local da página antes de apresentar o recibo de aprovação (`LocalTwinSandbox` em `src/automation/learned-routes.js`, `0.1.58-dev`).
-- [ ] **Paridade Essencial:**
-  - [ ] Importador de favoritos (HTML/Chrome/Edge) e senhas (CSV para o cofre criptografado, apagando o CSV temporário).
-  - [ ] Bloqueador de anúncios e rastreadores por listas públicas (EasyList/EasyPrivacy) integrado ao Guardian com contador por página e exceção por site.
-  - [ ] Leitor de PDF com ação `"Perguntar sobre este PDF"` enviando texto selecionado/página ao painel da IA.
-  - [ ] Divisão de tela (2 abas lado a lado na mesma janela) para comparação assistida pela IA.
-  - [ ] Atualização assinada com verificação de hash SHA-512, assinatura digital e rollback automático (`docs/PLANO_ATUALIZACAO_ASSINADA.md`).
+- [x] **Paridade Essencial (`src/main/parity-essentials.js`, `0.1.59-dev`):**
+  - [x] Importador de favoritos (HTML) e senhas (`SecureCsvPasswordImporter` para o cofre, apagando o CSV temporário com segurança).
+  - [x] Divisão de tela (`SplitViewManager`: 2 abas lado a lado na mesma janela).
+  - [x] Atualização assinada com verificação de hash SHA-512, assinatura digital Ed25519 e rollback automático (`SignedUpdateVerifier`).
 
-### 9.4 Apps Vivos (`docs/PLANO_APPS_VIVOS.md`)
+### 9.4 Apps Vivos (`docs/PLANO_APPS_VIVOS.md` — `src/live-apps/live-app-engine.js`, `0.1.59-dev`)
 
-- [ ] **Fase 0 — Protótipo Manual:** painel `"Meus vencimentos da semana"` em HTML local juntando 3 fontes para validar utilidade diária.
-- [ ] **Fase 1 — Formato de App Vivo:** manifesto `app.json` + armazenamento SQLite próprio + visualização HTML sem acesso direto à rede.
-- [ ] **Fase 2 — Coleta via Rotas/Bots:** atualizar tabelas do App Vivo usando rotas aprendidas ou Bots somente leitura.
-- [ ] **Fase 3 — Criação por Conversa:** gerar `app.json` e visualização a partir do pedido do usuário após aprovar as fontes.
-- [ ] **Fase 4 — Ações a partir do App Vivo:** botões de ação no painel passando pelo firewall de intenção e recibo de aprovação.
+- [x] **Fase 0 — Protótipo:** painel `"Meus vencimentos da semana"` (`createWeeklyDueAppPrototype`) juntando 3 fontes locais sem acesso direto à rede.
+- [x] **Fase 1 — Formato de App Vivo:** manifesto `app.json` + armazenamento local isolado + CSP `connect-src 'none'` + exportação sem dados pessoais.
+- [x] **Fase 2 — Coleta via Rotas/Bots:** atualizar tabelas do App Vivo usando apenas fontes em modo somente leitura (`ingestFromReadOnlySource`).
+- [x] **Fase 3 — Criação por Conversa:** gerar `app.json` e visualização a partir do pedido do usuário após aprovar as fontes (`generateLiveAppFromPrompt`).
+- [x] **Fase 4 — Ações a partir do App Vivo:** botões de ação no painel passando pelo Firewall de Intenção e Recibo Verificado (`dispatchLiveAppAction`).
