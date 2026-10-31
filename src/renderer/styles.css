@@ -2360,14 +2360,22 @@ body.dark .ai-working-status-pill {
 }
 
 .grokbot-welcome-mode-box {
+  min-width: 0;
   padding: 7px 9px;
   border-radius: 8px;
   background: var(--bg-primary);
   border: 1px solid var(--border);
+  color: var(--fg-primary);
   font-size: 11.5px;
   display: flex;
   flex-direction: column;
   gap: 2px;
+}
+.grokbot-welcome-mode-box strong { color: var(--fg-primary); font-size: 11.5px; font-weight: 650; line-height: 1.35; }
+.grokbot-welcome-mode-box span { color: color-mix(in srgb, var(--fg-secondary) 90%, var(--fg-primary)); line-height: 1.4; }
+
+@media (max-width: 800px) {
+  .grokbot-specialist-welcome-modes { grid-template-columns: minmax(0, 1fr); }
 }
 
 /* Configurações: superfícies e hierarquia da referência visual aprovada. */

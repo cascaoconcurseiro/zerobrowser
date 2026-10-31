@@ -11,6 +11,7 @@
 - [ ] Fechar popup, cookies, banners e permissões por política explícita sem dispensar consentimento em nome do usuário.
 - [ ] Alinhar avatares ao símbolo de traço dentro do anel, preservar identidade estável e validar visualmente no app empacotado.
 - [ ] Finalizar hierarquia e fluxos de navegador, Bots, extensões, configurações, menus e diálogos nas referências aprovadas; revisar acessibilidade e telas compactas.
+- [x] Corrigir a legibilidade visual dos dois cartões explicativos de envio no estado inicial do Bot; contraste AA é medido pela fixture Electron.
 - [ ] Medir velocidade, acerto, tokens e custo por tarefa; comparar com concorrentes em conjunto pareado, sem chamadas pagas sem orçamento aprovado.
 - [ ] Commit local e instalação verificada após cada fatia utilizável; sem push.
 
@@ -23,8 +24,18 @@
 - [x] Remover tempos, percentuais e afirmações de segurança fixas da gaveta de detalhes; manter controles visuais em Configurações.
 - [x] Fazer a fixture Electron usar sessão temporária e verificar estados verdadeiros/ausentes.
 - [x] `npm test` 407/407; `npm run test:ui` PASS; `npm run test:bot-runtime` PASS; `npm run test:delegation-layout` PASS em seis viewports; `git diff --check` PASS.
-- [ ] Commit local, build/instalação e confirmação da versão instalada .65.
+- [x] Commit local `968d242`; build NSIS `.65`; instalação `ExitCode 0`; versão instalada `0.1.65-dev` / `0.1.65.0`, `app.asar` bate com a build.
+- [x] Abrir a instalação atualizada com pasta QA separada e conferir a UI acessível no executável instalado; backup da instalação anterior com 184 arquivos conferido.
 - [ ] A execução de tarefa especialista ainda não usa perfil isolado por tarefa nem aplica a allowlist em cada navegação; não tratar como isolamento ou rotina protegida por site.
+
+## Correção visual em andamento — 0.1.66-dev
+
+- [x] Fixar cores legíveis dos cartões de orientação e empilhá-los em viewports estreitos.
+- [x] `npm run test:ui` verifica contraste AA (4,5:1) dos dois cartões; PASS.
+- [x] `npm test` 407/407; `npm run test:ui` PASS (contraste dos cartões ≥ 4,5:1); `npm run test:delegation-layout` PASS em seis viewports; `git diff --check` sem erro.
+- [x] Build NSIS `.66` criada; hash de instalador e `app.asar` coletado.
+- [x] Incrementar versão para .66, `npm test` 407/407, teste de UI, layout em seis viewports e build NSIS executados.
+- [ ] Commit local, instalar .66 e confirmar versão/hash; sem push.
 
 ## Auditoria de 31/10/2026 — estado revisado
 

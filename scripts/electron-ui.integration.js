@@ -359,6 +359,22 @@ app.whenReady().then(async () => {
       if (railSpecBtns[1]) railSpecBtns[1].click();
       const switchedSessionId = window.app.chatSession?.id || '';
       if (railSpecBtns[0]) railSpecBtns[0].click();
+      const welcomeCardContrast = [...document.querySelectorAll('.grokbot-welcome-mode-box')].map((card) => {
+        const luminance = (color) => {
+          const channels = color.match(/[\\d.]+/g)?.slice(0, 3).map(Number) || [];
+          const linear = channels.map((channel) => {
+            const value = channel / 255;
+            return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+          });
+          return linear[0] * 0.2126 + linear[1] * 0.7152 + linear[2] * 0.0722;
+        };
+        const contrast = (foreground, background) => {
+          const values = [luminance(foreground), luminance(background)].sort((a, b) => b - a);
+          return (values[0] + 0.05) / (values[1] + 0.05);
+        };
+        const background = getComputedStyle(card).backgroundColor;
+        return ['strong', 'span'].map((selector) => contrast(getComputedStyle(card.querySelector(selector)).color, background));
+      });
       const tabNames = [...document.querySelectorAll('.bot-panel-tab')].map((b) => b.dataset.botTab);
       window.app.switchBotPanelTab('routes');
       await new Promise((r) => setTimeout(r, 80));
@@ -390,6 +406,7 @@ app.whenReady().then(async () => {
         idleStatusText,
         railSpecialistsCount,
         hasSendBgBtn,
+        welcomeCardContrast,
         switchedBotSession: switchedSessionId.startsWith('bot-chat-'),
         keptForeground,
         tabNames,
@@ -412,6 +429,8 @@ app.whenReady().then(async () => {
     assert.equal(grokbotSurface.idleStatusText, '● Pronto', 'Bot Especialista inicia com estado Pronto em vez de tarefa fictícia');
     assert.ok(grokbotSurface.railSpecialistsCount >= 3, 'trilho lateral exibe os Bots Especialistas para troca direta de conversa');
     assert.equal(grokbotSurface.hasSendBgBtn, true, 'compositor tem botão dedicado Em 2º plano ao lado de Enviar');
+    assert.equal(grokbotSurface.welcomeCardContrast.length, 2, 'as duas opções de envio aparecem na apresentação inicial do Bot');
+    assert.ok(grokbotSurface.welcomeCardContrast.flat().every((ratio) => ratio >= 4.5), `título e descrição das opções de envio têm contraste legível sobre o cartão: ${JSON.stringify(grokbotSurface.welcomeCardContrast)}`);
     assert.equal(grokbotSurface.switchedBotSession, true, 'clicar em outro Bot Especialista troca para a conversa exclusiva daquele Bot');
     assert.equal(grokbotSurface.keptForeground, true, 'enviar ordem em 2º plano abre aba oculta do Bot mantendo a aba atual');
     assert.deepEqual(grokbotSurface.tabNames, ['chat', 'agenda', 'memory', 'routes', 'history'], 'painel do Bot tem as 5 abas GrokBot');

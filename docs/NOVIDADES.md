@@ -1,4 +1,10 @@
-# Novidades — Zero Browser 0.1.65-dev
+# Novidades — Zero Browser 0.1.66-dev
+
+## 0.1.66-dev — Legibilidade do painel de Bots
+
+- Cartões de orientação “Enviar” e “Em 2º plano” usam as cores de texto do tema com contraste mínimo verificado de 4,5:1.
+- Em janelas estreitas, as orientações ficam em uma coluna para preservar leitura.
+- Ainda não é uma reformulação visual completa do Zero Browser.
 
 ## 0.1.65-dev — Bots e Central mais honestos
 

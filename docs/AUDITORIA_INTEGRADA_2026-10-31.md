@@ -127,6 +127,13 @@ Esta atualização registra mudanças locais posteriores ao diagnóstico acima; 
 - A parada mostra quando foi pedida; a UI distingue pausa por limite, cancelamento confirmado e fim do motor. O fim do motor não é chamado de resultado verificado.
 - O painel de detalhes informa os limites de métricas disponíveis e deixou de exibir 410 ms, -27,3% e 50/50 como fatos atuais da execução.
 
-Continuam abertos A01 e A04–A12: executor de agenda, isolamento e allowlist aplicados em runtime, fontes/transporte de Apps e conectores, gestão de pop-ups/consentimentos, identidade visual e avatares, comparação visual instalada, métricas reais do motor e benchmark pareado. Nesta atualização, o instalador foi compilado e o executável `win-unpacked` foi aberto usando dados de QA separados; isso não equivale à instalação NSIS. Nenhuma chamada paga foi feita. Commit e instalação NSIS continuam pendentes.
+Continuam abertos A01 e A04–A12: executor de agenda, isolamento e allowlist aplicados em runtime, fontes/transporte de Apps e conectores, gestão de pop-ups/consentimentos, identidade visual e avatares, métricas reais do motor e benchmark pareado. A fatia foi commitada como `968d242`; instalação NSIS concluiu com `ExitCode 0`, versão `.65` confirmada e hash do `app.asar` igual à build. A UI abriu em pasta de dados QA separada. Nenhuma chamada paga foi feita.
 
 Direção de design registrada para as próximas fatias: acabamento de produto profissional, hierarquia e fluxo fáceis de entender, precisão de espaçamento/alinhamento e personalidade própria; usar a referência já aprovada como guia de estrutura, sem copiar uma marca ou recorrer a padrões decorativos genéricos de interfaces de IA. A reformulação geral permanece aberta até revisão tela a tela.
+
+### Atualização da fatia 0.1.66-dev
+
+- Corrigida a legibilidade dos cartões de orientação “Enviar” e “Em 2º plano” em `src/renderer/styles.css`; em telas até 800 px eles passam a uma coluna.
+- `scripts/electron-ui.integration.js` calcula contraste dos textos contra os cartões; o limiar testado é 4,5:1. A primeira execução achou 4,457:1 no texto secundário; após ajuste baseado nos tokens do tema, `npm run test:ui` passou.
+- `npm test`: 407/407; `git diff --check` sem erro.
+- Build NSIS .66 gerada (instalador SHA-256 `A4F880E3FBCAAE2C6F03A4F878A5773B0ACABCFA6D7383C4D428FE0D11BB53BE`; `app.asar` SHA-256 `62A35A6DD053264AA2BB1488BC43DDF42AF55E458675F13D1AF9AB8D875C710B`). Smoke visual no pacote e instalação depois do commit ainda pendentes nesta atualização.
