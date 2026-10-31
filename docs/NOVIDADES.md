@@ -1,4 +1,11 @@
-# Novidades — Zero Browser 0.1.66-dev
+# Novidades — Zero Browser 0.1.67-dev
+
+## 0.1.67-dev — Identidade dos Bots e continuidade de dados
+
+- Perfis de Bot agora usam símbolos lineares individuais dentro de anéis coloridos. A associação deriva do identificador estável do avatar.
+- A interface deixou de carregar as folhas de retratos pixelados; o símbolo centraliza pelo layout e tem movimento discreto durante trabalho, respeitando redução de movimento.
+- Atualizações continuam usando o perfil `navegante` e a partição `persist:navegante`. Chaves, sessão Google/Gmail e demais dados não são copiados para pastas por versão; builds de QA seguem isoladas.
+- A suíte verifica a estabilidade da identidade visual e os identificadores que preservam dados entre versões.
 
 ## 0.1.66-dev — Legibilidade do painel de Bots
 

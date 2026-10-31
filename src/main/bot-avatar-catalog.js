@@ -46,7 +46,8 @@ const BOT_STROKE_SYMBOLS = [
   { id: 'home', label: 'Casa', path: 'm3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9Zm6 13V12h6v10' },
   { id: 'filter', label: 'Filtro', path: 'M22 3H2l8 9.5V19l4 2v-8.5L22 3Z' },
   { id: 'clipboard', label: 'Recibo', path: 'M9 4h6v3H9V4ZM6 6h3v1h6V6h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2Z' },
-  { id: 'spark', label: 'Assistente', path: 'm12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3L12 3Z' }
+  { id: 'focus', label: 'Foco', path: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Zm0 5a4 4 0 1 0 0 8 4 4 0 0 0 0-8Zm0-7v3m0 17v3m10-12h-3M5 12H2' },
+  { id: 'key', label: 'Chave', path: 'M7 14a5 5 0 1 1 3.9-1.9L22 23m-4-4 2-2m-5-1 2-2' }
 ];
 
 function formatBotInitials(name) {
@@ -157,8 +158,19 @@ class BotAvatarCatalog {
   }
 
   getAvatar(id) {
-    return this.db.prepare(`SELECT id, sheet_id AS sheetId, frame_index AS frameIndex,
+    const avatar = this.db.prepare(`SELECT id, sheet_id AS sheetId, frame_index AS frameIndex,
       columns_count AS columns, rows_count AS rows, label, accent FROM bot_avatars WHERE id = ?`).get(String(id)) || null;
+    if (!avatar) return null;
+    const number = Number(String(avatar.id).match(/(\d+)$/)?.[1]);
+    if (Number.isInteger(number) && number > 0) {
+      const identityIndex = number - 1;
+      const symbol = BOT_STROKE_SYMBOLS[Math.floor(identityIndex / BOT_ACCENT_PALETTE.length) % BOT_STROKE_SYMBOLS.length];
+      avatar.symbolId = symbol.id;
+      avatar.symbolLabel = symbol.label;
+      avatar.symbolPath = symbol.path;
+      avatar.accent = BOT_ACCENT_PALETTE[identityIndex % BOT_ACCENT_PALETTE.length];
+    }
+    return avatar;
   }
 
   getSheetDataUri(sheetId) {

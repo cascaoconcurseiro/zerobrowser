@@ -19,7 +19,6 @@ class ZeroBrowserApp {
     this.specialistBots = new Map();
     this.backgroundAgentJobs = new Map();
     this.selectedSpecialistPresetId = "price-hunter";
-    this.botAvatarSheets = new Map();
     this.pendingApprovalCards = new Map();
     this.approvalUiReady = false;
     this.takeoverState = null;
@@ -1943,12 +1942,6 @@ class ZeroBrowserApp {
     try {
       const team = await window.zeroBrowser.browser.getBots();
       this.botTeam = team && Array.isArray(team.bots) ? team : { bots: [], avatars: 0, currentProfileId: null };
-      for (const bot of this.botTeam.bots) {
-        const sheetId = bot.avatar?.sheetId;
-        if (!sheetId || this.botAvatarSheets.has(sheetId)) continue;
-        const imageData = await window.zeroBrowser.browser.getBotAvatarSheet(sheetId);
-        if (imageData) this.botAvatarSheets.set(sheetId, imageData);
-      }
     } catch (error) {
       this.botTeam = { bots: [], avatars: 0, currentProfileId: null };
       console.error('Não foi possível carregar os perfis Bot:', error);
@@ -2101,23 +2094,37 @@ class ZeroBrowserApp {
       button.setAttribute('aria-label', `Abrir Bot ${bot.name}, ${visualState.label}`);
     }
 
-    const image = document.createElement('span');
-    image.className = 'pixel-avatar';
-    image.setAttribute('aria-hidden', 'true');
-    const sheet = this.botAvatarSheets.get(bot.avatar?.sheetId);
-    if (sheet) image.style.backgroundImage = `url("${sheet}")`;
-    const frame = Number(bot.avatar?.frameIndex) || 0;
-    const columns = Math.max(1, Number(bot.avatar?.columns) || 10);
-    const rows = Math.max(1, Number(bot.avatar?.rows) || 10);
-    const column = frame % columns;
-    const row = Math.floor(frame / columns);
-    image.style.backgroundSize = `${columns * 100}% ${rows * 100}%`;
-    image.style.backgroundPosition = `${columns > 1 ? column / (columns - 1) * 100 : 0}% ${rows > 1 ? row / (rows - 1) * 100 : 0}%`;
-    button.appendChild(image);
+    button.appendChild(this.createBotAvatarMark(bot));
     if (!isCurrent) button.addEventListener('click', () => {
       window.zeroBrowser.browser.openBotProfile(bot.id).catch((error) => this.showToast(`Não foi possível abrir ${bot.name}: ${error.message}`, 'error'));
     });
     return button;
+  }
+
+  createBotAvatarMark(bot) {
+    const mark = document.createElement('span');
+    mark.className = 'bot-avatar-symbol';
+    mark.setAttribute('aria-hidden', 'true');
+    const avatar = bot?.avatar || {};
+    const number = Number(String(avatar.id || bot?.avatarId || '').match(/(\d+)$/)?.[1]);
+    const symbols = this.botRingSymbols || [];
+    const selected = symbols.find((symbol) => symbol.id === avatar.symbolId)
+      || symbols[Math.floor(Math.max(0, number - 1) / 8) % Math.max(1, symbols.length)];
+    const pathData = avatar.symbolPath || selected?.path || selected?.svgPath || 'M12 5v14M5 12h14';
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('aria-hidden', 'true');
+    svg.setAttribute('focusable', 'false');
+    svg.setAttribute('fill', 'none');
+    svg.setAttribute('stroke', 'currentColor');
+    svg.setAttribute('stroke-width', '1.7');
+    svg.setAttribute('stroke-linecap', 'round');
+    svg.setAttribute('stroke-linejoin', 'round');
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', /^[Mm0-9.,\sLlHhVvCcSsQqTtAaZz+-]+$/.test(pathData) ? pathData : 'M12 5v14M5 12h14');
+    svg.appendChild(path);
+    mark.appendChild(svg);
+    return mark;
   }
 
   syncStopAllButton() {
@@ -2498,22 +2505,13 @@ class ZeroBrowserApp {
 
     const image = document.createElement('span');
     image.className = 'bot-avatar';
+    image.style.setProperty('--bot-accent', bot.avatar?.accent || '#168f72');
     const visualState = this.getBotVisualState(bot);
     image.dataset.botState = visualState.state;
+    if (visualState.state === 'working') image.classList.add('is-working');
     if (visualState.badge) image.dataset.stateBadge = visualState.badge;
     image.setAttribute('aria-hidden', 'true');
-    const sprite = document.createElement('span');
-    sprite.className = 'pixel-avatar';
-    const sheet = this.botAvatarSheets.get(bot.avatar?.sheetId);
-    if (sheet) sprite.style.backgroundImage = `url("${sheet}")`;
-    const frame = Number(bot.avatar?.frameIndex) || 0;
-    const columns = Math.max(1, Number(bot.avatar?.columns) || 10);
-    const rows = Math.max(1, Number(bot.avatar?.rows) || 10);
-    const column = frame % columns;
-    const spriteRow = Math.floor(frame / columns);
-    sprite.style.backgroundSize = `${columns * 100}% ${rows * 100}%`;
-    sprite.style.backgroundPosition = `${columns > 1 ? column / (columns - 1) * 100 : 0}% ${rows > 1 ? spriteRow / (rows - 1) * 100 : 0}%`;
-    image.appendChild(sprite);
+    image.appendChild(this.createBotAvatarMark(bot));
 
     const copy = document.createElement('span');
     copy.className = 'bot-central-row-copy';

@@ -136,4 +136,14 @@ Direção de design registrada para as próximas fatias: acabamento de produto p
 - Corrigida a legibilidade dos cartões de orientação “Enviar” e “Em 2º plano” em `src/renderer/styles.css`; em telas até 800 px eles passam a uma coluna.
 - `scripts/electron-ui.integration.js` calcula contraste dos textos contra os cartões; o limiar testado é 4,5:1. A primeira execução achou 4,457:1 no texto secundário; após ajuste baseado nos tokens do tema, `npm run test:ui` passou.
 - `npm test`: 407/407; `git diff --check` sem erro.
-- Build NSIS .66 gerada (instalador SHA-256 `A4F880E3FBCAAE2C6F03A4F878A5773B0ACABCFA6D7383C4D428FE0D11BB53BE`; `app.asar` SHA-256 `62A35A6DD053264AA2BB1488BC43DDF42AF55E458675F13D1AF9AB8D875C710B`). Smoke visual no pacote e instalação depois do commit ainda pendentes nesta atualização.
+- Build NSIS .66 gerada (instalador SHA-256 `A4F880E3FBCAAE2C6F03A4F878A5773B0ACABCFA6D7383C4D428FE0D11BB53BE`; `app.asar` SHA-256 `62A35A6DD053264AA2BB1488BC43DDF42AF55E458675F13D1AF9AB8D875C710B`). Commit `b7074a7`; instalação terminou com `ExitCode 0`, `FileVersion 0.1.66-dev`, `ProductVersion 0.1.66.0`, hash instalado correspondente e backup da .65 com 184 arquivos. Janela abriu com pasta de dados QA isolada. Uma captura visual dedicada ainda não foi confirmada.
+
+### Atualização da fatia 0.1.67-dev — implementação local
+
+- `getAvatar()` agora associa cada ID persistente do catálogo a um símbolo linear e cor previsíveis; 25 símbolos × 8 cores cobrem as 200 identidades existentes sem repetição.
+- Trilho e Central renderizam SVG por DOM dentro dos anéis; a interface não solicita mais as folhas PNG pixeladas. O estado de trabalho usa movimento reduzido e respeita `prefers-reduced-motion`.
+- O teste de layout confirma símbolo presente e centralizado, sem imagem pixelada, em seis viewports; o teste de UI confirma símbolos individuais em dois perfis. A geometria é validada na fixture, ainda depende de conferência visual dedicada no executável instalado.
+- `npm test`: 409/409; `npm run test:ui`: PASS; `npm run test:delegation-layout`: PASS em seis viewports.
+- Continuidade dos dados confirmada estaticamente: `appId` `com.wesley.navegante`, `app.setName('navegante')`, armazenamento `navegante-config` e partição `persist:navegante` não são versionados. Chaves seguem protegidas via `safeStorage`; o QA permanece em diretório isolado. Não houve leitura de valores de chave nem de conteúdo do Gmail.
+- Build NSIS .67 gerada (instalador SHA-256 `80984ADEB04C87AD003635481580C939FBE779E4433976DAFA631620644C0C1B`; `app.asar` SHA-256 `E36249894939630ED30F10D6BC7BA19C1AECD3BE93AE13E8A6E40869409A5EC1`). NSIS instalado com `ExitCode 0`; executável `0.1.67-dev` / `0.1.67.0`; hash instalado igual ao build. Backup .66 conferido com 184 arquivos. CUA confirma UI empacotada em perfil QA isolado.
+- A continuidade das identidades de dados é confirmada por código e teste estático; o perfil QA está vazio de propósito. Não houve teste de navegação na conta Google de uso diário, nem comparação visual por screenshot do app instalado. Commit local criado e NSIS reinstalado depois dele; hash/versionamento conferidos. Sem push.

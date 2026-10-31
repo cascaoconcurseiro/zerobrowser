@@ -2,6 +2,7 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
 const assert = require('node:assert/strict');
 const path = require('node:path');
+const { BOT_ACCENT_PALETTE, BOT_STROKE_SYMBOLS } = require('../src/main/bot-avatar-catalog');
 
 const rendererDir = path.join(__dirname, '..', 'src', 'renderer');
 const bots = Array.from({ length: 32 }, (_unused, index) => {
@@ -16,7 +17,9 @@ const bots = Array.from({ length: 32 }, (_unused, index) => {
       frameIndex: index,
       columns: 10,
       rows: 10,
-      accent: index % 2 ? '#1686d9' : '#129b78'
+      accent: BOT_ACCENT_PALETTE[index % BOT_ACCENT_PALETTE.length],
+      symbolId: BOT_STROKE_SYMBOLS[Math.floor(index / BOT_ACCENT_PALETTE.length) % BOT_STROKE_SYMBOLS.length].id,
+      symbolPath: BOT_STROKE_SYMBOLS[Math.floor(index / BOT_ACCENT_PALETTE.length) % BOT_STROKE_SYMBOLS.length].path
     }
   };
 });
@@ -77,7 +80,7 @@ const stubs = {
   'automation:cancel-agent': () => true,
   'automation:memory': () => [],
   'bots:get-presets': () => [],
-  'bots:get-symbols': () => [],
+  'bots:get-symbols': () => BOT_STROKE_SYMBOLS,
   'bots:list-tasks': () => [],
   'bots:create-task': (_e, spec) => ({ id: 'bot-layout-1', ...spec }),
   'bots:run-now': () => ({ status: 'completed' }),
@@ -204,7 +207,7 @@ app.whenReady().then(async () => {
         const create = document.getElementById('btn-bot-central-new');
         const dialogRect = dialog.getBoundingClientRect();
         const avatar = dialog.querySelector('.bot-avatar');
-        const sprite = avatar?.querySelector('.pixel-avatar');
+        const sprite = avatar?.querySelector('.bot-avatar-symbol');
         const avatarRect = avatar?.getBoundingClientRect();
         const spriteRect = sprite?.getBoundingClientRect();
         const listRect = list.getBoundingClientRect();
@@ -233,9 +236,12 @@ app.whenReady().then(async () => {
             frameHeight: avatarRect.height,
             spriteWidth: spriteRect.width,
             spriteHeight: spriteRect.height,
+            svgPath: sprite.querySelector('path')?.getAttribute('d') || '',
             centerXDelta: Math.abs((avatarRect.left + avatarRect.right) / 2 - (spriteRect.left + spriteRect.right) / 2),
             centerYDelta: Math.abs((avatarRect.top + avatarRect.bottom) / 2 - (spriteRect.top + spriteRect.bottom) / 2)
           } : null,
+          pixelAvatarCount: dialog.querySelectorAll('.pixel-avatar').length,
+          visibleAvatarMarks: dialog.querySelectorAll('.bot-avatar-symbol svg path[d]').length,
           list: {
             clientHeight: list.clientHeight,
             scrollHeight: list.scrollHeight,
@@ -276,9 +282,12 @@ app.whenReady().then(async () => {
       assert.ok(layout.dialog.width > 0 && layout.dialog.height > 0, `Central tem área visível; ${message}`);
       assert.equal(layout.splitter.visible, false, `divisor do painel Delegar fica oculto enquanto a Central substitui o chat; ${message}`);
       assert.ok(layout.splitter.panelWidth <= (viewport.width <= 800 ? 360 : Math.min(640, Math.floor(viewport.width * 0.44)) + 16) + tolerance, `largura inicial do painel acompanha o padrão compacto; ${message}`);
-      assert.ok(layout.avatar, `Avatar pixelado aparece na Central; ${message}`);
-      assert.ok(layout.avatar.spriteWidth < layout.avatar.frameWidth && layout.avatar.spriteHeight < layout.avatar.frameHeight, `Sprite cabe dentro do círculo; ${message}`);
-      assert.ok(layout.avatar.centerXDelta <= 1 && layout.avatar.centerYDelta <= 1, `Sprite fica centralizado no círculo; ${message}`);
+      assert.ok(layout.avatar, `Avatar aparece na Central; ${message}`);
+      assert.ok(layout.avatar.spriteWidth < layout.avatar.frameWidth && layout.avatar.spriteHeight < layout.avatar.frameHeight, `Símbolo cabe dentro do círculo; ${message}`);
+      assert.ok(layout.avatar.centerXDelta <= 1 && layout.avatar.centerYDelta <= 1, `Símbolo fica centralizado no círculo; ${message}`);
+      assert.ok(layout.avatar.svgPath.length > 8, `Símbolo linear individual está presente; ${message}`);
+      assert.equal(layout.pixelAvatarCount, 0, `Avatares pixelados não são renderizados; ${message}`);
+      assert.ok(layout.visibleAvatarMarks > 0, `Símbolos SVG aparecem na Central; ${message}`);
 
       assert.ok(layout.list.clientHeight > 0, `Lista tem viewport próprio; ${message}`);
       assert.ok(layout.list.scrollHeight > layout.list.clientHeight, `Lista longa deve rolar dentro do painel; ${message}`);

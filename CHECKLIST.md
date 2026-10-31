@@ -6,10 +6,12 @@
 - [ ] Concluir a evolução visual a partir da referência aprovada com acabamento profissional, fluxo claro e identidade própria; ainda há telas sem revisão visual integrada.
 - [x] Tornar a Central mais clara e retirar dados/ações simulados que pareciam serviços ativos.
 - [ ] Concluir executor de Bot com isolamento, limites por tarefa, política de site aplicada no processo principal, cancelamento verificável e resultado independente.
+- [ ] Criar um orquestrador explícito no modo Delegar: identificar ação comum versus especialidade, encaminhar ao Bot adequado ou executar no agente geral, mostrando ao usuário quem fará o trabalho e permitindo corrigir a escolha.
 - [ ] Implementar agenda persistente e gatilhos reais, depois provar execução com Zero fechado e retomada.
 - [ ] Conectar serviços externos e Apps a transportes/fontes reais; manter aprovação, recibo e estado verdadeiro.
 - [ ] Fechar popup, cookies, banners e permissões por política explícita sem dispensar consentimento em nome do usuário.
-- [ ] Alinhar avatares ao símbolo de traço dentro do anel, preservar identidade estável e validar visualmente no app empacotado.
+- [x] Renderizar avatares como símbolo de traço individual dentro do anel, preservar identidade estável e medir centralização no app empacotado; comparação visual com a referência ainda pendente.
+- [x] Preservar dados de usuário entre atualizações: `appId`, nome interno, arquivo de configuração e partição persistente continuam estáveis; instalação de QA usa diretório isolado.
 - [ ] Finalizar hierarquia e fluxos de navegador, Bots, extensões, configurações, menus e diálogos nas referências aprovadas; revisar acessibilidade e telas compactas.
 - [x] Corrigir a legibilidade visual dos dois cartões explicativos de envio no estado inicial do Bot; contraste AA é medido pela fixture Electron.
 - [ ] Medir velocidade, acerto, tokens e custo por tarefa; comparar com concorrentes em conjunto pareado, sem chamadas pagas sem orçamento aprovado.
@@ -35,7 +37,23 @@
 - [x] `npm test` 407/407; `npm run test:ui` PASS (contraste dos cartões ≥ 4,5:1); `npm run test:delegation-layout` PASS em seis viewports; `git diff --check` sem erro.
 - [x] Build NSIS `.66` criada; hash de instalador e `app.asar` coletado.
 - [x] Incrementar versão para .66, `npm test` 407/407, teste de UI, layout em seis viewports e build NSIS executados.
-- [ ] Commit local, instalar .66 e confirmar versão/hash; sem push.
+- [x] Commit local `b7074a7`; NSIS .66 instalado com `ExitCode 0`; `FileVersion 0.1.66-dev`, `ProductVersion 0.1.66.0` e hash do `app.asar` instalado igual ao build.
+- [x] Abrir a instalação em pasta QA separada; backup da .65 conferido com 184 arquivos. Sem push.
+
+## Fatia utilizável — 0.1.67-dev
+
+- [x] Substituir folhas pixeladas por símbolo SVG individual dentro do anel, derivado do avatar persistente.
+- [x] Expandir o conjunto para 25 símbolos e 8 cores, com 200 combinações distintas para os 200 perfis catalogados.
+- [x] Remover o carregamento das imagens de avatar na interface e aplicar movimento discreto ao trabalhar, respeitando `prefers-reduced-motion`.
+- [x] Medir na fixture que o símbolo SVG fica centralizado dentro do anel, aparece nos 6 viewports e nenhum avatar pixelado é renderizado.
+- [x] Adicionar teste de estabilidade de dados entre versões e teste de identidade repetível dos 200 avatares.
+- [x] Preservar chave de API e login Gmail pelo mesmo perfil persistente; não copiar segredos/cookies para diretórios versionados.
+- [x] `npm test` 409/409; `npm run test:ui` PASS; `npm run test:delegation-layout` PASS em seis viewports.
+- [x] Build NSIS gerada; arquivo executável reporta `0.1.67-dev` / `0.1.67.0`.
+- [x] Installer NSIS terminou com `ExitCode 0`; `app.asar` instalado bate com a build; backup da .66 conferido com 184 arquivos.
+- [x] Abrir o executável instalado com dados QA isolados; CUA confirmou a página empacotada e os controles da Central de Bots.
+- [x] Commit local criado e reinstalado depois dele; NSIS terminou com `ExitCode 0`, versão/hash conferem com a build; sem push.
+- [ ] Revisão visual dedicada do app instalado; a fixture comprova geometria e SVG, não comparação de imagem com a referência.
 
 ## Auditoria de 31/10/2026 — estado revisado
 

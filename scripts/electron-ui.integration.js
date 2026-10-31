@@ -17,8 +17,8 @@ let sidePanelOpen = false;
 let sidePanelPosition = 'left';
 let sidePanelWidth = null;
 let botProfiles = [
-  { id: 'bot-fixture', name: 'Bot Fixture', avatarId: 'pixel-001', avatar: { sheetId: 'pixel-animals-01', frameIndex: 0, columns: 10, rows: 10, accent: '#129b78' } },
-  { id: 'bot-other', name: 'Bot Outro', avatarId: 'pixel-002', avatar: { sheetId: 'pixel-animals-01', frameIndex: 1, columns: 10, rows: 10, accent: '#1686d9' } }
+  { id: 'bot-fixture', name: 'Bot Fixture', avatarId: 'pixel-001', avatar: { id: 'pixel-001', symbolId: 'search', symbolPath: 'M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm10 2-4.3-4.3', sheetId: 'pixel-animals-01', frameIndex: 0, columns: 10, rows: 10, accent: '#168f72' } },
+  { id: 'bot-other', name: 'Bot Outro', avatarId: 'pixel-009', avatar: { id: 'pixel-009', symbolId: 'cart', symbolPath: 'M6 6h15l-1.5 9h-11L6 4H3', sheetId: 'pixel-animals-01', frameIndex: 8, columns: 10, rows: 10, accent: '#168f72' } }
 ];
 
 function mockSidePanelLayout() {
@@ -211,6 +211,9 @@ app.whenReady().then(async () => {
       delegationModeOnStartup: document.getElementById('app')?.classList.contains('delegation-mode'),
       botRailVisible: !document.getElementById('delegation-rail')?.classList.contains('hidden'),
       botAvatarButtons: document.querySelectorAll('#bot-rail-list button.bot-avatar').length,
+      botAvatarMarks: document.querySelectorAll('#bot-rail-list .bot-avatar-symbol svg path[d]').length,
+      pixelAvatars: document.querySelectorAll('.pixel-avatar').length,
+      botAvatarSymbols: [...document.querySelectorAll('#bot-rail-list .bot-avatar-symbol path')].map((path) => path.getAttribute('d')),
       currentBotRole: document.querySelector('#bot-rail-list .bot-avatar[aria-current="true"]')?.getAttribute('role'),
       currentBotAccessibleName: document.querySelector('#bot-rail-list .bot-avatar[aria-current="true"]')?.getAttribute('aria-label'),
       botAddressFocusVisible: (() => { const address = document.getElementById('address-bar'); return { focused: document.activeElement === address, matches: address.matches(':focus-visible'), outline: getComputedStyle(address).outlineStyle, color: getComputedStyle(address).outlineColor }; })(),
@@ -249,6 +252,9 @@ app.whenReady().then(async () => {
     assert.equal(shell.delegationModeOnStartup, true, 'o app precisa abrir no novo modo Delegar');
     assert.equal(shell.botRailVisible, true, 'a equipe Bot precisa aparecer no modo Delegar');
     assert.equal(shell.botAvatarButtons, 1, 'perfil de outro Bot deve ser acionável na lateral');
+    assert.equal(shell.botAvatarMarks, 2, 'cada perfil mostra o símbolo individual dentro do anel');
+    assert.equal(shell.pixelAvatars, 0, 'a interface não deve mais renderizar avatares pixelados');
+    assert.equal(new Set(shell.botAvatarSymbols).size, 2, 'os dois perfis da fixture têm símbolos visuais distintos');
     assert.equal(shell.currentBotRole, 'img', 'Bot da janela atual aparece como identidade estática, não ação sem efeito');
     assert.equal(shell.currentBotAccessibleName, 'Bot Bot Fixture, perfil aberto nesta janela', 'avatar atual informa o perfil para leitores de tela');
     assert.equal(shell.botAddressFocusVisible.focused && shell.botAddressFocusVisible.matches && shell.botAddressFocusVisible.outline !== 'none', true, `campo de endereço mantém indicador de foco no modo Delegar (${JSON.stringify(shell.botAddressFocusVisible)})`);

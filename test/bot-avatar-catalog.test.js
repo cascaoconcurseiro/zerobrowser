@@ -29,9 +29,16 @@ test('pixel avatar atlas is stored once in SQLite and exposes 200 indexed images
   assert.equal(catalog.list().length, 200);
   assert.equal(catalog.count(), 200);
   const first = catalog.getAvatar('pixel-001');
+  const ninth = catalog.getAvatar('pixel-009');
   const last = catalog.getAvatar('pixel-200');
   assert.equal(first.sheetId, 'pixel-animals-01');
   assert.equal(first.frameIndex, 0);
+  assert.equal(first.symbolId, 'search');
+  assert.equal(first.symbolPath, BOT_STROKE_SYMBOLS[0].path);
+  assert.equal(first.accent, BOT_ACCENT_PALETTE[0]);
+  assert.equal(ninth.symbolId, BOT_STROKE_SYMBOLS[1].id);
+  assert.equal(ninth.accent, BOT_ACCENT_PALETTE[0]);
+  assert.deepEqual(catalog.getAvatar('pixel-001'), first, 'identidade visual permanece estável entre leituras');
   assert.equal(last.sheetId, 'pixel-animals-02');
   assert.equal(last.frameIndex, 99);
   const db = new (require('node:sqlite').DatabaseSync)(path.join(root, 'bots.sqlite'));
@@ -41,6 +48,14 @@ test('pixel avatar atlas is stored once in SQLite and exposes 200 indexed images
   const dataUri = catalog.getSheetDataUri(first.sheetId);
   assert.match(dataUri, /^data:image\/png;base64,/);
   assert.deepEqual(Buffer.from(dataUri.split(',')[1], 'base64').subarray(0, 8), Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
+}));
+
+test('avatars recebem combinações estáveis de símbolo e cor sem repetir nos 200 perfis', () => withCatalog((catalog) => {
+  catalog.seed();
+  const identities = catalog.list().slice(0, 200)
+    .map((avatar) => catalog.getAvatar(avatar.id))
+    .map(({ symbolId, accent }) => `${symbolId}::${accent}`);
+  assert.equal(new Set(identities).size, identities.length);
 }));
 
 test('bot profile records get unique stable avatar references in the database', () => withCatalog((catalog, root) => {
@@ -118,9 +133,9 @@ test('8-color bot palette and state ring colors keep >= 3:1 WCAG contrast on lig
   assert.equal(usedAccents.size, 8);
 }));
 
-test('24 stroke symbols, 2-letter initials, and non-duplicate (symbolId, accent) identity suggestion', () => {
-  assert.equal(BOT_STROKE_SYMBOLS.length, 24);
-  assert.equal(new Set(BOT_STROKE_SYMBOLS.map((s) => s.id)).size, 24);
+test('25 stroke symbols cover 200 unique bot identities; initials and identity suggestion stay stable', () => {
+  assert.equal(BOT_STROKE_SYMBOLS.length, 25);
+  assert.equal(new Set(BOT_STROKE_SYMBOLS.map((s) => s.id)).size, 25);
   for (const symbol of BOT_STROKE_SYMBOLS) {
     assert.ok(symbol.id && symbol.label && symbol.path.startsWith('M') || symbol.path.startsWith('m'));
   }
@@ -130,10 +145,10 @@ test('24 stroke symbols, 2-letter initials, and non-duplicate (symbolId, accent)
   assert.equal(formatBotInitials(''), 'BT');
 
   const assigned = [];
-  for (let i = 0; i < 24; i++) {
+  for (let i = 0; i < 200; i++) {
     const next = suggestNextFreeBotIdentity(assigned);
     assert.ok(!assigned.some((b) => b.symbolId === next.symbolId && b.accent === next.accent));
     assigned.push(next);
   }
-  assert.equal(assigned.length, 24);
+  assert.equal(assigned.length, 200);
 });
