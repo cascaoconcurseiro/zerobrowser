@@ -319,6 +319,25 @@ function classifyCommandBarInput(rawInput = '') {
   return { kind: 'search', text, preview: `Pesquisar "${text}"` };
 }
 
+function verifyUiCommandCoverage(registry, uiActionIds = []) {
+  if (!registry || typeof registry.get !== 'function') {
+    throw new TypeError('CommandRegistry válido é obrigatório para verificar cobertura da UI.');
+  }
+  const missing = [];
+  for (const actionId of uiActionIds) {
+    const id = String(actionId || '').trim();
+    if (!id) continue;
+    if (!registry.get(id)) missing.push(id);
+  }
+  if (missing.length > 0) {
+    const err = new Error(`Ações de interface sem comando registrado no CommandRegistry: ${missing.join(', ')}`);
+    err.code = 'UI_COMMAND_UNREGISTERED';
+    err.missing = missing;
+    throw err;
+  }
+  return { covered: true, total: uiActionIds.length, missing: [] };
+}
+
 module.exports = {
   CommandRegistry,
   UntouchableCoreError,
@@ -326,6 +345,7 @@ module.exports = {
   VALID_EFFECTS,
   VALID_REVERSIBILITY,
   isUntouchableTarget,
-  classifyCommandBarInput
+  classifyCommandBarInput,
+  verifyUiCommandCoverage
 };
 

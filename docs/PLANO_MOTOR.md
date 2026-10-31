@@ -1,6 +1,6 @@
 # Plano do motor — velocidade, tokens e custo
 
-Data: 31/10/2026. Base: `docs/EVOLUCAO_MOTOR.md` (principalmente "A/B `--preinspect`", "Primeiras execuções reais depois dos saltos" e as seções de 29–31/10). Números citados vêm desse arquivo; o que não foi medido está dito.
+Data: 31/10/2026. **Status: Decomposição de tempo e orçamento de bytes implementados (`0.1.60-dev` em `src/automation/service/time-decomposition.js`); benchmarks externos em provedor pago dependem de autorização de gasto.** Base: `docs/EVOLUCAO_MOTOR.md`.
 
 ## 1. Diagnóstico
 

@@ -2,7 +2,7 @@
 
 ## Estado atual
 
-- Código e instalação local em `0.1.59-dev`: Apps Vivos (`src/live-apps/live-app-engine.js`), Conectores Nativos e ponte de mensageria (`src/connectors/index.js`), Autonomia Conquistada, atualização assinada com rollback, importador CSV seguro e divisão de tela (`src/main/parity-essentials.js`) e guia `docs/COMO_CONECTAR_IA_EXTERNA.md`.
+- Código e instalação local em `0.1.60-dev`: concluídas todas as entregas locais de código, UI/UX, motor, Bots (Fases 1–5), Controle Total por IA (Fases 1–7, incluindo ferramentas de página, navegador e servidor HTTP/CDP loopback), Rotas Aprendidas, Firewall de Intenção (50/50 ataques bloqueados + relatório público), Apps Vivos, Conectores Nativos, Autonomia Conquistada e Paridade Essencial. Restam apenas as validações externas dependentes de chaves pagas, contas rivais ou 7–14 dias de uso real listadas na Seção 5 de `docs/CHECKLIST_PLANOS_2026-10-31.md`.
 - Na fatia `0.1.53-dev` (Design e UX): implementados os tokens de espaçamento (escala de `4px`), paleta de 8 cores de Bots com contraste WCAG ≥ `3:1` verificado nos temas claro e escuro (`BOT_ACCENT_PALETTE` e `BOT_STATE_COLORS`), anel de estado nunca só por cor (`idle`, `working`, `needs-attention` `!`, `error` `×`, `paused` `‖` + nome acessível), indicador na aba controlada (`.tab-controlled` + `#tab-control-banner`), botão `Assumir` / `Devolver ao bot` e etiqueta explícita de reversibilidade no cartão de aprovação.
 
 ## Entrega atual — Tokens de estado, paleta 8 cores, indicador de aba controlada e Assumir (0.1.53-dev)

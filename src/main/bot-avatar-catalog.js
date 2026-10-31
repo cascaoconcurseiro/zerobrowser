@@ -21,6 +21,59 @@ const BOT_STATE_COLORS = {
   error: '#cc4b43',
   paused: '#757d78'
 };
+// 24 símbolos simples de 1 traço (PLANO_DESIGN_UX.md §11b).
+const BOT_STROKE_SYMBOLS = [
+  { id: 'search', label: 'Busca', path: 'M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm10 2-4.3-4.3' },
+  { id: 'cart', label: 'Carrinho', path: 'M6 6h15l-1.5 9h-11L6 4H3m6 16a1 1 0 1 0 0-2 1 1 0 0 0 0 2Zm8 0a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z' },
+  { id: 'chart', label: 'Gráfico', path: 'M4 19h16M7 15v-4m5 4V7m5 8v-6' },
+  { id: 'mail', label: 'E-mail', path: 'M4 6h16v12H4V6Zm0 2 8 5 8-5' },
+  { id: 'calendar', label: 'Agenda', path: 'M4 7h16v13H4V7Zm4-3v4m8-4v4M4 11h16' },
+  { id: 'bell', label: 'Alerta', path: 'M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9Zm-4.3 13a2 2 0 0 1-3.4 0' },
+  { id: 'book', label: 'Leitura', path: 'M4 19.5A2.5 2.5 0 0 1 6.5 17H20M4 19.5V5a2 2 0 0 1 2-2h14v17H6.5' },
+  { id: 'shield', label: 'Segurança', path: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z' },
+  { id: 'bolt', label: 'Rápido', path: 'M13 2 3 14h9l-1 8 10-12h-9l1-8Z' },
+  { id: 'globe', label: 'Web', path: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20ZM2 12h20M12 2a15 15 0 0 1 0 20 15 15 0 0 1 0-20Z' },
+  { id: 'tag', label: 'Preço', path: 'M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L2 12V2h10l8.6 8.6a2 2 0 0 1 0 2.8ZM7 7h.01' },
+  { id: 'clock', label: 'Rotina', path: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Zm0-14v4l3 2' },
+  { id: 'folder', label: 'Arquivo', path: 'M3 7v11a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-7l-2-2H5a2 2 0 0 0-2 2Z' },
+  { id: 'code', label: 'Código', path: 'm16 18 6-6-6-6M8 6l-6 6 6 6' },
+  { id: 'terminal', label: 'Console', path: 'm4 17 6-6-6-6m8 14h8' },
+  { id: 'database', label: 'Dados', path: 'M12 8c4.4 0 8-1.3 8-3s-3.6-3-8-3-8 1.3-8 3 3.6 3 8 3Zm8 4c0 1.7-3.6 3-8 3s-8-1.3-8-3m16-7v14c0 1.7-3.6 3-8 3s-8-1.3-8-3V5' },
+  { id: 'compass', label: 'Explorar', path: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Zm4.2-14.2-2.1 6.3-6.3 2.1 2.1-6.3 6.3-2.1Z' },
+  { id: 'briefcase', label: 'Trabalho', path: 'M4 7h16a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Zm4 0V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2' },
+  { id: 'heart', label: 'Saúde', path: 'M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21.2l7.8-7.7 1-1.1a5.5 5.5 0 0 0 0-7.8Z' },
+  { id: 'star', label: 'Destaque', path: 'm12 2 3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1L12 2Z' },
+  { id: 'home', label: 'Casa', path: 'm3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9Zm6 13V12h6v10' },
+  { id: 'filter', label: 'Filtro', path: 'M22 3H2l8 9.5V19l4 2v-8.5L22 3Z' },
+  { id: 'clipboard', label: 'Recibo', path: 'M9 4h6v3H9V4ZM6 6h3v1h6V6h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2Z' },
+  { id: 'spark', label: 'Assistente', path: 'm12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3L12 3Z' }
+];
+
+function formatBotInitials(name) {
+  const words = String(name || '').trim().split(/\s+/).filter(Boolean);
+  if (!words.length) return 'BT';
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+  return `${words[0][0]}${words[1][0]}`.toUpperCase();
+}
+
+function suggestNextFreeBotIdentity(existingBots = []) {
+  const usedPairs = new Set();
+  for (const bot of existingBots || []) {
+    const symbolId = bot?.symbolId || bot?.avatar?.symbolId;
+    const accent = bot?.accent || bot?.avatar?.accent;
+    if (symbolId && accent) usedPairs.add(`${symbolId}::${accent.toLowerCase()}`);
+  }
+  for (let i = 0; i < BOT_STROKE_SYMBOLS.length * BOT_ACCENT_PALETTE.length; i++) {
+    const symbol = BOT_STROKE_SYMBOLS[i % BOT_STROKE_SYMBOLS.length];
+    const accent = BOT_ACCENT_PALETTE[Math.floor(i / BOT_STROKE_SYMBOLS.length) % BOT_ACCENT_PALETTE.length];
+    const key = `${symbol.id}::${accent.toLowerCase()}`;
+    if (!usedPairs.has(key)) {
+      return { symbolId: symbol.id, symbolLabel: symbol.label, symbolPath: symbol.path, accent };
+    }
+  }
+  const fallback = BOT_STROKE_SYMBOLS[0];
+  return { symbolId: fallback.id, symbolLabel: fallback.label, symbolPath: fallback.path, accent: BOT_ACCENT_PALETTE[0] };
+}
 const ACCENTS = BOT_ACCENT_PALETTE;
 const SHEETS = [
   { id: 'pixel-animals-01', file: 'pixel-animal-atlas-01.png', first: 1 },
@@ -172,4 +225,13 @@ class BotAvatarCatalog {
   }
 }
 
-module.exports = { BotAvatarCatalog, SPRITE_COLUMNS, SPRITE_ROWS, BOT_ACCENT_PALETTE, BOT_STATE_COLORS };
+module.exports = {
+  BotAvatarCatalog,
+  SPRITE_COLUMNS,
+  SPRITE_ROWS,
+  BOT_ACCENT_PALETTE,
+  BOT_STATE_COLORS,
+  BOT_STROKE_SYMBOLS,
+  formatBotInitials,
+  suggestNextFreeBotIdentity
+};

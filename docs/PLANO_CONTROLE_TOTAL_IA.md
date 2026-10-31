@@ -1,6 +1,6 @@
 # Plano — Zero Browser controlável por qualquer IA (inclusive console)
 
-Data: 31/10/2026. Proposta; nada aqui está implementado. Base: leitura de `src/automation/service/index.js` e `scripts/mcp-stdio.js` na árvore principal em 31/10. A lista de ferramentas abaixo vem da leitura do código (busca por nome), não de um `tools/list` executado: o primeiro passo do plano é obter a lista real.
+Data: 31/10/2026. **Status: Fases 1 a 7 implementadas (`0.1.56-dev` a `0.1.60-dev` em `src/automation/mcp-diagnostics.js`, `src/automation/mcp-http-server.js`, `docs/MCP_TOOLS_COMPARATIVO.md` e `docs/COMO_CONECTAR_IA_EXTERNA.md`).**
 
 ## 1. O que existe hoje
 

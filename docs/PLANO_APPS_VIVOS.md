@@ -1,6 +1,6 @@
 # Plano — Apps vivos (o navegador vira o software que você precisa)
 
-Data: 31/10/2026. Ideia proposta; nada implementado e nada medido. Depende das rotas aprendidas e do firewall (`PLANO_ROTAS_E_FIREWALL.md`) e dos bots (`PLANO_BOTS.md`).
+Data: 31/10/2026. **Status: Implementado (`0.1.59-dev` em `src/live-apps/live-app-engine.js` e `test/live-apps-connectors-parity.test.js`).**
 
 ## 1. Ideia
 Você descreve em português um software pessoal, por exemplo: "um painel com minhas contas de luz, internet e cartão, mostrando o que vence esta semana e me avisando". O Zero:

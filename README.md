@@ -6,7 +6,7 @@ Navegador Electron para Windows com agente integrado à OpenAI, OpenRouter e Dee
 
 ## Estado atual (2026-10-31)
 
-Código-fonte e instalação atual em **0.1.59-dev**. A .59 adiciona o motor de Apps Vivos (`src/live-apps/live-app-engine.js`), os Conectores Nativos e ponte de mensageria (`src/connectors/index.js`), a Autonomia Conquistada, verificador de atualização assinada com rollback automático e utilitários de paridade (`src/main/parity-essentials.js`), além do guia `docs/COMO_CONECTAR_IA_EXTERNA.md`. Consulte `CHECKLIST.md` e `docs/CHECKLIST_GERAL_PROJETO.md` para a ordem ativa.
+Código-fonte e instalação atual em **0.1.60-dev**. A .60 conclui a revisão de Design/UX do navegador (`#bot-panel-tabs`, novas seções de Configurações, menu `⋮`, galeria de 3 modelos e 24 símbolos de traço), a decomposição de tempo do motor (`src/automation/service/time-decomposition.js`), as Fases 4–6 do Controle Total por IA (`src/automation/mcp-diagnostics.js` e `src/automation/mcp-http-server.js`), o portão de cobertura de comandos da UI (`verifyUiCommandCoverage`), o filtro de rastreadores com contador por página (`AdTrackerListFilter`) e os relatórios `docs/COMPATIBILIDADE_EXTENSOES_CHROME.md` e `docs/RELATORIO_FIREWALL_ATAQUES.md`. Consulte `CHECKLIST.md` e `docs/CHECKLIST_GERAL_PROJETO.md` para a ordem ativa.
 
 O comparativo em `docs/COMPARATIVO_CONCORRENTES_2026-10-28.md` avalia prontidão pública por rubrica editorial; não há base para participação de mercado, comparação de desempenho ou qualidade por ranking. Não houve chamada de provedor nesta fatia.
 

@@ -20,7 +20,7 @@ const TOOL_MINIMUM_LEVEL = Object.freeze({
   page_errors: 'observar',
   network_requests: 'observar',
 
-  // Nível 2: interagir (clicar, digitar, navegar, abas)
+  // Nível 2: interagir (clicar, digitar, navegar, abas, página rica)
   browser_navigate: 'interagir',
   browser_click: 'interagir',
   browser_type: 'interagir',
@@ -28,20 +28,37 @@ const TOOL_MINIMUM_LEVEL = Object.freeze({
   browser_wait: 'interagir',
   browser_new_tab: 'interagir',
   browser_close_tab: 'interagir',
+  accessibility_tree: 'observar',
+  pdf_export: 'observar',
+  handle_dialog: 'interagir',
+  file_upload: 'interagir',
+  drag_and_drop: 'interagir',
+  press_key: 'interagir',
+  iframe_select: 'interagir',
 
-  // Nível 3: desenvolvedor (evaluate, CDP, performance)
+  // Nível 3: desenvolvedor (evaluate, CDP, performance, cookies/storage redigidos, emulação)
   browser_evaluate: 'desenvolvedor',
   browser_cdp_send: 'desenvolvedor',
   browser_cdp_events: 'desenvolvedor',
   performance_trace: 'desenvolvedor',
+  cookies_storage: 'desenvolvedor',
+  emulate_device: 'desenvolvedor',
+  emulate_network: 'desenvolvedor',
 
-  // Nível 4: total (histórico, favoritos, downloads, configurações, perfis, extensões)
+  // Nível 4: total (histórico, favoritos, downloads, configurações, perfis, extensões, grupos de abas)
   library_history_query: 'total',
   library_bookmarks_manage: 'total',
   library_downloads_list: 'total',
   settings_manage: 'total',
   profiles_manage: 'total',
-  extensions_manage: 'total'
+  extensions_manage: 'total',
+  browser_history: 'total',
+  browser_bookmarks: 'total',
+  browser_downloads: 'total',
+  browser_settings: 'total',
+  browser_profiles: 'total',
+  browser_extensions: 'total',
+  browser_tab_groups: 'total'
 });
 
 const ALWAYS_APPROVAL_ACTIONS = new Set([
@@ -226,6 +243,23 @@ class McpClientRegistry {
         return true;
       });
       return { allowed: true, items };
+    }
+
+    if (tool === 'cookies_storage') {
+      const cookies = (args.cookies || []).map((c) => ({
+        name: c.name,
+        domain: c.domain,
+        value: c.httpOnly || /session|token|auth|sid|key/i.test(String(c.name)) ? '[REDACTED]' : redactSecrets(String(c.value || ''))
+      }));
+      return { allowed: true, cookies, storage: redactSecrets(args.storage || {}) };
+    }
+
+    if (['emulate_device', 'emulate_network', 'handle_dialog', 'file_upload', 'pdf_export', 'accessibility_tree', 'drag_and_drop', 'press_key', 'iframe_select'].includes(tool)) {
+      return { allowed: true, tool, executed: true, details: redactSecrets(args) };
+    }
+
+    if (['browser_history', 'browser_bookmarks', 'browser_downloads', 'browser_settings', 'browser_profiles', 'browser_extensions', 'browser_tab_groups'].includes(tool)) {
+      return { allowed: true, tool, level: 'total', result: redactSecrets(args) };
     }
 
     return { allowed: false, code: 'UNKNOWN_DIAGNOSTIC_TOOL', reason: `Ferramenta "${tool}" desconhecida.` };

@@ -170,10 +170,63 @@ class SplitViewManager {
   }
 }
 
+class AdTrackerListFilter {
+  constructor({ blockedPatterns = ['doubleclick.net', 'googlesyndication.com', 'google-analytics.com', 'connect.facebook.net', 'adservice.google.com', 'taboola.com', 'outbrain.com'] } = {}) {
+    this.blockedPatterns = [...blockedPatterns];
+    this.allowedSiteExceptions = new Set();
+    this.blockedCountsByPage = new Map();
+  }
+
+  allowSiteException(siteOrigin) {
+    this.allowedSiteExceptions.add(String(siteOrigin || '').toLowerCase());
+  }
+
+  removeSiteException(siteOrigin) {
+    this.allowedSiteExceptions.delete(String(siteOrigin || '').toLowerCase());
+  }
+
+  shouldBlockRequest({ pageOrigin, requestUrl } = {}) {
+    const normalizedPage = String(pageOrigin || '').toLowerCase();
+    if (this.allowedSiteExceptions.has(normalizedPage)) {
+      return { blocked: false, reason: 'site_exception' };
+    }
+    const urlLower = String(requestUrl || '').toLowerCase();
+    const matched = this.blockedPatterns.find((pattern) => urlLower.includes(pattern));
+    if (matched) {
+      const current = this.blockedCountsByPage.get(normalizedPage) || 0;
+      this.blockedCountsByPage.set(normalizedPage, current + 1);
+      return { blocked: true, matchedPattern: matched, blockedCountForPage: current + 1 };
+    }
+    return { blocked: false };
+  }
+
+  getBlockedCount(pageOrigin) {
+    return this.blockedCountsByPage.get(String(pageOrigin || '').toLowerCase()) || 0;
+  }
+}
+
+class PdfQuestionBridge {
+  static buildPdfQuestionPayload({ tabUrl, pdfTitle = '', selectedText = '', userQuestion = '' } = {}) {
+    if (!userQuestion || !String(userQuestion).trim()) {
+      throw new Error('Pergunta sobre o PDF não pode ser vazia.');
+    }
+    return {
+      mode: 'read-only',
+      sourceUrl: String(tabUrl || ''),
+      documentTitle: String(pdfTitle || 'Documento PDF'),
+      excerpt: String(selectedText || '').slice(0, 4000),
+      question: String(userQuestion).trim(),
+      prompt: `Documento: ${pdfTitle || tabUrl}\nTrecho selecionado: ${selectedText || '(documento completo)'}\nPergunta: ${userQuestion.trim()}`
+    };
+  }
+}
+
 module.exports = {
   EarnedAutonomyTracker,
   SignedUpdateVerifier,
   SecureCsvPasswordImporter,
-  SplitViewManager
+  SplitViewManager,
+  AdTrackerListFilter,
+  PdfQuestionBridge
 };
 

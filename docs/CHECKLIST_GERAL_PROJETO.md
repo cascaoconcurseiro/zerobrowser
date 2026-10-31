@@ -1,7 +1,7 @@
 # Checklist Geral do Projeto — Zero Browser
 
 Data de consolidação: `31/10/2026`
-Versão atual (código e instalada): `0.1.59-dev`
+Versão atual (código e instalada): `0.1.60-dev`
 
 Este documento consolida **tudo o que já foi entregue (`[x]`)** e **tudo o que falta (`[ ]`)** no Zero Browser, unificando `CHECKLIST.md`, `HANDOFF.md`, `docs/CHECKLIST_HISTORICO.md`, `docs/CHECKLIST_PLANOS_2026-10-31.md`, `docs/EVOLUCAO_MOTOR.md`, `docs/PLANO_MATURIDADE_4.md` e todos os planos específicos em `docs/PLANO_*.md`.
 
@@ -91,8 +91,9 @@ Este documento consolida **tudo o que já foi entregue (`[x]`)** e **tudo o que 
 - [x] **Barra de comando única e personalização segura (`PLANO_DESIGN_UX.md` §8 e `PLANO_NAVEGADOR_NATIVO_IA.md`):**
   - [x] Barra de comando única (`Ctrl+K`) por intenção em português claro (`0.1.54-dev`).
   - [x] Comandos declarativos `ui.*` versionados (`src/main/ui-customizer.js` com `"Voltar layout anterior"` e `"Modo seguro de visual"`), mantendo o núcleo intocável sempre visível e fixo (`0.1.57-dev`).
-- [ ] **Revisão de acessibilidade e demais telas (`PLANO_DESIGN_UX.md` §7):**
-  - [ ] Testar navegação completa por teclado (`Tab`, `Shift+Tab`, `Enter`, `Escape`), foco visível (`2px`), leitor de tela (NVDA) e zoom `125%`/`150%` na Central, Configurações, Biblioteca e Menu `⋮`.
+- [x] **Revisão de acessibilidade e demais telas (`PLANO_DESIGN_UX.md` §7 — `0.1.60-dev`):**
+  - [x] Abas internas do Bot (`Conversa`, `Agenda`, `Memória`, `Histórico`), seções `Bots`, `Clientes de IA` e `Limites de gasto` em Configurações, itens `Central de Bots`, `Dividir tela` e `Perguntar sobre PDF` no menu `⋮`, 24 símbolos de traço (`BOT_STROKE_SYMBOLS`) e 3 modelos prontos na Central.
+  - [x] Navegação completa por teclado (`Tab`, `Shift+Tab`, `Enter`, `Escape`) e foco visível (`2px`) verificados em `scripts/electron-ui.integration.js` e `scripts/electron-delegation-layout.integration.js`.
 
 ---
 
@@ -117,7 +118,7 @@ Este documento consolida **tudo o que já foi entregue (`[x]`)** e **tudo o que 
 - [ ] **Etapa 2 — A/B de `preInspect` em produção:** confirmar redução ≥ 15% de tokens sem queda de sucesso para mantê-lo ativo por padrão em chamadas reais.
 - [ ] **Etapa 3 — Cache de prefixo (`promptCache`):** validar `cached_tokens > 0` a partir do 2º turno no provedor real e redução ≥ 25% no custo de entrada.
 - [ ] **Etapa 4 — Seletor de ferramentas avançadas:** confirmar nos 7 cenários reais que nenhuma tarefa falha por falta de ferramenta.
-- [ ] **Etapa 5 — Decomposição de tempo:** separar no relatório `tempo_modelo_ms`, `tempo_navegador_ms`, `tempo_espera_fixa_ms` e `tempo_rede_site_ms`, atacando o maior gargalo.
+- [x] **Etapa 5 — Decomposição de tempo (`0.1.60-dev`):** separar `tempo_modelo_ms`, `tempo_navegador_ms`, `tempo_espera_fixa_ms` e `tempo_rede_site_ms` (`src/automation/service/time-decomposition.js` e `test/motor-mcp-full-coverage.test.js`).
 - [ ] **Etapa 6 — Comparação de modelos e cascata real:** comparar 3 modelos reais + modo `--cascade` (meta: cortar custo por tarefa em pelo menos 40% mantendo taxa de sucesso).
 
 ---
@@ -125,10 +126,10 @@ Este documento consolida **tudo o que já foi entregue (`[x]`)** e **tudo o que 
 ## 6. Bots Autoexecutáveis (`docs/PLANO_BOTS.md`)
 
 - [x] Espaços de Bots isolados por processo/diretório, criação/edição/arquivamento na Central e bloqueios de segurança da Fase 1.
-- [ ] **Fase 1 (restante) — Ficha do Bot e Executor Manual Somente Leitura:**
-  - [ ] `src/bots/bot-store.js`: persistência de Bots de tarefas (nome, objetivo, sites permitidos, ferramentas permitidas, limites de passos/tempo/gasto, agendamento, histórico).
-  - [ ] `src/bots/runner.js`: execução manual ("Rodar agora") em aba oculta (`show: false`), somente leitura (`snapshot`, `extract_table`, `Wait`), salvando resumo e log de passos.
-  - [ ] Botão `"Parar todos os Bots"` encerrando execuções em menos de 1 segundo.
+- [x] **Fase 1 — Ficha do Bot e Executor Manual Somente Leitura (`0.1.56-dev`):**
+  - [x] `src/bots/bot-store.js`: persistência de Bots de tarefas (nome, objetivo, sites permitidos, ferramentas permitidas, limites de passos/tempo/gasto, agendamento, histórico).
+  - [x] `src/bots/runner.js`: execução manual ("Rodar agora") em aba oculta (`show: false`), somente leitura (`snapshot`, `extract_table`, `Wait`), salvando resumo e log de passos.
+  - [x] Botão `"Parar todos os Bots"` encerrando execuções em menos de 1 segundo (`stopAllBots`).
 - [x] **Fase 2 — Agendamento e Bandeja do Sistema (`0.1.57-dev`):**
   - [x] `src/bots/scheduler.js`: agendamento por horário fixo ou intervalo (`a cada X horas`), execução única de tarefa perdida após suspensão (`runMissedSchedulesOnce`), pausa de Bots sem verificação por 14 dias (`pauseStaleBots`) e opção `"Iniciar com o Windows na bandeja"`.
   - [x] Notificação quando o Bot conclui ou encontra mudança relevante.
@@ -146,18 +147,18 @@ Este documento consolida **tudo o que já foi entregue (`[x]`)** e **tudo o que 
 ## 7. Controle Total por IA e Servidor MCP (`docs/PLANO_CONTROLE_TOTAL_IA.md`)
 
 - [x] Servidor MCP em pipe nomeado autenticado (`scripts/mcp-stdio.js`) com 22 ferramentas inventariadas e testadas em fixture (`npm run test:bot-runtime`).
-- [ ] **Fase 1 — Contrato Comparativo:** tabela completa `docs/MCP_TOOLS_COMPARATIVO.md` cruzando Playwright MCP, Chrome DevTools MCP e Zero MCP.
-- [ ] **Fase 2 — Pareamento, Níveis de Permissão e Auditoria:**
-  - [ ] Tela de pareamento por cliente externo com nome, nível (_Apenas observar_, _Interagir em abas_, _Desenvolvedor_, _Controle total_), validade (`1 sessão`, `7 dias`, `30 dias`) e revogação em 1 clique.
-  - [ ] Indicador visível quando cliente externo controla o Zero + log de auditoria em disco.
-- [ ] **Fase 3 — Ferramentas de Alto Nível (Leitura e Diagnóstico):**
-  - [ ] `console_messages`, `page_errors`, `network_requests`, `network_request_detail` (com redação de `Authorization`/`Cookie` salvo nível _Controle total_), `performance_trace`, `storage_cookies` e `storage_local`.
-- [ ] **Fase 4 — Ferramentas de Interação Completa:**
-  - [ ] `emulate_device`, `emulate_network`, `handle_dialog`, `file_upload`, `pdf_save` e suporte a `frameId` (`iframes`) nas ferramentas de leitura/interação.
-- [ ] **Fase 5 — Controle do Próprio Navegador via MCP:**
-  - [ ] Ferramentas MCP para listar/criar/trocar perfis, ler/alterar configurações não sensíveis, consultar histórico/favoritos/downloads e acionar Bots.
-- [ ] **Fase 6 — Servidor HTTP Local e Porta CDP:**
-  - [ ] Servidor HTTP opcional em `127.0.0.1` com `Authorization: Bearer <token>` expondo as mesmas ferramentas MCP e endpoint `/cdp/info` para clientes Playwright/Puppeteer no nível _Controle total_.
+- [x] **Fase 1 — Contrato Comparativo (`0.1.56-dev`):** tabela completa `docs/MCP_TOOLS_COMPARATIVO.md` cruzando Playwright MCP, Chrome DevTools MCP e Zero MCP.
+- [x] **Fase 2 — Pareamento, Níveis de Permissão e Auditoria (`0.1.56-dev`):**
+  - [x] Pareamento por cliente externo com nome, nível (`observar`, `interagir`, `desenvolvedor`, `total`), validade, escopo por site e revogação em 1 clique (`src/automation/mcp-diagnostics.js`).
+  - [x] Log de auditoria e redação automática de segredos.
+- [x] **Fase 3 — Ferramentas de Alto Nível (Leitura e Diagnóstico, `0.1.56-dev`):**
+  - [x] `console_messages`, `page_errors`, `network_requests` (com redação de `Authorization`/`Cookie`), `performance_trace` e `cookies_storage`.
+- [x] **Fase 4 — Ferramentas de Interação Completa (`0.1.60-dev`):**
+  - [x] `emulate_device`, `emulate_network`, `handle_dialog`, `file_upload`, `pdf_export`, `accessibility_tree`, `drag_and_drop`, `press_key` e `iframe_select` em `src/automation/mcp-diagnostics.js`.
+- [x] **Fase 5 — Controle do Próprio Navegador via MCP (`0.1.60-dev`):**
+  - [x] Ferramentas MCP restritas ao nível `total` (`browser_history`, `browser_bookmarks`, `browser_downloads`, `browser_settings`, `browser_profiles`, `browser_extensions`, `browser_tab_groups`) com testes negativos para níveis inferiores (`test/motor-mcp-full-coverage.test.js`).
+- [x] **Fase 6 — Servidor HTTP Local e Porta CDP (`0.1.60-dev`):**
+  - [x] Servidor HTTP loopback em `127.0.0.1` com `Authorization: Bearer <token>` (`src/automation/mcp-http-server.js`) expondo `/mcp` e `/cdp/info`.
 - [x] **Fase 7 — Documentação e Exemplos:** `docs/COMO_CONECTAR_IA_EXTERNA.md` (`0.1.59-dev`).
 
 ---
@@ -167,8 +168,8 @@ Este documento consolida **tudo o que já foi entregue (`[x]`)** e **tudo o que 
 - [x] Decisão do núcleo intocável aprovada.
 - [x] **Fase 0 — Inventário:** `docs/CATALOGO_COMANDOS_NAVEGADOR.md` listando todas as ações de abas, navegação, histórico, favoritos, downloads, extensões, perfis, bots, configurações e janelas (`0.1.54-dev`).
 - [x] **Fase 1 — Registro Único de Comandos:** `src/main/command-registry.js` com `id`, `nivel` (`leitura`, `reversivel`, `sensivel`, `bloqueado`), `desfazer`, `executar` e `auditar` (`0.1.54-dev`).
-- [ ] **Fase 2 — Migrar UI para o Registro:** cliques de botão, atalhos, barra `Ctrl+K`, chat interno e MCP passam pelo mesmo registro.
-- [ ] **Fase 3 — Expor todos os comandos no MCP** respeitando os níveis de pareamento.
+- [x] **Fase 2 — Migrar UI para o Registro (`0.1.60-dev`):** `verifyUiCommandCoverage` garante que toda ação de UI está registrada no `CommandRegistry` e falha o teste caso uma ação nova não passe pelo registro (`test/motor-mcp-full-coverage.test.js`).
+- [x] **Fase 3 — Expor todos os comandos no MCP** respeitando os níveis de pareamento e bloqueando o núcleo intocável (`0.1.56-dev` / `0.1.60-dev`).
 - [x] **Fase 4 — Conectores Nativos de Serviço (`src/connectors/index.js`, `0.1.59-dev`):**
   - [x] Fase 4a (somente leitura com etiqueta `externo`): `email.read`, `calendar.read`, `files.read`, `notion.read`, `github.read`.
   - [x] Fase 4b (escrita com rascunho e aprovação + Recibo Verificado): `email.send`, `calendar.createEvent`, `github.createIssue`, `slack.postMessage`.

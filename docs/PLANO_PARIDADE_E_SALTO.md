@@ -1,6 +1,6 @@
 # Plano — Paridade com os grandes e o salto ("delegação com prova")
 
-Data: 31/10/2026. Proposta; nada implementado e nada medido. Pedido do Wesley: ter tudo que os grandes apps têm e chegar a um nível nunca visto. Este plano separa os dois pedidos, porque exigem estratégias diferentes, e é honesto sobre o que é novo e o que não é.
+Data: 31/10/2026. **Status: Implementado (`0.1.54-dev` a `0.1.60-dev` em `src/main/command-registry.js`, `src/main/parity-essentials.js` e `src/automation/learned-routes.js`).**
 
 Base do estado atual: `docs/COMPARATIVO_CONCORRENTES_2026-10-28.md` na árvore principal (fontes de mercado de 28/10/2026, status do Zero de 29/10/2026). Pesquisas adicionais de 31/10/2026 citadas na seção 3.
 

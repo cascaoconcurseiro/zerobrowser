@@ -1,6 +1,6 @@
 # Plano — Bots autoexecutáveis no Zero Browser
 
-Data: 31/10/2026. Proposta; nada aqui está implementado. Nomes de arquivos novos são sugestões. Os arquivos existentes citados foram conferidos na árvore principal em 31/10.
+Data: 31/10/2026. **Status: Fases 1 a 5 implementadas (`0.1.56-dev` a `0.1.60-dev` em `src/bots/`).** Os arquivos citados estão implementados e testados na suíte principal.
 
 ## 0. Revisão (31/10): o bot é um espaço que o usuário cria, não uma lista de bots prontos
 

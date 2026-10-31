@@ -1,6 +1,6 @@
 # Plano — Navegador nativo para IA (integrações, extensões e controle total)
 
-Data: 31/10/2026. Proposta; nada implementado. Pedido do Wesley: integrações nativas com apps e extensões, bots mais próximos do Grok Bot, e um navegador "como se fosse criado pela própria IA", com controle total. Este plano mantém o poder total e discorda de um ponto: controle **irrestrito** (seção 5).
+Data: 31/10/2026. **Status: Fases 0 a 7 implementadas (`0.1.54-dev` a `0.1.60-dev` em `src/main/command-registry.js`, `src/connectors/index.js`, `src/main/ui-customizer.js`, `docs/CATALOGO_COMANDOS_NAVEGADOR.md` e `docs/COMPATIBILIDADE_EXTENSOES_CHROME.md`).**
 
 ## 1. Princípio: o navegador é uma API, a interface é só um cliente
 

@@ -1,6 +1,6 @@
 # Plano — Rotas aprendidas e firewall de intenção
 
-Data: 31/10/2026. Proposta; nada implementado. Duas peças que formam um produto só: as rotas aprendidas dão ações estruturadas e rápidas; o firewall de intenção usa essa estrutura para impedir que texto hostil de páginas e e-mails cause efeito. Nada aqui foi medido ainda; todos os números abaixo são metas ou hipóteses.
+Data: 31/10/2026. **Status: Implementado (`0.1.55-dev` e `0.1.58-dev` em `src/automation/learned-routes.js`, `src/automation/service/intent-firewall.js`, `test/intent-firewall-attacks.test.js` com 50/50 ataques bloqueados e `docs/RELATORIO_FIREWALL_ATAQUES.md`).**
 
 ## 1. Rotas aprendidas (o Zero faz engenharia reversa dos sites que você usa)
 

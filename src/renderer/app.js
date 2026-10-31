@@ -36,6 +36,7 @@ class ZeroBrowserApp {
     this.initLibraryUi();
     this.initSettingsIndex();
     this.initLibraryTabs();
+    this.initBotPanelTabs();
     this.initChatSessions();
     await this.flushPendingApprovalRequests();
     this.initAgentMemoryUi();
@@ -1689,6 +1690,15 @@ class ZeroBrowserApp {
     if (pending.done) {
       this.pendingApprovalCards.delete(id);
     this.renderBotRail();
+    const currentBot = this.botTeam.bots.find((bot) => bot.id === this.botTeam.currentProfileId);
+    const appEl = document.getElementById('app');
+    if (appEl && currentBot?.avatar?.accent) {
+      appEl.style.setProperty('--active-bot-accent', currentBot.avatar.accent);
+      appEl.dataset.activeBot = currentBot.id;
+    } else if (appEl) {
+      appEl.style.removeProperty('--active-bot-accent');
+      delete appEl.dataset.activeBot;
+    }
     if (!this.elements.botCentral.classList.contains('hidden')) this.renderBotCentral();
     this.syncControlledTabIndicator();
       return;
@@ -1759,6 +1769,15 @@ class ZeroBrowserApp {
     this.elements.aiChat.scrollTop = this.elements.aiChat.scrollHeight;
     Object.assign(pending, { card, status, buttons: [cancel, allow], rendering: false });
     this.renderBotRail();
+    const currentBot = this.botTeam.bots.find((bot) => bot.id === this.botTeam.currentProfileId);
+    const appEl = document.getElementById('app');
+    if (appEl && currentBot?.avatar?.accent) {
+      appEl.style.setProperty('--active-bot-accent', currentBot.avatar.accent);
+      appEl.dataset.activeBot = currentBot.id;
+    } else if (appEl) {
+      appEl.style.removeProperty('--active-bot-accent');
+      delete appEl.dataset.activeBot;
+    }
     if (!this.elements.botCentral.classList.contains('hidden')) this.renderBotCentral();
     this.syncControlledTabIndicator();
     cancel.focus();
@@ -1804,6 +1823,15 @@ class ZeroBrowserApp {
       : result.allowed === true ? 'Ação permitida uma vez.' : 'Ação cancelada; ela não foi executada.';
     this.pendingApprovalCards.delete(id);
     this.renderBotRail();
+    const currentBot = this.botTeam.bots.find((bot) => bot.id === this.botTeam.currentProfileId);
+    const appEl = document.getElementById('app');
+    if (appEl && currentBot?.avatar?.accent) {
+      appEl.style.setProperty('--active-bot-accent', currentBot.avatar.accent);
+      appEl.dataset.activeBot = currentBot.id;
+    } else if (appEl) {
+      appEl.style.removeProperty('--active-bot-accent');
+      delete appEl.dataset.activeBot;
+    }
     if (!this.elements.botCentral.classList.contains('hidden')) this.renderBotCentral();
     this.syncControlledTabIndicator();
     if (entry.card.contains(document.activeElement)) this.elements.aiInput.focus();
@@ -2095,6 +2123,48 @@ class ZeroBrowserApp {
       ? 'Não há Bots ativos. Restaure um arquivado ou crie um Bot.'
       : 'Ainda não há Bots. Crie um para iniciar uma sessão isolada.');
     if (archivedBots.length) appendGroup('Arquivados', archivedBots);
+    if (!this.botTeam.bots.length) this.appendBotStarterTemplates();
+  }
+
+  appendBotStarterTemplates() {
+    const gallery = document.createElement('section');
+    gallery.className = 'bot-central-group bot-starter-gallery';
+    const heading = document.createElement('h3');
+    heading.className = 'bot-central-group-heading';
+    heading.textContent = 'Modelos prontos (somente leitura)';
+    const list = document.createElement('div');
+    list.className = 'bot-central-group-list';
+    const starters = [
+      { id: 'starter-prices', title: 'Pesquisador de preços', summary: 'Compara até 3 lojas em paralelo e monta tabela com menor preço e frete.', prompt: 'Compare o preço do produto nas 3 lojas abertas e monte uma tabela com menor preço e frete.' },
+      { id: 'starter-stock', title: 'Preço de ação', summary: 'Monitora cotação em somente leitura e avisa quando atingir o alvo.', prompt: 'Verifique a cotação atual do ativo nesta página e compare com minha faixa de alerta.' },
+      { id: 'starter-email', title: 'Resumo de e-mail', summary: 'Resume a caixa de entrada sem enviar nem apagar mensagens.', prompt: 'Resuma os e-mails visíveis na caixa de entrada destacando urgências, sem responder nem arquivar.' }
+    ];
+    for (const starter of starters) {
+      const card = document.createElement('div');
+      card.className = 'bot-starter-card';
+      const copy = document.createElement('div');
+      copy.className = 'bot-central-row-copy';
+      const title = document.createElement('strong');
+      title.textContent = starter.title;
+      const desc = document.createElement('span');
+      desc.textContent = starter.summary;
+      copy.append(title, desc);
+      const useBtn = document.createElement('button');
+      useBtn.type = 'button';
+      useBtn.className = 'bot-central-action';
+      useBtn.textContent = 'Usar modelo';
+      useBtn.setAttribute('aria-label', `Usar modelo ${starter.title}`);
+      useBtn.addEventListener('click', () => {
+        this.closeBotCentral();
+        this.switchBotPanelTab('chat');
+        this.elements.aiInput.value = starter.prompt;
+        this.elements.aiInput.focus();
+      });
+      card.append(copy, useBtn);
+      list.appendChild(card);
+    }
+    gallery.append(heading, list);
+    this.elements.botCentralList.appendChild(gallery);
   }
 
   createBotCentralRow(bot) {
@@ -2270,6 +2340,335 @@ class ZeroBrowserApp {
     if (action === 'whats-new') return window.zeroBrowser.browser.whatsNew().catch(() => {});
     if (action === 'extensions') return this.openExtensionsManager();
     if (action === 'profiles') return window.zeroBrowser.browser.openProfileMenu(Math.max(0, window.innerWidth - 240), 90).catch(() => {});
+    if (action === 'central') {
+      if (this.elements.aiPanel.classList.contains('hidden')) this.toggleAiPanel(true).then(() => this.toggleBotCentral());
+      else this.toggleBotCentral();
+      return;
+    }
+    if (action === 'split-view') {
+      const appEl = document.getElementById('app');
+      const active = appEl.classList.toggle('split-view-active');
+      this.showToast(active ? 'Modo Dividir tela ativado (50% / 50%).' : 'Modo Dividir tela desativado.', 'info');
+      return;
+    }
+    if (action === 'ask-pdf') {
+      if (this.elements.aiPanel.classList.contains('hidden')) this.toggleAiPanel(true);
+      this.switchBotPanelTab('chat');
+      this.elements.aiInput.value = 'Analise o documento/PDF aberto nesta aba, resuma os pontos principais e cite as seções.';
+      this.elements.aiInput.focus();
+      return;
+    }
+  }
+
+  initBotPanelTabs() {
+    this.activeBotTab = 'chat';
+    this.botAgendaItems = [
+      { id: 'ag-1', title: 'Monitor de preços matinal', cadence: 'Diariamente às 09:00', mode: 'Somente leitura', active: true }
+    ];
+    for (const tab of document.querySelectorAll('.bot-panel-tab')) {
+      tab.addEventListener('click', () => this.switchBotPanelTab(tab.dataset.botTab));
+    }
+  }
+
+  switchBotPanelTab(tabName = 'chat') {
+    this.activeBotTab = tabName;
+    for (const tab of document.querySelectorAll('.bot-panel-tab')) {
+      const selected = tab.dataset.botTab === tabName;
+      tab.classList.toggle('ativo', selected);
+      tab.setAttribute('aria-pressed', String(selected));
+    }
+    const isChat = tabName === 'chat';
+    this.elements.aiChat?.classList.toggle('hidden', !isChat);
+    document.querySelector('.ai-chat-toolbar')?.classList.toggle('hidden', !isChat);
+    document.querySelector('.ai-input-area')?.classList.toggle('hidden', !isChat);
+    const agendaView = document.getElementById('bot-view-agenda');
+    const memoryView = document.getElementById('bot-view-memory');
+    const historyView = document.getElementById('bot-view-history');
+    agendaView?.classList.toggle('hidden', tabName !== 'agenda');
+    memoryView?.classList.toggle('hidden', tabName !== 'memory');
+    historyView?.classList.toggle('hidden', tabName !== 'history');
+    if (tabName === 'agenda') this.renderBotAgendaView(agendaView);
+    if (tabName === 'memory') this.renderBotMemoryView(memoryView);
+    if (tabName === 'history') this.renderBotHistoryView(historyView);
+  }
+
+  renderBotAgendaView(container) {
+    if (!container) return;
+    container.replaceChildren();
+    const header = document.createElement('div');
+    header.className = 'bot-subview-header';
+    const title = document.createElement('strong');
+    title.textContent = 'Rotinas agendadas deste Bot';
+    const addBtn = document.createElement('button');
+    addBtn.type = 'button';
+    addBtn.className = 'btn-ghost';
+    addBtn.textContent = '+ Agendar tarefa';
+    addBtn.addEventListener('click', () => {
+      const taskName = window.prompt('Qual tarefa o Bot deve repetir em somente leitura?', 'Verificar variações de preço');
+      if (!taskName || !taskName.trim()) return;
+      this.botAgendaItems.unshift({
+        id: `ag-${Date.now()}`,
+        title: taskName.trim().slice(0, 80),
+        cadence: 'Diariamente às 09:00',
+        mode: 'Somente leitura',
+        active: true
+      });
+      this.renderBotAgendaView(container);
+    });
+    header.append(title, addBtn);
+    container.appendChild(header);
+    for (const item of this.botAgendaItems) {
+      const card = document.createElement('div');
+      card.className = 'ai-receipt-card';
+      const copy = document.createElement('div');
+      copy.className = 'ai-receipt-copy';
+      const h = document.createElement('strong');
+      h.textContent = item.title;
+      const meta = document.createElement('span');
+      meta.textContent = `${item.cadence} · ${item.mode} · ${item.active ? 'Ativa' : 'Pausada'}`;
+      copy.append(h, meta);
+      const toggle = document.createElement('button');
+      toggle.type = 'button';
+      toggle.className = 'btn-ghost btn-undo-receipt';
+      toggle.textContent = item.active ? 'Pausar' : 'Retomar';
+      toggle.addEventListener('click', () => {
+        item.active = !item.active;
+        this.renderBotAgendaView(container);
+      });
+      card.append(copy, toggle);
+      container.appendChild(card);
+    }
+  }
+
+  async renderBotMemoryView(container) {
+    if (!container) return;
+    container.replaceChildren();
+    let memories = [];
+    try {
+      memories = await window.zeroBrowser.automation.memory('list');
+    } catch {}
+    const header = document.createElement('div');
+    header.className = 'bot-subview-header';
+    const title = document.createElement('strong');
+    title.textContent = `Memória isolada (${memories.length})`;
+    header.appendChild(title);
+    container.appendChild(header);
+    if (!memories.length) {
+      const empty = document.createElement('p');
+      empty.className = 'ai-memory-empty';
+      empty.textContent = 'Nenhum fato salvo neste perfil. Somente dados de origem do usuário ou aprovados entram na memória.';
+      container.appendChild(empty);
+      return;
+    }
+    for (const mem of memories) {
+      const card = document.createElement('div');
+      card.className = 'ai-receipt-card';
+      const copy = document.createElement('div');
+      copy.className = 'ai-receipt-copy';
+      const h = document.createElement('strong');
+      h.textContent = mem.text || '';
+      const meta = document.createElement('span');
+      meta.textContent = `${mem.origin || 'geral'} · origem verificada`;
+      copy.append(h, meta);
+      card.appendChild(copy);
+      container.appendChild(card);
+    }
+  }
+
+  renderBotHistoryView(container) {
+    if (!container) return;
+    container.replaceChildren();
+    const header = document.createElement('div');
+    header.className = 'bot-subview-header';
+    const title = document.createElement('strong');
+    title.textContent = `Recibos de execução (${(this.actionReceipts || []).length})`;
+    const exportBtn = document.createElement('button');
+    exportBtn.type = 'button';
+    exportBtn.className = 'btn-ghost';
+    exportBtn.textContent = 'Exportar recibos';
+    exportBtn.addEventListener('click', () => {
+      const payload = JSON.stringify(this.actionReceipts || [], null, 2);
+      this.copiarTexto(payload);
+      this.showToast('Recibos copiados em JSON auditável.', 'success');
+    });
+    header.append(title, exportBtn);
+    container.appendChild(header);
+    if (!this.actionReceipts?.length) {
+      const empty = document.createElement('p');
+      empty.className = 'ai-memory-empty';
+      empty.textContent = 'Nenhuma execução registrada nesta sessão ainda.';
+      container.appendChild(empty);
+      return;
+    }
+    for (const rec of this.actionReceipts) {
+      const card = document.createElement('div');
+      card.className = 'ai-receipt-card';
+      const copy = document.createElement('div');
+      copy.className = 'ai-receipt-copy';
+      const h = document.createElement('strong');
+      h.textContent = rec.title;
+      const meta = document.createElement('span');
+      meta.textContent = rec.detail || 'Auditado';
+      copy.append(h, meta);
+      card.appendChild(copy);
+      container.appendChild(card);
+    }
+  }
+
+  initBotPanelTabs() {
+    this.activeBotTab = 'chat';
+    this.botAgendaItems = [
+      { id: 'ag-1', title: 'Monitor de preços matinal', cadence: 'Diariamente às 09:00', mode: 'Somente leitura', active: true }
+    ];
+    for (const tab of document.querySelectorAll('.bot-panel-tab')) {
+      tab.addEventListener('click', () => this.switchBotPanelTab(tab.dataset.botTab));
+    }
+  }
+
+  switchBotPanelTab(tabName = 'chat') {
+    this.activeBotTab = tabName;
+    for (const tab of document.querySelectorAll('.bot-panel-tab')) {
+      const selected = tab.dataset.botTab === tabName;
+      tab.classList.toggle('ativo', selected);
+      tab.setAttribute('aria-pressed', String(selected));
+    }
+    const isChat = tabName === 'chat';
+    this.elements.aiChat?.classList.toggle('hidden', !isChat);
+    document.querySelector('.ai-chat-toolbar')?.classList.toggle('hidden', !isChat);
+    document.querySelector('.ai-input-area')?.classList.toggle('hidden', !isChat);
+    const agendaView = document.getElementById('bot-view-agenda');
+    const memoryView = document.getElementById('bot-view-memory');
+    const historyView = document.getElementById('bot-view-history');
+    agendaView?.classList.toggle('hidden', tabName !== 'agenda');
+    memoryView?.classList.toggle('hidden', tabName !== 'memory');
+    historyView?.classList.toggle('hidden', tabName !== 'history');
+    if (tabName === 'agenda') this.renderBotAgendaView(agendaView);
+    if (tabName === 'memory') this.renderBotMemoryView(memoryView);
+    if (tabName === 'history') this.renderBotHistoryView(historyView);
+  }
+
+  renderBotAgendaView(container) {
+    if (!container) return;
+    container.replaceChildren();
+    const header = document.createElement('div');
+    header.className = 'bot-subview-header';
+    const title = document.createElement('strong');
+    title.textContent = 'Rotinas agendadas deste Bot';
+    const addBtn = document.createElement('button');
+    addBtn.type = 'button';
+    addBtn.className = 'btn-ghost';
+    addBtn.textContent = '+ Agendar tarefa';
+    addBtn.addEventListener('click', () => {
+      const taskName = window.prompt('Qual tarefa o Bot deve repetir em somente leitura?', 'Verificar variações de preço');
+      if (!taskName || !taskName.trim()) return;
+      this.botAgendaItems.unshift({
+        id: `ag-${Date.now()}`,
+        title: taskName.trim().slice(0, 80),
+        cadence: 'Diariamente às 09:00',
+        mode: 'Somente leitura',
+        active: true
+      });
+      this.renderBotAgendaView(container);
+    });
+    header.append(title, addBtn);
+    container.appendChild(header);
+    for (const item of this.botAgendaItems) {
+      const card = document.createElement('div');
+      card.className = 'ai-receipt-card';
+      const copy = document.createElement('div');
+      copy.className = 'ai-receipt-copy';
+      const h = document.createElement('strong');
+      h.textContent = item.title;
+      const meta = document.createElement('span');
+      meta.textContent = `${item.cadence} · ${item.mode} · ${item.active ? 'Ativa' : 'Pausada'}`;
+      copy.append(h, meta);
+      const toggle = document.createElement('button');
+      toggle.type = 'button';
+      toggle.className = 'btn-ghost btn-undo-receipt';
+      toggle.textContent = item.active ? 'Pausar' : 'Retomar';
+      toggle.addEventListener('click', () => {
+        item.active = !item.active;
+        this.renderBotAgendaView(container);
+      });
+      card.append(copy, toggle);
+      container.appendChild(card);
+    }
+  }
+
+  async renderBotMemoryView(container) {
+    if (!container) return;
+    container.replaceChildren();
+    let memories = [];
+    try {
+      memories = await window.zeroBrowser.automation.memory('list');
+    } catch {}
+    const header = document.createElement('div');
+    header.className = 'bot-subview-header';
+    const title = document.createElement('strong');
+    title.textContent = `Memória isolada (${memories.length})`;
+    header.appendChild(title);
+    container.appendChild(header);
+    if (!memories.length) {
+      const empty = document.createElement('p');
+      empty.className = 'ai-memory-empty';
+      empty.textContent = 'Nenhum fato salvo neste perfil. Somente dados de origem do usuário ou aprovados entram na memória.';
+      container.appendChild(empty);
+      return;
+    }
+    for (const mem of memories) {
+      const card = document.createElement('div');
+      card.className = 'ai-receipt-card';
+      const copy = document.createElement('div');
+      copy.className = 'ai-receipt-copy';
+      const h = document.createElement('strong');
+      h.textContent = mem.text || '';
+      const meta = document.createElement('span');
+      meta.textContent = `${mem.origin || 'geral'} · origem verificada`;
+      copy.append(h, meta);
+      card.appendChild(copy);
+      container.appendChild(card);
+    }
+  }
+
+  renderBotHistoryView(container) {
+    if (!container) return;
+    container.replaceChildren();
+    const header = document.createElement('div');
+    header.className = 'bot-subview-header';
+    const title = document.createElement('strong');
+    title.textContent = `Recibos de execução (${(this.actionReceipts || []).length})`;
+    const exportBtn = document.createElement('button');
+    exportBtn.type = 'button';
+    exportBtn.className = 'btn-ghost';
+    exportBtn.textContent = 'Exportar recibos';
+    exportBtn.addEventListener('click', () => {
+      const payload = JSON.stringify(this.actionReceipts || [], null, 2);
+      this.copiarTexto(payload);
+      this.showToast('Recibos copiados em JSON auditável.', 'success');
+    });
+    header.append(title, exportBtn);
+    container.appendChild(header);
+    if (!this.actionReceipts?.length) {
+      const empty = document.createElement('p');
+      empty.className = 'ai-memory-empty';
+      empty.textContent = 'Nenhuma execução registrada nesta sessão ainda.';
+      container.appendChild(empty);
+      return;
+    }
+    for (const rec of this.actionReceipts) {
+      const card = document.createElement('div');
+      card.className = 'ai-receipt-card';
+      const copy = document.createElement('div');
+      copy.className = 'ai-receipt-copy';
+      const h = document.createElement('strong');
+      h.textContent = rec.title;
+      const meta = document.createElement('span');
+      meta.textContent = rec.detail || 'Auditado';
+      copy.append(h, meta);
+      card.appendChild(copy);
+      container.appendChild(card);
+    }
+  }
   }
 
   async openExtensionsManager() {

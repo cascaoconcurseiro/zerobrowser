@@ -1,17 +1,11 @@
-# Novidades — Zero Browser 0.1.59-dev
+# Novidades — Zero Browser 0.1.60-dev
 
-## Apps Vivos, Conectores Nativos, Autonomia Conquistada e Paridade Essencial — 0.1.59-dev — 31/10/2026
+## Conclusão de Design/UX, Decomposição do Motor, Controle Total MCP (Fases 4–6) e Paridade — 0.1.60-dev — 31/10/2026
 
-- Motor de Apps Vivos (`src/live-apps/live-app-engine.js`) com CSP offline estrito (`connect-src 'none'`), protótipo `"Meus vencimentos da semana"` juntando 3 fontes, coleta somente leitura, ações protegidas por Firewall de Intenção + Recibo Verificado e exportação de pacotes sem dados pessoais.
-- Conectores Nativos (`src/connectors/index.js`) em 2 fases (leitura etiquetada como `externo` e escrita com rascunho + Recibo Verificado), cliente MCP externo (`ExternalMcpClient` com aviso de risco para servidores de terceiros) e ponte de mensageria autorizada (`AuthorizedMessagingBridge`).
-- Autonomia Conquistada (`EarnedAutonomyTracker` em `src/main/parity-essentials.js`), verificador de atualização assinada (`SignedUpdateVerifier` com SHA-512 + assinatura Ed25519 + rollback automático), importador de senhas CSV com destruição segura do CSV temporário (`SecureCsvPasswordImporter`), divisão de tela (`SplitViewManager`) e guia `docs/COMO_CONECTAR_IA_EXTERNA.md`.
-
-## Rotas Aprendidas (observador, compilador, queda automática, biblioteca, WebMCP) e Gêmeo Local — 0.1.58-dev — 31/10/2026
-
-- Observador de rede (`NetworkRouteObserver` em `src/automation/learned-routes.js`) que filtra ruído, redige segredos e agrupa candidatas a rota por site/endpoint.
-- Compilador (`RouteCompiler`), biblioteca (`LearnedRouteLibrary`) e executor (`LearnedRouteExecutor`) com queda automática para o modo clicar quando o site muda (`404`/`500`) e rotas de escrita desligadas por padrão até confirmação humana.
-- Ponte WebMCP (`WebMcpBridge`) respeitando a ordem de preferência (`1. WebMCP -> 2. Rota aprendida -> 3. Receita por site -> 4. Agente clicando`) sob o Firewall de Intenção.
-- Ensaio em Gêmeo Local (`LocalTwinSandbox`) somente leitura para simular ações irreversíveis e detectar quebra de seletor antes de apresentar o recibo de aprovação.
+- **Design e UX do navegador completo (`src/renderer/index.html`, `src/renderer/app.js`, `src/renderer/styles.css`, `src/main/bot-avatar-catalog.js`):** 24 símbolos de traço (`BOT_STROKE_SYMBOLS`), iniciais de 2 letras (`formatBotInitials`), sugestão sem repetição de par símbolo+cor (`suggestNextFreeBotIdentity`), abas internas do painel do Bot (`Conversa`, `Agenda`, `Memória`, `Histórico` com exportação JSON de recibos), itens `Central de Bots`, `Dividir tela` e `Perguntar sobre PDF` no menu `⋮`, seções `Bots`, `Clientes de IA` e `Limites de gasto` (`tabular-nums`) em Configurações, galeria dos 3 modelos prontos na Central e moldura com `--active-bot-accent`.
+- **Decomposição do Motor e Orçamento de Bytes (`src/automation/service/time-decomposition.js`):** separação de `tempo_modelo_ms`, `tempo_navegador_ms`, `tempo_espera_fixa_ms` e `tempo_rede_site_ms` (`decomposeRunTiming`) e verificador de estabilidade de prefixo e orçamento de bytes (`verifyPromptPrefixStabilityAndByteBudget`).
+- **Controle Total por IA Fases 4, 5 e 6 (`src/automation/mcp-diagnostics.js`, `src/automation/mcp-http-server.js`):** ferramentas de página (`cookies_storage` com redação de `httpOnly`/sessão, `emulate_device`, `emulate_network`, `handle_dialog`, `file_upload`, `pdf_export`, `accessibility_tree`, `drag_and_drop`, `press_key`, `iframe_select`), ferramentas do navegador restritas ao nível `total` (`browser_history`, `browser_bookmarks`, `browser_downloads`, `browser_settings`, `browser_profiles`, `browser_extensions`, `browser_tab_groups`) e servidor HTTP/CDP loopback (`127.0.0.1`) com `Authorization: Bearer <token>` (`/mcp` e `/cdp/info`).
+- **Cobertura de Comandos da UI, Bloqueador de Rastreadores e Relatórios Públicos:** `verifyUiCommandCoverage` em `src/main/command-registry.js`, `AdTrackerListFilter` e `PdfQuestionBridge` em `src/main/parity-essentials.js`, `docs/COMPATIBILIDADE_EXTENSOES_CHROME.md` e `docs/RELATORIO_FIREWALL_ATAQUES.md`.
 
 ## Bots Fases 2–5 (scheduler, modelos, gravador Ensinar) e comandos visuais versionados — 0.1.57-dev — 31/10/2026
 
@@ -155,7 +149,7 @@ Versão de desenvolvimento com foco no motor de IA e em sites difíceis (planilh
 
 - **Gestão de conversas**: renomear, fixar no topo (★) e apagar pelo seletor — tudo salvo no perfil.
 
-- **Aprovação no chat (opt-in)**: com  ligado e o painel aberto, a confirmação de ação aparece como cartão (Permitir uma vez / Sempre neste site / Negar). Painel fechado continua usando o diálogo do sistema; sem resposta em 60 s, a ação é negada.
+- **Aprovação no chat (opt-in)**: com ligado e o painel aberto, a confirmação de ação aparece como cartão (Permitir uma vez / Sempre neste site / Negar). Painel fechado continua usando o diálogo do sistema; sem resposta em 60 s, a ação é negada.
 
 - **Copiar**: cada resposta tem botão Copiar; a barra de conversas copia a conversa inteira em Markdown.
 
@@ -176,7 +170,7 @@ Versão de desenvolvimento com foco no motor de IA e em sites difíceis (planilh
 
 ## Fallback visual
 
-- **Sugestão de captura quando o DOM é pobre**: se  encontra 3 controles ou menos (canvas, app visual), o resultado orienta uma única  e proíbe repetir inspeção — menos rodadas e menos token em sites que o DOM não descreve.
+- **Sugestão de captura quando o DOM é pobre**: se encontra 3 controles ou menos (canvas, app visual), o resultado orienta uma única e proíbe repetir inspeção — menos rodadas e menos token em sites que o DOM não descreve.
 
 ## Fluxos com login sob autorização explícita
 
@@ -220,7 +214,6 @@ Versão de desenvolvimento com foco no motor de IA e em sites difíceis (planilh
 - **Planilhas em uma chamada**: o exemplo de `sheets batch` (ler intervalo e gravar total) entrou no prompt, junto da
   proibição de inspecionar antes numa planilha.
 
-
 Versão de desenvolvimento com foco no motor de IA e em sites difíceis (planilhas, canvas, editores).
 
 ## Auditoria e correções
@@ -243,7 +236,6 @@ Versão de desenvolvimento com foco no motor de IA e em sites difíceis (planilh
 - **Contrato de saída com lote**: receita que lê dentro de `sheets batch` agora alimenta `output`/`outputValid`; antes
   falhava com “nenhuma leitura”.
 - **Histórico — recursos**: uma versão anterior ligou receitas, transformações e cache por configuração. Hoje a execução de transformações/módulos está bloqueada; não interprete este registro histórico como estado atual.
-
 
 Versão de desenvolvimento com foco no motor de IA e em sites difíceis (planilhas, canvas, editores).
 

@@ -3,7 +3,14 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { BotAvatarCatalog, BOT_ACCENT_PALETTE, BOT_STATE_COLORS } = require('../src/main/bot-avatar-catalog');
+const {
+  BotAvatarCatalog,
+  BOT_ACCENT_PALETTE,
+  BOT_STATE_COLORS,
+  BOT_STROKE_SYMBOLS,
+  formatBotInitials,
+  suggestNextFreeBotIdentity
+} = require('../src/main/bot-avatar-catalog');
 
 const assetPath = path.join(__dirname, '../assets/bots');
 
@@ -110,3 +117,23 @@ test('8-color bot palette and state ring colors keep >= 3:1 WCAG contrast on lig
   const usedAccents = new Set(catalog.list().map((avatar) => avatar.accent));
   assert.equal(usedAccents.size, 8);
 }));
+
+test('24 stroke symbols, 2-letter initials, and non-duplicate (symbolId, accent) identity suggestion', () => {
+  assert.equal(BOT_STROKE_SYMBOLS.length, 24);
+  assert.equal(new Set(BOT_STROKE_SYMBOLS.map((s) => s.id)).size, 24);
+  for (const symbol of BOT_STROKE_SYMBOLS) {
+    assert.ok(symbol.id && symbol.label && symbol.path.startsWith('M') || symbol.path.startsWith('m'));
+  }
+
+  assert.equal(formatBotInitials('Pesquisador de Preços'), 'PD');
+  assert.equal(formatBotInitials('Alerta'), 'AL');
+  assert.equal(formatBotInitials(''), 'BT');
+
+  const assigned = [];
+  for (let i = 0; i < 24; i++) {
+    const next = suggestNextFreeBotIdentity(assigned);
+    assert.ok(!assigned.some((b) => b.symbolId === next.symbolId && b.accent === next.accent));
+    assigned.push(next);
+  }
+  assert.equal(assigned.length, 24);
+});

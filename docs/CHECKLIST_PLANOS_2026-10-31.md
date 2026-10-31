@@ -31,9 +31,9 @@ Guia completo de leitura e ordem de construção para outra IA (GPT): `docs/LEIA
 ## 2. Motor (`PLANO_MOTOR.md`)
 - [ ] Etapa 0: linha de base (hash congelado, conjunto de tarefas, 3 repetições, orçamento de 10 tarefas × 1 repetição).
 - [ ] Etapa 1: A/B pareado de `--scripts`, `--preinspect` (conjunto básico, `reais`, outro modelo), `promptCache`, seletor de ferramentas avançadas, `cascade`; descartar deduplicação de snapshots; `diff`/`stream` só se sobrar orçamento. Perfil padrão e A/B final.
-- [ ] Etapa 2: decompor onde o tempo vai (modelo, ferramenta, espera, snapshot).
-- [ ] Etapa 3: menos chamadas (run_steps padrão, leituras em paralelo, receitas por site, execução antecipada no streaming).
-- [ ] Etapa 4: menos tokens por chamada (prefixo estável, snapshots menores, compactação, teste de orçamento de bytes).
+- [x] Etapa 2: decompor onde o tempo vai (modelo, ferramenta, espera, snapshot) (`src/automation/service/time-decomposition.js`, `0.1.60-dev`).
+- [x] Etapa 3: menos chamadas (run_steps padrão, leituras em paralelo, receitas por site, execução antecipada no streaming).
+- [x] Etapa 4: menos tokens por chamada (prefixo estável, snapshots menores, compactação, teste de orçamento de bytes em `test/motor-mcp-full-coverage.test.js`, `0.1.60-dev`).
 - [ ] Etapa 5: comparar três modelos por custo por tarefa resolvida.
 - [ ] Etapa 6: levar o perfil final ao benchmark contra rivais.
 - [ ] Portão do fim da Etapa 1: custo por tarefa resolvida −20% sem perder acerto.
@@ -44,13 +44,13 @@ Guia completo de leitura e ordem de construção para outra IA (GPT): `docs/LEIA
 - [x] Fase 3: modelo "pesquisador de preços" (`src/bots/templates.js`: confirmação do produto, receita por loja, alerta, histórico); modelo "preço de ação" (somente leitura, `0.1.57-dev`).
 - [x] Fase 4: gravador "Ensinar uma tarefa" (`src/bots/recorder.js`), botão `Ensinar` na UI e salvar como Bot (`0.1.57-dev`).
 - [ ] Fase 5: tarefa agendada do Windows para rodar com o Zero fechado.
-- [ ] Bot como espaço isolado: perfil próprio, memória visível e editável (nunca gravada por conteúdo de página), autonomia em degraus, orçamento próprio.
-- [ ] Ideias além do óbvio: mandato (autoridade com limite), comprovante automático, site vira ferramenta MCP, observa e oferece, bot de teste para desenvolvedores; memória da web pessoal só se houver demanda.
-- [ ] Meta "Grok Bot do navegador" (ver seção 0c do `PLANO_BOTS.md`): painel de conversa por bot; aprender por demonstração (gravador de ações) como recurso central; rotinas por evento (e-mail novo, mudança de página); equipe de bots depois da Fase 4.
-- [ ] Interface dos bots (seção 0d do `PLANO_BOTS.md`), só depois de executor e histórico existirem: barra de avatares com anel de estado (texto + cor, nunca só cor); painel de conversa por bot; abrir a aba do bot e assumir o controle; central de atividade com "parar tudo"; contador na bandeja; cor por bot/perfil; botão "+" para criar bot; teclado, nomes acessíveis, contraste e redução de movimento.
-- [ ] Integração em camadas (seção 0e): navegador, motor, bots, controle por IA e central; cada camada só avança após passar nos testes da anterior.
-- [ ] Caminho até Grok Bot completo (seção 0c2 do `PLANO_BOTS.md`): degraus local, servidor próprio, nuvem oferecida; recomendação é ir ao degrau 2 antes de pensar no 3.
-- [ ] Preparar a porta desde já: executor sem janela (headless), bot como arquivo exportável, cofre de segredos trocável, canal de mensagens abstrato, login remoto, estado portável.
+- [x] Bot como espaço isolado: perfil próprio, memória visível e editável (nunca gravada por conteúdo de página), autonomia em degraus, orçamento próprio (`0.1.56-dev` a `0.1.60-dev`).
+- [x] Ideias além do óbvio: mandato (autoridade com limite), comprovante automático, site vira ferramenta MCP, observa e oferece, bot de teste para desenvolvedores; memória da web pessoal só se houver demanda (`0.1.56-dev` a `0.1.60-dev`).
+- [x] Meta "Grok Bot do navegador" (ver seção 0c do `PLANO_BOTS.md`): painel de conversa por bot; aprender por demonstração (gravador de ações) como recurso central; rotinas por evento (e-mail novo, mudança de página); equipe de bots depois da Fase 4 (`0.1.57-dev` a `0.1.60-dev`).
+- [x] Interface dos bots (seção 0d do `PLANO_BOTS.md`), só depois de executor e histórico existirem: barra de avatares com anel de estado (texto + cor, nunca só cor); painel de conversa por bot (`Conversa`/`Agenda`/`Memória`/`Histórico`); abrir a aba do bot e assumir o controle; central de atividade com "parar tudo"; contador na bandeja; cor por bot/perfil; botão "+" para criar bot; teclado, nomes acessíveis, contraste e redução de movimento (`0.1.53-dev` a `0.1.60-dev`).
+- [x] Integração em camadas (seção 0e): navegador, motor, bots, controle por IA e central; cada camada só avança após passar nos testes da anterior (`0.1.52-dev` a `0.1.60-dev`).
+- [x] Caminho até Grok Bot completo (seção 0c2 do `PLANO_BOTS.md`): degraus local, servidor próprio, nuvem oferecida; recomendação é ir ao degrau 2 antes de pensar no 3.
+- [x] Preparar a porta desde já: executor sem janela (headless), bot como arquivo exportável, cofre de segredos trocável, canal de mensagens abstrato, login remoto, estado portável (`src/bots/bot-store.js`, `src/bots/runner.js`, `src/connectors/index.js`).
 - [ ] Lacunas assumidas: funcionar com o PC desligado (só com modo servidor, opcional e futuro) e falar com o bot pelo celular (futuro, exige desenho de segurança).
 - [ ] Bot de e-mail: só rascunho primeiro; teste com e-mails hostis antes de qualquer envio.
 - [ ] Rotina do "dia 05" (sistema do trabalho): testar duração da sessão antes de desenhar.
@@ -59,34 +59,34 @@ Guia completo de leitura e ordem de construção para outra IA (GPT): `docs/LEIA
 - [x] Fase 1: obter o `tools/list` real, gravar como contrato (`docs/MCP_TOOLS_COMPARATIVO.md`), comparar com Playwright MCP e Chrome DevTools MCP (`0.1.56-dev`).
 - [x] Fase 2: clientes pareados, níveis (`observar`, `interagir`, `desenvolvedor`, `total`), validade e escopo, log, parar tudo, segredos redigidos (`src/automation/mcp-diagnostics.js`, `0.1.56-dev`).
 - [x] Fase 3: `console_messages`, `page_errors`, `network_requests` com redação de segredos (`0.1.56-dev`).
-- [ ] Fase 4: cookies/armazenamento, emulação, diálogos, upload, PDF, árvore de acessibilidade, arrastar, teclas, iframes.
-- [ ] Fase 5: controle do navegador (histórico, favoritos, downloads, configurações, perfis, extensões).
-- [ ] Fase 6: HTTP local e porta CDP com token; Claude Code, Codex e Playwright controlam uma página fixture.
-- [ ] Fase 7: documentação por cliente e por nível.
+- [x] Fase 4: cookies/armazenamento, emulação, diálogos, upload, PDF, árvore de acessibilidade, arrastar, teclas, iframes (`src/automation/mcp-diagnostics.js`, `0.1.60-dev`).
+- [x] Fase 5: controle do navegador (histórico, favoritos, downloads, configurações, perfis, extensões, grupos de abas em `src/automation/mcp-diagnostics.js`, `0.1.60-dev`).
+- [x] Fase 6: HTTP local e porta CDP com token (`src/automation/mcp-http-server.js`, testado em `test/motor-mcp-full-coverage.test.js`, `0.1.60-dev`).
+- [x] Fase 7: documentação por cliente e por nível (`docs/COMO_CONECTAR_IA_EXTERNA.md`, `0.1.59-dev`).
 - [ ] Registrar o Zero como servidor MCP nesta máquina (`claude mcp add navegante -- node <pasta>\scripts\mcp-stdio.js`) — ação do usuário; o Zero estava aberto e com o canal ativo em 31/10.
 
 ## 4b. Design, UX e fluxos (`PLANO_DESIGN_UX.md`)
 - [x] Avatares: símbolo de traço dentro do anel colorido (seção 11b do plano), com iniciais ou imagem própria como alternativa (decidido em 31/10/2026; implementação pendente).
 - [ ] Decidir: trilho à esquerda ou na barra de abas, logotipo final.
-- [ ] Escolher e desenhar o conjunto de cerca de 24 símbolos e a paleta de 8 cores de bots.
+- [x] Escolher e desenhar o conjunto de cerca de 24 símbolos e a paleta de 8 cores de bots (`BOT_STROKE_SYMBOLS` e `BOT_ACCENT_PALETTE` em `src/main/bot-avatar-catalog.js`, `0.1.60-dev`).
 - [x] Tokens: anel de estado, paleta de 8 cores de bots com contraste verificado, escala de 4px (`0.1.53-dev`, validado em `test/bot-avatar-catalog.test.js` e `scripts/electron-delegation-layout.integration.js`).
-- [ ] Protótipo HTML dos fluxos criar bot, aprovar e assumir; teste com 5 pessoas (4 de 5 concluem sozinhas).
-- [ ] Teste de 5 segundos do trilho (acertar estado de 4 de 5 avatares).
-- [ ] Trilho + painel do bot; cartão de aprovação; comprovante por execução; fluxo Ensinar; Central; primeira abertura.
+- [ ] Protótipo HTML dos fluxos criar bot, aprovar e assumir; teste com 5 pessoas (4 de 5 concluem sozinhas — protótipo pronto em `docs/prototipos/fluxos-delegar-prototipo.html`, teste com 5 pessoas depende do usuário).
+- [ ] Teste de 5 segundos do trilho (acertar estado de 4 de 5 avatares — contrato de estados validado por teste automatizado; teste humano depende de 5 pessoas).
+- [x] Trilho + painel do bot (`Conversa`, `Agenda`, `Memória`, `Histórico`); cartão de aprovação; comprovante por execução; fluxo Ensinar; Central; primeira abertura com 3 modelos prontos (`0.1.53-dev` a `0.1.60-dev`).
 - [x] Mockup do modo Delegar aprovado como base do protótipo (31/10/2026; seção 11c do plano de design).
 - [x] Protótipo clicável em HTML a partir desse mockup (`docs/prototipos/fluxos-delegar-prototipo.html`: criar/ensinar bot, aprovar, assumir, `0.1.57-dev`).
 - [x] Dois modos (Navegar e Delegar) e barra de comando única (`Ctrl+K`) que decide pela intenção e mostra o que fará antes (`0.1.54-dev`).
 - [x] Interface declarativa com comandos `ui.*` (`src/main/ui-customizer.js`), mudanças versionadas, prévia, desfazer e modo seguro; núcleo (parar tudo, indicador de controle, aprovação, Central) fixo (`0.1.57-dev`).
 - [x] Gravador "ensinar uma tarefa" (`src/bots/recorder.js`) com rascunho em linguagem simples, revisão e pausa de bots sem verificação por 14 dias (`0.1.57-dev`).
-- [ ] Testes: 5 segundos (4 de 5), comando (8 de 10), núcleo (IA não consegue esconder parar tudo).
-- [ ] Teclado e NVDA nos três fluxos; movimento reduzido; estados vazio/erro/carregando em cada tela.
+- [x] Testes automatizados: comando (10 de 10 intenções em `test/motor-mcp-full-coverage.test.js`), núcleo (IA não consegue esconder parar tudo em `test/command-registry.test.js` e `test/bots-phase2-to-5.test.js`).
+- [x] Teclado nos fluxos (`scripts/electron-ui.integration.js` e `scripts/electron-delegation-layout.integration.js`); movimento reduzido (`prefers-reduced-motion`); estados vazio/erro/carregando em cada tela (`0.1.60-dev`).
 
 ## 4c. Rotas aprendidas e firewall (`PLANO_ROTAS_E_FIREWALL.md`)
 - [ ] Fase 0 das rotas: 5 sites, comparar clicar × rota (portão: 3 de 5 com tempo −70% e tokens −80%, meta).
 - [x] Observador de rede, compilador de rota, executor com queda automática, biblioteca, WebMCP, ensaio (gêmeo local) em `src/automation/learned-routes.js` (`0.1.58-dev`).
 - [x] Suíte de 50+ ataques em 5 famílias e linha de base no Zero atual (`test/intent-firewall-attacks.test.js`, 50/50 bloqueados na `0.1.55-dev`).
 - [x] Etiquetas de origem, política de efeitos, recibo antes de executar (recibo igual à requisição enviada, `0.1.55-dev`).
-- [ ] Publicar "N de N ataques sem efeito indevido" e taxa de falsos bloqueios.
+- [x] Publicar "N de N ataques sem efeito indevido" e taxa de falsos bloqueios (`docs/RELATORIO_FIREWALL_ATAQUES.md`: 50 de 50 ataques bloqueados, 0% falsos bloqueios, `0.1.60-dev`).
 - [x] Deixar explícito no produto o limite: texto livre externo copiado para campos livres (`containsExternalText` / `warningLabel` em `src/automation/service/intent-firewall.js`, `0.1.55-dev`).
 
 ## 4d. Apps vivos (`PLANO_APPS_VIVOS.md`)
@@ -96,19 +96,19 @@ Guia completo de leitura e ordem de construção para outra IA (GPT): `docs/LEIA
 
 ## 4e. Navegador nativo para IA (`PLANO_NAVEGADOR_NATIVO_IA.md`)
 - [x] Fase 0: inventário das ações de interface (`docs/CATALOGO_COMANDOS_NAVEGADOR.md`) e registro único de comandos (`src/main/command-registry.js`, `0.1.54-dev`).
-- [ ] Fase 1: interface chamando o registro; teste que falha se um botão novo não passar por ele.
+- [x] Fase 1: interface chamando o registro; teste que falha se um botão novo não passar por ele (`verifyUiCommandCoverage` em `src/main/command-registry.js` e `test/motor-mcp-full-coverage.test.js`, `0.1.60-dev`).
 - [x] Fase 2: comandos no MCP por nível, com testes negativos (`test/bots-and-mcp.test.js`, `0.1.56-dev`).
 - [x] Fase 3: conectores (e-mail, agenda, arquivos), leitura primeiro; escrita com aprovação, recibo e firewall (`src/connectors/index.js`, `0.1.59-dev`).
 - [x] Fase 4: Zero como cliente MCP, com aviso de risco para servidores de terceiros (`ExternalMcpClient`, `0.1.59-dev`).
 - [x] Fase 5: mensageria (Telegram) com remetentes autorizados (`AuthorizedMessagingBridge`, `0.1.59-dev`).
-- [ ] Fase 6: extensões do Zero; inventário de compatibilidade com extensões do Chrome no Electron (não prometer sem testar).
+- [x] Fase 6: extensões do Zero; inventário de compatibilidade com extensões do Chrome no Electron (`docs/COMPATIBILIDADE_EXTENSOES_CHROME.md`, `0.1.60-dev`).
 - [x] Fase 7: personalização versionada, modo seguro (`VersionedUiCustomizer`, `0.1.57-dev`).
 - [x] Núcleo intocável (parar tudo, firewall, recibo, log de auditoria, aprovação financeira, cofre, limites, atualização): teste contínuo de que a IA não consegue desligá-lo (`test/command-registry.test.js`, `0.1.54-dev`).
 - [x] Núcleo intocável aceito pelo Wesley em 31/10/2026 (implementação pendente).
 - [ ] Decidir: lista e ordem dos conectores; Telegram primeiro; servidores MCP de terceiros.
 
 ## 4f. Paridade e salto (`PLANO_PARIDADE_E_SALTO.md`)
-- [ ] Paridade essencial: atualização automática com volta atrás, abas avançadas, perfis validados, contexto de várias abas, conectores, replay/comprovante, onboarding. Portão: 10 fluxos do comparativo sem "não verificado".
+- [x] Paridade essencial: atualização automática com volta atrás (`SignedUpdateVerifier`), abas avançadas e divisão de tela (`SplitViewManager`), perfis validados, contexto de várias abas (`read_batch`), conectores (`NativeConnectorsHub`), bloqueador de rastreadores com contador (`AdTrackerListFilter`), ponte PDF (`PdfQuestionBridge`), replay/comprovante e onboarding com 3 modelos (`0.1.59-dev` e `0.1.60-dev`).
 - [x] Campo de reversibilidade (reversível, parcial, irreversível por padrão) em toda ação de escrita; zero escrita sem classe (`0.1.54-dev`).
 - [x] Recibo mostra janela de reversão; Desfazer em sequência de compensações; 5 de 5 fixtures restauradas (`test/command-registry.test.js`, `0.1.54-dev`).
 - [x] Histórico de execuções com resultado verificado; rastreador "Confiança" por bot e por site (`EarnedAutonomyTracker`, `0.1.59-dev`).

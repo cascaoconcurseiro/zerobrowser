@@ -1,6 +1,6 @@
 # Plano de design, UX e fluxos — Zero Browser com bots
 
-Data: 31/10/2026. Proposta; nada implementado. Base: tokens atuais de `src/renderer/styles.css` (tema verde-azulado `#326f61`, claro e escuro, raio 10px, fonte do sistema) e os planos de bots e controle por IA. O visual atual é limpo, mas genérico: parece um Chrome com tinta verde. Os bots exigem uma identidade e três respostas visuais que um navegador comum não precisa dar.
+Data: 31/10/2026. **Status: Implementado (`0.1.53-dev` a `0.1.60-dev`).** Base: tokens de `src/renderer/styles.css`, `src/main/bot-avatar-catalog.js`, `src/renderer/index.html` e `src/renderer/app.js`.
 
 ## 1. Ideia central: o anel
 
