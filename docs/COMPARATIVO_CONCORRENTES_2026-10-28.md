@@ -7,9 +7,9 @@
 
 O Zero Browser é um **protótipo de navegador com agente em estágio inicial**, ainda sem evidência para lhe atribuir colocação numérica no mercado. Ele não tem dados comparáveis de adoção, retenção, disponibilidade, compatibilidade, preço, avaliação de usuários ou benchmark pareado de ponta a ponta. Em prontidão de produto e confiança demonstrada, está atrás de BrowserOS neo, Comet, Dia, Edge/Copilot, Chrome/Gemini e Opera Neon/One, que publicam experiências mais maduras ou dispõem de distribuição/ecossistema mais amplos. Isso é uma avaliação de prontidão baseada nas evidências disponíveis, não uma classificação de participação de mercado.
 
-Em 31/10/2026, o Zero Browser 0.1.49-dev está instalado em QA. `npm test` passou 370/370; `npm run test:ui`, `npm run test:bot-runtime` e `npm run test:delegation-layout` passaram na árvore da 0.1.48, cujo código de produto é o mesmo. O smoke instalado completo passou na 0.1.49, com perfil temporário e provedores simulados por loopback; confirmou catálogo OpenRouter/DeepSeek, handshake mock, automação AX/CUA, abas, DNT, download e aprovações. O candidato 0.1.50, ainda não instalado, também passou 370/370 e o smoke empacotado de aprovação via chat/teclado. Esses resultados comprovam somente os testes e a instalação no escopo reportado, não uso real com provedor, disponibilidade geral, adoção ou equivalência aos concorrentes.
+Em 31/10/2026, o Zero Browser 0.1.50-dev está instalado em QA. `npm test` passou 370/370; `npm run test:ui`, `npm run test:bot-runtime` e `npm run test:delegation-layout` passaram na árvore da 0.1.50. O smoke completo passou no executável instalado, com perfil temporário e provedores simulados por loopback; confirmou catálogo OpenRouter/DeepSeek, handshake mock, automação AX/CUA, abas, DNT, download, aprovações no chat por teclado, recusa ao fechar o painel e diálogo nativo. Esses resultados comprovam somente os testes e a instalação no escopo reportado, não uso real com provedor, disponibilidade geral, adoção ou equivalência aos concorrentes.
 
-O Zero tem uma base própria para um nicho técnico: agentes com provedores configuráveis, MCP, ferramentas de navegação, aprovações e automações estruturadas. Seus diferenciais seguem como hipóteses de produto até haver uso e comparação independentes. A instalação QA via NSIS da 0.1.49-dev confirma esse caminho de distribuição, mas não muda o posicionamento competitivo: ainda falta aceite completo do layout, autenticação real, auditoria adversarial, maturidade de ecossistema e comparativos com condições pareadas.
+O Zero tem uma base própria para um nicho técnico: agentes com provedores configuráveis, MCP, ferramentas de navegação, aprovações e automações estruturadas. Seus diferenciais seguem como hipóteses de produto até haver uso e comparação independentes. A instalação QA via NSIS da 0.1.50-dev confirma esse caminho de distribuição, mas não muda o posicionamento competitivo: ainda falta aceite completo do layout, autenticação real, auditoria adversarial, maturidade de ecossistema e comparativos com condições pareadas.
 
 **Posição honesta hoje:** abaixo dos produtos ativos em acabamento, ecossistema e confiança comprovada; potencialmente diferenciado como navegador experimental, controlável e extensível para desenvolvedores. “Potencialmente” é uma hipótese de posicionamento, não resultado de pesquisa com clientes.
 
@@ -31,7 +31,7 @@ Esta escala avalia somente a maturidade da oferta publicamente descrita até 31/
 
 | Produto | Prontidão pública (1–5) | Evidência usada | Limite da nota |
 |---|---:|---|---|
-| Zero Browser | 2/5 | Em 31/10, versão instalada 0.1.49-dev passou `npm test` 370/370 e o smoke instalado completo com provedores mockados. O código de produto 0.1.48 também passou `test:ui`, `test:bot-runtime` e `test:delegation-layout`. Tem fixtures de pré-carga e autorização MCP. | Não prova chamada real a provedor, envio efetivo, segurança geral, adoção ou distribuição pública. |
+| Zero Browser | 2/5 | Em 31/10, versão instalada 0.1.50-dev passou `npm test` 370/370, `test:ui`, `test:bot-runtime`, `test:delegation-layout` e smoke instalado com provedores mockados; passou ainda aprovação no chat e fallback nativo em fixture. | Não prova chamada real a provedor, envio efetivo, segurança geral, adoção ou distribuição pública. |
 | BrowserOS neo | 4/5 | Produto gratuito com suporte declarado a três sistemas, conectores para clientes de agentes, múltiplas sessões e replay. | Recursos e números são declarações do fornecedor; nenhum teste técnico independente nesta comparação. |
 | Perplexity Comet | 4/5 | Produto disponível em quatro plataformas segundo a Perplexity, com recursos integrados de busca, contexto, comandos de browser, Gmail e resumo. | Não foi verificada a paridade entre dispositivos nem testada a qualidade das tarefas. |
 | Chrome com Gemini | 4/5 | Recursos integrados de contexto/Skills/resumo e Auto Browse anunciado para assinantes elegíveis. | Auto Browse restrito a AI Pro/Ultra nos EUA; disponibilidade de outros recursos varia por plataforma/conta. |
@@ -43,13 +43,13 @@ O Zero fica abaixo dos concorrentes ativos nesta leitura de prontidão pública.
 
 ## Nota do Zero por dimensão
 
-Escala qualitativa de prontidão interna de 1 (fraco/não demonstrado) a 5 (forte e validado no escopo) baseada em evidências locais. Não é nota de usuários nem benchmark entre produtos. O app 0.1.49-dev foi instalado via NSIS em QA e passou o smoke com endpoints mockados; segurança ampla, provedores reais e fluxos extensos não foram revalidados integralmente nesta rodada.
+Escala qualitativa de prontidão interna de 1 (fraco/não demonstrado) a 5 (forte e validado no escopo) baseada em evidências locais. Não é nota de usuários nem benchmark entre produtos. O app 0.1.50-dev foi instalado via NSIS em QA e passou o smoke com endpoints mockados; segurança ampla, provedores reais e fluxos extensos não foram revalidados integralmente nesta rodada.
 
 | Dimensão | Nota | Evidência e limite |
 |---|---:|---|
-| Navegação e abas básicas | 3/5 | `test:ui` passou e a instalação 0.1.47-dev abriu em QA. Isso não equivale a aceite de toda navegação/gerenciamento de abas; ver reconciliação histórica abaixo para detalhes da 0.1.43. |
+| Navegação e abas básicas | 3/5 | A última inspeção visual registrada foi na instalação 0.1.47-dev; a smoke da 0.1.50 não é aceite visual completo de navegação/abas. Ver a reconciliação histórica abaixo para os limites da evidência. |
 | Automação e controle técnico | 3/5 | Snapshot local da versão 0.1.43-dev: código traz ferramentas AX, navegador, scripts/receitas condicionais e MCP. Fixture/pacote validam alguns fluxos; sites autenticados e ampla gama de páginas complexas continuam sem validação. |
-| UX e acabamento diário | 2/5 | Instalação 0.1.47-dev conferida visualmente com Delegar e Central; smoke 0.1.48 da Central em 700/400 px com IPC mockado. Não é aceite visual da identidade completa, consistência das demais superfícies ou experiência dos bots como sistema integrado. |
+| UX e acabamento diário | 2/5 | Última inspeção visual de Delegar/Central registrada na 0.1.47-dev; a smoke 0.1.50 validou fluxos de aprovação e não cobre a identidade completa, consistência das demais superfícies nem experiência integrada dos Bots. |
 | Segurança e confiança do agente | 2/5 | `test:bot-runtime` passou; credenciais e CDP bruto foram recusados no escopo reportado. Isso não é auditoria adversarial nem validação de extensão Flame. Snapshot de código 0.1.43 registra IPC guard, fuses endurecidas, permissões e filtros, mas sandbox desativado; a arquitetura integral não foi revalidada para esta nota. |
 | Ecossistema e integrações | 2/5 | Serviço MCP e provedores configuráveis constavam no código local; nenhuma chamada real de provedor foi reportada como evidência da entrega 0.1.47. Integrações prontas e sessões multiagente auditáveis não foram comprovadas neste recorte. |
 | Inferência local/on-device | 2/5 | Histórico da 0.1.43 descreve provider Ollama opcional validado apenas com mock. A conexão com servidor Ollama instalado não foi revalidada na 0.1.46. |
@@ -96,15 +96,16 @@ Continuam abertos porque exigem segredo/conta do usuário ou custo de inferênci
 
 ### Reconciliação com o checklist histórico
 
+Esta tabela registra a reconciliação feita na data do comparativo. O roteiro ativo agora está em `CHECKLIST.md`; o inventário disponível antes desta reorganização foi preservado em `docs/CHECKLIST_HISTORICO.md`. Os números e estados abaixo são históricos e não representam o estado atual. A cópia arquivada não é um snapshot exato da data do comparativo; revalidar cada tarefa no código antes de reabri-la.
 | Itens | Estado ao final desta sessão | Evidência/limite |
 |---|---|---|
-| `CHECKLIST.md` 182, 199, 209 e 218 | **Abertos; mesmo gate de autenticação real** | Testes de UI, chave mock, catálogo mock e resposta HTTP 401 sem chave não demonstram chat autenticado. A nota histórica de 199 sobre diagnóstico insuficiente é superada por testes de rede com erro tipado, mas a chamada real segue não executada. |
-| `CHECKLIST.md` 329 e 433 | **Abertos; comparação entre modelos** | DeepSeek Flash tem medições históricas, mas falta segundo modelo e repetição pareada antes de qualquer conclusão geral. |
-| `CHECKLIST.md` 378 | **Aberto; cobertura difícil repetida** | Requisito histórico de 28/28 em duas rodadas; a suíte local de 301 testes não substitui essa avaliação browser/modelo. |
-| `CHECKLIST.md` 471 e 513 | **Abertos; benchmark real de flags** | O resultado exploratório de uma execução em 514 não fecha a comparação de `--scripts`, `--journal` e `--preinspect` em 44/33 nem o benchmark com amostra suficiente. |
-| `CHECKLIST.md` 507 e 512 | **Abertos; validação real de Planilhas** | Dependem de uma planilha de teste autorizada; não foram executados nem marcados. |
-| `CHECKLIST.md` 514 | **Concluído historicamente, só exploratório** | Preservar a nota de 1 execução por condição como evidência estreita; não usar como resultado estatístico ou prova de paridade. |
-| `CHECKLIST.md` 569 e 584 | **Em aberto; objetivo amplo não concluído** | A auditoria de inventário está atualizada nesta rodada, mas gates de autenticação, benchmark real, cobertura difícil e Sheets autorizados permanecem. Não marcar os agregadores até comprovar todos os requisitos. |
+| `docs/CHECKLIST_HISTORICO.md` 182, 199, 209 e 218 | **Abertos; mesmo gate de autenticação real** | Testes de UI, chave mock, catálogo mock e resposta HTTP 401 sem chave não demonstram chat autenticado. A nota histórica de 199 sobre diagnóstico insuficiente é superada por testes de rede com erro tipado, mas a chamada real segue não executada. |
+| `docs/CHECKLIST_HISTORICO.md` 329 e 433 | **Abertos; comparação entre modelos** | DeepSeek Flash tem medições históricas, mas falta segundo modelo e repetição pareada antes de qualquer conclusão geral. |
+| `docs/CHECKLIST_HISTORICO.md` 378 | **Aberto; cobertura difícil repetida** | Requisito histórico de 28/28 em duas rodadas; a suíte local de 301 testes não substitui essa avaliação browser/modelo. |
+| `docs/CHECKLIST_HISTORICO.md` 471 e 513 | **Abertos; benchmark real de flags** | O resultado exploratório de uma execução em 514 não fecha a comparação de `--scripts`, `--journal` e `--preinspect` em 44/33 nem o benchmark com amostra suficiente. |
+| `docs/CHECKLIST_HISTORICO.md` 507 e 512 | **Abertos; validação real de Planilhas** | Dependem de uma planilha de teste autorizada; não foram executados nem marcados. |
+| `docs/CHECKLIST_HISTORICO.md` 514 | **Concluído historicamente, só exploratório** | Preservar a nota de 1 execução por condição como evidência estreita; não usar como resultado estatístico ou prova de paridade. |
+| `docs/CHECKLIST_HISTORICO.md` 569 e 584 | **Em aberto; objetivo amplo não concluído** | A auditoria de inventário está atualizada nesta rodada, mas gates de autenticação, benchmark real, cobertura difícil e Sheets autorizados permanecem. Não marcar os agregadores até comprovar todos os requisitos. |
 
 ## Fontes e critério
 

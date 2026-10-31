@@ -1,4 +1,11 @@
-# Novidades — Zero Browser 0.1.50-dev
+# Novidades — Zero Browser 0.1.51-dev
+
+## Central de Bots e layout Delegar — 31/10/2026
+
+- A Central agora ocupa o mesmo painel reservado pelo processo principal do navegador; a página nativa deixa de cobrir a lista e os controles.
+- A Central tem título, contagem, lista rolável independente, estado do Bot atual e ação Criar Bot sempre acessível. Em janelas estreitas, usa o espaço restante ao lado do trilho.
+- Barra superior, painel de conversa e página seguem as proporções do conceito visual do modo Delegar. O campo de endereço ganhou contraste legível e a barra vazia de favoritos deixa de consumir espaço.
+- Validação local: `npm test` 370/370, `npm run test:ui` PASS e `npm run test:delegation-layout` PASS em 1584x966, 1402x901, 700x800 e 400x800. `test:installed` PASS com perfil temporário e provedor mockado em loopback. Nenhuma chamada a provedor externo.
 
 ## Aprovações e autonomia de Bots — 31/10/2026
 
@@ -6,7 +13,7 @@
 - Aprovações no chat só são usadas com o painel Delegar ativo. Fechar ou trocar de painel cancela pedidos pendentes; a interface exibe quando a ação foi cancelada ou o pedido expirou. Com o painel fechado, permanece o diálogo nativo.
 - O teste de Bots verifica perfil novo em `Sempre perguntar`, recusa e aceite humano ao elevar autonomia, redução automática de autonomia e proteções técnicas ainda ativas em `Permitir todas automaticamente`.
 - Validação local: `npm test` 370/370, `npm run test:ui` PASS, `npm run test:bot-runtime` PASS. O smoke do executável empacotado passou em Permitir/Cancelar via Enter, fechamento do painel e diálogo nativo. Revisão independente sem bypass; risco residual baixo apenas de ordem visual na transição. Nenhum endpoint externo foi chamado.
-- Instalador 0.1.50-dev gerado; aguarda commit, backup/instalação QA e smoke no executável instalado.
+- Após o commit `ddac732`, instalador 0.1.50-dev instalado em QA (exit code 0); versão/hashes/atalhos confirmados e smoke completo passou. A janela está aberta em perfil QA separado. O app e o instalador não têm assinatura Authenticode.
 
 ## Histórico — 0.1.49-dev
 

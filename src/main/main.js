@@ -66,6 +66,8 @@ let flamePanelHidden = false;
 let library = null; // favoritos e histórico (SQLite)
 let botAvatarCatalog = null;
 const closedTabs = []; // para Ctrl+Shift+T
+const TAB_BAR_HEIGHT = 60;
+const TOOLBAR_HEIGHT = 52;
 const BOOKMARKS_BAR_HEIGHT = 32;
 let bookmarksBarVisible = false;
 let shuttingDown = false; // ao sair, as abas fecham uma a uma e não devem apagar a sessão salva
@@ -650,17 +652,21 @@ handleMainUiIpc('settings:choose-download-directory', async () => {
 function updateBrowserViewBounds() {
   if (!mainWindow || mainWindow.isDestroyed()) return null;
   const contentBounds = mainWindow.getContentBounds();
-  const tabBarHeight = 40;
-  const addressBarHeight = 44 + (bookmarksBarVisible ? BOOKMARKS_BAR_HEIGHT : 0);
+  const top = TAB_BAR_HEIGHT + TOOLBAR_HEIGHT + (bookmarksBarVisible ? BOOKMARKS_BAR_HEIGHT : 0);
+  const compact = contentBounds.width <= 800;
   const flameOpen = flamePanels.has(activeBrowserTabId) && !flamePanelHidden;
+  const sidePanelLimit = sidePanelPosition === 'left' ? (compact ? 520 : 640) : 360;
+  const mobileLeftPanel = sidePanelOpen && sidePanelPosition === 'left' && contentBounds.width <= 480;
+  const sidePanelRatio = sidePanelPosition === 'left'
+    ? (mobileLeftPanel ? (contentBounds.width - 64) / contentBounds.width : compact ? 0.46 : 0.42)
+    : 0.4;
   const sidePanelWidth = flameOpen
-    ? Math.min(FLAME_PANEL_WIDTH, Math.floor(contentBounds.width * 0.45))
-    : sidePanelOpen ? Math.min(sidePanelPosition === 'left' ? 640 : 360, Math.floor(contentBounds.width * (sidePanelPosition === 'left' ? 0.42 : 0.4))) : 0;
-  const delegationRailWidth = sidePanelOpen && sidePanelPosition === 'left' ? 80 : 0;
-  const top = tabBarHeight + addressBarHeight;
+    ? Math.min(FLAME_PANEL_WIDTH, Math.ceil(contentBounds.width * 0.45))
+    : sidePanelOpen ? Math.min(sidePanelLimit, Math.ceil(contentBounds.width * sidePanelRatio)) : 0;
+  const delegationRailWidth = sidePanelOpen && sidePanelPosition === 'left' ? (compact ? 64 : 80) : 0;
   for (const panel of flamePanels.values()) {
     if (!panel.webContents.isDestroyed()) {
-      panel.setBounds({ x: contentBounds.width - sidePanelWidth, y: top, width: sidePanelWidth, height: contentBounds.height - top });
+      panel.setBounds({ x: contentBounds.width - sidePanelWidth, y: top, width: sidePanelWidth, height: Math.max(1, contentBounds.height - top) });
     }
   }
 
@@ -668,9 +674,9 @@ function updateBrowserViewBounds() {
     if (!view.webContents.isDestroyed()) {
       view.setBounds({
         x: delegationRailWidth + (sidePanelPosition === 'left' && sidePanelOpen ? sidePanelWidth : 0),
-        y: tabBarHeight + addressBarHeight,
-        width: Math.max(320, contentBounds.width - sidePanelWidth - delegationRailWidth),
-        height: contentBounds.height - tabBarHeight - addressBarHeight
+        y: top,
+        width: Math.max(1, contentBounds.width - sidePanelWidth - delegationRailWidth),
+        height: Math.max(1, contentBounds.height - top)
       });
     }
   });
@@ -833,16 +839,16 @@ handleMainUiIpc('browser:set-side-panel-open', (event, state) => {
   const panelState = state && typeof state === 'object' ? state : { open: state === true };
   sidePanelOpen = panelState.open === true;
   sidePanelPosition = panelState.position === 'left' ? 'left' : 'right';
-  sidePanelMode = sidePanelOpen && ['ai', 'settings', 'library'].includes(panelState.mode) ? panelState.mode : 'none';
+  sidePanelMode = sidePanelOpen && ['ai', 'bots', 'settings', 'library'].includes(panelState.mode) ? panelState.mode : 'none';
   const bounds = updateBrowserViewBounds();
-  return { open: sidePanelOpen, bounds };
+  return { open: sidePanelOpen, bounds, contentTop: TAB_BAR_HEIGHT + TOOLBAR_HEIGHT + (bookmarksBarVisible ? BOOKMARKS_BAR_HEIGHT : 0) };
 });
 
 handleMainUiIpc('browser:get-side-panel-layout', (event) => {
   if (!mainWindow || event.sender !== mainWindow.webContents) {
     throw new Error('Somente a janela principal pode consultar o layout do navegador.');
   }
-  return { open: sidePanelOpen, frozen: pageFrozen, bounds: browserViews.get(activeBrowserTabId)?.view.getBounds() || null };
+  return { open: sidePanelOpen, frozen: pageFrozen, bounds: browserViews.get(activeBrowserTabId)?.view.getBounds() || null, contentTop: TAB_BAR_HEIGHT + TOOLBAR_HEIGHT + (bookmarksBarVisible ? BOOKMARKS_BAR_HEIGHT : 0) };
 });
 
 handleMainUiIpc('browser:get-tab', async (e, tabId) => {
@@ -958,7 +964,7 @@ handleMainUiIpc('browser:set-bookmarks-bar', (event, visible) => {
   if (!mainWindow || event.sender !== mainWindow.webContents) throw new Error('Somente a janela principal pode alterar o layout.');
   bookmarksBarVisible = visible === true;
   updateBrowserViewBounds();
-  return { visible: bookmarksBarVisible };
+  return { visible: bookmarksBarVisible, contentTop: TAB_BAR_HEIGHT + TOOLBAR_HEIGHT + (bookmarksBarVisible ? BOOKMARKS_BAR_HEIGHT : 0) };
 });
 
 // As páginas ficam por cima da interface; enquanto a lista de sugestões está aberta, a página vira uma imagem

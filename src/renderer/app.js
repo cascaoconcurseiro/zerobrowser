@@ -418,8 +418,14 @@ class ZeroBrowserApp {
   }
 
   setBookmarksBarVisible(visible) {
+    const requestId = this.bookmarksLayoutRequest = (this.bookmarksLayoutRequest || 0) + 1;
     this.elements.bookmarksBar.classList.toggle('hidden', !visible);
-    window.zeroBrowser.browser.setBookmarksBar(Boolean(visible));
+    window.zeroBrowser.browser.setBookmarksBar(Boolean(visible)).then((result) => {
+      const contentTop = Number(result?.contentTop);
+      if (requestId === this.bookmarksLayoutRequest && Number.isFinite(contentTop) && contentTop > 0) {
+        document.documentElement.style.setProperty('--browser-content-top', `${contentTop}px`);
+      }
+    }).catch(() => {});
   }
 
   async renderBookmarksBar() {
@@ -427,6 +433,9 @@ class ZeroBrowserApp {
     const list = this.elements.bookmarksBarItems;
     list.replaceChildren();
     this.elements.bookmarksBarEmpty.classList.toggle('hidden', items.length > 0);
+    const showBookmarks = this.settings['browser.showBookmarksBar'] !== false && items.length > 0;
+    this.elements.bookmarksBar.classList.toggle('hidden', !showBookmarks);
+    this.setBookmarksBarVisible(showBookmarks);
     for (const node of items) {
       const item = document.createElement('li');
       const button = document.createElement('button');
@@ -1234,6 +1243,7 @@ class ZeroBrowserApp {
   async toggleAiPanel(forceOpen = false) {
     const opening = forceOpen ? true : this.elements.aiPanel.classList.contains('hidden');
     if (!opening) await this.denyPendingApprovals();
+    this.closeBotCentral({ restorePanel: false });
     this.elements.aiPanel.classList.toggle('hidden', !opening);
     this.elements.settingsPanel.classList.add('hidden');
     this.elements.libraryPanel.classList.add('hidden');
@@ -1241,9 +1251,9 @@ class ZeroBrowserApp {
     document.getElementById('app').classList.toggle('delegation-mode', opening);
     this.elements.delegationRail.classList.toggle('hidden', !opening);
     this.elements.btnAi.setAttribute('aria-pressed', String(opening));
-    this.elements.btnAi.querySelector('.ai-copilot-label').textContent = opening ? 'Navegar' : 'Delegar';
-    this.elements.btnAi.setAttribute('aria-label', opening ? 'Voltar ao modo Navegar' : 'Abrir modo Delegar');
-    this.elements.btnAi.title = opening ? 'Voltar ao modo Navegar' : 'Abrir modo Delegar (Ctrl+Shift+A)';
+    this.elements.btnAi.querySelector('.ai-copilot-label').textContent = 'Delegar';
+    this.elements.btnAi.setAttribute('aria-label', opening ? 'Modo Delegar aberto; voltar ao modo Navegar' : 'Abrir modo Delegar');
+    this.elements.btnAi.title = opening ? 'Modo Delegar · voltar ao modo Navegar' : 'Abrir modo Delegar (Ctrl+Shift+A)';
     this.elements.addressBar.placeholder = opening ? 'Pesquise, navegue ou peça ao Bot…' : 'Pesquise ou digite um endereço';
     this.elements.addressBar.setAttribute('aria-label', opening ? 'Pesquisar, navegar ou delegar ao Bot' : 'Endereço ou pesquisa');
     this.elements.btnBotCentral.classList.toggle('hidden', !opening);
@@ -1260,6 +1270,7 @@ class ZeroBrowserApp {
 
   async closeAiPanel() {
     await this.denyPendingApprovals();
+    this.closeBotCentral({ restorePanel: false });
     this.elements.aiPanel.classList.add('hidden');
     this.clearDelegationMode();
     if (this.elements.settingsPanel.classList.contains('hidden')) window.zeroBrowser.browser.setSidePanelOpen(false, 'left', 'none');
@@ -1495,41 +1506,69 @@ class ZeroBrowserApp {
 
   async toggleBotCentral() {
     const opening = this.elements.botCentral.classList.contains('hidden');
-    if (opening) await this.loadBotProfiles();
-    this.elements.botCentral.classList.toggle('hidden', !opening);
-    this.elements.btnBotCentral.setAttribute('aria-expanded', String(opening));
     if (opening) {
+      await this.denyPendingApprovals();
+      await this.loadBotProfiles();
+      this.botCentralReturnToAi = !this.elements.aiPanel.classList.contains('hidden');
+      if (this.botCentralReturnToAi) {
+        this.elements.aiPanel.inert = true;
+        this.elements.aiPanel.setAttribute('aria-hidden', 'true');
+      }
+      this.elements.botCentral.classList.remove('hidden');
+      this.elements.btnBotCentral.setAttribute('aria-expanded', 'true');
       this.renderBotCentral();
+      await window.zeroBrowser.browser.setSidePanelOpen(true, 'left', 'bots').catch(() => {});
       this.elements.btnBotCentralClose.focus();
-    }
+    } else this.closeBotCentral({ restoreFocus: true });
   }
 
-  closeBotCentral({ restoreFocus = false } = {}) {
+  closeBotCentral({ restoreFocus = false, restorePanel = true } = {}) {
     if (!this.elements.botCentral) return;
     const wasOpen = !this.elements.botCentral.classList.contains('hidden');
     this.elements.botCentral.classList.add('hidden');
     this.elements.btnBotCentral.setAttribute('aria-expanded', 'false');
-    if (wasOpen && restoreFocus) this.elements.btnBotCentral.focus();
+    if (!wasOpen) return;
+    const returnToAi = this.botCentralReturnToAi === true;
+    this.botCentralReturnToAi = false;
+    if (returnToAi) {
+      this.elements.aiPanel.inert = false;
+      this.elements.aiPanel.removeAttribute('aria-hidden');
+    }
+    if (restorePanel) window.zeroBrowser.browser.setSidePanelOpen(returnToAi, 'left', returnToAi ? 'ai' : 'none').catch(() => {});
+    if (restoreFocus) this.elements.btnBotCentral.focus();
   }
 
   renderBotCentral() {
     this.elements.botCentralList.replaceChildren();
-    this.elements.botCentralAvatarCount.textContent = `${this.botTeam.avatars || 0} avatares pixel art no catálogo`;
+    this.elements.botCentralAvatarCount.textContent = `${this.botTeam.avatars || 0} avatares disponíveis`;
+    const count = this.botTeam.bots.length;
+    document.getElementById('bot-central-count').textContent = `${count} ${count === 1 ? 'Bot' : 'Bots'}`;
     if (!this.botTeam.bots.length) {
-      const empty = document.createElement('p');
+      const empty = document.createElement('div');
       empty.className = 'bot-central-empty';
-      empty.textContent = 'Nenhum perfil Bot criado. Crie um Bot para ter uma sessão separada, um login próprio e um avatar pixel art.';
+      const title = document.createElement('strong');
+      title.textContent = 'Nenhum Bot criado ainda';
+      const message = document.createElement('p');
+      message.textContent = 'Crie um Bot para abrir uma sessão separada, com seus próprios cookies, login e avatar.';
+      empty.append(title, message);
       this.elements.botCentralList.appendChild(empty);
       return;
     }
     for (const bot of this.botTeam.bots) {
       const isCurrent = bot.id === this.botTeam.currentProfileId;
-      const row = document.createElement(isCurrent ? 'div' : 'button');
-      if (!isCurrent) row.type = 'button';
-      else row.setAttribute('aria-current', 'true');
+      const row = document.createElement('div');
+      row.setAttribute('role', 'listitem');
+      if (isCurrent) row.setAttribute('aria-current', 'true');
       row.className = 'bot-central-row';
-      if (isCurrent) row.classList.add('bot-central-current');
       row.style.setProperty('--bot-accent', bot.avatar?.accent || '#168f72');
+      const content = isCurrent ? document.createElement('div') : document.createElement('button');
+      content.className = 'bot-central-open';
+      if (!isCurrent) {
+        content.type = 'button';
+        content.setAttribute('aria-label', `${bot.name}, perfil isolado. Abrir janela do Bot.`);
+      } else {
+        content.classList.add('bot-central-current-content');
+      }
       const image = document.createElement('span');
       image.className = 'bot-avatar';
       image.setAttribute('aria-hidden', 'true');
@@ -1545,10 +1584,22 @@ class ZeroBrowserApp {
       const name = document.createElement('strong');
       name.textContent = bot.name;
       const state = document.createElement('span');
-      state.textContent = bot.id === this.botTeam.currentProfileId ? 'Perfil nesta janela' : 'Perfil isolado · abrir janela';
+      state.textContent = isCurrent ? 'Perfil nesta janela' : 'Sessão isolada';
       copy.append(name, state);
-      row.append(image, copy);
-      if (!isCurrent) row.addEventListener('click', () => {
+      content.append(image, copy);
+      if (isCurrent) {
+        const badge = document.createElement('span');
+        badge.className = 'bot-central-state';
+        badge.textContent = 'Ativo';
+        content.appendChild(badge);
+      } else {
+        const badge = document.createElement('span');
+        badge.className = 'bot-central-state';
+        badge.textContent = 'Abrir';
+        content.appendChild(badge);
+      }
+      row.appendChild(content);
+      if (!isCurrent) content.addEventListener('click', () => {
         window.zeroBrowser.browser.openBotProfile(bot.id).catch((error) => this.showToast(`Não foi possível abrir ${bot.name}: ${error.message}`, 'error'));
       });
       this.elements.botCentralList.appendChild(row);
@@ -1558,6 +1609,7 @@ class ZeroBrowserApp {
   async toggleSettingsPanel() {
     const opening = this.elements.settingsPanel.classList.contains('hidden');
     if (opening) await this.denyPendingApprovals();
+    this.closeBotCentral({ restorePanel: false });
     this.elements.settingsPanel.classList.toggle('hidden', !opening);
     this.elements.aiPanel.classList.add('hidden');
     this.clearDelegationMode();
@@ -1784,6 +1836,7 @@ class ZeroBrowserApp {
   async openLibrary(mode) {
     const libraryWasOpen = !this.elements.libraryPanel.classList.contains('hidden');
     await this.denyPendingApprovals();
+    this.closeBotCentral({ restorePanel: false });
     this.elements.libraryPanel.classList.remove('hidden');
     this.elements.aiPanel.classList.add('hidden');
     this.clearDelegationMode();

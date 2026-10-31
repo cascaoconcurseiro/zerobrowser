@@ -2,23 +2,23 @@
 
 Marca visível: **Zero Browser**. O identificador interno `navegante` e o `appId` legado são mantidos durante a mudança para preservar o diretório de dados e a identidade de atualização do aplicativo.
 
-Navegador Electron para Windows com agente integrado à OpenRouter, DeepSeek e, em modo opcional, Ollama local.
+Navegador Electron para Windows com agente integrado à OpenAI, OpenRouter e DeepSeek, além de Ollama local opcional.
 
 ## Estado atual (2026-10-31)
 
-A árvore está em **0.1.48-dev**; o app instalado em QA permanece em **0.1.47-dev** até o commit e a instalação do candidato. O NSIS foi gerado. No candidato, `npm test` passou 370/370 e os smokes `test:ui`, `test:bot-runtime` e `test:delegation-layout` passaram. Há fixtures de economia de esquema, pré-carga por intenção explícita, recusas de segurança MCP e layout responsivo da Central. Isso não comprova tokens faturados, chamada real de provedor, envio externo ou aceite completo do layout. Consulte `HANDOFF.md` para hashes e próximos gates.
+Código-fonte e executável instalado: **0.1.51-dev**. Esta versão reorganiza a Central de Bots, alinha as camadas do navegador para eliminar sobreposição, melhora telas estreitas e ajusta o modo Delegar ao conceito visual. Testes locais, smoke do executável com endpoints mockados, hashes e backup estão em `HANDOFF.md`. Consulte `CHECKLIST.md` para a ordem ativa.
 
 O comparativo em `docs/COMPARATIVO_CONCORRENTES_2026-10-28.md` avalia prontidão pública por rubrica editorial; não há base para participação de mercado, comparação de desempenho ou qualidade por ranking. Não houve chamada de provedor nesta fatia.
 
-### Registro histórico da versão instalada 0.1.43-dev (2026-10-29)
+### Histórico: versão instalada 0.1.43-dev (2026-10-29)
 
-O executável instalado foi atualizado para **0.1.43-dev**. O exe tem SHA-256 `09500e83e556859e888679392d92e7f3ad4d1204854c8404ff052e4236d27e11` e `app.asar` `c04a29dd9e1159c8c242f36114571640509cb4ebbad34451b7b598dfee477c20`. Integrações do executável instalado passaram em perfis temporários (smoke UX 9 verificações, agente e biblioteca após reinício); isso não é aceite amplo do perfil real. O backup pré-instalação verificável está em `backups/2026-10-28-before-0.1.43-install/`. O instalador iniciou o app automaticamente no perfil padrão e houve uma diferença de uma linha no banco de cookies (293 para 292); integridade SQLite passou, mas a linha removida não estava expirada e sua identidade não foi determinada. Consulte o registro detalhado em `HANDOFF.md` e `manifest.json`; não restaure o backup sem decidir, pois isso reverteria o perfil inteiro.
+O executável instalado foi atualizado para **0.1.43-dev**. O exe tem SHA-256 `09500e83e556859e888679392d92e7f3ad4d1204854c8404ff052e4236d27e11` e `app.asar` `c04a29dd9e1159c8c242f36114571640509cb4ebbad34451b7b598dfee477c20`. Integrações do executável instalado passaram em perfis temporários (smoke UX 9 verificações, agente e biblioteca após reinício); isso não é aceite amplo do perfil real. O backup pré-instalação verificável está em `backups/2026-10-28-before-0.1.43-install/`. O instalador iniciou o app automaticamente no perfil padrão e houve uma diferença de uma linha no banco de cookies (293 para 292); integridade SQLite passou, mas a linha removida não estava expirada e sua identidade não foi determinada. Consulte o registro histórico em `docs/HANDOFF_HISTORICO_ATE_0.1.50.md` e `manifest.json`; não restaure o backup sem decidir, pois isso reverteria o perfil inteiro.
 
 O instalador foi gerado localmente e não tem assinatura Authenticode. Versão/hash não comprovam segurança geral. A comparação de mercado em `docs/COMPARATIVO_CONCORRENTES_2026-10-28.md` conclui que o Zero segue em estágio de protótipo avançado, abaixo dos concorrentes maduros, sem base para ranking numérico. Backups de versões anteriores e instruções de restauração estão nos arquivos `LEIA-ME.md` das respectivas pastas em `backups/`.
 
 O NSIS foi configurado para não abrir o navegador automaticamente ao concluir a instalação (`build.nsis.runAfterFinish: false`). O script do instalador isolado confirma que a macro de execução normal não foi gerada; esse pacote ainda não foi executado.
 
-### Build instalado (0.1.43-dev; também disponível como artefato QA)
+### Recursos verificados historicamente na 0.1.43-dev
 
 - `tabs read_batch` pagina abas (`tabOffset`/`tabVersion`) e texto (`contentOffset`/`contentVersion`), reiniciando a leitura quando a página muda; `coverage.complete` agora fica `true` no último trecho.
 - Perfis locais pelo menu ⋮ (abrir, criar, excluir), cada um como processo próprio via `ZERO_USER_DATA`; sem renomear e sem migrar o perfil atual.
@@ -29,7 +29,7 @@ O NSIS foi configurado para não abrir o navegador automaticamente ao concluir a
 - Motor opt-in, desligado por padrão: `preInspect`, `run_steps` (com pós-condições), journal de efeitos (idempotência), snapshot por diferença, cascata de modelos e streaming. Só `preInspect` tem A/B registrado.
 - Verificação em 29/10/2026: no executável instalado, smoke UX 9 verificações, integração completa com provedores mockados e biblioteca após reinício passaram em perfis temporários. A suíte da árvore reportada para esta versão: `npm test` 302/302, `npm run test:ui` PASS, auditoria npm sem vulnerabilidades reportadas e testes de extensão 12/12. Isso não valida uso autenticado do DeepSeek, conexão Ollama real, benchmark pareado nem aceite amplo do perfil real.
 
-### Código em desenvolvimento (0.1.50-dev; candidato de atualização das aprovações de Bots)
+### Código em desenvolvimento (0.1.51-dev; instalação registrada em HANDOFF.md)
 
 - Espaços de Bots isolados, confirmação para elevar autonomia e proteções para não preencher ou expor credenciais. Validação e limites estão em `docs/NOVIDADES.md` e `HANDOFF.md`.
 - Modo Delegar abre por padrão; painel de conversa e perfis ficam à esquerda, página ativa à direita. A Central lista os perfis e troca/abre outros perfis em janela isolada. Takeover completo ainda não foi aceito em fluxos reais.

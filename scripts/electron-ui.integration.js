@@ -128,6 +128,7 @@ app.whenReady().then(async () => {
       libraryButtonsNativeAndTabbable: [...document.querySelectorAll('.library-tab')].every((button) => button.tagName === 'BUTTON' && button.tabIndex === 0),
       libraryButton: !!document.getElementById('btn-ai-library'),
       aiButtonLabel: document.querySelector('#btn-ai .ai-copilot-label')?.textContent.trim(),
+      aiButtonAccessibleLabel: document.getElementById('btn-ai')?.getAttribute('aria-label'),
       delegationModeOnStartup: document.getElementById('app')?.classList.contains('delegation-mode'),
       botRailVisible: !document.getElementById('delegation-rail')?.classList.contains('hidden'),
       botAvatarButtons: document.querySelectorAll('#bot-rail-list button.bot-avatar').length,
@@ -171,7 +172,8 @@ app.whenReady().then(async () => {
     assert.equal(shell.botAddressFocusVisible.focused && shell.botAddressFocusVisible.matches && shell.botAddressFocusVisible.outline !== 'none', true, `campo de endereço mantém indicador de foco no modo Delegar (${JSON.stringify(shell.botAddressFocusVisible)})`);
     assert.equal(shell.botAvatarCount, '200 avatares', 'a lateral deve refletir o catálogo de avatares');
     assert.equal(shell.botCentralVisible, true, 'Central de Bots deve estar acessível no modo Delegar');
-    assert.equal(shell.aiButtonLabel, 'Navegar', 'o controle deve oferecer retorno ao modo Navegar');
+    assert.equal(shell.aiButtonLabel, 'Delegar', 'o botão mantém o nome do modo exibido na referência');
+    assert.match(shell.aiButtonAccessibleLabel, /voltar ao modo Navegar/i, 'o rótulo acessível informa como voltar ao modo Navegar');
     assert.equal(shell.manageChat, true, 'ações de conversa ausentes');
 
     await window.webContents.executeJavaScript("document.getElementById('btn-bot-central').click()");
@@ -179,7 +181,7 @@ app.whenReady().then(async () => {
     const botCentral = await window.webContents.executeJavaScript(`({
       expanded: document.getElementById('btn-bot-central')?.getAttribute('aria-expanded'),
       rows: document.querySelectorAll('#bot-central-list .bot-central-row').length,
-      openButtons: document.querySelectorAll('#bot-central-list button.bot-central-row').length,
+      openButtons: document.querySelectorAll('#bot-central-list button.bot-central-open').length,
       currentProfileText: [...document.querySelectorAll('#bot-central-list .bot-central-row')].find((row) => row.textContent.includes('Bot Fixture'))?.textContent,
       currentProfileCursor: (() => { const row = [...document.querySelectorAll('#bot-central-list .bot-central-row')].find((entry) => entry.textContent.includes('Bot Fixture')); return row ? getComputedStyle(row).cursor : null; })(),
       currentAvatarCursor: (() => { const row = [...document.querySelectorAll('#bot-central-list .bot-central-row')].find((entry) => entry.textContent.includes('Bot Fixture')); const avatar = row?.querySelector('.bot-avatar'); return avatar ? getComputedStyle(avatar).cursor : null; })(),

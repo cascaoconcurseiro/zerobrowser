@@ -1,13 +1,25 @@
-// Verifica apenas o encaixe responsivo da Central e seus alvos de toque/foco.
+// Verifica o contrato visual da Central de Bots e do modo Delegar em quatro tamanhos.
 const { app, BrowserWindow, ipcMain } = require('electron');
 const assert = require('node:assert/strict');
 const path = require('node:path');
 
 const rendererDir = path.join(__dirname, '..', 'src', 'renderer');
-const bots = [
-  { id: 'bot-current', name: 'Bot Atual', avatarId: 'pixel-001', avatar: { sheetId: 'pixel-animals-01', frameIndex: 0, columns: 10, rows: 10, accent: '#129b78' } },
-  { id: 'bot-other', name: 'Bot Outro', avatarId: 'pixel-002', avatar: { sheetId: 'pixel-animals-01', frameIndex: 1, columns: 10, rows: 10, accent: '#1686d9' } }
-];
+const bots = Array.from({ length: 32 }, (_unused, index) => {
+  const current = index === 0;
+  const id = current ? 'bot-current' : `bot-${String(index).padStart(2, '0')}`;
+  return {
+    id,
+    name: current ? 'Bot Atual' : `Bot ${String(index).padStart(2, '0')}`,
+    avatarId: `pixel-${String(index + 1).padStart(3, '0')}`,
+    avatar: {
+      sheetId: 'pixel-animals-01',
+      frameIndex: index,
+      columns: 10,
+      rows: 10,
+      accent: index % 2 ? '#1686d9' : '#129b78'
+    }
+  };
+});
 
 const stubs = {
   'store:getAll': () => ({}),
@@ -38,8 +50,8 @@ for (const [channel, handler] of Object.entries(stubs)) ipcMain.handle(channel, 
 
 app.whenReady().then(async () => {
   const window = new BrowserWindow({
-    width: 1000,
-    height: 800,
+    width: 1584,
+    height: 966,
     show: false,
     webPreferences: {
       preload: path.join(__dirname, '..', 'src', 'preload', 'preload.js'),
@@ -60,31 +72,143 @@ app.whenReady().then(async () => {
 
     window.show();
     window.focus();
-    await window.webContents.executeJavaScript("document.getElementById('btn-bot-central').click()");
+    await window.webContents.executeJavaScript(`(() => {
+      const app = document.getElementById('app');
+      if (!app.classList.contains('delegation-mode')) document.getElementById('btn-ai').click();
+    })()`);
     await new Promise((resolve) => setTimeout(resolve, 80));
+    await window.webContents.executeJavaScript("document.getElementById('btn-bot-central').click()");
+    await new Promise((resolve) => setTimeout(resolve, 100));
 
-    for (const width of [700, 400]) {
-      window.setSize(width, 800);
+    const viewports = [
+      { width: 1584, height: 966 },
+      { width: 1402, height: 901 },
+      { width: 700, height: 800 },
+      { width: 400, height: 800 }
+    ];
+    const measurements = [];
+
+    for (const viewport of viewports) {
+      window.setSize(viewport.width, viewport.height);
       await new Promise((resolve) => setTimeout(resolve, 100));
+
       const layout = await window.webContents.executeJavaScript(`(() => {
+        const px = (value) => Number.parseFloat(value) || 0;
+        const rgb = (value) => {
+          const match = value.match(/rgba?\\((\\d+(?:\\.\\d+)?)[, ]+\\s*(\\d+(?:\\.\\d+)?)[, ]+\\s*(\\d+(?:\\.\\d+)?)(?:[, /]+\\s*(\\d*(?:\\.\\d+)?))?\\)/i);
+          if (!match) return null;
+          return [Number(match[1]), Number(match[2]), Number(match[3]), match[4] === undefined ? 1 : Number(match[4])];
+        };
+        const composite = (top, bottom) => {
+          const alpha = top[3];
+          return [
+            top[0] * alpha + bottom[0] * (1 - alpha),
+            top[1] * alpha + bottom[1] * (1 - alpha),
+            top[2] * alpha + bottom[2] * (1 - alpha),
+            1
+          ];
+        };
+        const effectiveBackground = (element) => {
+          let color = [255, 255, 255, 1];
+          for (let node = element; node; node = node.parentElement) {
+            const parsed = rgb(getComputedStyle(node).backgroundColor);
+            if (parsed && parsed[3] > 0) color = composite(parsed, color);
+            if (parsed && parsed[3] >= 0.999) break;
+          }
+          return color;
+        };
+        const luminance = (color) => {
+          const channels = color.slice(0, 3).map((value) => {
+            const s = value / 255;
+            return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+          });
+          return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2];
+        };
+        const contrast = (foreground, background) => {
+          const a = luminance(foreground);
+          const b = luminance(background);
+          return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+        };
+
         const dialog = document.getElementById('bot-central');
+        const list = document.getElementById('bot-central-list');
+        const rail = document.getElementById('delegation-rail');
+        const panel = document.getElementById('ai-panel');
+        const toolbar = document.getElementById('toolbar');
+        const address = document.getElementById('address-bar');
+        const aiButton = document.getElementById('btn-ai');
+        const label = aiButton.querySelector('.ai-copilot-label');
         const close = document.getElementById('btn-bot-central-close');
         const create = document.getElementById('btn-bot-central-new');
-        const rect = dialog.getBoundingClientRect();
+        const dialogRect = dialog.getBoundingClientRect();
+        const listRect = list.getBoundingClientRect();
+        const railRect = rail.getBoundingClientRect();
+        const panelRect = panel.getBoundingClientRect();
+        const footerRect = dialog.querySelector('footer').getBoundingClientRect();
+        const color = rgb(getComputedStyle(address).color);
+        const background = effectiveBackground(address);
+        list.scrollTop = list.scrollHeight;
+        const firstRow = list.firstElementChild?.getBoundingClientRect();
+        const lastRow = list.lastElementChild?.getBoundingClientRect();
         return {
-          viewportWidth: document.documentElement.clientWidth,
-          left: rect.left,
-          right: rect.right,
-          width: rect.width,
-          closeWidth: close.getBoundingClientRect().width,
-          closeHeight: close.getBoundingClientRect().height,
-          createHeight: create.getBoundingClientRect().height
+          viewport: { width: document.documentElement.clientWidth, height: document.documentElement.clientHeight },
+          requestedWindow: { width: ${viewport.width}, height: ${viewport.height} },
+          dialog: { left: dialogRect.left, top: dialogRect.top, right: dialogRect.right, bottom: dialogRect.bottom, width: dialogRect.width, height: dialogRect.height },
+          expectedPanel: { left: railRect.right, right: railRect.right + panelRect.width, width: panelRect.width },
+          list: {
+            clientHeight: list.clientHeight,
+            scrollHeight: list.scrollHeight,
+            scrollTop: list.scrollTop,
+            firstRowTop: firstRow?.top ?? null,
+            lastRowBottom: lastRow?.bottom ?? null,
+            top: listRect.top,
+            bottom: listRect.bottom,
+            footerTop: footerRect.top,
+            footerBottom: footerRect.bottom
+          },
+          buttons: [...dialog.querySelectorAll('button')].map((button) => {
+            const rect = button.getBoundingClientRect();
+            return { label: button.getAttribute('aria-label') || button.textContent.trim(), width: rect.width, height: rect.height };
+          }),
+          toolbar: { clientWidth: toolbar.clientWidth, scrollWidth: toolbar.scrollWidth },
+          address: {
+            visible: Boolean(address.getClientRects().length) && getComputedStyle(address).visibility !== 'hidden',
+            textColor: getComputedStyle(address).color,
+            backgroundColor: 'rgb(' + background.slice(0, 3).map(Math.round).join(', ') + ')',
+            contrast: color ? contrast(color, background) : 0
+          },
+          aiButton: {
+            visible: Boolean(aiButton.getClientRects().length) && getComputedStyle(aiButton).visibility !== 'hidden',
+            label: label?.textContent.trim() || '',
+            accessibleLabel: aiButton.getAttribute('aria-label')
+          }
         };
       })()`);
-      assert.ok(layout.left >= 0, `Central deve ficar dentro da janela em ${width}px (${JSON.stringify(layout)})`);
-      assert.ok(layout.right <= layout.viewportWidth, `Central não pode cortar a borda direita em ${width}px (${JSON.stringify(layout)})`);
-      assert.ok(layout.closeWidth >= 44 && layout.closeHeight >= 44, `Fechar precisa de alvo de 44px em ${width}px (${JSON.stringify(layout)})`);
-      assert.ok(layout.createHeight >= 44, `Criar Bot precisa de alvo de 44px em ${width}px (${JSON.stringify(layout)})`);
+
+      const message = `${viewport.width}x${viewport.height}: ${JSON.stringify(layout)}`;
+      const tolerance = 1.5;
+      assert.ok(layout.dialog.left >= 0 && layout.dialog.top >= 0, `Central inicia dentro do viewport; ${message}`);
+      assert.ok(layout.dialog.right <= layout.viewport.width + tolerance && layout.dialog.bottom <= layout.viewport.height + tolerance, `Central inteira dentro do viewport; ${message}`);
+      assert.ok(Math.abs(layout.dialog.left - layout.expectedPanel.left) <= tolerance, `Central alinhada após o trilho; ${message}`);
+      assert.ok(Math.abs(layout.dialog.right - layout.expectedPanel.right) <= tolerance, `Borda direita da Central coincide com o início esperado da página (trilho + painel); ${message}`);
+      assert.ok(layout.dialog.width > 0 && layout.dialog.height > 0, `Central tem área visível; ${message}`);
+
+      assert.ok(layout.list.clientHeight > 0, `Lista tem viewport próprio; ${message}`);
+      assert.ok(layout.list.scrollHeight > layout.list.clientHeight, `Lista longa deve rolar dentro do painel; ${message}`);
+      assert.ok(layout.list.scrollTop > 0, `Lista realmente desloca seu conteúdo; ${message}`);
+      assert.ok(layout.list.lastRowBottom <= layout.list.bottom + tolerance, `Última linha aparece inteira após rolagem, sem clipping; ${message}`);
+      assert.ok(layout.list.footerTop >= layout.list.bottom - tolerance, `Rodapé fica fora da área rolável; ${message}`);
+      assert.ok(layout.list.footerBottom <= layout.dialog.bottom + tolerance, `Rodapé permanece dentro da Central; ${message}`);
+
+      assert.ok(layout.buttons.length >= 2, `Central apresenta seus controles acessíveis; ${message}`);
+      for (const button of layout.buttons) {
+        assert.ok(button.width >= 44 && button.height >= 44, `Botão "${button.label}" tem alvo mínimo de 44px; ${message}`);
+      }
+      assert.ok(layout.toolbar.scrollWidth <= layout.toolbar.clientWidth + tolerance, `Toolbar não transborda horizontalmente; ${message}`);
+      assert.ok(layout.address.visible, `Campo de endereço está visível; ${message}`);
+      assert.ok(layout.address.contrast >= 4.5, `Texto do endereço tem contraste mínimo de 4.5:1 (${layout.address.contrast.toFixed(2)}:1); ${message}`);
+      assert.ok(layout.aiButton.visible && layout.aiButton.label === 'Delegar', `Botão do modo ativo mostra "Delegar"; ${message}`);
+      measurements.push(layout);
     }
 
     window.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'ESC' });
@@ -99,7 +223,7 @@ app.whenReady().then(async () => {
     assert.equal(focus.triggerExpanded, 'false', 'Escape sincroniza aria-expanded');
     assert.equal(focus.activeElement, 'btn-bot-central', 'Escape retorna o foco ao acionador');
 
-    process.stdout.write(JSON.stringify({ status: 'PASS', widths: [700, 400], focus }) + '\n');
+    process.stdout.write(JSON.stringify({ status: 'PASS', viewports, measurements, focus }) + '\n');
   } catch (error) {
     console.error(error.message);
     process.exitCode = 1;
