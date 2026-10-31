@@ -8,7 +8,7 @@ function browserShortcutForInput(input = {}) {
   if (key === 'tab') return input.shift ? 'previous-tab' : 'next-tab';
   if (input.shift && key === 't') return 'reopen-tab';
   if (/^[1-9]$/.test(key) && !input.shift) return `select-tab-${key}`;
-  return ({ t: 'new-tab', w: 'close-tab', h: 'history', j: 'downloads', l: 'focus-address', r: 'reload', d: 'bookmark' })[key] || null;
+  return ({ t: 'new-tab', w: 'close-tab', h: 'history', j: 'downloads', l: 'focus-address', k: 'focus-address', r: 'reload', d: 'bookmark' })[key] || null;
 }
 
 module.exports = { browserShortcutForInput };

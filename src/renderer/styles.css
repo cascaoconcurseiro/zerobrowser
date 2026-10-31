@@ -1599,3 +1599,9 @@ body.dark .ai-working-status-pill {
 .library-tabs { display: flex; gap: 6px; padding: 8px 16px 0; }
 .library-tab { flex: 1; padding: 6px 8px; border: 1px solid var(--border); border-radius: 8px; background: transparent; color: var(--fg-secondary); font-size: var(--fs-sm); cursor: pointer; }
 .library-tab.ativo { color: var(--fg-primary); border-color: var(--accent); background: var(--bg-tertiary); }
+
+.ai-receipt-card { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); padding: var(--space-2) var(--space-3); border-radius: var(--radius-md); border: 1px solid var(--border); background: var(--bg-secondary); font-size: 12px; }
+.ai-receipt-copy { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ai-receipt-copy strong { color: var(--fg-primary); font-size: 12px; font-weight: 600; }
+.ai-receipt-copy span { color: var(--fg-secondary); font-size: 11px; }
+.btn-undo-receipt { flex-shrink: 0; min-height: 28px; padding: 4px 10px; font-size: 11px; }

@@ -2,7 +2,7 @@
 
 ## Estado atual
 
-- Código em `0.1.53-dev`; a `0.1.52` foi instalada e validada (incluindo backup da `.51` e verificação do perfil `Principal`).
+- Código e instalação local em `0.1.54-dev`: registro único de comandos (`src/main/command-registry.js`), catálogo (`docs/CATALOGO_COMANDOS_NAVEGADOR.md`), proteção do núcleo intocável, recibo pós-ação com `Desfazer` em sequência reversa (5/5 fixtures) e barra de comando por intenção (`Ctrl+K`).
 - Na fatia `0.1.53-dev` (Design e UX): implementados os tokens de espaçamento (escala de `4px`), paleta de 8 cores de Bots com contraste WCAG ≥ `3:1` verificado nos temas claro e escuro (`BOT_ACCENT_PALETTE` e `BOT_STATE_COLORS`), anel de estado nunca só por cor (`idle`, `working`, `needs-attention` `!`, `error` `×`, `paused` `‖` + nome acessível), indicador na aba controlada (`.tab-controlled` + `#tab-control-banner`), botão `Assumir` / `Devolver ao bot` e etiqueta explícita de reversibilidade no cartão de aprovação.
 
 ## Entrega atual — Tokens de estado, paleta 8 cores, indicador de aba controlada e Assumir (0.1.53-dev)
@@ -12,7 +12,7 @@
 - [x] Indicador na aba controlada (`.tab-controlled` + `#tab-control-banner`) e botão `Assumir` / `Devolver ao bot` pausando imediatamente o agente.
 - [x] Etiqueta explícita de reversibilidade (`Reversível`, `Parcialmente reversível`, `Não reversível`) no cartão de aprovação no chat.
 - [x] Testes automatizados (`npm test` 375/375, `npm run test:delegation-layout` PASS, `npm run test:ui` PASS).
-- [ ] Próximo passo de Design/UX: recibo pós-ação com botão `Desfazer` para ações reversíveis e barra de comando por intenção (`Ctrl+K`).
+- [x] Próximo passo de Design/UX: recibo pós-ação com botão `Desfazer` para ações reversíveis e barra de comando por intenção (`Ctrl+K`) concluídos na `0.1.54-dev`.
 - Este arquivo contém apenas a ordem ativa e o backlog priorizado. O inventário cronológico antigo foi preservado em `docs/CHECKLIST_HISTORICO.md`; itens abertos lá não são tarefas autorizadas/ativas até serem promovidos para cá.
 - Planos em `docs/PLANO_*.md` são propostas. Confirmar cada capacidade no código e no executável antes de mudar status para concluído.
 

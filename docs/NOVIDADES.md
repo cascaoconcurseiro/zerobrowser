@@ -1,4 +1,10 @@
-# Novidades — Zero Browser 0.1.53-dev
+# Novidades — Zero Browser 0.1.54-dev
+
+## Registro de comandos, núcleo intocável, recibo Desfazer e barra Ctrl+K — 0.1.54-dev — 31/10/2026
+
+- Registro único de comandos (`src/main/command-registry.js` e `docs/CATALOGO_COMANDOS_NAVEGADOR.md`) com classe de reversibilidade obrigatória (`reversivel`, `parcial`, `irreversivel` por padrão) e `Desfazer` em sequência de compensação (`undoReceipt` / `undoSequence`).
+- Proteção ativa do núcleo intocável (`UNTOUCHABLE_CORE_IDS` / `UntouchableCoreError`), impedindo que IA, Bot ou MCP desativem o botão Parar tudo, o firewall de intenção, o recibo, o log de auditoria, aprovações financeiras, o cofre de segredos ou a verificação de assinatura.
+- Barra de comando por intenção (`Ctrl+K` / `Ctrl+L`) com sugestões de comandos (`fechar abas duplicadas`, `alternar tema`, `abrir central`, `desfazer`, `nova aba`, `histórico`, `favoritos`, `downloads`) e cartão de recibo pós-ação (`.ai-receipt-card`) com botão `Desfazer` funcional.
 
 ## Tokens de estado, paleta 8 cores, indicador de aba controlada e Assumir — 0.1.53-dev — 31/10/2026
 

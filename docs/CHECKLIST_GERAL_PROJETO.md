@@ -1,7 +1,7 @@
 # Checklist Geral do Projeto — Zero Browser
 
 Data de consolidação: `31/10/2026`
-Versão em preparação: `0.1.52-dev` (instalada atual: `0.1.51`)
+Versão atual (código e instalada): `0.1.54-dev`
 
 Este documento consolida **tudo o que já foi entregue (`[x]`)** e **tudo o que falta (`[ ]`)** no Zero Browser, unificando `CHECKLIST.md`, `HANDOFF.md`, `docs/CHECKLIST_HISTORICO.md`, `docs/CHECKLIST_PLANOS_2026-10-31.md`, `docs/EVOLUCAO_MOTOR.md`, `docs/PLANO_MATURIDADE_4.md` e todos os planos específicos em `docs/PLANO_*.md`.
 
@@ -79,13 +79,13 @@ Este documento consolida **tudo o que já foi entregue (`[x]`)** e **tudo o que 
   - [x] Acionar `Assumir` pausa o Bot imediatamente, muda o estado para `"Pausado — você assumiu o controle"` e exibe botão `"Devolver ao bot"`.
 - [ ] **Cartão de aprovação e botão `Desfazer` (`PLANO_DESIGN_UX.md` §4.1 e §5.3):**
   - [ ] Cartão de aprovação na conversa mostrando o que vai acontecer, onde, etiqueta de reversibilidade (`Reversível`, `Parcialmente reversível`, `Não reversível`) e botões `Aprovar uma vez`, `Sempre neste site` (quando aplicável) e `Cancelar`.
-  - [ ] Recibo pós-ação com botão `Desfazer` visível pelo tempo em que a reversão estiver disponível.
+  - [x] Recibo pós-ação com botão `Desfazer` visível pelo tempo em que a reversão estiver disponível (`0.1.54-dev`).
 - [ ] **Fluxo de ensinar tarefa e criar Bot (`PLANO_DESIGN_UX.md` §5.2):**
   - [ ] Botão `"Ensinar"` na conversa para gravar demonstração passo a passo, gerar resumo numerado editável e oferecer `"Salvar como Bot"` ou `"Repetir agora"`.
 - [ ] **Protótipo clicável e validação humana (`PLANO_DESIGN_UX.md` §6):**
   - [ ] Protótipo HTML clicável dos 3 fluxos (criar/ensinar, aprovar, assumir) validado com 5 pessoas antes de fechar o contrato de UI.
 - [ ] **Barra de comando única e personalização segura (`PLANO_DESIGN_UX.md` §8 e `PLANO_NAVEGADOR_NATIVO_IA.md`):**
-  - [ ] Barra de comando única (`Ctrl+K`) por intenção em português claro.
+  - [x] Barra de comando única (`Ctrl+K`) por intenção em português claro (`0.1.54-dev`).
   - [ ] Comandos declarativos `ui.*` versionados (com botão `"Voltar layout anterior"` e `"Modo seguro de visual"`), mantendo o núcleo intocável sempre visível e fixo.
 - [ ] **Revisão de acessibilidade e demais telas (`PLANO_DESIGN_UX.md` §7):**
   - [ ] Testar navegação completa por teclado (`Tab`, `Shift+Tab`, `Enter`, `Escape`), foco visível (`2px`), leitor de tela (NVDA) e zoom `125%`/`150%` na Central, Configurações, Biblioteca e Menu `⋮`.
@@ -159,8 +159,8 @@ Este documento consolida **tudo o que já foi entregue (`[x]`)** e **tudo o que 
 ## 8. Navegador Nativo para IA (`docs/PLANO_NAVEGADOR_NATIVO_IA.md`)
 
 - [x] Decisão do núcleo intocável aprovada.
-- [ ] **Fase 0 — Inventário:** `docs/CATALOGO_COMANDOS_NAVEGADOR.md` listando todas as ações de abas, navegação, histórico, favoritos, downloads, extensões, perfis, bots, configurações e janelas.
-- [ ] **Fase 1 — Registro Único de Comandos:** `src/main/command-registry.js` com `id`, `nivel` (`leitura`, `reversivel`, `sensivel`, `bloqueado`), `desfazer`, `executar` e `auditar`.
+- [x] **Fase 0 — Inventário:** `docs/CATALOGO_COMANDOS_NAVEGADOR.md` listando todas as ações de abas, navegação, histórico, favoritos, downloads, extensões, perfis, bots, configurações e janelas (`0.1.54-dev`).
+- [x] **Fase 1 — Registro Único de Comandos:** `src/main/command-registry.js` com `id`, `nivel` (`leitura`, `reversivel`, `sensivel`, `bloqueado`), `desfazer`, `executar` e `auditar` (`0.1.54-dev`).
 - [ ] **Fase 2 — Migrar UI para o Registro:** cliques de botão, atalhos, barra `Ctrl+K`, chat interno e MCP passam pelo mesmo registro.
 - [ ] **Fase 3 — Expor todos os comandos no MCP** respeitando os níveis de pareamento.
 - [ ] **Fase 4 — Conectores Nativos de Serviço (`src/connectors/`):**
@@ -189,7 +189,7 @@ Este documento consolida **tudo o que já foi entregue (`[x]`)** e **tudo o que 
 - [ ] **Fase 4 — Recibo Verificado:** gerar recibo estruturado antes de ações sensíveis (ação, site, campos alterados, reversibilidade) e gravar no log de auditoria.
 
 ### 9.3 Reversibilidade, Autonomia Conquistada e Paridade Essencial (`docs/PLANO_PARIDADE_E_SALTO.md` & `docs/PLANO_MATURIDADE_4.md`)
-- [ ] **Salto 1 — Reversibilidade e `Desfazer`:** campo `reversibilidade` obrigatório em toda ferramenta de escrita + executor de sequência de compensação validado em 5 fixtures (carrinho, configuração, formulário, lista, arquivo).
+- [x] **Salto 1 — Reversibilidade e `Desfazer`:** campo `reversibilidade` obrigatório em toda ferramenta de escrita + executor de sequência de compensação validado em 5 fixtures (`test/command-registry.test.js`, `0.1.54-dev`).
 - [ ] **Salto 2 — Autonomia Conquistada:** promoção gradual por tarefa e site após N execuções aprovadas sem erro, rebaixamento automático na 1ª falha e painel `"Confiança"`.
 - [ ] **Salto 3 — Ensaio em Gêmeo Local:** simular ações irreversíveis em cópia local da página antes de apresentar o recibo de aprovação.
 - [ ] **Paridade Essencial:**

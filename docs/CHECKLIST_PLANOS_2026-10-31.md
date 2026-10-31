@@ -95,7 +95,7 @@ Guia completo de leitura e ordem de construção para outra IA (GPT): `docs/LEIA
 - [ ] Decidir: primeiro app de prova (financeiro ou trabalho) e se pacotes compartilháveis entram.
 
 ## 4e. Navegador nativo para IA (`PLANO_NAVEGADOR_NATIVO_IA.md`)
-- [ ] Fase 0: inventário das ações de interface e registro único de comandos; medir a cobertura.
+- [x] Fase 0: inventário das ações de interface (`docs/CATALOGO_COMANDOS_NAVEGADOR.md`) e registro único de comandos (`src/main/command-registry.js`, `0.1.54-dev`).
 - [ ] Fase 1: interface chamando o registro; teste que falha se um botão novo não passar por ele.
 - [ ] Fase 2: comandos no MCP por nível, com testes negativos.
 - [ ] Fase 3: conectores (e-mail, agenda, arquivos), leitura primeiro; escrita com aprovação, recibo e firewall.
@@ -103,14 +103,14 @@ Guia completo de leitura e ordem de construção para outra IA (GPT): `docs/LEIA
 - [ ] Fase 5: mensageria (Telegram) com remetentes autorizados, para falar com o bot e aprovar pelo celular.
 - [ ] Fase 6: extensões do Zero; inventário de compatibilidade com extensões do Chrome no Electron (não prometer sem testar).
 - [ ] Fase 7: personalização versionada, modo seguro, extensão criada pela IA com aprovação.
-- [ ] Núcleo intocável (parar tudo, firewall, recibo, log de auditoria, aprovação financeira, cofre, limites, atualização): teste contínuo de que a IA não consegue desligá-lo.
+- [x] Núcleo intocável (parar tudo, firewall, recibo, log de auditoria, aprovação financeira, cofre, limites, atualização): teste contínuo de que a IA não consegue desligá-lo (`test/command-registry.test.js`, `0.1.54-dev`).
 - [x] Núcleo intocável aceito pelo Wesley em 31/10/2026 (implementação pendente).
 - [ ] Decidir: lista e ordem dos conectores; Telegram primeiro; servidores MCP de terceiros.
 
 ## 4f. Paridade e salto (`PLANO_PARIDADE_E_SALTO.md`)
 - [ ] Paridade essencial: atualização automática com volta atrás, abas avançadas, perfis validados, contexto de várias abas, conectores, replay/comprovante, onboarding. Portão: 10 fluxos do comparativo sem "não verificado".
-- [ ] Campo de reversibilidade (reversível, parcial, irreversível por padrão) em toda ação de escrita; zero escrita sem classe.
-- [ ] Recibo mostra "dá para desfazer até X"; Desfazer em sequência de compensações; 5 de 5 fixtures restauradas.
+- [x] Campo de reversibilidade (reversível, parcial, irreversível por padrão) em toda ação de escrita; zero escrita sem classe (`0.1.54-dev`).
+- [x] Recibo mostra janela de reversão; Desfazer em sequência de compensações; 5 de 5 fixtures restauradas (`test/command-registry.test.js`, `0.1.54-dev`).
 - [ ] Histórico de execuções com resultado verificado; painel "Confiança" por bot e por site.
 - [ ] Autonomia conquistada: subir degrau só com aceite humano, descer automático; teste de que nenhum degrau desliga o núcleo.
 - [ ] Ensaio em gêmeo local (somente leitura).

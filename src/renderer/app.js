@@ -19,6 +19,7 @@ class ZeroBrowserApp {
     this.pendingApprovalCards = new Map();
     this.approvalUiReady = false;
     this.takeoverState = null;
+    this.actionReceipts = [];
     this.lastAgentErrorTabId = null;
     this.lastAgentPrompt = '';
     this.init();
@@ -294,6 +295,11 @@ class ZeroBrowserApp {
       if (e.ctrlKey && e.key === 'w') {
         e.preventDefault();
         this.closeActiveTab();
+      }
+      if (e.ctrlKey && !e.shiftKey && (e.key.toLowerCase() === 'l' || e.key.toLowerCase() === 'k')) {
+        e.preventDefault();
+        this.openCommandBar(e.key.toLowerCase() === 'k');
+        return;
       }
       if (e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === 'l') {
         e.preventDefault();
@@ -575,7 +581,9 @@ class ZeroBrowserApp {
 
   async showSuggestions() {
     const text = this.elements.addressBar.value.trim();
-    const items = text ? await window.zeroBrowser.library.suggest(text).catch(() => []) : [];
+    const commandItems = this.matchCommandBarSuggestions(text);
+    const libraryItems = text ? await window.zeroBrowser.library.suggest(text).catch(() => []) : [];
+    const items = [...commandItems, ...libraryItems];
     if (document.activeElement !== this.elements.addressBar || this.elements.addressBar.value.trim() !== text) return;
     if (!items.length) return this.closeSuggestions();
     this.suggestions = items;
@@ -592,6 +600,7 @@ class ZeroBrowserApp {
       icon.className = 'suggestion-icon';
       icon.setAttribute('aria-hidden', 'true');
       if (item.favicon) icon.append(this.faviconImage(item.favicon));
+      else if (item.kind === 'command') icon.textContent = '⌘';
       else icon.textContent = item.kind === 'bookmark' ? '★' : '🕘';
       const title = document.createElement('span');
       title.className = 'suggestion-title';
@@ -650,6 +659,12 @@ class ZeroBrowserApp {
     const item = this.suggestions?.[index];
     if (!item) return;
     this.closeSuggestions();
+    if (item.kind === 'command') {
+      this.elements.addressBar.value = '';
+      this.elements.addressBar.blur();
+      this.executeCommandBarAction(item.commandId);
+      return;
+    }
     this.navigateTo(item.url);
     this.elements.addressBar.blur();
   }
@@ -675,6 +690,13 @@ class ZeroBrowserApp {
       if (open && this.suggestionIndex >= 0) return this.chooseSuggestion(this.suggestionIndex);
       this.closeSuggestions();
       const text = this.elements.addressBar.value.trim();
+      const matchedCommand = this.resolveCommandBarCommand(text);
+      if (matchedCommand) {
+        e.preventDefault();
+        this.elements.addressBar.value = '';
+        this.elements.addressBar.blur();
+        return this.executeCommandBarAction(matchedCommand.commandId);
+      }
       if (document.getElementById('app').classList.contains('delegation-mode') && text && !this.isUrlInput(text)) {
         e.preventDefault();
         this.elements.addressBar.value = '';
@@ -686,6 +708,167 @@ class ZeroBrowserApp {
 
   isUrlInput(text) {
     return /^(https?:\/\/|file:\/\/|zero:\/\/|www\.)/i.test(text) || /^(localhost|(?:[\w-]+\.)+[a-z]{2,})(?::\d+)?(?:[/?#]|$)/i.test(text);
+  }
+
+  openCommandBar(showCommandsWhenEmpty = false) {
+    this.commandBarShowEmpty = Boolean(showCommandsWhenEmpty);
+    this.elements.addressBar.focus();
+    this.elements.addressBar.select();
+    if (showCommandsWhenEmpty) this.scheduleSuggestions();
+  }
+
+  getCommandBarCatalog() {
+    return [
+      { commandId: 'tabs.closeDuplicates', title: 'Fechar abas duplicadas', url: 'Comando · Reversível', keywords: ['fechar abas duplicadas', 'duplicadas'] },
+      { commandId: 'ui.toggleTheme', title: 'Alternar tema (Claro / Escuro)', url: 'Comando · Reversível', keywords: ['alternar tema', 'tema escuro', 'tema claro', 'mudar tema'] },
+      { commandId: 'bots.openCentral', title: 'Abrir Central de Bots', url: 'Comando · Equipe de Bots', keywords: ['abrir central', 'central de bots', 'equipe de bots'] },
+      { commandId: 'undo.last', title: 'Desfazer última ação reversível', url: 'Comando · Reversível', keywords: ['desfazer', 'reverter última ação'] },
+      { commandId: 'tabs.new', title: 'Nova aba', url: 'Comando · Ctrl+T', keywords: ['nova aba', 'abrir nova aba'] },
+      { commandId: 'library.history', title: 'Abrir Histórico', url: 'Comando · Ctrl+H', keywords: ['histórico', 'historico', 'abrir histórico'] },
+      { commandId: 'library.bookmarks', title: 'Abrir Favoritos', url: 'Comando · Biblioteca', keywords: ['favoritos', 'abrir favoritos'] },
+      { commandId: 'library.downloads', title: 'Abrir Downloads', url: 'Comando · Ctrl+J', keywords: ['downloads', 'abrir downloads'] }
+    ];
+  }
+
+  matchCommandBarSuggestions(text) {
+    const query = String(text || '').trim().toLowerCase();
+    const catalog = this.getCommandBarCatalog();
+    if (!query) {
+      if (!this.commandBarShowEmpty) return [];
+      return catalog.slice(0, 5).map((cmd) => ({ kind: 'command', ...cmd }));
+    }
+    return catalog
+      .filter((cmd) => cmd.title.toLowerCase().includes(query) || cmd.keywords.some((kw) => kw.includes(query) || query.includes(kw)))
+      .slice(0, 4)
+      .map((cmd) => ({ kind: 'command', ...cmd }));
+  }
+
+  resolveCommandBarCommand(text) {
+    const query = String(text || '').trim().toLowerCase();
+    if (!query) return null;
+    return this.getCommandBarCatalog().find((cmd) => cmd.keywords.includes(query) || cmd.title.toLowerCase() === query) || null;
+  }
+
+  async executeCommandBarAction(commandId) {
+    this.commandBarShowEmpty = false;
+    if (commandId === 'tabs.new') return this.createTab('zero://newtab');
+    if (commandId === 'library.history') return this.openLibrary('history');
+    if (commandId === 'library.bookmarks') return this.openLibrary('bookmarks');
+    if (commandId === 'library.downloads') return this.openLibrary('downloads');
+    if (commandId === 'bots.openCentral') {
+      if (this.elements.aiPanel.classList.contains('hidden')) await this.toggleAiPanel(true);
+      if (this.elements.botCentral.classList.contains('hidden')) await this.toggleBotCentral();
+      return;
+    }
+    if (commandId === 'undo.last') return this.undoLastActionReceipt();
+    if (commandId === 'ui.toggleTheme') {
+      const previous = this.settings.theme || 'system';
+      const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+      await window.zeroBrowser.settings.applyTheme(next);
+      this.settings.theme = next;
+      this.applySettings({ theme: next });
+      this.recordActionReceipt({
+        title: `Tema alterado para ${next === 'dark' ? 'Escuro' : 'Claro'}`,
+        detail: 'Reversível · clique em Desfazer para restaurar o tema anterior',
+        undo: async () => {
+          await window.zeroBrowser.settings.applyTheme(previous);
+          this.settings.theme = previous;
+          this.applySettings({ theme: previous });
+        }
+      });
+      this.showToast(`Tema alterado para ${next === 'dark' ? 'Escuro' : 'Claro'}.`, 'success');
+      return;
+    }
+    if (commandId === 'tabs.closeDuplicates') {
+      const seen = new Set();
+      const closedUrls = [];
+      for (const [tabId, tab] of [...this.tabs.entries()]) {
+        const key = String(tab.url || '').trim();
+        if (!key || key === 'about:blank') continue;
+        if (seen.has(key) && this.tabs.size > 1) {
+          closedUrls.push(key);
+          await this.closeTab(tabId);
+        } else {
+          seen.add(key);
+        }
+      }
+      if (!closedUrls.length) {
+        this.showToast('Nenhuma aba duplicada encontrada.', 'info');
+        return;
+      }
+      this.recordActionReceipt({
+        title: `${closedUrls.length} aba(s) duplicada(s) fechada(s)`,
+        detail: 'Reversível · clique em Desfazer para reabrir as abas fechadas',
+        undo: async () => {
+          for (const url of closedUrls) await this.createTab(url);
+        }
+      });
+      this.showToast(`${closedUrls.length} aba(s) duplicada(s) fechada(s).`, 'success');
+    }
+  }
+
+  recordActionReceipt({ title, detail, undo }) {
+    if (typeof undo !== 'function') return null;
+    const receipt = {
+      id: `receipt-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      title: String(title || 'Ação concluída'),
+      detail: String(detail || 'Reversível · pode desfazer'),
+      undone: false,
+      undo
+    };
+    this.actionReceipts.push(receipt);
+    if (this.elements.aiChat) {
+      const card = document.createElement('div');
+      card.className = 'ai-receipt-card';
+      card.dataset.receiptId = receipt.id;
+      const copy = document.createElement('div');
+      copy.className = 'ai-receipt-copy';
+      const strong = document.createElement('strong');
+      strong.textContent = receipt.title;
+      const span = document.createElement('span');
+      span.textContent = receipt.detail;
+      copy.append(strong, span);
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'btn-secondary btn-undo-receipt';
+      btn.textContent = 'Desfazer';
+      btn.setAttribute('aria-label', `Desfazer: ${receipt.title}`);
+      btn.addEventListener('click', () => this.undoActionReceipt(receipt.id));
+      card.append(copy, btn);
+      this.elements.aiChat.appendChild(card);
+      this.elements.aiChat.scrollTop = this.elements.aiChat.scrollHeight;
+    }
+    return receipt;
+  }
+
+  async undoActionReceipt(receiptId) {
+    const receipt = this.actionReceipts.find((item) => item.id === receiptId && !item.undone);
+    if (!receipt) return false;
+    receipt.undone = true;
+    const card = this.elements.aiChat?.querySelector(`.ai-receipt-card[data-receipt-id="${receipt.id}"]`);
+    const button = card?.querySelector('.btn-undo-receipt');
+    if (button) button.disabled = true;
+    try {
+      await receipt.undo();
+      if (button) button.textContent = 'Desfeito';
+      this.showToast(`Desfeito: ${receipt.title}`, 'info');
+      return true;
+    } catch (error) {
+      receipt.undone = false;
+      if (button) button.disabled = false;
+      this.showToast(`Não foi possível desfazer: ${error.message}`, 'error');
+      return false;
+    }
+  }
+
+  async undoLastActionReceipt() {
+    for (let i = this.actionReceipts.length - 1; i >= 0; i -= 1) {
+      if (!this.actionReceipts[i].undone) {
+        return this.undoActionReceipt(this.actionReceipts[i].id);
+      }
+    }
+    this.showToast('Nenhuma ação reversível recente para desfazer.', 'info');
+    return false;
   }
 
   async sendAiMessageFromPrompt(text) {
@@ -1954,6 +2137,16 @@ class ZeroBrowserApp {
       else await window.zeroBrowser.browser.archiveBot(bot.id);
       await this.loadBotProfiles();
       this.elements.botCentralStatus.textContent = `${bot.name} foi ${actionLabel}.`;
+      this.recordActionReceipt({
+        title: `${restoring ? 'Bot restaurado' : 'Bot arquivado'}: ${bot.name}`,
+        detail: 'Reversível · clique em Desfazer para reverter na Central',
+        undo: async () => {
+          if (restoring) await window.zeroBrowser.browser.archiveBot(bot.id);
+          else await window.zeroBrowser.browser.restoreBot(bot.id);
+          await this.loadBotProfiles();
+          if (!this.elements.botCentral.classList.contains('hidden')) this.renderBotCentral();
+        }
+      });
       const nextAction = restoring ? 'archive' : 'restore';
       const nextButton = [...this.elements.botCentralList.querySelectorAll('.bot-central-action')]
         .find((candidate) => candidate.dataset.botId === bot.id && candidate.dataset.botAction === nextAction);
@@ -2771,6 +2964,7 @@ class ZeroBrowserApp {
     this.aiRunning = true;
     this.runningAgentTabId = this.activeTabId;
     this.takeoverState = null;
+    this.actionReceipts = [];
     this.lastAgentErrorTabId = null;
     if (!resumeId && text) this.lastAgentPrompt = text;
     this.syncControlledTabIndicator();
