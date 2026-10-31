@@ -1,6 +1,15 @@
 # Checklist — Zero Browser
 
-## Ciclo ativo — 0.1.47-dev (integração/release: agente principal)
+## Ciclo ativo — 0.1.48-dev (integração/release: agente principal)
+
+- [x] Pré-carregar ferramentas avançadas no primeiro pedido quando a tarefa indicar intenção positiva em português ou inglês; ignorar cues negadas e manter `advancedInput: false` como override.
+- [x] Medir a fixture: request comum 8.096 vs. 11.139 bytes de esquema (27,3% menor); intenção explícita de planilha evita uma rodada simulada do seletor. Bytes não são tokens faturados nem latência.
+- [x] Cobrir navegação cross-site com query longa e submissão POST com aprovação negada no service/MCP fixture; verificar que não houve ação de página. Após erro de ferramenta, o pipe MCP do app continua respondendo a `ping`/`tools/list`.
+- [x] Tornar Central responsiva em 700/400 px; alvos Fechar/Criar de 44 px; Escape fecha e devolve foco. Criar smoke dedicado `npm run test:delegation-layout`.
+- [x] Revisão independente do diff sem achados bloqueadores; incorporar ajustes para cues negadas e em inglês.
+- [x] Validar `npm test` 370/370, `npm run test:ui`, `npm run test:bot-runtime`, `npm run test:delegation-layout` e `git diff --check`.
+- [x] Gerar o NSIS 0.1.48-dev: 130.429.999 bytes; SHA-256 `BC4F4E07F938A31ACF9FBC4C6495664D68FAB5185432BBBEF2B44B26BEF1663B`. Binário desempacotado `0.1.48.0`, SHA-256 `19BAD1328AA1E0524A085DD0903F7A481A5BF7AC9F6D59B954A69B0B5D0A4143`; `app.asar` SHA-256 `F856E9EDCA9282A8EF698437E9C2B02247826BEFE66AB1CEAD217DED54D5936E`.
+- [ ] Fazer commit local de 0.1.48-dev e instalar QA após o commit; conferir versão, hashes, atalhos e visualmente a Central responsiva. O NSIS está sem assinatura Authenticode.
 
 - [x] Receber entregas separadas de motor, segurança MCP/Bots, concorrentes, revisão de release e acessibilidade; resolver os achados antes do pacote.
 - [x] Abrir o app diretamente no modo Delegar e conferir visualmente a build empacotada no perfil QA isolado; o modo Navegar continua disponível no controle superior.
@@ -11,16 +20,20 @@
 - [x] Reduzir o primeiro esquema serializado de 11.139 para 8.096 bytes (27,3%) na fixture, com ferramentas avançadas sob demanda; ainda não é medição de tokens cobrados, latência ou acerto real.
 - [x] Atualizar comparativo com nota editorial de prontidão pública e limites, sem atribuir participação de mercado nem ranking de qualidade.
 - [x] Validar `npm test` 368/368; `test:ui` PASS; `test:bot-runtime` PASS (22 ferramentas; recusas de senha/login-id/CDP); focados catálogo/motor 5/5; perfis/isolamento 4/4; gerar NSIS 0.1.47-dev.
-- [ ] Fechar release QA 0.1.47-dev após commit: instalar NSIS, conferir versão/hash/atalho e registrar o perfil QA isolado.
+- [x] Fechar release QA 0.1.47-dev após commit: NSIS instalado; versão, hashes do executável/ASAR, atalhos e tela Delegar/Central conferidos no app instalado com perfil QA isolado. Backup anterior: `backups/2026-10-31-before-0.1.47-install/`.
 
-## Frentes seguintes — começam depois de confirmar a baseline 0.1.47-dev
+## Próxima etapa — baseline 0.1.48-dev
 
-- [ ] Motor (especialista de motor; `src/automation/service/agent-runtime.js` + `bench/**`): medir tarefas fixture em pares, registrar acerto, rodadas, tempo e bytes; preparar chamadas reais só quando orçamento/provedor estiver autorizado.
-- [ ] Bots/segurança MCP (especialista Bot; runtime/fixture próprios): cobrir aprovação de navegação, envio externo, login sem sinais semânticos e recuperação; achado crítico/alto bloqueia novas capacidades.
-- [ ] UX/acessibilidade (especialista UX; `src/renderer/**` + smoke UI): revisar viewport, foco, estados Delegar/Central e takeover; separar aceite automatizado de avaliação por usuários.
-- [ ] Extensões (especialista de extensão; arquivos `src/extensions/**`, `src/host/**`): revisar MV2/MV3, Flame, scripting/optional permissions e concessão/revogação após o gate de segurança.
-- [ ] Benchmark/mercado (especialista de benchmark; `bench/**` + comparativo): fechar conjunto versionado de 30 tarefas e rubrica; não atribuir ranking de desempenho sem testes pareados.
+Ordem de trabalho para evitar frentes sobrepostas: segurança de Bots define o gate; em paralelo, motor e UX trabalham apenas nos arquivos indicados; benchmark define fixtures sem alterar o runtime; integração/release consolida uma fatia por vez.
+
+- [x] **Gate 1 — cobertura em fixture de Bots/MCP**: tentativas de credenciais e CDP recusadas no pipe; navegação arriscada e submissão POST sem efeito quando a aprovação é negada; erros de ferramenta não derrubam `ping`/`tools/list`. Escopo: loopback/fixtures, sem provider real, envio efetivo ou diálogo nativo.
+- [ ] **Gate 1B — aceite ampliado de Bots** (dono: especialista Bot; `scripts/bot-runtime.integration.js` e runtime MCP): validar decisão de aprovação via interface do host, autonomia por perfil e ciclo de vida/exclusão; revisar uso com página autorizada sem tráfego de envio. Achados críticos/altos bloqueiam novas capacidades.
+- [ ] **Paralelo A — Motor** (dono: especialista de motor; `src/automation/service/agent-runtime.js` e testes próprios): otimizar e medir fixtures, registrar acerto, rodadas, tempo e bytes; não tocar no renderer nem em IPC Bot.
+- [ ] **Paralelo B — UX/acessibilidade** (dono: especialista UX; `src/renderer/**` e smoke UI): revisar viewport, foco, estados Delegar/Central e takeover; não alterar guardas nem contratos IPC.
+- [ ] **Paralelo C — Benchmark** (dono: especialista de medição; `bench/**` e comparativo): fechar conjunto versionado de 30 tarefas e rubrica; não editar runtime. Não atribuir ranking de desempenho sem testes pareados.
+- [ ] **Gate 2 — Extensões** (dono: especialista de extensões; `src/extensions/**`, `src/host/**`): revisar MV2/MV3, Flame, scripting/optional permissions e concessão/revogação depois do gate de segurança.
 - [ ] Medir A/B DeepSeek pago somente depois de confirmar orçamento e credencial isolada; nenhuma chamada paga ocorreu nesta versão.
+- [ ] **Integração/release** (dono: agente principal): revisar os diffs das frentes, integrar uma fatia por vez, rodar a suíte, atualizar versão, commitar quando houver fatia usável e instalar cada commit em QA. Especialistas não fazem commit/instalação nem alteram arquivos fora do escopo.
 - [ ] Atualizar critérios e notas 4/5 apenas com pacote e evidência reproduzível de cada etapa; 200 avatares e bytes de esquema não são acerto/qualidade.
 
 - [x] Inventariar o MCP real via `scripts/mcp-stdio.js` em perfil de desenvolvimento isolado: `tools/list` retornou 22 ferramentas; não houve chamada a modelo.

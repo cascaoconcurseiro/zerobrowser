@@ -1,4 +1,14 @@
-# Novidades — Zero Browser 0.1.47-dev
+# Novidades — Zero Browser 0.1.48-dev
+
+## Motor, Bots e modo Delegar — 31/10/2026
+
+- Em `advancedInput: 'auto'`, intenções explícitas de planilha/canvas/ferramentas avançadas em português ou inglês recebem o catálogo logo no primeiro pedido. Tarefas comuns continuam com carregamento sob demanda; instruções negativas e o override explícito `false` não devem ativar a pré-carga.
+- Fixtures: tarefa comum serializa 8.096 bytes de esquema inicial contra 11.139 pré-carregado (27,3% a menos); tarefa explícita de planilha evita uma chamada simulada ao seletor. Bytes de request não são tokens faturados, custo, latência real nem prova de acerto geral.
+- Cobertura Bot/MCP: navegação arriscada e submissão POST param quando a aprovação de fixture é recusada; o pipe responde a `ping` e `tools/list` depois de recusas e ferramenta inexistente. Nenhuma página envia dados nem recebe tráfego externo nestes testes.
+- A Central de Bots se ajusta a janelas de 700 e 400 px, usa alvos de 44 px para fechar/criar, e Escape fecha o painel e devolve o foco ao acionador. Smoke executa com IPC mockado, não no instalador.
+- Nenhuma chamada real ou paga a provedor foi feita nesta versão.
+
+## Histórico — 0.1.47-dev
 
 ## Delegar e equipe Bot — 31/10/2026
 

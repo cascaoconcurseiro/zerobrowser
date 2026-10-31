@@ -6,7 +6,7 @@ Navegador Electron para Windows com agente integrado à OpenRouter, DeepSeek e, 
 
 ## Estado atual (2026-10-31)
 
-A versão de desenvolvimento da árvore é **0.1.47-dev**. O instalador NSIS foi gerado e a build empacotada extraída foi conferida com diretórios QA isolados; a instalação após o commit ainda está pendente. A suíte local passou em 368/368, o smoke Electron de UI passou e o runtime de Bot/MCP recusou tentativas de senha, identificador de login e CDP bruto em fixtures. Consulte `HANDOFF.md` para limites, hashes e próximos passos.
+A árvore está em **0.1.48-dev**; o app instalado em QA permanece em **0.1.47-dev** até o commit e a instalação do candidato. O NSIS foi gerado. No candidato, `npm test` passou 370/370 e os smokes `test:ui`, `test:bot-runtime` e `test:delegation-layout` passaram. Há fixtures de economia de esquema, pré-carga por intenção explícita, recusas de segurança MCP e layout responsivo da Central. Isso não comprova tokens faturados, chamada real de provedor, envio externo ou aceite completo do layout. Consulte `HANDOFF.md` para hashes e próximos gates.
 
 O comparativo em `docs/COMPARATIVO_CONCORRENTES_2026-10-28.md` avalia prontidão pública por rubrica editorial; não há base para participação de mercado, comparação de desempenho ou qualidade por ranking. Não houve chamada de provedor nesta fatia.
 
@@ -29,10 +29,10 @@ O NSIS foi configurado para não abrir o navegador automaticamente ao concluir a
 - Motor opt-in, desligado por padrão: `preInspect`, `run_steps` (com pós-condições), journal de efeitos (idempotência), snapshot por diferença, cascata de modelos e streaming. Só `preInspect` tem A/B registrado.
 - Verificação em 29/10/2026: no executável instalado, smoke UX 9 verificações, integração completa com provedores mockados e biblioteca após reinício passaram em perfis temporários. A suíte da árvore reportada para esta versão: `npm test` 302/302, `npm run test:ui` PASS, auditoria npm sem vulnerabilidades reportadas e testes de extensão 12/12. Isso não valida uso autenticado do DeepSeek, conexão Ollama real, benchmark pareado nem aceite amplo do perfil real.
 
-### Código em desenvolvimento (0.1.46-dev; instalado em perfil QA)
+### Código em desenvolvimento (0.1.48-dev; aguardando instalação QA)
 
 - Espaços de Bots isolados, confirmação para elevar autonomia e proteções para não preencher ou expor credenciais. Validação e limites estão em `docs/NOVIDADES.md` e `HANDOFF.md`.
-- Modo Delegar implementado: painel de conversa e perfis à esquerda, aba ativa à direita; interrupção usa o comando existente da tarefa atual. A Central e takeover completo ainda não estão implementados.
+- Modo Delegar abre por padrão; painel de conversa e perfis ficam à esquerda, página ativa à direita. A Central lista os perfis e troca/abre outros perfis em janela isolada. Takeover completo ainda não foi aceito em fluxos reais.
 
 ### Fluxos ligados
 

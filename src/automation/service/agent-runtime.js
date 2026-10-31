@@ -43,6 +43,26 @@ const ADVANCED_TOOLS_SELECTOR = {
     parameters: { type: 'object', properties: {}, additionalProperties: false }
   }
 };
+const ADVANCED_TASK_CUES = /\b(?:planilhas?|sheets?|spreadsheets?|celulas?|cells?|intervalo\s+[a-z]{1,3}\d|range\s+[a-z]{1,3}\d|canvas|quadro|whiteboard|area de transferencia|clipboard|colar|cole|copiar para|paste|copy (?:to|into) clipboard|sequencia de teclas|key sequence|atalho de teclado|keyboard shortcut|coordenadas|coordinates|clique visual|visual click|elemento visual|visual element|so existe na imagem|only visible in (?:the )?screenshot)\b/;
+const ADVANCED_TASK_NEGATION_PREFIX = /\b(?:nao\s+(?:use|utilize|preciso|precisa|quero|abra|toque|edite|altere|copie|cole)|sem|no(?:\s+(?:need|use|using|to\s+use))?|don['’]?t\s+(?:use|open|edit|touch|copy|paste|want|need)|do\s+not\s+(?:use|open|edit|touch|copy|paste|want|need)|not\s+(?:use|open|edit|touch|copy|paste)|never\s+(?:use|open|edit|touch|copy|paste)|can(?:not|'t|’t)\s+(?:use|open|edit|touch|copy|paste)|avoid|without)\b/;
+function shouldPreloadAdvancedTools(advancedInput, prompt, url) {
+  if (advancedInput === true) return true;
+  if (advancedInput === false) return false;
+  const normalizedPrompt = String(prompt || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  let foundNegatedCue = false;
+  const clauses = normalizedPrompt.split(/[;,!?\.\r\n]+|\b(?:mas|porem|but|however)\b|\b(?:e|and)\b(?=\s+(?:use|read|open|edit|inspect|check|calculate|update|access|analyze|analyse|copy|paste|write|fill|enter|type|leia|abra|edite|inspecione|verifique|some|atualize|acesse|analise|consulte|copie|cole|grave|preencha|digite|escreva)\b)/);
+  for (const clause of clauses) {
+    const cueIndex = clause.search(ADVANCED_TASK_CUES);
+    if (cueIndex < 0) continue;
+    if (ADVANCED_TASK_NEGATION_PREFIX.test(clause.slice(0, cueIndex))) {
+      foundNegatedCue = true;
+      continue;
+    }
+    return true;
+  }
+  if (foundNegatedCue) return false;
+  return isSheetsUrl(url || '');
+}
 const {
   taskPolicyAllows, isLoopbackUrl, HUMAN_CHECK_GUARDED_TOOLS, compactScreenshot, dropImages,
   traceToolCall, selectOptionScript, ActionSchema, ToolSchema
@@ -140,8 +160,11 @@ async function runAgent(tabId, prompt, apiKey, model, allowTools = true, provide
     if (!resumeId && resumable) {
       for (const [id, state] of this.pausedAgentRuns) if (state.rootTabId === rootTabId) this.forgetPausedRun(id);
     }
-    const preloadAdvancedTools = advancedInput === true
-      || (advancedInput !== false && isSheetsUrl(tab?.webContents?.getURL?.() || ''));
+    const preloadAdvancedTools = shouldPreloadAdvancedTools(
+      advancedInput,
+      prompt,
+      tab?.webContents?.getURL?.() || ''
+    );
     const tools = getAgentTools();
     if (actionScripts) tools.push(structuredClone(RUN_STEPS_TOOL));
     if (structuredExtraction) tools.push(structuredClone(EXTRACT_TABLE_TOOL));

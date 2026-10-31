@@ -66,12 +66,12 @@ Para dar 4 a um quesito: todos os critérios essenciais abaixo passam no candida
 
 ### Ordem de execução e paralelismo
 
-1. **Fechar etapa 0:** instalar o candidato 0.1.47-dev em QA, conferir versão/hash/atalho e registrar a mesma baseline para todas as frentes.
-2. **Abrir em paralelo depois da baseline:** (a) motor em fixtures sem custo, (b) UX responsiva e teclado, (c) definição do conjunto de benchmark. Cada frente trabalha em arquivos próprios e entrega critério/teste; ninguém integra diretamente na mesma pasta de trabalho da outra frente.
-3. **Fechar o gate de segurança:** Bot/MCP cobre navegação com aprovação, envio externo e recuperação em fixture; achados críticos/altos bloqueiam novos acessos privilegiados.
+1. [x] **Etapa 0 — baseline QA:** 0.1.47-dev instalada via NSIS; versão, hash do executável/ASAR, atalhos e tela Delegar/Central conferidos. O instalador não tem assinatura Authenticode.
+2. **Gate de segurança — Bots/MCP:** cobrir navegação com aprovação, envio externo, login sem sinais semânticos e recuperação em fixture; achados críticos/altos bloqueiam novas capacidades.
+3. **Trabalho paralelo sem sobreposição:** (a) motor em fixtures sem custo, (b) UX responsiva e teclado, (c) conjunto de benchmark. Cada frente mantém dono e arquivos definidos na tabela; ninguém integra diretamente em `main`.
 4. **Validar extensões após o gate:** matriz de compatibilidade e fixtures; Flame real somente em perfil descartável e fluxo autorizado.
-5. **Integrar uma fatia por vez:** agente principal revisa os diffs, executa a suíte e instala após o commit; só então começa a próxima versão. Especialistas não alteram arquivos fora da frente designada.
-6. **Medição real e nota de mercado:** depende de baseline e orçamento/provedor aprovado; 200 avatares e redução de bytes de esquema não entram como evidência de qualidade do modelo.
-7. **Aceite final:** executa etapas 0–7 do plano com revisão independente; publica nota 4 apenas quando cada critério essencial passar no pacote e instalação QA.
+5. **Integrar uma fatia por vez:** agente principal revisa os diffs, executa a suíte e instala cada commit em QA; só então inicia a próxima versão. Especialistas não alteram arquivos fora da frente designada.
+6. **Medição real e nota de mercado:** depende da baseline e de orçamento/provedor aprovado; 200 avatares e redução de bytes de esquema não entram como evidência de qualidade do modelo.
+7. **Aceite final:** executar etapas 0–7 com revisão independente; publicar nota 4 apenas quando cada critério essencial passar no pacote e na instalação QA.
 
 **Gargalos:** validação do provedor real com custo, superfícies de extensão/Flame e aceite de usuário. Não há estimativa confiável de calendário até concluir a baseline e dimensionar acesso, orçamento e resultados. O backlog detalhado do `CHECKLIST.md` continua sendo referência; esta ordem define quais itens podem começar e quem os integra.

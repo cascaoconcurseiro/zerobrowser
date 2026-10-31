@@ -1,14 +1,15 @@
 # Handoff — Zero Browser
 
-## Candidato 0.1.47-dev — 31/10/2026
+## Candidato 0.1.48-dev — 31/10/2026
 
-- O modo Delegar agora abre por padrão; a barra superior combina pesquisa, navegação e envio de tarefa. A tela foi conferida na build empacotada extraída (`dist/win-unpacked`) com perfil isolado em `%LOCALAPPDATA%\ZeroBrowserQA\0.1.47-dev`.
-- A Central lista os perfis Bot existentes; o retrato do perfil atual é estático e os outros perfis abrem janelas separadas. O pacote inclui 200 retratos pixel art em duas folhas PNG, guardadas uma vez cada no SQLite comum de perfis. Isso não cria 200 agentes.
-- O catálogo remove mapeamentos de perfis excluídos e serializa atribuições com `BEGIN IMMEDIATE`. O override de teste empacotado só usa diretórios dentro de `ZeroBrowserQA`; a execução confirmou o banco QA em `%LOCALAPPDATA%\ZeroBrowserQA\profiles` e não encontrou catálogo no caminho padrão `%APPDATA%\zero-browser-perfis`.
-- Motor: ferramentas avançadas sob demanda reduziram bytes serializados do primeiro pedido de 11.139 para 8.096 (27,3%) na fixture; são bytes do esquema, não tokens faturados, qualidade ou latência real.
-- Validações locais: `npm test` 368/368, `npm run test:ui` PASS, `npm run test:bot-runtime` PASS (22 ferramentas; senha, identificador de login e CDP bruto recusados na fixture), focados catálogo/motor 5/5 e perfis/isolamento 4/4. Build NSIS gerado: `dist/Zero Browser Setup 0.1.47-dev.exe` (130.428.819 bytes).
-- A instalação do NSIS após o commit ainda está pendente. Nenhum provedor foi chamado nesta etapa. Benchmark pago/pareado, fluxo de navegação com aprovação por MCP, envio externo e ciclo completo de exclusão de Bots seguem pendentes.
-- Próximo passo concreto: depois do commit, executar o instalador 0.1.47-dev, abrir pelo atalho com `ZERO_USER_DATA` e `ZERO_TEST_PROFILES_ROOT` limitados ao QA, conferir versão/hash e manter a janela Delegar em primeiro plano.
+- A base instalada de QA continua em `0.1.47-dev`; a árvore está em `0.1.48-dev` e aguarda commit e instalação deste candidato. O NSIS já foi gerado.
+- Motor: `advancedInput: 'auto'` pré-carrega o catálogo especializado quando encontra intenção explícita de planilha/canvas/interação visual em português ou inglês. Cues negadas são removidas sem apagar outras intenções positivas; `true` e `false` explícitos têm prioridade. Em fixture, uma tarefa comum manteve o primeiro request em 8.096 bytes contra 11.139 pré-carregado (27,3% menor); tarefa explícita de planilha eliminou uma chamada simulada ao seletor. Isso mede bytes de esquema e número de chamadas simuladas, não tokens cobrados, custo, latência real ou taxa geral de acerto.
+- Bots/MCP: fixture de serviço comprova que navegação cross-site com query longa e clique em submissão POST pedem aprovação; a recusa impede `executeJavaScript`. O pipe MCP real da fixture continuou respondendo `ping` e `tools/list` depois de recusas e ferramenta desconhecida. Não houve envio efetivo, tráfego externo, diálogo nativo ou execução real de modelo.
+- UX: a Central fica dentro das janelas de 700 e 400 px; botões Fechar/Criar têm 44 px; Escape fecha e devolve o foco. `npm run test:delegation-layout` usa Electron e IPC mockado, não o instalador.
+- Validações no candidato: `npm test` 370/370, `npm run test:ui` PASS, `npm run test:bot-runtime` PASS, `npm run test:delegation-layout` PASS e revisão independente sem achados bloqueadores. `git diff --check` PASS, com avisos somente LF/CRLF.
+- Nenhum provedor foi chamado; benchmark pago/pareado e aceitação de diálogos/autonomia de Bots continuam pendentes. O instalador 0.1.47 anterior não tem assinatura Authenticode.
+- Build NSIS gerado: `dist/Zero Browser Setup 0.1.48-dev.exe` (130.429.999 bytes; SHA-256 `BC4F4E07F938A31ACF9FBC4C6495664D68FAB5185432BBBEF2B44B26BEF1663B`). Executável extraído: `0.1.48.0`, SHA-256 `19BAD1328AA1E0524A085DD0903F7A481A5BF7AC9F6D59B954A69B0B5D0A4143`; `app.asar`: 18.355.831 bytes, SHA-256 `F856E9EDCA9282A8EF698437E9C2B02247826BEFE66AB1CEAD217DED54D5936E`. NSIS sem assinatura Authenticode.
+- Próximo passo concreto: fazer commit local, criar/verificar backup da instalação 0.1.47, instalar o NSIS novo em QA e comparar versão/hash/atalhos/tela. Depois registrar evidência e iniciar o aceite ampliado de Bots.
 
 ## Modo Delegar funcional e Bots — 31/10/2026
 

@@ -205,7 +205,15 @@ async function main() {
     await evaluate(mainTarget, `window.navegante.browser.closeTab(${JSON.stringify(tab.tabId)})`);
   }
 
-  console.log(JSON.stringify({ status: 'PASS', profile: appInfo.profile, approvalMode: 'allow-all seeded only in temporary fixture to exercise technical denial', mcpToolCount: botToolNames.length, mcpCatalogMatchesBaseline: true, site: 'loopback fixtures', credentialAttempts: results }, null, 2));
+  await assert.rejects(requestMcp('tools/call', {
+    name: 'fixture_missing_tool', arguments: {}
+  }), /Unknown tool: fixture_missing_tool/);
+  const mcpAfterError = await requestMcp('ping');
+  assert.deepEqual(mcpAfterError, {}, 'o pipe MCP continua atendendo depois de um erro de ferramenta');
+  const toolsAfterRefusals = await requestMcp('tools/list');
+  assert.equal(toolsAfterRefusals.tools.length, botToolNames.length, 'MCP continua atendendo após recusas de credencial/CDP e erro de ferramenta');
+
+  console.log(JSON.stringify({ status: 'PASS', profile: appInfo.profile, approvalMode: 'allow-all seeded only in temporary fixture to exercise technical denial', mcpToolCount: botToolNames.length, mcpCatalogMatchesBaseline: true, site: 'loopback fixtures', credentialAttempts: results, mcpRecoveredAfterRefusalsAndToolError: true }, null, 2));
 }
 
 main().catch((error) => {
