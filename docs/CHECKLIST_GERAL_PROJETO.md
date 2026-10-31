@@ -1,7 +1,7 @@
 # Checklist Geral do Projeto — Zero Browser
 
 Data de consolidação: `31/10/2026`
-Versão atual (código e instalada): `0.1.57-dev`
+Versão atual (código e instalada): `0.1.58-dev`
 
 Este documento consolida **tudo o que já foi entregue (`[x]`)** e **tudo o que falta (`[ ]`)** no Zero Browser, unificando `CHECKLIST.md`, `HANDOFF.md`, `docs/CHECKLIST_HISTORICO.md`, `docs/CHECKLIST_PLANOS_2026-10-31.md`, `docs/EVOLUCAO_MOTOR.md`, `docs/PLANO_MATURIDADE_4.md` e todos os planos específicos em `docs/PLANO_*.md`.
 
@@ -183,10 +183,10 @@ Este documento consolida **tudo o que já foi entregue (`[x]`)** e **tudo o que 
 ### 9.1 Rotas Aprendidas (`docs/PLANO_ROTAS_E_FIREWALL.md` Parte A)
 
 - [ ] **Fase 0 — Experimento:** testar em 5 sites reais se chamada direta de API da sessão é ≥ 3x mais rápida e gasta ≥ 70% menos tokens que repetir cliques com IA.
-- [ ] **Fase 1 — Observador de Rede:** capturar chamadas `fetch`/`XHR` durante tarefa guiada, removendo valores de credenciais.
-- [ ] **Fase 2 — Compilador de Rota:** transformar chamadas em receita parametrizada (`dominio`, `intencao`, `metodo`, `url`, `parametros`, `tipoEfeito`, `reversivel`).
-- [ ] **Fase 3 — Executor com Fallback:** rodar rota aprendida na sessão da aba e voltar para navegação visual se retornar `401/403/404/5xx` ou mudar formato.
-- [ ] **Fase 4 — Suporte a WebMCP:** consumir ferramentas declaradas pela própria página, passando pelo firewall de intenção.
+- [x] **Fase 1 — Observador de Rede:** capturar chamadas `fetch`/`XHR` durante tarefa guiada, removendo valores de credenciais (`NetworkRouteObserver` em `src/automation/learned-routes.js`, `0.1.58-dev`).
+- [x] **Fase 2 — Compilador de Rota:** transformar chamadas em receita parametrizada (`RouteCompiler`, `0.1.58-dev`).
+- [x] **Fase 3 — Executor com Fallback:** rodar rota aprendida na sessão da aba e voltar para navegação visual se retornar `401/403/404/5xx` ou mudar formato (`LearnedRouteExecutor`, `0.1.58-dev`).
+- [x] **Fase 4 — Suporte a WebMCP:** consumir ferramentas declaradas pela própria página, passando pelo firewall de intenção (`WebMcpBridge`, `0.1.58-dev`).
 
 ### 9.2 Firewall de Intenção e Recibo (`docs/PLANO_ROTAS_E_FIREWALL.md` Parte B)
 
@@ -200,7 +200,7 @@ Este documento consolida **tudo o que já foi entregue (`[x]`)** e **tudo o que 
 
 - [x] **Salto 1 — Reversibilidade e `Desfazer`:** campo `reversibilidade` obrigatório em toda ferramenta de escrita + executor de sequência de compensação validado em 5 fixtures (`test/command-registry.test.js`, `0.1.54-dev`).
 - [ ] **Salto 2 — Autonomia Conquistada:** promoção gradual por tarefa e site após N execuções aprovadas sem erro, rebaixamento automático na 1ª falha e painel `"Confiança"`.
-- [ ] **Salto 3 — Ensaio em Gêmeo Local:** simular ações irreversíveis em cópia local da página antes de apresentar o recibo de aprovação.
+- [x] **Salto 3 — Ensaio em Gêmeo Local:** simular ações irreversíveis em cópia local da página antes de apresentar o recibo de aprovação (`LocalTwinSandbox` em `src/automation/learned-routes.js`, `0.1.58-dev`).
 - [ ] **Paridade Essencial:**
   - [ ] Importador de favoritos (HTML/Chrome/Edge) e senhas (CSV para o cofre criptografado, apagando o CSV temporário).
   - [ ] Bloqueador de anúncios e rastreadores por listas públicas (EasyList/EasyPrivacy) integrado ao Guardian com contador por página e exceção por site.

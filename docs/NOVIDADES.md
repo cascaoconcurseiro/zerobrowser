@@ -1,4 +1,11 @@
-# Novidades — Zero Browser 0.1.57-dev
+# Novidades — Zero Browser 0.1.58-dev
+
+## Rotas Aprendidas (observador, compilador, queda automática, biblioteca, WebMCP) e Gêmeo Local — 0.1.58-dev — 31/10/2026
+
+- Observador de rede (`NetworkRouteObserver` em `src/automation/learned-routes.js`) que filtra ruído, redige segredos e agrupa candidatas a rota por site/endpoint.
+- Compilador (`RouteCompiler`), biblioteca (`LearnedRouteLibrary`) e executor (`LearnedRouteExecutor`) com queda automática para o modo clicar quando o site muda (`404`/`500`) e rotas de escrita desligadas por padrão até confirmação humana.
+- Ponte WebMCP (`WebMcpBridge`) respeitando a ordem de preferência (`1. WebMCP -> 2. Rota aprendida -> 3. Receita por site -> 4. Agente clicando`) sob o Firewall de Intenção.
+- Ensaio em Gêmeo Local (`LocalTwinSandbox`) somente leitura para simular ações irreversíveis e detectar quebra de seletor antes de apresentar o recibo de aprovação.
 
 ## Bots Fases 2–5 (scheduler, modelos, gravador Ensinar) e comandos visuais versionados — 0.1.57-dev — 31/10/2026
 

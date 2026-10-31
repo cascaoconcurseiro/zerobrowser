@@ -83,7 +83,7 @@ Guia completo de leitura e ordem de construção para outra IA (GPT): `docs/LEIA
 
 ## 4c. Rotas aprendidas e firewall (`PLANO_ROTAS_E_FIREWALL.md`)
 - [ ] Fase 0 das rotas: 5 sites, comparar clicar × rota (portão: 3 de 5 com tempo −70% e tokens −80%, meta).
-- [ ] Observador de rede, compilador de rota, executor com queda automática, biblioteca, WebMCP, ensaio (gêmeo local).
+- [x] Observador de rede, compilador de rota, executor com queda automática, biblioteca, WebMCP, ensaio (gêmeo local) em `src/automation/learned-routes.js` (`0.1.58-dev`).
 - [x] Suíte de 50+ ataques em 5 famílias e linha de base no Zero atual (`test/intent-firewall-attacks.test.js`, 50/50 bloqueados na `0.1.55-dev`).
 - [x] Etiquetas de origem, política de efeitos, recibo antes de executar (recibo igual à requisição enviada, `0.1.55-dev`).
 - [ ] Publicar "N de N ataques sem efeito indevido" e taxa de falsos bloqueios.
@@ -113,7 +113,7 @@ Guia completo de leitura e ordem de construção para outra IA (GPT): `docs/LEIA
 - [x] Recibo mostra janela de reversão; Desfazer em sequência de compensações; 5 de 5 fixtures restauradas (`test/command-registry.test.js`, `0.1.54-dev`).
 - [ ] Histórico de execuções com resultado verificado; painel "Confiança" por bot e por site.
 - [ ] Autonomia conquistada: subir degrau só com aceite humano, descer automático; teste de que nenhum degrau desliga o núcleo.
-- [ ] Ensaio em gêmeo local (somente leitura).
+- [x] Ensaio em gêmeo local (somente leitura, `LocalTwinSandbox` na `0.1.58-dev`).
 - [ ] Rede de rotas opt-in: decidir só depois das fases 2 a 4.
 - [x] Limite de paridade e Desfazer como aposta principal aceitos pelo Wesley em 31/10/2026 (sincronização e app móvel adiados; implementação pendente).
 - [ ] Decidir: primeiras ações para o Desfazer (e-mail, compras, agenda).
