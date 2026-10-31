@@ -2,7 +2,7 @@
 
 ## Estado atual
 
-- Código e instalação local em `0.1.56-dev`: Bots Fase 1 (`src/bots/bot-store.js`, `src/bots/runner.js`, parada < 1s) + contrato comparativo e diagnóstico MCP (`docs/MCP_TOOLS_COMPARATIVO.md`, `src/automation/mcp-diagnostics.js`).
+- Código e instalação local em `0.1.57-dev`: Bots Fases 2–5 (`src/bots/scheduler.js`, `src/bots/templates.js`, `src/bots/recorder.js`), fluxo `Ensinar` na UI, personalização visual versionada com Modo Seguro (`src/main/ui-customizer.js`) e protótipo HTML clicável (`docs/prototipos/fluxos-delegar-prototipo.html`).
 - Na fatia `0.1.53-dev` (Design e UX): implementados os tokens de espaçamento (escala de `4px`), paleta de 8 cores de Bots com contraste WCAG ≥ `3:1` verificado nos temas claro e escuro (`BOT_ACCENT_PALETTE` e `BOT_STATE_COLORS`), anel de estado nunca só por cor (`idle`, `working`, `needs-attention` `!`, `error` `×`, `paused` `‖` + nome acessível), indicador na aba controlada (`.tab-controlled` + `#tab-control-banner`), botão `Assumir` / `Devolver ao bot` e etiqueta explícita de reversibilidade no cartão de aprovação.
 
 ## Entrega atual — Tokens de estado, paleta 8 cores, indicador de aba controlada e Assumir (0.1.53-dev)

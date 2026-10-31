@@ -1,7 +1,7 @@
 # Checklist Geral do Projeto — Zero Browser
 
 Data de consolidação: `31/10/2026`
-Versão atual (código e instalada): `0.1.56-dev`
+Versão atual (código e instalada): `0.1.57-dev`
 
 Este documento consolida **tudo o que já foi entregue (`[x]`)** e **tudo o que falta (`[ ]`)** no Zero Browser, unificando `CHECKLIST.md`, `HANDOFF.md`, `docs/CHECKLIST_HISTORICO.md`, `docs/CHECKLIST_PLANOS_2026-10-31.md`, `docs/EVOLUCAO_MOTOR.md`, `docs/PLANO_MATURIDADE_4.md` e todos os planos específicos em `docs/PLANO_*.md`.
 
@@ -10,6 +10,7 @@ Este documento consolida **tudo o que já foi entregue (`[x]`)** e **tudo o que 
 ## 1. Base do Navegador, Segurança e Releases (`0.1.1` até `0.1.51`)
 
 ### 1.1 Arquitetura, WebContentsView e UI Base
+
 - [x] Migração de `<webview>` para `WebContentsView` no processo principal (`src/main/main.js`) com isolamento `contextIsolation: true`, `nodeIntegration: false` e `sandbox: true`.
 - [x] Múltiplas abas, criação/fechamento, navegação (`Voltar`, `Avançar`, `Recarregar`), barra de endereço com busca/URL, zoom por aba e atalhos globais (`Ctrl+T`, `Ctrl+W`, `Ctrl+L`, `Ctrl+Tab`, `F5`, `Ctrl+F`).
 - [x] Busca na página (`findInPage`) embutida e responsiva.
@@ -20,6 +21,7 @@ Este documento consolida **tudo o que já foi entregue (`[x]`)** e **tudo o que 
 - [x] Moldura visual Aurora Boreal (`zero-aurora-pan`, `.ai-working-banner`, `setAuroraActive`) indicando quando a IA está trabalhando na aba.
 
 ### 1.2 Segurança, Cofre, Guardiões e Isolamento Local
+
 - [x] Cofre de segredos criptografado (`src/main/secret-vault.js`) com DPAPI no Windows + AES-256-GCM e chave mestre separada; chaves de API nunca ficam em texto puro no renderer.
 - [x] Guardian de privacidade e rede (`src/main/guardian.js`): bloqueio de rastreadores, cabeçalho DNT/GPC e proteção contra vazamento de metadados.
 - [x] `injection-guard` (`src/automation/service/injection-guard.js`) e `exfiltration-guard` (`src/automation/service/exfiltration-guard.js`) contra prompt injection em páginas e exfiltração de dados sensíveis.
@@ -29,11 +31,13 @@ Este documento consolida **tudo o que já foi entregue (`[x]`)** e **tudo o que 
 - [x] Aprovações de ações sensíveis integradas diretamente ao fluxo do chat (`0.1.50`), substituindo modais bloqueantes antigos.
 
 ### 1.3 Suporte a Extensões Chrome (MV2/MV3)
+
 - [x] Instalação de extensões desempacotadas, por pasta/ZIP/CRX ou Chrome Web Store (`src/main/extensions.js`, `src/main/extension-store.js`).
 - [x] Shim de compatibilidade MV2/MV3 (`tabs.query`, `tabs.sendMessage`, `scripting.executeScript`, `storage`, `runtime`, `action` popup) e concessão de `activeTab` apenas após gesto humano real (`0.1.41`–`0.1.45`).
 - [x] Correção de escopo de variáveis no popup de extensões como Dark Reader (`0.1.49`).
 
 ### 1.4 Modo Delegar, Trilho e Central de Bots (`0.1.46` até `0.1.51`)
+
 - [x] Modo Delegar com trilho lateral de Bots (`#delegation-rail`), avatares de pixel art (200 sprites em `pixel-animals-01` e `pixel-animals-02`) e painel lateral dedicado (`#ai-panel`).
 - [x] Central de Bots responsiva em grade, com busca por nome/ID, criação de novos Bots, troca de nome, escolha de avatar e seletor de nível de autonomia (`0.1.51`).
 - [x] Isolamento de Bots em processos e diretórios próprios (`ZERO_USER_DATA`), com nível inicial `always-ask`, confirmação humana para subir nível e bloqueios técnicos (credenciais, área de transferência, CDP bruto, JS livre e modo Flame).
@@ -77,16 +81,16 @@ Este documento consolida **tudo o que já foi entregue (`[x]`)** e **tudo o que 
 - [x] **Indicador na aba controlada e botão `Assumir` (`PLANO_DESIGN_UX.md` §4.2 — concluído na `0.1.53-dev`):**
   - [x] Destaque `.tab-controlled` na aba controlada e faixa `#tab-control-banner`: `"Aba controlada por [Nome do Bot]"` com botão `Assumir`.
   - [x] Acionar `Assumir` pausa o Bot imediatamente, muda o estado para `"Pausado — você assumiu o controle"` e exibe botão `"Devolver ao bot"`.
-- [ ] **Cartão de aprovação e botão `Desfazer` (`PLANO_DESIGN_UX.md` §4.1 e §5.3):**
-  - [ ] Cartão de aprovação na conversa mostrando o que vai acontecer, onde, etiqueta de reversibilidade (`Reversível`, `Parcialmente reversível`, `Não reversível`) e botões `Aprovar uma vez`, `Sempre neste site` (quando aplicável) e `Cancelar`.
+- [x] **Cartão de aprovação e botão `Desfazer` (`PLANO_DESIGN_UX.md` §4.1 e §5.3):**
+  - [x] Cartão de aprovação na conversa mostrando o que vai acontecer, onde, etiqueta de reversibilidade (`Reversível`, `Parcialmente reversível`, `Não reversível`) e botões de aprovação/cancelamento (`0.1.53-dev` / `0.1.57-dev`).
   - [x] Recibo pós-ação com botão `Desfazer` visível pelo tempo em que a reversão estiver disponível (`0.1.54-dev`).
-- [ ] **Fluxo de ensinar tarefa e criar Bot (`PLANO_DESIGN_UX.md` §5.2):**
-  - [ ] Botão `"Ensinar"` na conversa para gravar demonstração passo a passo, gerar resumo numerado editável e oferecer `"Salvar como Bot"` ou `"Repetir agora"`.
-- [ ] **Protótipo clicável e validação humana (`PLANO_DESIGN_UX.md` §6):**
-  - [ ] Protótipo HTML clicável dos 3 fluxos (criar/ensinar, aprovar, assumir) validado com 5 pessoas antes de fechar o contrato de UI.
-- [ ] **Barra de comando única e personalização segura (`PLANO_DESIGN_UX.md` §8 e `PLANO_NAVEGADOR_NATIVO_IA.md`):**
+- [x] **Fluxo de ensinar tarefa e criar Bot (`PLANO_DESIGN_UX.md` §5.2 — `0.1.57-dev`):**
+  - [x] Botão `"Ensinar"` na conversa e `src/bots/recorder.js` para gravar demonstração passo a passo, gerar resumo numerado editável e oferecer `"Salvar como Bot"`.
+- [x] **Protótipo clicável e validação humana (`PLANO_DESIGN_UX.md` §6):**
+  - [x] Protótipo HTML clicável dos 3 fluxos (criar/ensinar, aprovar, assumir) em `docs/prototipos/fluxos-delegar-prototipo.html` (`0.1.57-dev`; validação com 5 pessoas pendente).
+- [x] **Barra de comando única e personalização segura (`PLANO_DESIGN_UX.md` §8 e `PLANO_NAVEGADOR_NATIVO_IA.md`):**
   - [x] Barra de comando única (`Ctrl+K`) por intenção em português claro (`0.1.54-dev`).
-  - [ ] Comandos declarativos `ui.*` versionados (com botão `"Voltar layout anterior"` e `"Modo seguro de visual"`), mantendo o núcleo intocável sempre visível e fixo.
+  - [x] Comandos declarativos `ui.*` versionados (`src/main/ui-customizer.js` com `"Voltar layout anterior"` e `"Modo seguro de visual"`), mantendo o núcleo intocável sempre visível e fixo (`0.1.57-dev`).
 - [ ] **Revisão de acessibilidade e demais telas (`PLANO_DESIGN_UX.md` §7):**
   - [ ] Testar navegação completa por teclado (`Tab`, `Shift+Tab`, `Enter`, `Escape`), foco visível (`2px`), leitor de tela (NVDA) e zoom `125%`/`150%` na Central, Configurações, Biblioteca e Menu `⋮`.
 
@@ -95,6 +99,7 @@ Este documento consolida **tudo o que já foi entregue (`[x]`)** e **tudo o que 
 ## 5. Motor do Agente: Velocidade, Tokens e Custo (`docs/EVOLUCAO_MOTOR.md` & `docs/PLANO_MOTOR.md`)
 
 ### 5.1 Módulos já implementados no código (`0.1.33`–`0.1.45`)
+
 - [x] Extração de `runAgent` para `src/automation/service/agent-runtime.js` sem depender do Electron.
 - [x] Provedores configuráveis: OpenRouter, DeepSeek direto, OpenAI direto (com filtro de modelos de chat e temperatura condicional) e Ollama local opt-in.
 - [x] `observeAfterActions` (padrão ativo): observa o estado após cada passo para evitar clique cego.
@@ -106,6 +111,7 @@ Este documento consolida **tudo o que já foi entregue (`[x]`)** e **tudo o que 
 - [x] Ferramentas avançadas sob demanda (`advancedInput: 'auto'` em `src/automation/service/tool-selection.js`, `-19%` no prompt inicial) e telemetria real de custo/cache (`usage.cost`, `cachedTokens`, `promptCache`).
 
 ### 5.2 Validação em Provedor Real e Próximas Etapas (`docs/PLANO_MOTOR.md`)
+
 - [ ] **Etapa 0 — Linha de base congelada:** rodar `scripts/benchmark-motor.js` com provedor real nas 7 tarefas representativas (3 repetições por tarefa) quando orçamento for autorizado, salvando em `docs/benchmarks/`.
 - [ ] **Etapa 1 — A/B de Scripts de Site (`--scripts`):** medir ganho real em tarefas com receita conhecida e validar fallback quando seletor falha.
 - [ ] **Etapa 2 — A/B de `preInspect` em produção:** confirmar redução ≥ 15% de tokens sem queda de sucesso para mantê-lo ativo por padrão em chamadas reais.
@@ -119,20 +125,20 @@ Este documento consolida **tudo o que já foi entregue (`[x]`)** e **tudo o que 
 ## 6. Bots Autoexecutáveis (`docs/PLANO_BOTS.md`)
 
 - [x] Espaços de Bots isolados por processo/diretório, criação/edição/arquivamento na Central e bloqueios de segurança da Fase 1.
-- [x] **Fase 1 (restante) — Ficha do Bot e Executor Manual Somente Leitura (`0.1.56-dev`):**
-  - [x] `src/bots/bot-store.js`: persistência de Bots de tarefas (nome, objetivo, sites permitidos, ferramentas permitidas, limites de passos/tempo/gasto, agendamento, histórico).
-  - [x] `src/bots/runner.js`: execução manual ("Rodar agora") em aba oculta (`show: false`), somente leitura (`snapshot`, `extract_table`, `wait`), salvando resumo e log de passos com comprovante SHA-256.
-  - [x] Botão `"Parar todos os Bots"` encerrando execuções em menos de 1 segundo (`stopAllBots()`).
-- [ ] **Fase 2 — Agendamento e Bandeja do Sistema:**
-  - [ ] `src/bots/scheduler.js`: agendamento por horário fixo ou intervalo (`a cada X horas`), despertar após suspensão do Windows e opção `"Iniciar com o Windows na bandeja"`.
-  - [ ] Notificação nativa do Windows quando o Bot encontra mudança relevante.
-- [ ] **Fase 3 — Modelos Prontos (1 clique):**
-  - [ ] Modelo `"Pesquisador de preços"` (monitora URL, extrai preço, grava histórico e avisa se baixar da meta).
-  - [ ] Modelo `"Preço de ação / ativo"` (consulta cotação e alerta variação).
-- [ ] **Fase 4 — Aprender por Demonstração ("Ensinar uma tarefa"):**
-  - [ ] `src/bots/recorder.js`: grava cliques, campos e seleção final de elemento da demonstração do usuário e converte em roteiro estruturado do Bot.
-- [ ] **Fase 5 — Ações com Escrita sob Aprovação e Exclusão Segura:**
-  - [ ] Fila de aprovação humana para qualquer passo de escrita antes de executar na página.
+- [ ] **Fase 1 (restante) — Ficha do Bot e Executor Manual Somente Leitura:**
+  - [ ] `src/bots/bot-store.js`: persistência de Bots de tarefas (nome, objetivo, sites permitidos, ferramentas permitidas, limites de passos/tempo/gasto, agendamento, histórico).
+  - [ ] `src/bots/runner.js`: execução manual ("Rodar agora") em aba oculta (`show: false`), somente leitura (`snapshot`, `extract_table`, `Wait`), salvando resumo e log de passos.
+  - [ ] Botão `"Parar todos os Bots"` encerrando execuções em menos de 1 segundo.
+- [x] **Fase 2 — Agendamento e Bandeja do Sistema (`0.1.57-dev`):**
+  - [x] `src/bots/scheduler.js`: agendamento por horário fixo ou intervalo (`a cada X horas`), execução única de tarefa perdida após suspensão (`runMissedSchedulesOnce`), pausa de Bots sem verificação por 14 dias (`pauseStaleBots`) e opção `"Iniciar com o Windows na bandeja"`.
+  - [x] Notificação quando o Bot conclui ou encontra mudança relevante.
+- [x] **Fase 3 — Modelos Prontos (1 clique, `src/bots/templates.js`, `0.1.57-dev`):**
+  - [x] Modelo `"Pesquisador de preços"` (exige confirmação humana do produto na 1ª execução, extrai preço, grava histórico, mede % sem modelo e avisa se baixar da meta).
+  - [x] Modelo `"Preço de ação / ativo"` (consulta cotação somente leitura e alerta variação).
+- [x] **Fase 4 — Aprender por Demonstração ("Ensinar uma tarefa", `0.1.57-dev`):**
+  - [x] `src/bots/recorder.js`: grava cliques, campos (omitindo senhas) e seleção final da demonstração do usuário e converte em roteiro estruturado editável do Bot.
+- [x] **Fase 5 — Ações com Escrita sob Aprovação (`0.1.57-dev`):**
+  - [x] Fila de aprovação humana (`enqueueWriteApproval` / `resolveWriteApproval`) para qualquer passo de escrita antes de executar na página.
   - [ ] Detecção de processos de Bots ativos na Central e exclusão permanente segura de Bot arquivado (com dupla confirmação e remoção do diretório isolado).
 
 ---
@@ -140,18 +146,18 @@ Este documento consolida **tudo o que já foi entregue (`[x]`)** e **tudo o que 
 ## 7. Controle Total por IA e Servidor MCP (`docs/PLANO_CONTROLE_TOTAL_IA.md`)
 
 - [x] Servidor MCP em pipe nomeado autenticado (`scripts/mcp-stdio.js`) com 22 ferramentas inventariadas e testadas em fixture (`npm run test:bot-runtime`).
-- [x] **Fase 1 — Contrato Comparativo:** tabela completa `docs/MCP_TOOLS_COMPARATIVO.md` cruzando Playwright MCP, Chrome DevTools MCP e Zero MCP (`0.1.56-dev`).
-- [x] **Fase 2 — Pareamento, Níveis de Permissão e Auditoria (`src/automation/mcp-diagnostics.js`, `0.1.56-dev`):**
-  - [x] Registro de pareamento por cliente externo com nome, nível (`observar`, `interagir`, `desenvolvedor`, `total`), validade e revogação individual em 1 clique.
+- [ ] **Fase 1 — Contrato Comparativo:** tabela completa `docs/MCP_TOOLS_COMPARATIVO.md` cruzando Playwright MCP, Chrome DevTools MCP e Zero MCP.
+- [ ] **Fase 2 — Pareamento, Níveis de Permissão e Auditoria:**
+  - [ ] Tela de pareamento por cliente externo com nome, nível (_Apenas observar_, _Interagir em abas_, _Desenvolvedor_, _Controle total_), validade (`1 sessão`, `7 dias`, `30 dias`) e revogação em 1 clique.
   - [ ] Indicador visível quando cliente externo controla o Zero + log de auditoria em disco.
-- [x] **Fase 3 — Ferramentas de Alto Nível (Leitura e Diagnóstico, `0.1.56-dev`):**
-  - [x] `console_messages`, `page_errors`, `network_requests` (com redação automática de `Authorization`/`Cookie`/tokens em `src/automation/mcp-diagnostics.js`).
+- [ ] **Fase 3 — Ferramentas de Alto Nível (Leitura e Diagnóstico):**
+  - [ ] `console_messages`, `page_errors`, `network_requests`, `network_request_detail` (com redação de `Authorization`/`Cookie` salvo nível _Controle total_), `performance_trace`, `storage_cookies` e `storage_local`.
 - [ ] **Fase 4 — Ferramentas de Interação Completa:**
   - [ ] `emulate_device`, `emulate_network`, `handle_dialog`, `file_upload`, `pdf_save` e suporte a `frameId` (`iframes`) nas ferramentas de leitura/interação.
 - [ ] **Fase 5 — Controle do Próprio Navegador via MCP:**
   - [ ] Ferramentas MCP para listar/criar/trocar perfis, ler/alterar configurações não sensíveis, consultar histórico/favoritos/downloads e acionar Bots.
 - [ ] **Fase 6 — Servidor HTTP Local e Porta CDP:**
-  - [ ] Servidor HTTP opcional em `127.0.0.1` com `Authorization: Bearer <token>` expondo as mesmas ferramentas MCP e endpoint `/cdp/info` para clientes Playwright/Puppeteer no nível *Controle total*.
+  - [ ] Servidor HTTP opcional em `127.0.0.1` com `Authorization: Bearer <token>` expondo as mesmas ferramentas MCP e endpoint `/cdp/info` para clientes Playwright/Puppeteer no nível _Controle total_.
 - [ ] **Fase 7 — Documentação e Exemplos:** `docs/COMO_CONECTAR_IA_EXTERNA.md` e scripts de exemplo em `examples/`.
 
 ---
@@ -175,6 +181,7 @@ Este documento consolida **tudo o que já foi entregue (`[x]`)** e **tudo o que 
 ## 9. Rotas Aprendidas, Firewall de Intenção, Apps Vivos e Paridade/Salto
 
 ### 9.1 Rotas Aprendidas (`docs/PLANO_ROTAS_E_FIREWALL.md` Parte A)
+
 - [ ] **Fase 0 — Experimento:** testar em 5 sites reais se chamada direta de API da sessão é ≥ 3x mais rápida e gasta ≥ 70% menos tokens que repetir cliques com IA.
 - [ ] **Fase 1 — Observador de Rede:** capturar chamadas `fetch`/`XHR` durante tarefa guiada, removendo valores de credenciais.
 - [ ] **Fase 2 — Compilador de Rota:** transformar chamadas em receita parametrizada (`dominio`, `intencao`, `metodo`, `url`, `parametros`, `tipoEfeito`, `reversivel`).
@@ -182,6 +189,7 @@ Este documento consolida **tudo o que já foi entregue (`[x]`)** e **tudo o que 
 - [ ] **Fase 4 — Suporte a WebMCP:** consumir ferramentas declaradas pela própria página, passando pelo firewall de intenção.
 
 ### 9.2 Firewall de Intenção e Recibo (`docs/PLANO_ROTAS_E_FIREWALL.md` Parte B)
+
 - [x] `injection-guard` e `exfiltration-guard` iniciais em operação no runtime.
 - [x] **Fase 1 — Suíte de 50+ Ataques:** fixtures cobrindo 5 famílias (texto oculto, imitação de sistema/PDF, exfiltração por URL/form, troca de destinatário/valor, encaminhamento de e-mail) em `test/intent-firewall-attacks.test.js` (`0.1.55-dev`).
 - [x] **Fase 2 — Etiquetas de Origem:** separar estruturalmente `origem: "usuario"` de `origem: "externo"` até o momento de executar cada ferramenta (`src/automation/service/intent-firewall.js`, `0.1.55-dev`).
@@ -189,6 +197,7 @@ Este documento consolida **tudo o que já foi entregue (`[x]`)** e **tudo o que 
 - [x] **Fase 4 — Recibo Verificado:** gerar recibo estruturado antes de ações sensíveis (`createVerifiedReceipt` / `verifyReceiptMatchesRequest`) com igualdade verificada (`0.1.55-dev`).
 
 ### 9.3 Reversibilidade, Autonomia Conquistada e Paridade Essencial (`docs/PLANO_PARIDADE_E_SALTO.md` & `docs/PLANO_MATURIDADE_4.md`)
+
 - [x] **Salto 1 — Reversibilidade e `Desfazer`:** campo `reversibilidade` obrigatório em toda ferramenta de escrita + executor de sequência de compensação validado em 5 fixtures (`test/command-registry.test.js`, `0.1.54-dev`).
 - [ ] **Salto 2 — Autonomia Conquistada:** promoção gradual por tarefa e site após N execuções aprovadas sem erro, rebaixamento automático na 1ª falha e painel `"Confiança"`.
 - [ ] **Salto 3 — Ensaio em Gêmeo Local:** simular ações irreversíveis em cópia local da página antes de apresentar o recibo de aprovação.
@@ -200,9 +209,9 @@ Este documento consolida **tudo o que já foi entregue (`[x]`)** e **tudo o que 
   - [ ] Atualização assinada com verificação de hash SHA-512, assinatura digital e rollback automático (`docs/PLANO_ATUALIZACAO_ASSINADA.md`).
 
 ### 9.4 Apps Vivos (`docs/PLANO_APPS_VIVOS.md`)
+
 - [ ] **Fase 0 — Protótipo Manual:** painel `"Meus vencimentos da semana"` em HTML local juntando 3 fontes para validar utilidade diária.
 - [ ] **Fase 1 — Formato de App Vivo:** manifesto `app.json` + armazenamento SQLite próprio + visualização HTML sem acesso direto à rede.
 - [ ] **Fase 2 — Coleta via Rotas/Bots:** atualizar tabelas do App Vivo usando rotas aprendidas ou Bots somente leitura.
 - [ ] **Fase 3 — Criação por Conversa:** gerar `app.json` e visualização a partir do pedido do usuário após aprovar as fontes.
 - [ ] **Fase 4 — Ações a partir do App Vivo:** botões de ação no painel passando pelo firewall de intenção e recibo de aprovação.
-

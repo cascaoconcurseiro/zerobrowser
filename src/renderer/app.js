@@ -103,6 +103,7 @@ class ZeroBrowserApp {
       btnAiNewChat: document.getElementById('btn-ai-new-chat'),
       btnAiMemory: document.getElementById('btn-ai-memory'),
       btnAiCopyChat: document.getElementById('btn-ai-copy-chat'),
+      btnAiTeach: document.getElementById('btn-ai-teach'),
       btnAiRecipes: document.getElementById('btn-ai-recipes'),
       btnAiModules: document.getElementById('btn-ai-modules'),
       btnAiLibrary: document.getElementById('btn-ai-library'),
@@ -170,6 +171,7 @@ class ZeroBrowserApp {
     });
     this.elements.btnBotCentral.addEventListener('click', () => this.toggleBotCentral());
     this.elements.btnTabTakeover?.addEventListener('click', () => this.handleTabTakeoverAction());
+    this.elements.btnAiTeach?.addEventListener('click', () => this.startTeachTaskFlow());
     this.elements.btnBotCentralClose.addEventListener('click', () => this.closeBotCentral({ restoreFocus: true }));
     this.elements.btnBotCentralNew.addEventListener('click', () => {
       this.closeBotCentral();
@@ -719,6 +721,8 @@ class ZeroBrowserApp {
 
   getCommandBarCatalog() {
     return [
+      { commandId: 'bots.teachTask', title: 'Ensinar tarefa para criar Bot', url: 'Comando · Aprender por demonstração', keywords: ['ensinar', 'ensinar tarefa', 'gravar tarefa'] },
+      { commandId: 'ui.safeMode', title: 'Modo seguro de visual (restaurar layout padrão)', url: 'Comando · Reversível', keywords: ['modo seguro', 'voltar layout anterior', 'restaurar visual'] },
       { commandId: 'tabs.closeDuplicates', title: 'Fechar abas duplicadas', url: 'Comando · Reversível', keywords: ['fechar abas duplicadas', 'duplicadas'] },
       { commandId: 'ui.toggleTheme', title: 'Alternar tema (Claro / Escuro)', url: 'Comando · Reversível', keywords: ['alternar tema', 'tema escuro', 'tema claro', 'mudar tema'] },
       { commandId: 'bots.openCentral', title: 'Abrir Central de Bots', url: 'Comando · Equipe de Bots', keywords: ['abrir central', 'central de bots', 'equipe de bots'] },
@@ -751,6 +755,8 @@ class ZeroBrowserApp {
 
   async executeCommandBarAction(commandId) {
     this.commandBarShowEmpty = false;
+    if (commandId === 'bots.teachTask') return this.startTeachTaskFlow();
+    if (commandId === 'ui.safeMode') return this.restoreSafeVisualLayout();
     if (commandId === 'tabs.new') return this.createTab('zero://newtab');
     if (commandId === 'library.history') return this.openLibrary('history');
     if (commandId === 'library.bookmarks') return this.openLibrary('bookmarks');
@@ -869,6 +875,41 @@ class ZeroBrowserApp {
     }
     this.showToast('Nenhuma ação reversível recente para desfazer.', 'info');
     return false;
+  }
+
+  async startTeachTaskFlow() {
+    if (this.elements.aiPanel.classList.contains('hidden')) await this.toggleAiPanel(true);
+    const activeUrl = this.tabs.get(this.activeTabId)?.url || 'about:blank';
+    const card = document.createElement('div');
+    card.className = 'ai-receipt-card teach-task-card';
+    const copy = document.createElement('div');
+    copy.className = 'ai-receipt-copy';
+    const strong = document.createElement('strong');
+    strong.textContent = 'Ensinar tarefa passo a passo';
+    const span = document.createElement('span');
+    span.textContent = `Página base: ${activeUrl} · Descreva ou revise os passos e salve como Bot somente leitura.`;
+    copy.append(strong, span);
+    const saveBtn = document.createElement('button');
+    saveBtn.type = 'button';
+    saveBtn.className = 'btn-secondary btn-undo-receipt';
+    saveBtn.textContent = 'Salvar como Bot';
+    saveBtn.addEventListener('click', () => {
+      this.elements.aiInput.value = `Salvar como Bot para ${activeUrl}: 1. Inspecionar página; 2. Extrair dados principais; 3. Avisar se mudar.`;
+      this.elements.aiInput.focus();
+      this.showToast('Rascunho de Bot preparado no campo de comando.', 'success');
+    });
+    card.append(copy, saveBtn);
+    this.elements.aiChat?.appendChild(card);
+    if (this.elements.aiChat) this.elements.aiChat.scrollTop = this.elements.aiChat.scrollHeight;
+  }
+
+  async restoreSafeVisualLayout() {
+    this.delegationPanelWasResized = false;
+    this.applyDelegationPanelWidth(this.getDefaultDelegationPanelWidth());
+    await window.zeroBrowser.settings.applyTheme('dark').catch(() => {});
+    this.settings.theme = 'dark';
+    this.applySettings({ theme: 'dark' });
+    this.showToast('Modo seguro visual restaurado (layout e largura padrão).', 'info');
   }
 
   async sendAiMessageFromPrompt(text) {

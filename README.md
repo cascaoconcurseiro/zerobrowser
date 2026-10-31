@@ -6,7 +6,7 @@ Navegador Electron para Windows com agente integrado à OpenAI, OpenRouter e Dee
 
 ## Estado atual (2026-10-31)
 
-Código-fonte e instalação atual em **0.1.56-dev**. A .56 adiciona a Fase 1 dos Bots (`src/bots/bot-store.js`, `src/bots/runner.js`, parada em < 1s e comprovante SHA-256) e o contrato/diagnóstico MCP (`docs/MCP_TOOLS_COMPARATIVO.md`, `src/automation/mcp-diagnostics.js` com níveis por cliente e `console_messages` / `page_errors` / `network_requests`). Consulte `CHECKLIST.md` e `docs/CHECKLIST_GERAL_PROJETO.md` para a ordem ativa.
+Código-fonte e instalação atual em **0.1.57-dev**. A .57 adiciona as Fases 2 a 5 dos Bots (`src/bots/scheduler.js`, `src/bots/templates.js`, `src/bots/recorder.js`), o fluxo `Ensinar` na interface, a personalização visual versionada com Modo Seguro (`src/main/ui-customizer.js`) e o protótipo clicável dos 3 fluxos (`docs/prototipos/fluxos-delegar-prototipo.html`). Consulte `CHECKLIST.md` e `docs/CHECKLIST_GERAL_PROJETO.md` para a ordem ativa.
 
 O comparativo em `docs/COMPARATIVO_CONCORRENTES_2026-10-28.md` avalia prontidão pública por rubrica editorial; não há base para participação de mercado, comparação de desempenho ou qualidade por ranking. Não houve chamada de provedor nesta fatia.
 
@@ -120,14 +120,14 @@ npm run build
 
 ## Atalhos
 
-| Atalho | Ação |
-|--------|------|
-| Ctrl+T | Nova aba |
-| Ctrl+W | Fechar aba |
-| Ctrl+L | Focar barra de endereço |
+| Atalho       | Ação                      |
+| ------------ | ------------------------- |
+| Ctrl+T       | Nova aba                  |
+| Ctrl+W       | Fechar aba                |
+| Ctrl+L       | Focar barra de endereço   |
 | Ctrl+Shift+A | Abrir/fechar painel de IA |
-| Alt+← | Voltar |
-| Alt+→ | Avançar |
+| Alt+←        | Voltar                    |
+| Alt+→        | Avançar                   |
 
 ## Configuração do Agente
 
@@ -136,11 +136,12 @@ npm run build
 3. Digite a chave correspondente e clique em **Salvar chave**; a chave é cifrada localmente e não é enviada nessa etapa
 4. O campo passa a indicar `Salva: ••••••••xxxx`. Clique em **Mostrar** para revelar a chave vinculada ou **Ocultar** para limpá-la do campo novamente.
 5. Clique em **Atualizar** para carregar o catálogo, selecione um modelo habilitado e clique em **Conectar**
-5. Descreva a tarefa na caixa inferior; ela opera a aba ativa
+6. Descreva a tarefa na caixa inferior; ela opera a aba ativa
 
 Para controlar interrupções e autonomia, abra Configurações e escolha o **Nível de aprovação**. O padrão é **Permitir ações de baixo risco**. **Permitir todas automaticamente** remove confirmações do agente, inclusive para ações consequentes.
 
 Exemplos:
+
 - "Acesse localhost:3000 e clique no botão de login"
 - "Preencha o formulário com nome: João, email: joao@email.com"
 - "Role a página para baixo"

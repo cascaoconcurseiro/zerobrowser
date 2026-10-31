@@ -1,4 +1,11 @@
-# Novidades — Zero Browser 0.1.56-dev
+# Novidades — Zero Browser 0.1.57-dev
+
+## Bots Fases 2–5 (scheduler, modelos, gravador Ensinar) e comandos visuais versionados — 0.1.57-dev — 31/10/2026
+
+- Agendador de Bots (`src/bots/scheduler.js`) com intervalo, horário diário e dia do mês, execução única de tarefa perdida ao iniciar (`runMissedSchedulesOnce`) e pausa automática de Bots sem verificação por 14 dias (`pauseStaleBots`).
+- Modelos prontos (`src/bots/templates.js`): Pesquisador de preços (com confirmação humana obrigatória do produto na 1ª execução, medição de taxa sem modelo e alerta de preço-alvo/mínimo histórico) e Preço de ação/ativo somente leitura.
+- Gravador `"Ensinar uma tarefa"` (`src/bots/recorder.js` e botão `Ensinar` em `src/renderer/index.html` / `src/renderer/app.js`) que omite senhas, gera resumo numerado editável, salva como Bot e enfileira aprovação humana para passos de escrita.
+- Personalização visual versionada (`src/main/ui-customizer.js`) com `rollbackPreviousLayout`, `enterSafeMode` (`Modo seguro de visual`) e proteção estrita do núcleo intocável, mais protótipo HTML clicável dos 3 fluxos (`docs/prototipos/fluxos-delegar-prototipo.html`).
 
 ## Bots Fase 1 (store, runner, Parar tudo < 1s) e MCP comparativo/diagnóstico — 0.1.56-dev — 31/10/2026
 

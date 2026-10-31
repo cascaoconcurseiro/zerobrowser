@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Protótipo Clicável — Fluxos do Modo Delegar (Zero Browser)</title>
+  <style>
+    :root {
+      --bg: #202321;
+      --panel: #282c29;
+      --fg: #f3f6f4;
+      --muted: #b0b8b3;
+      --accent: #168f72;
+      --warn: #a86f14;
+      --danger: #cc4b43;
+      --border: rgba(255,255,255,0.12);
+    }
+    body { margin: 0; font-family: system-ui, sans-serif; background: var(--bg); color: var(--fg); display: grid; grid-template-columns: 64px 400px 1fr; height: 100vh; }
+    .rail { background: #191c1a; border-right: 1px solid var(--border); display: flex; flex-direction: column; align-items: center; padding: 12px 0; gap: 12px; }
+    .bot-avatar { width: 44px; height: 44px; border-radius: 50%; border: 2px solid var(--accent); background: var(--panel); color: var(--fg); cursor: pointer; font-weight: 700; position: relative; }
+    .bot-avatar[data-state="attention"] { border-style: dotted; border-color: var(--warn); }
+    .bot-avatar[data-state="paused"] { border-style: double; border-width: 3px; }
+    .panel { background: var(--panel); border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 16px; gap: 12px; }
+    .card { border: 1px solid var(--border); border-radius: 8px; padding: 12px; background: rgba(0,0,0,0.2); display: flex; flex-direction: column; gap: 8px; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; background: rgba(22,143,114,0.2); color: #5ce0be; width: fit-content; }
+    .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    button { min-height: 36px; padding: 6px 12px; border-radius: 6px; border: 1px solid var(--border); background: #323834; color: var(--fg); cursor: pointer; font-weight: 600; }
+    button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .stage { padding: 24px; display: flex; flex-direction: column; gap: 16px; }
+    .banner { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; border-radius: 8px; border: 1px solid var(--accent); background: rgba(22,143,114,0.12); }
+  </style>
+</head>
+<body>
+  <aside class="rail" aria-label="Perfis de Bot">
+    <button class="bot-avatar" id="proto-avatar" data-state="working" aria-label="Bot Compras, trabalhando">B1</button>
+  </aside>
+  <section class="panel" aria-label="Painel Delegar">
+    <strong>Modo Delegar — Protótipo dos 3 Fluxos</strong>
+    <div class="card" id="flow-teach">
+      <span class="badge">Fluxo 1 · Criar / Ensinar Bot</span>
+      <p id="teach-status">Grave uma demonstração passo a passo para transformar em Bot.</p>
+      <div class="actions">
+        <button class="primary" id="btn-proto-teach" type="button">Ensinar tarefa</button>
+        <button id="btn-proto-save-bot" type="button" hidden>Salvar como Bot</button>
+      </div>
+    </div>
+    <div class="card" id="flow-approve">
+      <span class="badge" id="approve-rev-badge">Reversível · pode desfazer</span>
+      <strong>Aprovar ação no site loja.exemplo.com.br</strong>
+      <p id="approve-status">Aplicar cupom de desconto no carrinho (origem: você).</p>
+      <div class="actions">
+        <button class="primary" id="btn-proto-approve-once" type="button">Aprovar uma vez</button>
+        <button id="btn-proto-approve-site" type="button">Sempre neste site</button>
+        <button id="btn-proto-cancel" type="button">Cancelar</button>
+      </div>
+    </div>
+  </section>
+  <main class="stage" aria-label="Página controlada">
+    <div class="banner" id="proto-control-banner">
+      <span id="proto-control-label">Aba controlada por Bot Compras</span>
+      <button id="btn-proto-takeover" type="button">Assumir</button>
+    </div>
+    <div class="card">
+      <h2>Página da Loja (Simulação)</h2>
+      <p id="proto-page-log">O Bot está inspecionando os preços desta página.</p>
+    </div>
+  </main>
+  <script>
+    const teachBtn = document.getElementById('btn-proto-teach');
+    const saveBotBtn = document.getElementById('btn-proto-save-bot');
+    const teachStatus = document.getElementById('teach-status');
+    teachBtn.addEventListener('click', () => {
+      teachStatus.textContent = '1. Abrir loja · 2. Ler preço R$ 4.299 · 3. Comparar com meta.';
+      saveBotBtn.hidden = false;
+    });
+    saveBotBtn.addEventListener('click', () => {
+      teachStatus.textContent = 'Bot "Preço · Notebook" salvo em modo somente leitura!';
+    });
+    document.getElementById('btn-proto-approve-once').addEventListener('click', () => {
+      document.getElementById('approve-status').textContent = 'Aprovado! Recibo gravado · Botão Desfazer disponível.';
+    });
+    const takeoverBtn = document.getElementById('btn-proto-takeover');
+    const controlLabel = document.getElementById('proto-control-label');
+    const avatar = document.getElementById('proto-avatar');
+    let paused = false;
+    takeoverBtn.addEventListener('click', () => {
+      paused = !paused;
+      controlLabel.textContent = paused ? 'Pausado — você assumiu o controle' : 'Aba controlada por Bot Compras';
+      takeoverBtn.textContent = paused ? 'Devolver ao bot' : 'Assumir';
+      avatar.dataset.state = paused ? 'paused' : 'working';
+    });
+  </script>
+</body>
+</html>
+

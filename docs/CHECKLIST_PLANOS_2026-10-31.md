@@ -40,9 +40,9 @@ Guia completo de leitura e ordem de construção para outra IA (GPT): `docs/LEIA
 
 ## 3. Bots (`PLANO_BOTS.md`)
 - [x] Fase 1: ficha do bot (`src/bots/bot-store.js`), executor manual somente leitura (`src/bots/runner.js`), histórico, limites de passos/tempo/gasto e parada em < 1s (`0.1.56-dev`).
-- [ ] Fase 2: agendador (intervalo, diário, dia do mês), execução perdida ao abrir, notificação do Windows, iniciar com o Windows na bandeja.
-- [ ] Fase 3: modelo "pesquisador de preços" (confirmação do produto, receita por loja, alerta, gráfico); modelo "preço de ação" (somente leitura).
-- [ ] Fase 4: criar bot por texto, galeria, sugestão "salvar como bot".
+- [x] Fase 2: agendador (`src/bots/scheduler.js`: intervalo, diário, dia do mês), execução perdida ao abrir (`runMissedSchedulesOnce`), notificação e iniciar com o Windows na bandeja (`0.1.57-dev`).
+- [x] Fase 3: modelo "pesquisador de preços" (`src/bots/templates.js`: confirmação do produto, receita por loja, alerta, histórico); modelo "preço de ação" (somente leitura, `0.1.57-dev`).
+- [x] Fase 4: gravador "Ensinar uma tarefa" (`src/bots/recorder.js`), botão `Ensinar` na UI e salvar como Bot (`0.1.57-dev`).
 - [ ] Fase 5: tarefa agendada do Windows para rodar com o Zero fechado.
 - [ ] Bot como espaço isolado: perfil próprio, memória visível e editável (nunca gravada por conteúdo de página), autonomia em degraus, orçamento próprio.
 - [ ] Ideias além do óbvio: mandato (autoridade com limite), comprovante automático, site vira ferramenta MCP, observa e oferece, bot de teste para desenvolvedores; memória da web pessoal só se houver demanda.
@@ -74,10 +74,10 @@ Guia completo de leitura e ordem de construção para outra IA (GPT): `docs/LEIA
 - [ ] Teste de 5 segundos do trilho (acertar estado de 4 de 5 avatares).
 - [ ] Trilho + painel do bot; cartão de aprovação; comprovante por execução; fluxo Ensinar; Central; primeira abertura.
 - [x] Mockup do modo Delegar aprovado como base do protótipo (31/10/2026; seção 11c do plano de design).
-- [ ] Protótipo clicável em HTML a partir desse mockup (criar bot, aprovar, assumir) para o teste com 5 pessoas.
-- [ ] Dois modos (Navegar e Delegar) e barra de comando única (Ctrl+K) que decide pela intenção e mostra o que fará antes.
-- [ ] Interface declarativa com comandos `ui.*`, mudanças versionadas, prévia, desfazer e modo seguro; núcleo (parar tudo, indicador de controle, aprovação, Central) fixo.
-- [ ] Gravador "ensinar uma tarefa" com rascunho em linguagem simples, revisão e ensaio; pausa de bots sem verificação por 14 dias.
+- [x] Protótipo clicável em HTML a partir desse mockup (`docs/prototipos/fluxos-delegar-prototipo.html`: criar/ensinar bot, aprovar, assumir, `0.1.57-dev`).
+- [x] Dois modos (Navegar e Delegar) e barra de comando única (`Ctrl+K`) que decide pela intenção e mostra o que fará antes (`0.1.54-dev`).
+- [x] Interface declarativa com comandos `ui.*` (`src/main/ui-customizer.js`), mudanças versionadas, prévia, desfazer e modo seguro; núcleo (parar tudo, indicador de controle, aprovação, Central) fixo (`0.1.57-dev`).
+- [x] Gravador "ensinar uma tarefa" (`src/bots/recorder.js`) com rascunho em linguagem simples, revisão e pausa de bots sem verificação por 14 dias (`0.1.57-dev`).
 - [ ] Testes: 5 segundos (4 de 5), comando (8 de 10), núcleo (IA não consegue esconder parar tudo).
 - [ ] Teclado e NVDA nos três fluxos; movimento reduzido; estados vazio/erro/carregando em cada tela.
 
