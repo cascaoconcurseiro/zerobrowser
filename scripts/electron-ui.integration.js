@@ -83,7 +83,7 @@ const stubs = {
     return { success: true, message: `Resultado do motor de fixture. ${marker}` };
   },
   'automation:cancel-agent': () => ({ success: false, error: 'Não há execução ativa.' }),
-  'bots:get-presets': () => [],
+  'bots:get-presets': () => require('../src/bots/bot-store').SPECIALIST_BOT_PRESETS,
   'bots:get-symbols': () => [{ id: 'radar', label: 'Radar', svgPath: 'M12 3a9 9 0 1 0 9 9' }],
   'bots:list-tasks': () => [
     { id: 'bot-spec-fixture', name: 'Bot Caçador de Preços', specialty: 'price-hunter', specialtyTitle: 'Pesquisador de Preços', executionMode: 'background-auto-foreground', defaultUrl: 'https://www.google.com/shopping', accent: '#168f72', autonomyStep: 1, memory: ['Regra inicial'], history: [] },

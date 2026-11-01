@@ -2038,7 +2038,7 @@ class ZeroBrowserApp {
   syncControlledTabIndicator() {
     const currentBot = this.botTeam.bots.find((bot) => bot.id === this.botTeam.currentProfileId);
     const actorName = currentBot ? `Bot ${currentBot.name}` : 'Agente';
-    const accent = currentBot?.avatar?.accent || '#168f72';
+    const accent = currentBot?.avatar?.accent || '#0254ec';
     const controlledTabId = this.aiRunning ? (this.runningAgentTabId || this.activeTabId) : (this.takeoverState?.tabId || null);
 
     for (const [tabId, entry] of this.tabs.entries()) {
@@ -2138,7 +2138,7 @@ class ZeroBrowserApp {
       button.title = `${bot.name} · perfil isolado`;
     }
     button.className = 'bot-avatar';
-    button.style.setProperty('--bot-accent', bot.avatar?.accent || '#168f72');
+    button.style.setProperty('--bot-accent', bot.avatar?.accent || '#0254ec');
     const visualState = this.getBotVisualState(bot);
     button.dataset.botState = visualState.state;
     if (visualState.badge) button.dataset.stateBadge = visualState.badge;
@@ -2252,42 +2252,137 @@ class ZeroBrowserApp {
     if (onBots) this.renderBotCatalog();
   }
 
+  getBotFavorites() {
+    try {
+      return new Set(JSON.parse(localStorage.getItem('navegante.botFavorites') || '[]'));
+    } catch {
+      return new Set();
+    }
+  }
+
+  toggleBotFavorite(presetId) {
+    const favorites = this.getBotFavorites();
+    if (favorites.has(presetId)) favorites.delete(presetId);
+    else favorites.add(presetId);
+    try {
+      localStorage.setItem('navegante.botFavorites', JSON.stringify([...favorites]));
+    } catch {
+      // sem armazenamento local: o favorito vale só nesta sessão
+    }
+    this.renderBotCatalog();
+  }
+
   renderBotCatalog() {
     const list = document.getElementById('bot-catalog-list');
     if (!list) return;
     const query = (document.getElementById('bot-catalog-search')?.value || '').trim().toLowerCase();
-    const presets = this.getDefaultSpecialistPresets()
-      .filter((preset) => !query || `${preset.title} ${preset.subtitle}`.toLowerCase().includes(query));
+    const filter = this.botCatalogFilter || 'todos';
+    const favorites = this.getBotFavorites();
+    const presets = this.getSpecialistPresets();
+    const matchesQuery = (preset) => !query || `${preset.title} ${preset.subtitle}`.toLowerCase().includes(query);
+    const matchesFilter = (preset) => {
+      if (filter === 'todos') return true;
+      if (filter === 'favoritos') return favorites.has(preset.id);
+      return PERMISSION_LEVEL_CLASS[preset.levelLabel] === filter;
+    };
+    this.renderBotCatalogQuick(presets.slice(0, 3));
+    this.renderBotCatalogFilters(filter);
+    const visible = presets.filter((preset) => matchesQuery(preset) && matchesFilter(preset));
+    const count = document.getElementById('bot-catalog-count');
+    if (count) count.textContent = `${visible.length} ${visible.length === 1 ? 'bot' : 'bots'}`;
     list.replaceChildren();
-    for (const preset of presets) {
+    for (const preset of visible) {
       const item = document.createElement('li');
-      const button = document.createElement('button');
-      button.type = 'button';
-      button.className = 'bot-catalog-item';
-      button.setAttribute('aria-label', `${preset.title}, ${preset.levelLabel}`);
-      const mascot = document.createElement('img');
-      mascot.className = 'bot-catalog-mascot';
-      mascot.alt = '';
-      mascot.src = `../../assets/bots/mascotes/${PRESET_MASCOTS[preset.id] || '01_faisca'}.png`;
-      mascot.loading = 'lazy';
-      const text = document.createElement('span');
-      text.className = 'bot-catalog-text';
-      const title = document.createElement('strong');
-      title.textContent = preset.title;
-      const subtitle = document.createElement('span');
-      subtitle.textContent = preset.subtitle;
-      const level = document.createElement('em');
-      level.className = `bot-level bot-level-${PERMISSION_LEVEL_CLASS[preset.levelLabel] || 'ler'}`;
-      level.textContent = preset.levelLabel;
-      text.append(title, subtitle, level);
-      button.append(mascot, text);
-      button.addEventListener('click', () => {
-        this.selectSpecialistBot(this.specialistTaskFromPreset(preset), { switchToChat: true });
-        this.showDelegationTab('chat');
-      });
-      item.appendChild(button);
+      item.className = 'bot-catalog-row';
+      item.append(this.createBotCatalogButton(preset), this.createBotFavoriteButton(preset, favorites.has(preset.id)));
       list.appendChild(item);
     }
+  }
+
+  renderBotCatalogQuick(presets) {
+    const container = document.getElementById('bot-catalog-quick');
+    if (!container) return;
+    container.replaceChildren();
+    for (const preset of presets) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'bot-catalog-chip';
+      const mascot = document.createElement('img');
+      mascot.className = 'bot-catalog-mascot-small';
+      mascot.alt = '';
+      mascot.src = `../../assets/bots/mascotes/${PRESET_MASCOTS[preset.id] || '01_faisca'}.png`;
+      const label = document.createElement('span');
+      label.textContent = preset.title;
+      button.append(mascot, label);
+      button.addEventListener('click', () => this.openBotCatalogPreset(preset));
+      container.appendChild(button);
+    }
+  }
+
+  renderBotCatalogFilters(active) {
+    const container = document.getElementById('bot-catalog-filters');
+    if (!container) return;
+    const options = [
+      ['todos', 'Todos'],
+      ['favoritos', 'Favoritos'],
+      ['ler', 'Só ler'],
+      ['rasc', 'Rascunho'],
+      ['aprov', 'Com aprovação']
+    ];
+    container.replaceChildren();
+    for (const [value, label] of options) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'bot-catalog-filter';
+      button.textContent = label;
+      button.setAttribute('aria-pressed', String(value === active));
+      button.addEventListener('click', () => {
+        this.botCatalogFilter = value;
+        this.renderBotCatalog();
+      });
+      container.appendChild(button);
+    }
+  }
+
+  createBotCatalogButton(preset) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'bot-catalog-item';
+    button.setAttribute('aria-label', `${preset.title}, ${preset.levelLabel}`);
+    const mascot = document.createElement('img');
+    mascot.className = 'bot-catalog-mascot';
+    mascot.alt = '';
+    mascot.src = `../../assets/bots/mascotes/${PRESET_MASCOTS[preset.id] || '01_faisca'}.png`;
+    mascot.loading = 'lazy';
+    const text = document.createElement('span');
+    text.className = 'bot-catalog-text';
+    const title = document.createElement('strong');
+    title.textContent = preset.title;
+    const subtitle = document.createElement('span');
+    subtitle.textContent = preset.subtitle;
+    const level = document.createElement('em');
+    level.className = `bot-level bot-level-${PERMISSION_LEVEL_CLASS[preset.levelLabel] || 'ler'}`;
+    level.textContent = preset.levelLabel;
+    text.append(title, subtitle, level);
+    button.append(mascot, text);
+    button.addEventListener('click', () => this.openBotCatalogPreset(preset));
+    return button;
+  }
+
+  createBotFavoriteButton(preset, isFavorite) {
+    const star = document.createElement('button');
+    star.type = 'button';
+    star.className = 'bot-catalog-star';
+    star.textContent = isFavorite ? '★' : '☆';
+    star.setAttribute('aria-pressed', String(isFavorite));
+    star.setAttribute('aria-label', `${isFavorite ? 'Remover' : 'Favoritar'} ${preset.title}`);
+    star.addEventListener('click', () => this.toggleBotFavorite(preset.id));
+    return star;
+  }
+
+  openBotCatalogPreset(preset) {
+    this.selectSpecialistBot(this.specialistTaskFromPreset(preset), { switchToChat: true });
+    this.showDelegationTab('chat');
   }
 
   specialistTaskFromPreset(preset) {
@@ -2311,7 +2406,7 @@ class ZeroBrowserApp {
     if (Array.isArray(this.storedSpecialistTasks) && this.storedSpecialistTasks.length) {
       return this.storedSpecialistTasks;
     }
-    return this.getDefaultSpecialistPresets().slice(0, 4).map((preset, idx) => ({
+    return this.getSpecialistPresets().slice(0, 4).map((preset, idx) => ({
       ...this.specialistTaskFromPreset(preset),
       id: idx === 0 ? 'bot-default-price' : `bot-preset-${preset.id}`
     }));
@@ -2359,7 +2454,7 @@ class ZeroBrowserApp {
       btn.className = 'grokbot-rail-spec-btn' + (isSelected ? ' ativo' : '');
       btn.dataset.specialistId = task.id;
       btn.dataset.botState = isWorking ? 'working' : 'idle';
-      btn.style.setProperty('--bot-accent', task.accent || '#168f72');
+      btn.style.setProperty('--bot-accent', task.accent || '#0254ec');
       btn.title = `${task.name} (${task.specialtyTitle || 'Especialista'})${isWorking ? ' · Trabalhando' : ' · Pronto'}`;
       btn.setAttribute('aria-label', `Conversar com ${task.name}`);
       btn.setAttribute('aria-pressed', String(isSelected));
@@ -2720,7 +2815,7 @@ class ZeroBrowserApp {
     if (isCurrent) row.setAttribute('aria-current', 'true');
     row.className = 'bot-central-row';
     row.dataset.botId = bot.id;
-    row.style.setProperty('--bot-accent', bot.avatar?.accent || '#168f72');
+    row.style.setProperty('--bot-accent', bot.avatar?.accent || '#0254ec');
 
     const content = !isArchived && !isCurrent ? document.createElement('button') : document.createElement('div');
     content.className = 'bot-central-open';
@@ -2737,7 +2832,7 @@ class ZeroBrowserApp {
 
     const image = document.createElement('span');
     image.className = 'bot-avatar';
-    image.style.setProperty('--bot-accent', bot.avatar?.accent || '#168f72');
+    image.style.setProperty('--bot-accent', bot.avatar?.accent || '#0254ec');
     const visualState = this.getBotVisualState(bot);
     image.dataset.botState = visualState.state;
     if (visualState.state === 'working') image.classList.add('is-working');
@@ -2949,7 +3044,7 @@ class ZeroBrowserApp {
     const isWorkingBg = [...(this.backgroundAgentJobs?.values() || [])].some((j) => bot ? j.botId === bot.id : !j.botId);
     const isWorking = Boolean(this.aiRunning || isWorkingBg);
     if (ringEl) {
-      ringEl.style.setProperty('--bot-accent', bot?.accent || '#168f72');
+      ringEl.style.setProperty('--bot-accent', bot?.accent || '#0254ec');
       ringEl.dataset.botState = isWorking ? 'working' : 'idle';
       ringEl.innerHTML = this.getSpecialistSymbolSvg(bot || { id: 'general', specialty: 'general', symbolId: 'compass' });
     }
@@ -2980,124 +3075,18 @@ class ZeroBrowserApp {
     return this.sendAiMessageInBackground(customPrompt || botSpec?.goal || null);
   }
 
-  getDefaultSpecialistPresets() {
-    return [
-      {
-        id: 'price-hunter',
-        title: 'Monitor de preço',
-        subtitle: 'Acompanha o preço de um produto e avisa quando cai abaixo do seu limite.',
-        defaultName: 'Bot Monitor de Preço',
-        defaultUrl: 'https://www.google.com/shopping',
-        goal: 'Acompanhar o preço à vista e o frete do produto indicado nas lojas abertas, só em leitura. Se não achar o produto, pedir o nome exato ou o link. Nunca comprar nem preencher cadastro. Quando o preço cair abaixo do limite, avisar com valor, loja e link, e mostrar o recibo.',
-        levelLabel: 'Só ler',
-        permission: 'somente-leitura',
-        executionMode: 'background-auto-foreground',
-        accent: '#168f72'
-      },
-      {
-        id: 'researcher',
-        title: 'Pesquisador',
-        subtitle: 'Junta fontes sobre um assunto e entrega um resumo com os links.',
-        defaultName: 'Bot Pesquisador',
-        defaultUrl: 'https://www.google.com',
-        goal: 'Pesquisar o assunto indicado, juntar até cinco fontes com link e data, resumir em tópicos e citar a origem de cada número. Não inventar fonte. Só ler; ao terminar, mostrar o recibo.',
-        levelLabel: 'Só ler',
-        permission: 'somente-leitura',
-        executionMode: 'background-auto-foreground',
-        accent: '#2480d2'
-      },
-      {
-        id: 'data-analyst',
-        title: 'Analista de Dados',
-        subtitle: 'Lê tabelas de páginas e responde com números claros.',
-        defaultName: 'Bot Analista',
-        defaultUrl: 'about:blank',
-        goal: 'Extrair a tabela indicada da página, conferir totais e explicar os números em frases simples. Só ler, sem alterar dados. Mostrar o recibo com a origem da tabela.',
-        levelLabel: 'Só ler',
-        permission: 'somente-leitura',
-        executionMode: 'background-auto-foreground',
-        accent: '#8966d4'
-      },
-      {
-        id: 'erp-operator',
-        title: 'Operador ERP',
-        subtitle: 'Extrai dados da aba do sistema e prepara formulários. Pede aprovação antes de enviar.',
-        defaultName: 'Bot Operador ERP',
-        defaultUrl: 'about:blank',
-        goal: 'Extrair dados operacionais da aba do sistema, preparar os campos do formulário e trazer a aba para frente pedindo aprovação antes de enviar. Nunca enviar sem o seu sim; antes, mostrar o conteúdo exato.',
-        levelLabel: 'Com aprovação',
-        permission: 'escrita-aprovada',
-        executionMode: 'dedicated-tab',
-        accent: '#c95f18'
-      },
-      {
-        id: 'writer',
-        title: 'Redator',
-        subtitle: 'Escreve ou revisa textos a partir do que você passar. Entrega só rascunho.',
-        defaultName: 'Bot Redator',
-        defaultUrl: 'about:blank',
-        goal: 'Escrever ou revisar o texto indicado, em linguagem simples, e entregar apenas o rascunho na conversa. Não enviar, não publicar e não colar em outro site.',
-        levelLabel: 'Rascunho',
-        permission: 'somente-leitura',
-        executionMode: 'background-auto-foreground',
-        accent: '#7b4fd4'
-      },
-      {
-        id: 'personal-assistant',
-        title: 'Assistente Pessoal',
-        subtitle: 'Organiza suas tarefas e prioridades do dia. Só sugere, não age.',
-        defaultName: 'Bot Assistente',
-        defaultUrl: 'about:blank',
-        goal: 'Organizar as tarefas que você listar por prazo e prioridade e entregar um plano em rascunho na conversa. Não criar eventos nem enviar convites sem aprovação.',
-        levelLabel: 'Rascunho',
-        permission: 'somente-leitura',
-        executionMode: 'background-auto-foreground',
-        accent: '#0d9488'
-      },
-      {
-        id: 'planner',
-        title: 'Planejador',
-        subtitle: 'Monta um plano com prazos e etapas para um objetivo seu.',
-        defaultName: 'Bot Planejador',
-        defaultUrl: 'about:blank',
-        goal: 'Montar, a partir do objetivo indicado, um plano com etapas, prazos e riscos, como rascunho na conversa. Não agendar nada sozinho.',
-        levelLabel: 'Rascunho',
-        permission: 'somente-leitura',
-        executionMode: 'background-auto-foreground',
-        accent: '#a17522'
-      },
-      {
-        id: 'inbox-triage',
-        title: 'Resumo de e-mail',
-        subtitle: 'Lê as mensagens do dia e separa o que é urgente. Não responde nem apaga.',
-        defaultName: 'Bot de E-mail',
-        defaultUrl: 'about:blank',
-        goal: 'Ler as mensagens visíveis do dia, separar o que é urgente e resumir cada uma em uma frase. Não responder, não apagar e não abrir anexos.',
-        levelLabel: 'Só ler',
-        permission: 'somente-leitura',
-        executionMode: 'background-auto-foreground',
-        accent: '#b8860b'
-      },
-      {
-        id: 'order-checker',
-        title: 'Conferir pedidos',
-        subtitle: 'Confere pedidos novos na loja e avisa o que mudou. Só leitura.',
-        defaultName: 'Bot de Pedidos',
-        defaultUrl: 'about:blank',
-        goal: 'Conferir na loja os pedidos novos desde a última vez e avisar quais mudaram de situação. Só ler; nunca alterar o status de um pedido.',
-        levelLabel: 'Só ler',
-        permission: 'somente-leitura',
-        executionMode: 'background-auto-foreground',
-        accent: '#c65684'
-      }
-    ];
+  getSpecialistPresets() {
+    return this.specialistPresets || [];
   }
 
   initSpecialistBotModal() {
-    this.specialistPresets = this.getDefaultSpecialistPresets();
+    this.specialistPresets = [];
     if (window.zeroBrowser?.bots?.getPresets) {
       window.zeroBrowser.bots.getPresets().then((list) => {
-        if (Array.isArray(list) && list.length) this.specialistPresets = list;
+        if (Array.isArray(list) && list.length) {
+          this.specialistPresets = list;
+          this.renderBotCatalog();
+        }
       }).catch(() => {});
     }
     if (window.zeroBrowser?.bots?.onAttention) {
@@ -3163,12 +3152,12 @@ class ZeroBrowserApp {
     const container = document.getElementById('bot-specialist-presets');
     if (!container) return;
     container.replaceChildren();
-    for (const preset of this.specialistPresets || this.getDefaultSpecialistPresets()) {
+    for (const preset of this.specialistPresets || this.getSpecialistPresets()) {
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = `bot-specialist-preset-btn${preset.id === selectedId ? ' ativo' : ''}`;
       btn.dataset.presetId = preset.id;
-      btn.style.setProperty('--preset-accent', preset.accent || '#168f72');
+      btn.style.setProperty('--preset-accent', preset.accent || '#0254ec');
       btn.setAttribute('aria-pressed', String(preset.id === selectedId));
       const title = document.createElement('strong');
       title.textContent = preset.title;
@@ -3181,7 +3170,7 @@ class ZeroBrowserApp {
   }
 
   selectSpecialistPreset(presetId) {
-    const presets = this.specialistPresets || this.getDefaultSpecialistPresets();
+    const presets = this.specialistPresets || this.getSpecialistPresets();
     const preset = presets.find((p) => p.id === presetId) || presets[0];
     if (!preset) return;
     this.selectedSpecialistPresetId = preset.id;
@@ -3215,7 +3204,7 @@ class ZeroBrowserApp {
     tabEl.classList.add('tab-bot-owned');
     tabEl.dataset.botId = botMeta.botId || '';
     tabEl.dataset.botExecutionMode = botMeta.executionMode || 'background-auto-foreground';
-    tabEl.style.setProperty('--tab-bot-accent', botMeta.accent || '#168f72');
+    tabEl.style.setProperty('--tab-bot-accent', botMeta.accent || '#0254ec');
     const selectBtn = tabEl.querySelector('.tab-select');
     if (selectBtn && !selectBtn.querySelector('.tab-bot-badge')) {
       const badge = document.createElement('span');
@@ -3226,8 +3215,9 @@ class ZeroBrowserApp {
   }
 
   async launchSpecialistBotFromModal() {
-    const presets = this.specialistPresets || this.getDefaultSpecialistPresets();
+    const presets = this.specialistPresets || this.getSpecialistPresets();
     const preset = presets.find((p) => p.id === this.selectedSpecialistPresetId) || presets[0];
+    if (!preset) return;
     const name = (document.getElementById('bot-specialist-name')?.value || preset.defaultName || 'Bot Especialista').trim();
     const rawUrl = (document.getElementById('bot-specialist-url')?.value || preset.defaultUrl || 'about:blank').trim();
     const goal = (document.getElementById('bot-specialist-goal')?.value || preset.goal || '').trim();
@@ -3243,7 +3233,7 @@ class ZeroBrowserApp {
       goal,
       permission: preset.permission || 'somente-leitura',
       executionMode,
-      accent: preset.accent || '#168f72'
+      accent: preset.accent || '#0254ec'
     });
   }
 
@@ -3263,7 +3253,7 @@ class ZeroBrowserApp {
           specialtyTitle: spec.specialtyTitle || 'Especialista',
           executionMode,
           defaultUrl: targetUrl,
-          accent: spec.accent || '#168f72',
+          accent: spec.accent || '#0254ec',
           goal: spec.goal || '',
           permission: spec.permission || 'somente-leitura'
         });
@@ -3277,7 +3267,7 @@ class ZeroBrowserApp {
       specialty: spec.specialty || 'custom-specialist',
       specialtyTitle: spec.specialtyTitle || createdTask?.specialtyTitle || 'Especialista',
       executionMode,
-      accent: spec.accent || createdTask?.accent || '#168f72',
+      accent: spec.accent || createdTask?.accent || '#0254ec',
       goal: spec.goal || createdTask?.goal || '',
       shortBadge: (spec.name || 'Bot').replace(/^Bot\s+/i, '').slice(0, 14)
     };
