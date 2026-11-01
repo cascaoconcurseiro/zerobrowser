@@ -32,10 +32,6 @@
         </div>
         <button id="btn-ai" class="toolbar-btn ai-copilot-btn" title="Abrir modo Delegar (Ctrl+Shift+A)" aria-label="Abrir modo Delegar" aria-pressed="false"><svg class="copilot-sparkle" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/><path d="M19 3v4"/><path d="M21 5h-4"/></svg><span class="ai-copilot-label">Delegar</span><span class="mode-chevron" aria-hidden="true">⌄</span></button>
       </div>
-      <div class="toolbar-group delegation-toolbar-actions">
-        <button id="btn-stop-task" class="delegation-top-stop hidden" type="button" aria-label="Parar a tarefa atual" title="Parar a tarefa atual"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2"/></svg><span>Parar tudo</span></button>
-        <button id="btn-bot-central" class="delegation-top-central hidden" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="bot-central" aria-label="Abrir Central de Bots"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg><span>Central</span></button>
-      </div>
       <div class="toolbar-group">
         <button id="btn-flame" class="toolbar-btn hidden" title="Flame (agente da extensão)" aria-label="Abrir o Flame" aria-pressed="false"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg></button>
         <button id="btn-extensions" class="toolbar-btn" title="Extensões"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11a2 2 0 0 1 2-2h2a2 2 0 1 0 4 0h2a2 2 0 0 1 2 2v2a2 2 0 1 0 0 4v2a2 2 0 0 1-2 2h-2a2 2 0 1 0-4 0H6a2 2 0 0 1-2-2v-2a2 2 0 1 0 0-4Z"/></svg></button>
@@ -50,7 +46,6 @@
       <button type="button" role="menuitem" data-menu-action="downloads"><span>Downloads</span><kbd>Ctrl+J</kbd></button>
       <button type="button" role="menuitem" data-menu-action="bookmarks"><span>Favoritos</span><kbd>Ctrl+D</kbd></button>
       <div class="app-menu-divider"></div>
-      <button type="button" role="menuitem" data-menu-action="central"><span>Central de Bots</span></button>
       <button type="button" role="menuitem" data-menu-action="split-view"><span>Dividir tela</span></button>
       <button type="button" role="menuitem" data-menu-action="ask-pdf"><span>Perguntar sobre PDF</span></button>
       <button type="button" role="menuitem" data-menu-action="profiles">Perfis</button>
@@ -70,28 +65,14 @@
     <div id="browser-container">
     </div>
 
-    <aside id="delegation-rail" class="delegation-rail hidden" aria-label="Perfis de Bot">
-      <span class="bot-rail-section-label">Perfis</span>
-      <div id="bot-rail-list" class="bot-rail-list" aria-label="Bots disponíveis"></div>
-      <span class="bot-rail-section-label bot-rail-specialists-label">Especialistas</span>
-      <div id="grokbot-rail-specialists" class="grokbot-rail-specialists" role="group" aria-label="Bots Especialistas"></div>
-      <button id="btn-bot-new" class="bot-rail-action" type="button" aria-label="Criar ou trocar perfil de Bot" title="Criar novo Bot Especialista ou perfil">+</button>
-      <span id="bot-rail-count" class="delegation-rail-label">Bots</span>
+    <aside id="delegation-rail" class="delegation-rail hidden" aria-label="Navegação do modo Delegar">
+      <div id="grokbot-rail-specialists" class="grokbot-rail-specialists" role="group" aria-label="Seus bots"></div>
+      <nav class="delegation-rail-nav" aria-label="Seções">
+        <button id="btn-rail-bots" class="delegation-rail-item" type="button" aria-label="Bots" aria-pressed="true" title="Bots"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="7" width="16" height="12" rx="3"/><path d="M12 3v4"/><path d="M9 13h.01"/><path d="M15 13h.01"/></svg><span>Bots</span></button>
+        <button id="btn-rail-history" class="delegation-rail-item" type="button" aria-label="Histórico de conversas e execuções" title="Histórico"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span>Histórico</span></button>
+        <button id="btn-rail-settings" class="delegation-rail-item" type="button" aria-label="Configurações, inclui Bots" title="Configurações"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1 7 17M17 7l2.1-2.1"/></svg><span>Configurações</span></button>
+      </nav>
     </aside>
-    <section id="bot-central" class="bot-central hidden" role="dialog" aria-modal="false" aria-labelledby="bot-central-title" aria-describedby="bot-central-summary">
-      <header class="bot-central-header">
-        <div class="bot-central-heading">
-          <span class="bot-central-kicker">Zero Browser · Delegar</span>
-          <h2 id="bot-central-title">Equipe de Bots</h2>
-          <p id="bot-central-summary">Perfis de Bot têm sessões separadas. Tarefas especialistas usam o perfil atual.</p>
-        </div>
-        <button id="btn-bot-central-close" type="button" aria-label="Fechar Central de Bots" title="Fechar Central de Bots">×</button>
-      </header>
-      <div class="bot-central-toolbar"><strong>Seus Bots</strong><span id="bot-central-count" aria-live="polite">0 ativos · 0 arquivados</span></div>
-      <div id="bot-central-list" class="bot-central-list" aria-label="Perfis de Bot"></div>
-      <p id="bot-central-status" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></p>
-      <footer class="bot-central-footer"><span id="bot-central-avatar-count">200 avatares disponíveis</span><button id="btn-bot-central-new" type="button"><span aria-hidden="true">+</span><span>Criar Bot</span></button></footer>
-    </section>
     <section id="bot-specialist-modal" class="bot-specialist-modal hidden" role="dialog" aria-modal="false" aria-labelledby="bot-specialist-title">
       <header class="bot-central-header">
         <div class="bot-central-heading">
@@ -155,8 +136,9 @@
         <div class="panel-heading">
           <span class="panel-kicker panel-brand"><img src="../../assets/icon.svg" alt="">ZERO BROWSER</span>
           <strong>Bots</strong>
-          <span class="panel-subtitle">O agente trabalha na aba aberta. Acompanhe a execução e pare a tarefa quando quiser.</span>
+          <span class="panel-subtitle">Os bots trabalham na aba aberta. Acompanhe a execução e pare a tarefa quando quiser.</span>
         </div>
+        <button id="btn-stop-task" class="delegation-top-stop" type="button" disabled aria-label="Parar todas as tarefas em execução" title="Parar todas as tarefas em execução"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2"/></svg><span>Parar tudo</span></button>
         <button id="btn-close-ai" class="panel-close" aria-label="Fechar agente"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
       </div>
       <div id="ai-ready-status" class="ai-ready-status" role="status">Carregando configuração do agente…</div>
@@ -165,16 +147,12 @@
         <button type="button" role="tab" id="delegation-tab-chat" class="delegation-tab" data-delegation-tab="chat" aria-selected="false">Conversa</button>
       </div>
       <section id="delegation-pane-bots" class="delegation-pane-bots" role="tabpanel" aria-labelledby="delegation-tab-bots">
-        <h2 class="delegation-pane-title">Quem pode ajudar?</h2>
-        <p class="delegation-pane-sub">Escolha um bot. Você descreve a tarefa depois.</p>
-        <label class="sr-only" for="bot-catalog-search">Buscar bot ou tarefa</label>
-        <input id="bot-catalog-search" class="bot-catalog-search" type="search" placeholder="Buscar por bot ou tarefa" autocomplete="off">
-        <div class="bot-catalog-label"><span>Acesso rápido</span></div>
-        <div id="bot-catalog-quick" class="bot-catalog-quick"></div>
-        <div class="bot-catalog-label"><span>Todos os bots</span><span id="bot-catalog-count"></span></div>
-        <div id="bot-catalog-filters" class="bot-catalog-filters" role="group" aria-label="Filtrar bots"></div>
-        <ul id="bot-catalog-list" class="bot-catalog-list" aria-label="Bots disponíveis"></ul>
-        <p class="bot-catalog-footer">Selecione um bot para abrir a conversa.</p>
+        <div class="bot-own-head">
+          <h2 class="delegation-pane-title">Seus bots</h2>
+          <button id="btn-bot-new" class="btn-primary bot-own-create" type="button">+ Criar bot</button>
+        </div>
+        <ul id="bot-own-list" class="bot-own-list" aria-label="Seus bots"></ul>
+        <p id="bot-own-empty" class="bot-own-empty" hidden>Você ainda não criou bots. Crie um para conversar com ele em uma sessão própria.</p>
       </section>
       <div id="tab-control-banner" class="tab-control-banner hidden" role="region" aria-label="Controle da aba ativa" aria-live="polite">
         <span class="tab-control-bot-badge" aria-hidden="true"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M5 3l14 8-6 2 4 7-3 1-4-7-5 4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg></span>
@@ -223,7 +201,7 @@
       <div data-delegation-chat id="ai-chat" class="ai-chat" aria-live="polite"></div>
       <div data-delegation-chat id="bot-view-agenda" class="bot-subview hidden" role="region" aria-label="Agenda do Bot"></div>
       <div data-delegation-chat id="bot-view-memory" class="bot-subview hidden" role="region" aria-label="Memória do Bot"></div>
-      <div data-delegation-chat id="bot-view-routes" class="bot-subview hidden" role="region" aria-label="Rotas aprendidas e Gêmeo Local"></div>
+      <div data-delegation-chat id="bot-view-routes" class="bot-subview hidden" role="region" aria-label="Caminhos aprendidos"></div>
       <div data-delegation-chat id="bot-view-history" class="bot-subview hidden" role="region" aria-label="Histórico de execuções e recibos"></div>
       <div data-delegation-chat class="ai-input-area">
         <textarea id="ai-input" class="ai-textarea" placeholder="O que você quer que o bot faça? (Enter envia · Shift+Enter quebra linha)" aria-label="Pedido para o bot"></textarea>
@@ -237,7 +215,7 @@
           <div class="ai-composer-actions">
             <label class="sr-only" for="ai-quick-model">Modelo do agente</label>
             <select id="ai-quick-model" class="ai-quick-model" aria-label="Modelo do agente"><option value="">Configure um modelo em Configurações</option></select>
-            <button id="btn-ai-send-bg" class="btn-secondary grokbot-send-bg-btn" type="button" title="Executar esta ordem em uma aba do perfil atual e trazer para frente ao encerrar (Alt+Enter)" aria-label="Executar ordem em 2º plano">Em 2º plano</button>
+            <button id="btn-ai-send-bg" class="btn-secondary grokbot-send-bg-btn" type="button" title="Executar este pedido em uma aba do perfil atual e trazer para frente ao encerrar (Alt+Enter)" aria-label="Executar pedido em 2º plano">Em 2º plano</button>
             <button id="btn-ai-send" class="btn-primary" aria-label="Enviar comando">Enviar</button>
           </div>
         </div>
@@ -276,6 +254,14 @@
           <p id="settings-search-status" role="status" aria-live="polite"></p>
         </div>
         <nav id="settings-index" class="settings-index" aria-label="Indice das configuracoes"></nav>
+        <section id="bot-central" class="settings-section bot-central" aria-labelledby="bot-central-title" aria-describedby="bot-central-summary">
+          <h3 id="bot-central-title">Bots</h3>
+          <p id="bot-central-summary" class="setting-description">Cada perfil de Bot tem sessão separada e pode abrir em janela própria. Os bots que você cria aparecem no painel Bots.</p>
+          <div class="bot-central-toolbar"><strong>Perfis de Bot</strong><span id="bot-central-count" aria-live="polite">0 ativos · 0 arquivados</span></div>
+          <div id="bot-central-list" class="bot-central-list" aria-label="Perfis de Bot"></div>
+          <p id="bot-central-status" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></p>
+          <div class="bot-central-footer"><span id="bot-central-avatar-count">0 perfis de Bot</span><button id="btn-bot-central-new" type="button"><span aria-hidden="true">+</span><span>Criar Bot</span></button></div>
+        </section>
         <section class="settings-section">
           <h3>Geral</h3>
           <label class="setting-item">

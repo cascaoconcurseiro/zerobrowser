@@ -95,16 +95,12 @@ class ZeroBrowserApp {
       btnSettings: document.getElementById('btn-settings'),
       btnAi: document.getElementById('btn-ai'),
       delegationRail: document.getElementById('delegation-rail'),
-      botRailList: document.getElementById('bot-rail-list'),
       grokbotRailSpecialists: document.getElementById('grokbot-rail-specialists'),
-      botRailCount: document.getElementById('bot-rail-count'),
       btnBotNew: document.getElementById('btn-bot-new'),
       btnStopTask: document.getElementById('btn-stop-task'),
-      btnBotCentral: document.getElementById('btn-bot-central'),
       botCentral: document.getElementById('bot-central'),
       botCentralList: document.getElementById('bot-central-list'),
       botCentralStatus: document.getElementById('bot-central-status'),
-      btnBotCentralClose: document.getElementById('btn-bot-central-close'),
       btnBotCentralNew: document.getElementById('btn-bot-central-new'),
       botCentralAvatarCount: document.getElementById('bot-central-avatar-count'),
       delegationResizer: document.getElementById('delegation-resizer'),
@@ -202,14 +198,15 @@ class ZeroBrowserApp {
     this.elements.btnAi.addEventListener('click', () => this.toggleAiPanel());
     this.elements.btnBotNew.addEventListener('click', () => this.openSpecialistBotModal());
     this.elements.btnStopTask.addEventListener('click', () => this.stopAllRunningTasks());
-    this.elements.btnBotCentral.addEventListener('click', () => this.toggleBotCentral());
     this.elements.btnTabTakeover?.addEventListener('click', () => this.handleTabTakeoverAction());
     this.elements.btnAiTeach?.addEventListener('click', () => this.startTeachTaskFlow());
-    this.elements.btnBotCentralClose.addEventListener('click', () => this.closeBotCentral({ restoreFocus: true }));
-    this.elements.btnBotCentralNew.addEventListener('click', () => {
-      this.closeBotCentral({ restorePanel: false });
-      this.openSpecialistBotModal();
+    document.getElementById('btn-rail-bots')?.addEventListener('click', () => this.showDelegationTab('bots'));
+    document.getElementById('btn-rail-history')?.addEventListener('click', () => {
+      this.showDelegationTab('chat');
+      this.switchBotPanelTab('history');
     });
+    document.getElementById('btn-rail-settings')?.addEventListener('click', () => this.toggleSettingsPanel());
+    this.elements.btnBotCentralNew.addEventListener('click', () => this.openSpecialistBotModal());
     this.elements.btnCloseAi.addEventListener('click', () => this.closeAiPanel());
     this.elements.btnSettings.addEventListener('click', () => this.toggleSettingsPanel());
     this.elements.btnCloseSettings.addEventListener('click', () => this.closeSettingsPanel());
@@ -351,7 +348,6 @@ class ZeroBrowserApp {
         this.openLibrary('downloads');
       }
       if (e.key === 'Escape') {
-        if (!this.elements.botCentral.classList.contains('hidden')) this.closeBotCentral({ restoreFocus: true });
         this.closeAppMenu({ restoreFocus: true });
       }
       if (e.ctrlKey && e.key === 'w') {
@@ -786,7 +782,7 @@ class ZeroBrowserApp {
       { commandId: 'ui.safeMode', title: 'Modo seguro de visual (restaurar layout padrão)', url: 'Comando · Reversível', keywords: ['modo seguro', 'voltar layout anterior', 'restaurar visual'] },
       { commandId: 'tabs.closeDuplicates', title: 'Fechar abas duplicadas', url: 'Comando · Reversível', keywords: ['fechar abas duplicadas', 'duplicadas'] },
       { commandId: 'ui.toggleTheme', title: 'Alternar tema (Claro / Escuro)', url: 'Comando · Reversível', keywords: ['alternar tema', 'tema escuro', 'tema claro', 'mudar tema'] },
-      { commandId: 'bots.openCentral', title: 'Abrir Central de Bots', url: 'Comando · Equipe de Bots', keywords: ['abrir central', 'central de bots', 'equipe de bots'] },
+      { commandId: 'bots.openCentral', title: 'Abrir Bots nas Configurações', url: 'Comando · Configurações', keywords: ['abrir bots', 'bots', 'central de bots', 'configurações de bots'] },
       { commandId: 'undo.last', title: 'Desfazer última ação reversível', url: 'Comando · Reversível', keywords: ['desfazer', 'reverter última ação'] },
       { commandId: 'tabs.new', title: 'Nova aba', url: 'Comando · Ctrl+T', keywords: ['nova aba', 'abrir nova aba'] },
       { commandId: 'library.history', title: 'Abrir Histórico', url: 'Comando · Ctrl+H', keywords: ['histórico', 'historico', 'abrir histórico'] },
@@ -822,11 +818,7 @@ class ZeroBrowserApp {
     if (commandId === 'library.history') return this.openLibrary('history');
     if (commandId === 'library.bookmarks') return this.openLibrary('bookmarks');
     if (commandId === 'library.downloads') return this.openLibrary('downloads');
-    if (commandId === 'bots.openCentral') {
-      if (this.elements.aiPanel.classList.contains('hidden')) await this.toggleAiPanel(true);
-      if (this.elements.botCentral.classList.contains('hidden')) await this.toggleBotCentral();
-      return;
-    }
+    if (commandId === 'bots.openCentral') return this.openBotSettings();
     if (commandId === 'undo.last') return this.undoLastActionReceipt();
     if (commandId === 'ui.toggleTheme') {
       const previous = this.settings.theme || 'system';
@@ -1123,7 +1115,7 @@ class ZeroBrowserApp {
     window.zeroBrowser.browser.switchTab(tabId);
     this.activeTabId = tabId;
     this.syncControlledTabIndicator();
-    this.renderBotRail();
+    this.renderSpecialistRail();
     this.updateAddressBar();
   }
 
@@ -1751,7 +1743,6 @@ class ZeroBrowserApp {
   async toggleAiPanel(forceOpen = false) {
     const opening = forceOpen ? true : this.elements.aiPanel.classList.contains('hidden');
     if (!opening) await this.denyPendingApprovals();
-    this.closeBotCentral({ restorePanel: false });
     this.elements.aiPanel.classList.toggle('hidden', !opening);
     this.elements.settingsPanel.classList.add('hidden');
     this.elements.libraryPanel.classList.add('hidden');
@@ -1765,8 +1756,6 @@ class ZeroBrowserApp {
     this.elements.btnAi.title = opening ? 'Modo Delegar · voltar ao modo Navegar' : 'Abrir modo Delegar (Ctrl+Shift+A)';
     this.elements.addressBar.placeholder = opening ? 'Pesquise, navegue ou peça ao Bot…' : 'Pesquise ou digite um endereço';
     this.elements.addressBar.setAttribute('aria-label', opening ? 'Pesquisar, navegar ou delegar ao Bot' : 'Endereço ou pesquisa');
-    this.elements.btnBotCentral.classList.toggle('hidden', !opening);
-    if (!opening) this.closeBotCentral();
     const layout = await window.zeroBrowser.browser.setSidePanelOpen(opening, 'left', opening ? 'ai' : 'none');
     if (opening && Number.isFinite(Number(layout?.panelWidth)) && Number(layout.panelWidth) > 0) {
       this.applyDelegationPanelWidth(layout.panelWidth);
@@ -1785,7 +1774,6 @@ class ZeroBrowserApp {
 
   async closeAiPanel() {
     await this.denyPendingApprovals();
-    this.closeBotCentral({ restorePanel: false });
     this.elements.aiPanel.classList.add('hidden');
     this.clearDelegationMode();
     if (this.elements.settingsPanel.classList.contains('hidden')) window.zeroBrowser.browser.setSidePanelOpen(false, 'left', 'none');
@@ -1821,7 +1809,6 @@ class ZeroBrowserApp {
     pending.queued = false;
     pending.rendering = true;
     this.promoteBackgroundBotTabIfNeeded('approval_needed', request.origin);
-    if (!this.elements.botCentral.classList.contains('hidden')) this.closeBotCentral();
     try {
       if (this.elements.aiPanel.classList.contains('hidden')) await this.toggleAiPanel(true);
     } catch (error) {
@@ -1832,7 +1819,7 @@ class ZeroBrowserApp {
     }
     if (pending.done) {
       this.pendingApprovalCards.delete(id);
-    this.renderBotRail();
+    this.renderSpecialistRail();
     const currentBot = this.botTeam.bots.find((bot) => bot.id === this.botTeam.currentProfileId);
     const appEl = document.getElementById('app');
     if (appEl && currentBot?.avatar?.accent) {
@@ -1842,7 +1829,7 @@ class ZeroBrowserApp {
       appEl.style.removeProperty('--active-bot-accent');
       delete appEl.dataset.activeBot;
     }
-    if (!this.elements.botCentral.classList.contains('hidden')) this.renderBotCentral();
+    if (this.isBotSettingsOpen()) this.renderBotCentral();
     this.syncControlledTabIndicator();
       return;
     }
@@ -1911,7 +1898,7 @@ class ZeroBrowserApp {
     this.elements.aiChat.appendChild(card);
     this.elements.aiChat.scrollTop = this.elements.aiChat.scrollHeight;
     Object.assign(pending, { card, status, buttons: [cancel, allow], rendering: false });
-    this.renderBotRail();
+    this.renderSpecialistRail();
     const currentBot = this.botTeam.bots.find((bot) => bot.id === this.botTeam.currentProfileId);
     const appEl = document.getElementById('app');
     if (appEl && currentBot?.avatar?.accent) {
@@ -1921,7 +1908,7 @@ class ZeroBrowserApp {
       appEl.style.removeProperty('--active-bot-accent');
       delete appEl.dataset.activeBot;
     }
-    if (!this.elements.botCentral.classList.contains('hidden')) this.renderBotCentral();
+    if (this.isBotSettingsOpen()) this.renderBotCentral();
     this.syncControlledTabIndicator();
     cancel.focus();
   }
@@ -1965,7 +1952,7 @@ class ZeroBrowserApp {
       ? 'O pedido expirou; a ação foi cancelada.'
       : result.allowed === true ? 'Ação permitida uma vez.' : 'Ação cancelada; ela não foi executada.';
     this.pendingApprovalCards.delete(id);
-    this.renderBotRail();
+    this.renderSpecialistRail();
     const currentBot = this.botTeam.bots.find((bot) => bot.id === this.botTeam.currentProfileId);
     const appEl = document.getElementById('app');
     if (appEl && currentBot?.avatar?.accent) {
@@ -1975,7 +1962,7 @@ class ZeroBrowserApp {
       appEl.style.removeProperty('--active-bot-accent');
       delete appEl.dataset.activeBot;
     }
-    if (!this.elements.botCentral.classList.contains('hidden')) this.renderBotCentral();
+    if (this.isBotSettingsOpen()) this.renderBotCentral();
     this.syncControlledTabIndicator();
     if (entry.card.contains(document.activeElement)) this.elements.aiInput.focus();
   }
@@ -1995,8 +1982,6 @@ class ZeroBrowserApp {
     this.elements.btnAi.title = 'Abrir modo Delegar (Ctrl+Shift+A)';
     this.elements.addressBar.placeholder = 'Pesquise ou digite um endereço';
     this.elements.addressBar.setAttribute('aria-label', 'Endereço ou pesquisa');
-    this.elements.btnBotCentral.classList.add('hidden');
-    this.closeBotCentral();
   }
 
   async loadBotProfiles() {
@@ -2007,8 +1992,8 @@ class ZeroBrowserApp {
       this.botTeam = { bots: [], avatars: 0, currentProfileId: null };
       console.error('Não foi possível carregar os perfis Bot:', error);
     }
-    this.renderBotRail();
-    if (!this.elements.botCentral.classList.contains('hidden')) this.renderBotCentral();
+    this.renderSpecialistRail();
+    if (this.isBotSettingsOpen()) this.renderBotCentral();
   }
 
   getBotVisualState(bot) {
@@ -2093,14 +2078,14 @@ class ZeroBrowserApp {
       window.zeroBrowser.automation.cancelAgent(tabId).catch(() => {});
       this.aiRunning = false;
       this.runningAgentTabId = null;
-      if (!this.elements.botCentral.classList.contains('hidden')) this.renderBotCentral();
+      if (this.isBotSettingsOpen()) this.renderBotCentral();
       this.syncControlledTabIndicator();
       this.syncStopAllButton();
       this.syncGrokBotBriefingBar();
-      this.renderBotRail();
-      if (!this.elements.botCentral.classList.contains('hidden')) this.renderBotCentral();
+      this.renderSpecialistRail();
+      if (this.isBotSettingsOpen()) this.renderBotCentral();
       this.syncControlledTabIndicator();
-      if (!this.elements.botCentral.classList.contains('hidden')) this.renderBotCentral();
+      if (this.isBotSettingsOpen()) this.renderBotCentral();
       this.syncControlledTabIndicator();
       this.showToast('Você assumiu o controle da aba. O agente foi pausado.', 'info');
       return;
@@ -2108,8 +2093,8 @@ class ZeroBrowserApp {
     if (this.takeoverState && this.takeoverState.tabId === this.activeTabId) {
       const saved = this.takeoverState;
       this.takeoverState = null;
-      this.renderBotRail();
-      if (!this.elements.botCentral.classList.contains('hidden')) this.renderBotCentral();
+      this.renderSpecialistRail();
+      if (this.isBotSettingsOpen()) this.renderBotCentral();
       this.syncControlledTabIndicator();
       if (saved.resumeId) {
         await this.sendAiMessage(saved.resumeId);
@@ -2122,51 +2107,9 @@ class ZeroBrowserApp {
     }
   }
 
-  createBotAvatarButton(bot) {
-    const isCurrent = bot.id === this.botTeam.currentProfileId;
-    const button = document.createElement(isCurrent ? 'div' : 'button');
-    if (isCurrent) {
-      button.setAttribute('role', 'img');
-      button.setAttribute('aria-label', bot.archived === true
-        ? `Bot ${bot.name}, arquivado e aberto nesta janela`
-        : `Bot ${bot.name}, perfil aberto nesta janela`);
-      button.setAttribute('aria-current', 'true');
-    } else {
-      button.type = 'button';
-      button.setAttribute('aria-label', `Conversar com Bot ${bot.name}`);
-      button.title = `Conversar com ${bot.name}`;
-    }
-    button.className = 'bot-avatar';
-    button.style.setProperty('--bot-accent', bot.avatar?.accent || '#0254ec');
-    const visualState = this.getBotVisualState(bot);
-    button.dataset.botState = visualState.state;
-    if (visualState.badge) button.dataset.stateBadge = visualState.badge;
-    else delete button.dataset.stateBadge;
-    if (visualState.state === 'working') button.classList.add('is-working');
-    if (isCurrent && visualState.state !== 'idle') {
-      button.setAttribute('aria-label', bot.archived === true
-        ? `Bot ${bot.name}, ${visualState.label}, arquivado e aberto nesta janela`
-        : `Bot ${bot.name}, ${visualState.label}, perfil aberto nesta janela`);
-    } else if (isCurrent) {
-      button.setAttribute('aria-label', bot.archived === true
-        ? `Bot ${bot.name}, arquivado e aberto nesta janela`
-        : `Bot ${bot.name}, perfil aberto nesta janela`);
-    } else if (visualState.state !== 'idle') {
-      button.setAttribute('aria-label', `Conversar com Bot ${bot.name}, ${visualState.label}`);
-    }
-
-    button.appendChild(this.createBotAvatarMark(bot));
-    if (!isCurrent) button.addEventListener('click', () => this.openBotConversation(bot));
-    return button;
-  }
-
-  openBotConversation(bot) {
-    if (this.elements.aiPanel.classList.contains('hidden')) {
-      this.elements.aiPanel.classList.remove('hidden');
-      this.elements.aiPanel.inert = false;
-      this.elements.aiPanel.removeAttribute('aria-hidden');
-      window.zeroBrowser.browser.setSidePanelOpen(true, 'left', 'ai').catch(() => {});
-    }
+  async openBotConversation(bot) {
+    if (this.isBotSettingsOpen()) await this.toggleSettingsPanel();
+    if (this.elements.aiPanel.classList.contains('hidden')) await this.toggleAiPanel(true);
     this.selectSpecialistBot({ id: bot.id, name: bot.name, accent: bot.avatar?.accent || '#0254ec', goal: '', executionMode: 'background-auto-foreground', permission: 'somente-leitura' }, { switchToChat: true });
     this.showDelegationTab('chat');
   }
@@ -2193,7 +2136,7 @@ class ZeroBrowserApp {
     if (!stopBtn) return;
     const bgCount = this.backgroundAgentJobs ? this.backgroundAgentJobs.size : 0;
     const totalRunning = (this.aiRunning ? 1 : 0) + bgCount;
-    stopBtn.classList.toggle('hidden', totalRunning === 0);
+    stopBtn.disabled = totalRunning === 0;
     const labelSpan = stopBtn.querySelector('span');
     if (labelSpan) {
       labelSpan.textContent = totalRunning > 1 ? `Parar tudo (${totalRunning})` : 'Parar tudo';
@@ -2225,7 +2168,6 @@ class ZeroBrowserApp {
     document.querySelectorAll('[data-delegation-tab]').forEach((tab) => {
       tab.addEventListener('click', () => this.showDelegationTab(tab.dataset.delegationTab));
     });
-    document.getElementById('bot-catalog-search')?.addEventListener('input', () => this.renderBotCatalog());
     this.showDelegationTab('bots');
   }
 
@@ -2234,145 +2176,13 @@ class ZeroBrowserApp {
     if (!panel) return;
     const onBots = name === 'bots';
     panel.classList.toggle('delegation-on-bots', onBots);
+    document.getElementById('btn-rail-bots')?.setAttribute('aria-pressed', String(onBots));
     document.querySelectorAll('[data-delegation-tab]').forEach((tab) => {
       const active = tab.dataset.delegationTab === name;
       tab.classList.toggle('ativo', active);
       tab.setAttribute('aria-selected', String(active));
     });
-    if (onBots) this.renderBotCatalog();
-  }
-
-  getBotFavorites() {
-    try {
-      return new Set(JSON.parse(localStorage.getItem('navegante.botFavorites') || '[]'));
-    } catch {
-      return new Set();
-    }
-  }
-
-  toggleBotFavorite(presetId) {
-    const favorites = this.getBotFavorites();
-    if (favorites.has(presetId)) favorites.delete(presetId);
-    else favorites.add(presetId);
-    try {
-      localStorage.setItem('navegante.botFavorites', JSON.stringify([...favorites]));
-    } catch {
-      // sem armazenamento local: o favorito vale só nesta sessão
-    }
-    this.renderBotCatalog();
-  }
-
-  renderBotCatalog() {
-    const list = document.getElementById('bot-catalog-list');
-    if (!list) return;
-    const query = (document.getElementById('bot-catalog-search')?.value || '').trim().toLowerCase();
-    const filter = this.botCatalogFilter || 'todos';
-    const favorites = this.getBotFavorites();
-    const presets = this.getSpecialistPresets();
-    const matchesQuery = (preset) => !query || `${preset.title} ${preset.subtitle}`.toLowerCase().includes(query);
-    const matchesFilter = (preset) => {
-      if (filter === 'todos') return true;
-      if (filter === 'favoritos') return favorites.has(preset.id);
-      return PERMISSION_LEVEL_CLASS[preset.levelLabel] === filter;
-    };
-    this.renderBotCatalogQuick(presets.slice(0, 3));
-    this.renderBotCatalogFilters(filter);
-    const visible = presets.filter((preset) => matchesQuery(preset) && matchesFilter(preset));
-    const count = document.getElementById('bot-catalog-count');
-    if (count) count.textContent = `${visible.length} ${visible.length === 1 ? 'bot' : 'bots'}`;
-    list.replaceChildren();
-    for (const preset of visible) {
-      const item = document.createElement('li');
-      item.className = 'bot-catalog-row';
-      item.append(this.createBotCatalogButton(preset), this.createBotFavoriteButton(preset, favorites.has(preset.id)));
-      list.appendChild(item);
-    }
-  }
-
-  renderBotCatalogQuick(presets) {
-    const container = document.getElementById('bot-catalog-quick');
-    if (!container) return;
-    container.replaceChildren();
-    for (const preset of presets) {
-      const button = document.createElement('button');
-      button.type = 'button';
-      button.className = 'bot-catalog-chip';
-      const mascot = document.createElement('img');
-      mascot.className = 'bot-catalog-mascot-small';
-      mascot.alt = '';
-      mascot.src = `../../assets/bots/mascotes/${PRESET_MASCOTS[preset.id] || '01_faisca'}.png`;
-      const label = document.createElement('span');
-      label.textContent = preset.title;
-      button.append(mascot, label);
-      button.addEventListener('click', () => this.openBotCatalogPreset(preset));
-      container.appendChild(button);
-    }
-  }
-
-  renderBotCatalogFilters(active) {
-    const container = document.getElementById('bot-catalog-filters');
-    if (!container) return;
-    const options = [
-      ['todos', 'Todos'],
-      ['favoritos', 'Favoritos'],
-      ['ler', 'Só ler'],
-      ['rasc', 'Rascunho'],
-      ['aprov', 'Com aprovação']
-    ];
-    container.replaceChildren();
-    for (const [value, label] of options) {
-      const button = document.createElement('button');
-      button.type = 'button';
-      button.className = 'bot-catalog-filter';
-      button.textContent = label;
-      button.setAttribute('aria-pressed', String(value === active));
-      button.addEventListener('click', () => {
-        this.botCatalogFilter = value;
-        this.renderBotCatalog();
-      });
-      container.appendChild(button);
-    }
-  }
-
-  createBotCatalogButton(preset) {
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'bot-catalog-item';
-    button.setAttribute('aria-label', `${preset.title}, ${preset.levelLabel}`);
-    const mascot = document.createElement('img');
-    mascot.className = 'bot-catalog-mascot';
-    mascot.alt = '';
-    mascot.src = `../../assets/bots/mascotes/${PRESET_MASCOTS[preset.id] || '01_faisca'}.png`;
-    mascot.loading = 'lazy';
-    const text = document.createElement('span');
-    text.className = 'bot-catalog-text';
-    const title = document.createElement('strong');
-    title.textContent = preset.title;
-    const subtitle = document.createElement('span');
-    subtitle.textContent = preset.subtitle;
-    const level = document.createElement('em');
-    level.className = `bot-level bot-level-${PERMISSION_LEVEL_CLASS[preset.levelLabel] || 'ler'}`;
-    level.textContent = preset.levelLabel;
-    text.append(title, subtitle, level);
-    button.append(mascot, text);
-    button.addEventListener('click', () => this.openBotCatalogPreset(preset));
-    return button;
-  }
-
-  createBotFavoriteButton(preset, isFavorite) {
-    const star = document.createElement('button');
-    star.type = 'button';
-    star.className = 'bot-catalog-star';
-    star.textContent = isFavorite ? '★' : '☆';
-    star.setAttribute('aria-pressed', String(isFavorite));
-    star.setAttribute('aria-label', `${isFavorite ? 'Remover' : 'Favoritar'} ${preset.title}`);
-    star.addEventListener('click', () => this.toggleBotFavorite(preset.id));
-    return star;
-  }
-
-  openBotCatalogPreset(preset) {
-    this.selectSpecialistBot(this.specialistTaskFromPreset(preset), { switchToChat: true });
-    this.showDelegationTab('chat');
+    if (onBots) this.renderBotOwnList();
   }
 
   specialistTaskFromPreset(preset) {
@@ -2432,15 +2242,13 @@ class ZeroBrowserApp {
     const container = this.elements?.grokbotRailSpecialists || document.getElementById('grokbot-rail-specialists');
     if (!container) return;
     container.replaceChildren();
-    const tasks = this.getSpecialistTasksCatalog();
+    const tasks = Array.isArray(this.storedSpecialistTasks) ? this.storedSpecialistTasks : [];
     const activeId = this.activeSpecialistBot?.id || null;
     for (const task of tasks) {
       const btn = document.createElement('button');
       btn.type = 'button';
       const isSelected = task.id === activeId;
-      const isWorkingBg = [...(this.backgroundAgentJobs?.values() || [])].some((j) => j.botId === task.id);
-      const isWorkingFg = this.aiRunning && isSelected;
-      const isWorking = isWorkingBg || isWorkingFg || task.state === 'working';
+      const isWorking = this.isSpecialistTaskWorking(task);
       btn.className = 'grokbot-rail-spec-btn' + (isSelected ? ' ativo' : '');
       btn.dataset.specialistId = task.id;
       btn.dataset.botState = isWorking ? 'working' : 'idle';
@@ -2577,62 +2385,18 @@ class ZeroBrowserApp {
     this.updateOrchestratorRouteStatus(this.elements?.aiInput?.value || '');
   }
 
-  renderBotRail() {
-    this.syncStopAllButton();
-    this.renderSpecialistRail();
-    this.elements.botRailList.replaceChildren();
-    const availableBots = this.botTeam.bots.filter((bot) => !bot.archived || bot.id === this.botTeam.currentProfileId);
-    this.elements.botRailCount.textContent = `${availableBots.length} perfis`;
-    if (!availableBots.length) {
-      const empty = document.createElement('p');
-      empty.className = 'bot-rail-empty';
-      empty.textContent = this.botTeam.bots.length ? 'Restaure um Bot na Central' : 'Crie seu primeiro Bot';
-      this.elements.botRailList.appendChild(empty);
-      return;
-    }
-    for (const bot of availableBots) this.elements.botRailList.appendChild(this.createBotAvatarButton(bot));
+  isBotSettingsOpen() {
+    return !this.elements.settingsPanel.classList.contains('hidden');
   }
 
-  async toggleBotCentral() {
-    const opening = this.elements.botCentral.classList.contains('hidden');
-    if (opening) {
-      await this.denyPendingApprovals();
-      await this.loadBotProfiles();
-      this.botCentralReturnToAi = !this.elements.aiPanel.classList.contains('hidden');
-      if (this.botCentralReturnToAi) {
-        this.elements.aiPanel.classList.add('hidden');
-        this.elements.aiPanel.inert = true;
-        this.elements.aiPanel.setAttribute('aria-hidden', 'true');
-      }
-      this.elements.botCentral.classList.remove('hidden');
-      this.elements.btnBotCentral.setAttribute('aria-expanded', 'true');
-      this.renderBotCentral();
-      const layout = await window.zeroBrowser.browser.setSidePanelOpen(true, 'left', 'bots').catch(() => null);
-      if (Number.isFinite(Number(layout?.panelWidth)) && Number(layout.panelWidth) > 0) this.applyDelegationPanelWidth(layout.panelWidth);
-      this.elements.btnBotCentralClose.focus();
-    } else this.closeBotCentral({ restoreFocus: true });
-  }
-
-  closeBotCentral({ restoreFocus = false, restorePanel = true } = {}) {
-    if (!this.elements.botCentral) return;
-    const wasOpen = !this.elements.botCentral.classList.contains('hidden');
-    this.elements.botCentral.classList.add('hidden');
-    this.elements.btnBotCentral.setAttribute('aria-expanded', 'false');
-    if (!wasOpen) return;
-    const returnToAi = this.botCentralReturnToAi === true;
-    this.botCentralReturnToAi = false;
-    if (returnToAi) {
-      this.elements.aiPanel.classList.remove('hidden');
-      this.elements.aiPanel.inert = false;
-      this.elements.aiPanel.removeAttribute('aria-hidden');
-    }
-    if (restorePanel) window.zeroBrowser.browser.setSidePanelOpen(returnToAi, 'left', returnToAi ? 'ai' : 'none').catch(() => {});
-    if (restoreFocus) this.elements.btnBotCentral.focus();
+  async openBotSettings() {
+    await this.denyPendingApprovals();
+    if (!this.isBotSettingsOpen()) await this.toggleSettingsPanel();
+    await this.loadBotProfiles();
+    document.getElementById('bot-central')?.scrollIntoView({ block: 'start' });
   }
 
   renderBotCentral() {
-    const renderVersion = (this.botCentralRenderVersion || 0) + 1;
-    this.botCentralRenderVersion = renderVersion;
     this.elements.botCentralList.replaceChildren();
     this.elements.botCentralAvatarCount.textContent = `${this.botTeam.bots.length} perfis de Bot`;
     const activeBots = this.botTeam.bots.filter((bot) => bot.archived !== true);
@@ -2666,135 +2430,51 @@ class ZeroBrowserApp {
 
     appendGroup('Ativos', activeBots, this.botTeam.bots.length
       ? 'Não há Bots ativos. Restaure um arquivado ou crie um Bot.'
-      : 'Ainda não há Bots. Crie um para iniciar uma sessão isolada.');
+      : 'Ainda não há perfis de Bot. Crie um para iniciar uma sessão isolada.');
     if (archivedBots.length) appendGroup('Arquivados', archivedBots);
-    if (!this.botTeam.bots.length) this.appendBotStarterTemplates();
-    if (this.botTeam.bots.length < 15) {
-      this.appendGrokBotCentralSections(renderVersion);
-    }
   }
 
-  async appendGrokBotCentralSections(renderVersion = this.botCentralRenderVersion) {
-    const host = this.elements.botCentralList;
-    if (!host) return;
-    await this.refreshSpecialistTasksFromStore();
-    if (renderVersion !== this.botCentralRenderVersion) return;
+  isSpecialistTaskWorking(task) {
+    const isWorkingBg = [...(this.backgroundAgentJobs?.values() || [])].some((job) => job.botId === task.id);
+    const isWorkingFg = this.aiRunning && this.activeSpecialistBot?.id === task.id;
+    return isWorkingBg || isWorkingFg || task.state === 'working';
+  }
 
-    // Seção 1: tarefas especializadas salvas.
-    const specCard = document.createElement('section');
-    specCard.className = 'grokbot-central-card';
-    const specTitle = document.createElement('h4');
-    specTitle.textContent = `Tarefas especialistas (${(this.storedSpecialistTasks || []).length})`;
-    const specDesc = document.createElement('p');
-    specDesc.textContent = 'Tarefas especialistas usam o perfil atual. Para separar logins e dados, abra um perfil de Bot.';
-    specCard.append(specTitle, specDesc);
-
-    for (const task of (this.storedSpecialistTasks || []).slice(0, 6)) {
-      const row = document.createElement('div');
-      row.className = 'grokbot-central-item';
-      const info = document.createElement('div');
-      const strong = document.createElement('strong');
-      strong.textContent = task.name;
-      const sub = document.createElement('span');
-      sub.style.display = 'block';
-      sub.style.fontSize = '11px';
-      sub.style.color = 'var(--text-secondary)';
-      sub.textContent = `${task.specialtyTitle || 'Especialista'} · Degrau ${task.autonomyStep || 1}`;
-      info.append(strong, sub);
-
-      const actions = document.createElement('div');
-      actions.className = 'grokbot-central-actions';
-      const selectBtn = document.createElement('button');
-      selectBtn.type = 'button';
-      selectBtn.textContent = 'Selecionar';
-      selectBtn.addEventListener('click', () => {
+  renderBotOwnList() {
+    const list = document.getElementById('bot-own-list');
+    if (!list) return;
+    const tasks = Array.isArray(this.storedSpecialistTasks) ? this.storedSpecialistTasks : [];
+    list.replaceChildren();
+    document.getElementById('bot-own-empty')?.toggleAttribute('hidden', tasks.length > 0);
+    for (const task of tasks) {
+      const isWorking = this.isSpecialistTaskWorking(task);
+      const item = document.createElement('li');
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'bot-own-item';
+      button.dataset.specialistId = task.id;
+      button.dataset.botState = isWorking ? 'working' : 'idle';
+      button.style.setProperty('--bot-accent', task.accent || '#0254ec');
+      button.setAttribute('aria-label', `Conversar com ${task.name}, ${isWorking ? 'trabalhando' : 'pronto'}`);
+      const mark = document.createElement('span');
+      mark.className = 'bot-own-mark';
+      mark.setAttribute('aria-hidden', 'true');
+      mark.innerHTML = this.getSpecialistSymbolSvg(task);
+      const copy = document.createElement('span');
+      copy.className = 'bot-own-copy';
+      const name = document.createElement('strong');
+      name.textContent = task.name;
+      const meta = document.createElement('span');
+      meta.textContent = `${task.specialtyTitle || 'Especialista'} · ${isWorking ? 'Trabalhando' : 'Pronto'}`;
+      copy.append(name, meta);
+      button.append(mark, copy);
+      button.addEventListener('click', () => {
         this.selectSpecialistBot(task, { switchToChat: true });
-        this.closeBotCentral();
-        this.showToast(`${task.name} selecionado no painel Delegar.`, 'info');
+        this.showDelegationTab('chat');
       });
-      const runBgBtn = document.createElement('button');
-      runBgBtn.type = 'button';
-      runBgBtn.textContent = 'Rodar 2º plano';
-      runBgBtn.addEventListener('click', () => {
-        this.closeBotCentral();
-        this.runSpecialistBotInBackground(task);
-      });
-      actions.append(selectBtn, runBgBtn);
-      row.append(info, actions);
-      specCard.appendChild(row);
+      item.appendChild(button);
+      list.appendChild(item);
     }
-
-    // A fonte atual ainda devolve dados de demonstração; não os apresente como dados reais.
-    const appsCard = document.createElement('section');
-    appsCard.className = 'grokbot-central-card';
-    const appsTitle = document.createElement('h4');
-    appsTitle.textContent = 'Apps locais';
-    const appsDesc = document.createElement('p');
-    appsDesc.textContent = 'Painéis com fontes de dados reais ainda não estão disponíveis. Os exemplos de demonstração não aparecem como informação atual.';
-    const appsStatus = document.createElement('span');
-    appsStatus.className = 'grokbot-central-status';
-    appsStatus.textContent = 'Aguardando conexão de uma fonte de dados';
-    appsCard.append(appsTitle, appsDesc, appsStatus);
-
-    // Conectores ainda não executam operações externas reais nesta versão.
-    const connCard = document.createElement('section');
-    connCard.className = 'grokbot-central-card';
-    const connTitle = document.createElement('h4');
-    connTitle.textContent = 'Conexões com serviços';
-    const connDesc = document.createElement('p');
-    connDesc.textContent = 'Esta versão ainda não lê nem envia dados por conectores externos.';
-    const connActions = document.createElement('div');
-    connActions.className = 'grokbot-central-actions';
-    const tgBtn = document.createElement('button');
-    tgBtn.type = 'button';
-    tgBtn.textContent = 'Conexões indisponíveis';
-    tgBtn.disabled = true;
-    tgBtn.title = 'A integração externa ainda não está conectada';
-    connActions.append(tgBtn);
-    connCard.append(connTitle, connDesc, connActions);
-    if (renderVersion !== this.botCentralRenderVersion || !host.isConnected || this.elements.botCentral.classList.contains('hidden')) return;
-    host.append(specCard, appsCard, connCard);
-  }
-
-  appendBotStarterTemplates() {
-    const gallery = document.createElement('section');
-    gallery.className = 'bot-central-group bot-starter-gallery';
-    const heading = document.createElement('h3');
-    heading.className = 'bot-central-group-heading';
-    heading.textContent = 'Modelos prontos (somente leitura)';
-    const list = document.createElement('div');
-    list.className = 'bot-central-group-list';
-    const starters = [
-      { id: 'starter-prices', title: 'Pesquisador de preços', summary: 'Compara até 3 lojas em paralelo e monta tabela com menor preço e frete.', prompt: 'Compare o preço do produto nas 3 lojas abertas e monte uma tabela com menor preço e frete.' },
-      { id: 'starter-stock', title: 'Preço de ação', summary: 'Monitora cotação em somente leitura e avisa quando atingir o alvo.', prompt: 'Verifique a cotação atual do ativo nesta página e compare com minha faixa de alerta.' },
-      { id: 'starter-email', title: 'Resumo de e-mail', summary: 'Resume a caixa de entrada sem enviar nem apagar mensagens.', prompt: 'Resuma os e-mails visíveis na caixa de entrada destacando urgências, sem responder nem arquivar.' }
-    ];
-    for (const starter of starters) {
-      const card = document.createElement('div');
-      card.className = 'bot-starter-card';
-      const copy = document.createElement('div');
-      copy.className = 'bot-central-row-copy';
-      const title = document.createElement('strong');
-      title.textContent = starter.title;
-      const desc = document.createElement('span');
-      desc.textContent = starter.summary;
-      copy.append(title, desc);
-      const useBtn = document.createElement('button');
-      useBtn.type = 'button';
-      useBtn.className = 'bot-central-action';
-      useBtn.textContent = 'Usar modelo';
-      useBtn.setAttribute('aria-label', `Usar modelo ${starter.title}`);
-      useBtn.addEventListener('click', () => {
-        this.closeBotCentral();
-        this.switchBotPanelTab('chat');
-        this.elements.aiInput.value = starter.prompt;
-        this.elements.aiInput.focus();
-      });
-      card.append(copy, useBtn);
-      list.appendChild(card);
-    }
-    gallery.append(heading, list);
-    this.elements.botCentralList.appendChild(gallery);
   }
 
   createBotCentralRow(bot) {
@@ -2842,10 +2522,7 @@ class ZeroBrowserApp {
     content.append(image, copy);
     row.appendChild(content);
 
-    if (!isArchived && !isCurrent) content.addEventListener('click', () => {
-      this.closeBotCentral({ restorePanel: false });
-      this.openBotConversation(bot);
-    });
+    if (!isArchived && !isCurrent) content.addEventListener('click', () => this.openBotConversation(bot));
 
     if (!isArchived && !isCurrent) {
       const windowButton = document.createElement('button');
@@ -2891,7 +2568,7 @@ class ZeroBrowserApp {
           if (restoring) await window.zeroBrowser.browser.archiveBot(bot.id);
           else await window.zeroBrowser.browser.restoreBot(bot.id);
           await this.loadBotProfiles();
-          if (!this.elements.botCentral.classList.contains('hidden')) this.renderBotCentral();
+          if (this.isBotSettingsOpen()) this.renderBotCentral();
         }
       });
       const nextAction = restoring ? 'archive' : 'restore';
@@ -2910,7 +2587,6 @@ class ZeroBrowserApp {
   async toggleSettingsPanel() {
     const opening = this.elements.settingsPanel.classList.contains('hidden');
     if (opening) await this.denyPendingApprovals();
-    this.closeBotCentral({ restorePanel: false });
     this.elements.settingsPanel.classList.toggle('hidden', !opening);
     this.elements.aiPanel.classList.add('hidden');
     this.clearDelegationMode();
@@ -2921,6 +2597,7 @@ class ZeroBrowserApp {
       this.freezePageForPanel();
       this.loadSettingsToUI();
       this.loadAiSettings();
+      this.loadBotProfiles();
     } else if (this.elements.aiPanel.classList.contains('hidden') && this.elements.libraryPanel.classList.contains('hidden')) this.releasePageOverlay('panel');
   }
 
@@ -2976,11 +2653,6 @@ class ZeroBrowserApp {
     if (action === 'whats-new') return window.zeroBrowser.browser.whatsNew().catch(() => {});
     if (action === 'extensions') return this.openExtensionsManager();
     if (action === 'profiles') return window.zeroBrowser.browser.openProfileMenu(Math.max(0, window.innerWidth - 240), 90).catch(() => {});
-    if (action === 'central') {
-      if (this.elements.aiPanel.classList.contains('hidden')) this.toggleAiPanel(true).then(() => this.toggleBotCentral());
-      else this.toggleBotCentral();
-      return;
-    }
     if (action === 'split-view') {
       const appEl = document.getElementById('app');
       const active = appEl.classList.toggle('split-view-active');
@@ -3034,6 +2706,7 @@ class ZeroBrowserApp {
     } catch {}
     this.syncGrokBotBriefingBar();
     this.renderSpecialistRail();
+    this.renderBotOwnList();
     this.updateOrchestratorRouteStatus(this.elements?.aiInput?.value || '');
   }
 
@@ -3090,7 +2763,6 @@ class ZeroBrowserApp {
       window.zeroBrowser.bots.getPresets().then((list) => {
         if (Array.isArray(list) && list.length) {
           this.specialistPresets = list;
-          this.renderBotCatalog();
         }
       }).catch(() => {});
     }
@@ -3145,7 +2817,7 @@ class ZeroBrowserApp {
     const modal = document.getElementById('bot-specialist-modal');
     if (!modal || modal.classList.contains('hidden')) return;
     modal.classList.add('hidden');
-    if (document.getElementById('app')?.classList.contains('delegation-mode') && this.elements.botCentral.classList.contains('hidden')) {
+    if (document.getElementById('app')?.classList.contains('delegation-mode') && !this.isBotSettingsOpen()) {
       this.elements.aiPanel.classList.remove('hidden');
       this.elements.aiPanel.inert = false;
       this.elements.aiPanel.removeAttribute('aria-hidden');
@@ -3984,7 +3656,6 @@ class ZeroBrowserApp {
   async openLibrary(mode) {
     const libraryWasOpen = !this.elements.libraryPanel.classList.contains('hidden');
     await this.denyPendingApprovals();
-    this.closeBotCentral({ restorePanel: false });
     this.elements.libraryPanel.classList.remove('hidden');
     this.elements.aiPanel.classList.add('hidden');
     this.clearDelegationMode();
@@ -4817,7 +4488,7 @@ class ZeroBrowserApp {
     this.syncControlledTabIndicator();
     this.syncStopAllButton();
     this.syncGrokBotBriefingBar();
-    this.renderBotRail();
+    this.renderSpecialistRail();
     document.getElementById('app')?.classList.add('agent-active');
     document.getElementById('browser-container')?.classList.add('agent-active');
     this.elements.btnAiSend.disabled = false;
@@ -4925,10 +4596,10 @@ class ZeroBrowserApp {
       this.aiRunning = false;
       this.runningAgentTabId = null;
       this.currentExecutionRoute = null;
-      if (!this.elements.botCentral.classList.contains('hidden')) this.renderBotCentral();
+      if (this.isBotSettingsOpen()) this.renderBotCentral();
       this.syncControlledTabIndicator();
-      this.elements.btnStopTask.classList.add('hidden');
-      this.renderBotRail();
+      this.syncStopAllButton();
+      this.renderSpecialistRail();
       this.elements.btnAiSend.disabled = false;
       this.elements.btnAiSend.textContent = 'Enviar';
       this.elements.btnAiSend.setAttribute('aria-label', 'Enviar comando');

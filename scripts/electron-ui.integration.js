@@ -213,16 +213,11 @@ app.whenReady().then(async () => {
       aiButtonAccessibleLabel: document.getElementById('btn-ai')?.getAttribute('aria-label'),
       delegationModeOnStartup: document.getElementById('app')?.classList.contains('delegation-mode'),
       botRailVisible: !document.getElementById('delegation-rail')?.classList.contains('hidden'),
-      botAvatarButtons: document.querySelectorAll('#bot-rail-list button.bot-avatar').length,
-      botAvatarMarks: document.querySelectorAll('#bot-rail-list .bot-avatar-symbol img.bot-mascot[src]').length,
+      railNavItems: [...document.querySelectorAll('#delegation-rail .delegation-rail-item')].map((item) => item.textContent.trim()),
+      railNavPressed: document.querySelector('#delegation-rail .delegation-rail-item[aria-pressed="true"]')?.textContent.trim(),
       pixelAvatars: document.querySelectorAll('.pixel-avatar').length,
-      botAvatarSymbols: [...document.querySelectorAll('#bot-rail-list .bot-avatar-symbol img.bot-mascot')].map((img) => img.getAttribute('src')),
-      currentBotRole: document.querySelector('#bot-rail-list .bot-avatar[aria-current="true"]')?.getAttribute('role'),
-      currentBotAccessibleName: document.querySelector('#bot-rail-list .bot-avatar[aria-current="true"]')?.getAttribute('aria-label'),
       botAddressFocusVisible: (() => { const address = document.getElementById('address-bar'); return { focused: document.activeElement === address, matches: address.matches(':focus-visible'), outline: getComputedStyle(address).outlineStyle, color: getComputedStyle(address).outlineColor }; })(),
-      botAvatarCount: document.getElementById('bot-rail-count')?.textContent,
-      botRailSections: [...document.querySelectorAll('.bot-rail-section-label')].map((label) => label.textContent.trim()),
-      botCentralVisible: !document.getElementById('btn-bot-central')?.classList.contains('hidden'),
+      botCentralInRail: !!document.getElementById('btn-bot-central'),
       aiButtonActive: document.getElementById('btn-ai')?.classList.contains('active'),
       resizer: (() => { const element = document.getElementById('delegation-resizer'); const rect = element?.getBoundingClientRect(); return { role: element?.getAttribute('role'), orientation: element?.getAttribute('aria-orientation'), controls: element?.getAttribute('aria-controls'), visible: Boolean(rect?.width && rect?.height) }; })(),
       newTab: (() => { const b = document.getElementById('btn-new-tab'); const t = document.querySelector('.tab'); if (!b) return null; const r = b.getBoundingClientRect(); return { width: Math.round(r.width), afterTab: t ? Math.round(r.left) >= Math.round(t.getBoundingClientRect().right) - 2 : true }; })()
@@ -254,16 +249,11 @@ app.whenReady().then(async () => {
     assert.equal(shell.libraryButton, true, 'botao Biblioteca ausente no painel');
     assert.equal(shell.delegationModeOnStartup, true, 'o app precisa abrir no novo modo Delegar');
     assert.equal(shell.botRailVisible, true, 'a equipe Bot precisa aparecer no modo Delegar');
-    assert.equal(shell.botAvatarButtons, 1, 'perfil de outro Bot deve ser acionável na lateral');
-    assert.equal(shell.botAvatarMarks, 2, 'cada perfil mostra o mascote individual dentro do anel');
+    assert.deepEqual(shell.railNavItems, ['Bots', 'Histórico', 'Configurações'], 'lateral mostra as três seções fixas');
+    assert.equal(shell.railNavPressed, 'Bots', 'seção Bots começa marcada na lateral');
+    assert.equal(shell.botCentralInRail, false, 'Central não aparece mais na barra superior');
     assert.equal(shell.pixelAvatars, 0, 'a interface não deve mais renderizar avatares pixelados');
-    assert.equal(new Set(shell.botAvatarSymbols).size, 2, 'os dois perfis da fixture têm símbolos visuais distintos');
-    assert.equal(shell.currentBotRole, 'img', 'Bot da janela atual aparece como identidade estática, não ação sem efeito');
-    assert.equal(shell.currentBotAccessibleName, 'Bot Bot Fixture, perfil aberto nesta janela', 'avatar atual informa o perfil para leitores de tela');
     assert.equal(shell.botAddressFocusVisible.focused && shell.botAddressFocusVisible.matches && shell.botAddressFocusVisible.outline !== 'none', true, `campo de endereço mantém indicador de foco no modo Delegar (${JSON.stringify(shell.botAddressFocusVisible)})`);
-    assert.equal(shell.botAvatarCount, '2 perfis', 'a lateral conta perfis reais, não as imagens do catálogo');
-    assert.deepEqual(shell.botRailSections, ['Perfis', 'Especialistas'], 'o trilho separa perfis de Bots das tarefas especializadas');
-    assert.equal(shell.botCentralVisible, true, 'Central de Bots deve estar acessível no modo Delegar');
     assert.equal(shell.aiButtonActive, true, 'botão Delegar mostra visualmente o estado ativo');
     assert.deepEqual(shell.resizer, { role: 'separator', orientation: 'vertical', controls: 'ai-panel browser-container', visible: true }, 'divisor de largura acessível está visível no modo Delegar');
     const resizeResult = await window.webContents.executeJavaScript(`(async () => {
@@ -287,14 +277,13 @@ app.whenReady().then(async () => {
     assert.match(shell.aiButtonAccessibleLabel, /voltar ao modo Navegar/i, 'o rótulo acessível informa como voltar ao modo Navegar');
     assert.equal(shell.manageChat, true, 'ações de conversa ausentes');
 
-    await window.webContents.executeJavaScript("document.getElementById('btn-bot-central').click()");
+    await window.webContents.executeJavaScript('window.app.openBotSettings()');
     await new Promise((resolve) => setTimeout(resolve, 100));
     await window.webContents.executeJavaScript('window.app.renderBotCentral(); window.app.renderBotCentral()');
     await new Promise((resolve) => setTimeout(resolve, 150));
-    assert.equal(await window.webContents.executeJavaScript("document.querySelectorAll('#bot-central-list .grokbot-central-card').length"), 3,
+    assert.equal(await window.webContents.executeJavaScript("document.querySelectorAll('#bot-central-list .bot-central-group').length"), 1,
       'renderizações assíncronas antigas não duplicam seções da Central');
     const botCentral = await window.webContents.executeJavaScript(`({
-      expanded: document.getElementById('btn-bot-central')?.getAttribute('aria-expanded'),
       rows: document.querySelectorAll('#bot-central-list .bot-central-row').length,
       openButtons: document.querySelectorAll('#bot-central-list button.bot-central-open').length,
       currentProfileText: [...document.querySelectorAll('#bot-central-list .bot-central-row')].find((row) => row.dataset.botId === 'bot-fixture')?.textContent,
@@ -303,20 +292,16 @@ app.whenReady().then(async () => {
       label: document.querySelector('#bot-central-list .bot-central-row strong')?.textContent,
       dialog: document.getElementById('bot-central')?.getAttribute('role'),
       summary: document.getElementById('bot-central-summary')?.textContent,
-      cards: [...document.querySelectorAll('#bot-central-list .grokbot-central-card')].map((card) => card.textContent),
-      unavailableConnector: document.querySelector('#bot-central-list .grokbot-central-card button[disabled]')?.textContent
+      cards: [...document.querySelectorAll('#bot-central-list .bot-central-row')].map((card) => card.textContent)
     })`);
-    assert.equal(botCentral.expanded, 'true', 'abrir Central anuncia o estado no controle');
     assert.equal(botCentral.rows, 2, 'Central lista perfis Bot sincronizados');
     assert.equal(botCentral.openButtons, 1, 'Central oferece ações de abertura apenas para outra janela');
     assert.match(botCentral.currentProfileText, /Perfil aberto nesta janela/, 'Central identifica sem botão o Bot já aberto');
     assert.equal(botCentral.currentProfileCursor, 'default', 'perfil aberto não aparenta ser uma ação de clique');
     assert.equal(botCentral.currentAvatarCursor, 'default', 'retrato do perfil atual também não aparenta ser clicável');
     assert.equal(botCentral.label, 'Bot Fixture', 'Central apresenta o nome do perfil');
-    assert.equal(botCentral.dialog, 'dialog', 'Central mantém semântica de diálogo');
-    assert.match(botCentral.summary, /tarefas especialistas usam o perfil atual/i, 'Central explica a diferença entre perfil isolado e tarefa especialista');
+    assert.match(botCentral.summary, /Cada perfil de Bot tem sessão separada/i, 'Central explica que cada perfil tem sessão separada');
     assert.equal(botCentral.cards.some((text) => /Energia|R\$ 248/.test(text)), false, 'Central não mostra contas de demonstração como dados reais');
-    assert.equal(botCentral.unavailableConnector, 'Conexões indisponíveis', 'Central não anuncia autorização externa simulada');
 
     await window.webContents.executeJavaScript("document.querySelector('#bot-central-list [data-bot-id=\"bot-other\"] [data-bot-action=\"archive\"]').click()");
     await new Promise((resolve) => setTimeout(resolve, 120));
@@ -333,13 +318,6 @@ app.whenReady().then(async () => {
     await window.webContents.executeJavaScript("document.querySelector('#bot-central-list [data-bot-id=\"bot-other\"] [data-bot-action=\"restore\"]').click()");
     await new Promise((resolve) => setTimeout(resolve, 120));
     assert.equal(await window.webContents.executeJavaScript("document.querySelector('#bot-central-list [data-bot-id=\"bot-other\"] [data-bot-action=\"archive\"]')?.textContent"), 'Arquivar', 'restaurar retorna o Bot à seção ativa');
-    await window.webContents.executeJavaScript("document.getElementById('btn-bot-central-close').click()");
-    const botChatRestored = await window.webContents.executeJavaScript(`({
-      visible: !document.getElementById('ai-panel').classList.contains('hidden'),
-      inert: document.getElementById('ai-panel').inert,
-      ariaHidden: document.getElementById('ai-panel').getAttribute('aria-hidden')
-    })`);
-    assert.deepEqual(botChatRestored, { visible: true, inert: false, ariaHidden: null }, 'fechar a Central restaura o chat acessível');
 
     const specialistFlow = await window.webContents.executeJavaScript(`(async () => {
       const initialTabId = window.app.activeTabId;
@@ -360,7 +338,7 @@ app.whenReady().then(async () => {
 
     const grokbotSurface = await window.webContents.executeJavaScript(`(async () => {
       const briefingVisible = !document.getElementById('grokbot-briefing-bar')?.classList.contains('hidden');
-      const stopHiddenWhenIdle = document.getElementById('btn-stop-task')?.classList.contains('hidden') === true;
+      const stopDisabledWhenIdle = document.getElementById('btn-stop-task')?.disabled === true;
       const idleStatusText = document.getElementById('grokbot-active-status')?.textContent?.trim();
       const railSpecBtns = [...document.querySelectorAll('#grokbot-rail-specialists .grokbot-rail-spec-btn')];
       const railSpecialistsCount = railSpecBtns.length;
@@ -428,7 +406,7 @@ app.whenReady().then(async () => {
       if (bgRun?.tabId) await window.app.closeTab(bgRun.tabId);
       return {
         briefingVisible,
-        stopHiddenWhenIdle,
+        stopDisabledWhenIdle,
         idleStatusText,
         railSpecialistsCount,
         hasSendBgBtn,
@@ -456,7 +434,7 @@ app.whenReady().then(async () => {
       };
     })()`);
     assert.equal(grokbotSurface.briefingVisible, true, 'barra do Bot Especialista ativo está visível');
-    assert.equal(grokbotSurface.stopHiddenWhenIdle, true, 'botão Parar tudo fica oculto quando nenhuma tarefa está rodando');
+    assert.equal(grokbotSurface.stopDisabledWhenIdle, true, 'botão Parar tudo fica visível e desabilitado quando nenhuma tarefa está rodando');
     assert.equal(grokbotSurface.idleStatusText, '● Pronto', 'Bot Especialista inicia com estado Pronto em vez de tarefa fictícia');
     assert.ok(grokbotSurface.railSpecialistsCount >= 3, 'trilho lateral exibe os Bots Especialistas para troca direta de conversa');
     assert.equal(grokbotSurface.hasSendBgBtn, true, 'compositor tem botão dedicado Em 2º plano ao lado de Enviar');

@@ -1,4 +1,12 @@
-# Novidades — Zero Browser 0.1.77-dev
+# Novidades — Zero Browser 0.1.78-dev
+
+## 0.1.78-dev — Bots na barra lateral e nas Configurações
+
+- **Lateral:** três seções fixas: Bots, Histórico e Configurações. Os bots que você criou aparecem como avatares e "Parar tudo" fica sempre visível (desabilitado quando não há tarefa).
+- **Painel Bots:** lista "Seus bots" com estado (trabalhando ou pronto). O botão "+ Criar bot" fica no topo.
+- **Central de Bots:** saiu da barra superior e agora fica em Configurações > Bots, junto dos perfis.
+- **Textos:** rótulos menores que 11px foram aumentados e o contraste do texto secundário ficou mais forte. Termos como "ordem" e "agente" saíram do primeiro nível.
+- **Remoções:** a lista de modelos prontos e os cartões de exemplo ("Apps locais", "Conexões indisponíveis") não aparecem mais.
 
 ## 0.1.77-dev — Painel Bots mais simples
 
