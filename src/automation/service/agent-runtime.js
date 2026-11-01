@@ -77,7 +77,15 @@ function recordPostActionTextWait(trace, result) {
   if (result.fallback) metrics.fallbacks += 1;
 }
 
-async function runAgent(tabId, prompt, apiKey, model, allowTools = true, provider = 'openrouter', requireToolCall = false, { maxSteps = 40, trace = null, maxDurationMs = 5 * 60 * 1000, resumable = false, resumeId = null, observeAfterActions = true, captureReadEvidence = false, preInspect = false, actionScripts = false, diffSnapshots = false, deduplicateSnapshots = false, cascadeModel = null, streaming = false, effectJournal = false, verify = null, correctionRounds = 0, structuredExtraction = false, recipes = false, advancedInput = 'auto', saveRecipe = null, promptCache = false, taskStartUrl = null, transforms = false, onEvent = null, isolatedTabs = false } = {}) {
+const BOT_READ_TOOLS = new Set(['inspect_page', 'navigate', 'go_back', 'wait_for', 'see_page', 'scroll', 'calculate', 'extract_table', 'check_task']);
+function botReadToolAllowed(name, args = {}) {
+  if (BOT_READ_TOOLS.has(name)) return true;
+  if (name === 'tabs') return ['list', 'switch', 'read_batch'].includes(args.action);
+  if (name === 'locator_action') return ['count', 'text', 'allTextContents', 'attribute', 'isVisible', 'isEnabled', 'waitFor'].includes(args.action);
+  return false;
+}
+
+async function runAgent(tabId, prompt, apiKey, model, allowTools = true, provider = 'openrouter', requireToolCall = false, { maxSteps = 40, maxModelCalls = Infinity, trace = null, maxDurationMs = 5 * 60 * 1000, resumable = false, resumeId = null, observeAfterActions = true, captureReadEvidence = false, preInspect = false, actionScripts = false, diffSnapshots = false, deduplicateSnapshots = false, cascadeModel = null, streaming = false, effectJournal = false, verify = null, correctionRounds = 0, structuredExtraction = false, recipes = false, advancedInput = 'auto', saveRecipe = null, promptCache = false, taskStartUrl = null, transforms = false, onEvent = null, isolatedTabs = false, botReadOnly = false } = {}) {
     for (const [id, state] of this.pausedAgentRuns) {
       if (state.expiresAt <= Date.now()) this.forgetPausedRun(id);
     }
@@ -166,14 +174,24 @@ async function runAgent(tabId, prompt, apiKey, model, allowTools = true, provide
       tab?.webContents?.getURL?.() || ''
     );
     const tools = getAgentTools();
-    if (actionScripts) tools.push(structuredClone(RUN_STEPS_TOOL));
+    if (botReadOnly) {
+      for (let i = tools.length - 1; i >= 0; i--) {
+        const name = tools[i].function?.name;
+        if (!BOT_READ_TOOLS.has(name) && name !== 'tabs' && name !== 'locator_action') tools.splice(i, 1);
+      }
+      for (const tool of tools) {
+        if (tool.function?.name === 'tabs') tool.function.parameters.properties.action.enum = ['list', 'switch', 'read_batch'];
+        if (tool.function?.name === 'locator_action') tool.function.parameters.properties.action.enum = ['count', 'text', 'allTextContents', 'attribute', 'isVisible', 'isEnabled', 'waitFor'];
+      }
+    }
+    if (actionScripts && !botReadOnly) tools.push(structuredClone(RUN_STEPS_TOOL));
     if (structuredExtraction) tools.push(structuredClone(EXTRACT_TABLE_TOOL));
     if (verificationChecks.length) tools.push(structuredClone(CHECK_TASK_TOOL));
-    if (recipes && this.recipeStore) tools.push(structuredClone(RECIPE_TOOL));
-    if (this.memoryStore) tools.push(structuredClone(MEMORY_TOOL));
+    if (recipes && this.recipeStore && !botReadOnly) tools.push(structuredClone(RECIPE_TOOL));
+    if (this.memoryStore && !botReadOnly) tools.push(structuredClone(MEMORY_TOOL));
     const advancedToolDefinitions = [CLIPBOARD_TOOL, KEY_SEQUENCE_TOOL, VISUAL_CLICK_TOOL, SHEETS_ACCESSIBILITY_TOOL, SHEETS_TOOL].map((tool) => structuredClone(tool));
-    if (preloadAdvancedTools) tools.push(...advancedToolDefinitions);
-    else if (advancedInput !== false) tools.push(structuredClone(ADVANCED_TOOLS_SELECTOR));
+    if (!botReadOnly && preloadAdvancedTools) tools.push(...advancedToolDefinitions);
+    else if (!botReadOnly && advancedInput !== false) tools.push(structuredClone(ADVANCED_TOOLS_SELECTOR));
     const approvalMode = this.settingsProvider?.().automationApprovalMode || 'low-risk';
     const approvalInstructions = approvalInstructionsFor(approvalMode);
     const messages = [
@@ -182,13 +200,14 @@ async function runAgent(tabId, prompt, apiKey, model, allowTools = true, provide
     ];
     const pendingImages = [];
     if (preInspect) messages[0].content += ' O host já leu a página inicial e entregou o resultado de inspect_page antes do seu primeiro turno: use esses índices e dados em vez de pedir inspect_page de novo.';
-    if (actionScripts) messages[0].content += ' Para vários passos conhecidos na mesma página (preencher um formulário, marcar vários itens) prefira uma única chamada run_steps, com a ação que muda de página por último; cada passo pode declarar expect {url,text,absent} e o host só segue quando a pós-condição for verdadeira.';
+    if (actionScripts && !botReadOnly) messages[0].content += ' Para vários passos conhecidos na mesma página (preencher um formulário, marcar vários itens) prefira uma única chamada run_steps, com a ação que muda de página por último; cada passo pode declarar expect {url,text,absent} e o host só segue quando a pós-condição for verdadeira.';
+    if (botReadOnly) messages[0].content += ' Esta tarefa só permite ferramentas de leitura, espera, rolagem e navegação. Não clique, preencha, envie ou altere dados; diga ao usuário se a tarefa exigir uma dessas ações.';
     if (effectJournal) messages[0].content += ' O journal de efeitos impede repetir uma ação consequente sem confirmação: se a resposta trouxer alreadyDone ou needsVerification, inspecione a página e confirme o estado em vez de repetir às cegas.';
     if (verificationChecks.length) messages[0].content += ' O host confere o resultado final contra um contrato; chame check_task para conferir o estado antes de concluir e, se o host recusar, corrija a página antes de encerrar.';
     if (structuredExtraction) messages[0].content += ' Para tabelas, use extract_table com as colunas do cabeçalho em vez de copiar texto; confira missingColumns, totalRows e truncated antes de concluir.';
-    if (recipes && this.recipeStore) messages[0].content += ' Receitas: recipe list mostra as da origem; recipe save grava passos estáveis (navigate, click_text, wait_for, sheets) com expect obrigatório — passo sheets dispensa expect — e pode declarar output (campos tipados por célula A1, validados pelo host no run); recipe run repete sem modelo, para na primeira pós-condição que falhar e devolve output/outputValid. Só grave depois de a tarefa ter sido verificada.';
-    if (preloadAdvancedTools) messages[0].content += ' Em planilhas do Google, use sheets (read/write/goto com intervalo A1) — não clique em célula e não chame inspect_page antes: numa planilha ele só devolve a seleção e as abas. Agrupe o trabalho numa única chamada sheets com action "batch" (até 12 operações: ler, gravar, ler de novo; ex.: ler A1:C50 e gravar o total em E1) e confira o resultado no próprio retorno; só use sheets_accessibility se a caixa de nome não existir, e see_page + visual_click para o que só existe na imagem. Em outros editores em canvas, use clipboard write/read e key_sequence (setas, Tab).';
-    else if (advancedInput !== false) messages[0].content += ' Se a tarefa envolver planilha, editor canvas, ação visual sem elemento DOM, área de transferência ou sequência de teclas, chame enable_advanced_tools antes de prosseguir; depois use as ferramentas especializadas. Para páginas web comuns, continue com as ferramentas atuais.';
+    if (recipes && this.recipeStore && !botReadOnly) messages[0].content += ' Receitas: recipe list mostra as da origem; recipe save grava passos estáveis (navigate, click_text, wait_for, sheets) com expect obrigatório — passo sheets dispensa expect — e pode declarar output (campos tipados por célula A1, validados pelo host no run); recipe run repete sem modelo, para na primeira pós-condição que falhar e devolve output/outputValid. Só grave depois de a tarefa ter sido verificada.';
+    if (!botReadOnly && preloadAdvancedTools) messages[0].content += ' Em planilhas do Google, use sheets (read/write/goto com intervalo A1) — não clique em célula e não chame inspect_page antes: numa planilha ele só devolve a seleção e as abas. Agrupe o trabalho numa única chamada sheets com action "batch" (até 12 operações: ler, gravar, ler de novo; ex.: ler A1:C50 e gravar o total em E1) e confira o resultado no próprio retorno; só use sheets_accessibility se a caixa de nome não existir, e see_page + visual_click para o que só existe na imagem. Em outros editores em canvas, use clipboard write/read e key_sequence (setas, Tab).';
+    else if (!botReadOnly && advancedInput !== false) messages[0].content += ' Se a tarefa envolver planilha, editor canvas, ação visual sem elemento DOM, área de transferência ou sequência de teclas, chame enable_advanced_tools antes de prosseguir; depois use as ferramentas especializadas. Para páginas web comuns, continue com as ferramentas atuais.';
     if (this.memoryStore) {
       try {
         const facts = await this.memoryStore.list({ origin: normalizeOrigin(tab?.webContents?.getURL?.() || '') || taskOrigin, limit: 8 });
@@ -316,6 +335,7 @@ async function runAgent(tabId, prompt, apiKey, model, allowTools = true, provide
       return { key: effectKey({ tool: name, args, url: tab?.webContents?.getURL?.() || '', target }), tool: name, target };
     };
     const callTool = async (name, args) => {
+      if (botReadOnly && !botReadToolAllowed(name, args)) throw new Error('Ação bloqueada: este bot está configurado para somente leitura.');
       if (name === 'enable_advanced_tools') {
         for (const tool of advancedToolDefinitions) {
           if (!tools.some((existing) => existing.function?.name === tool.function.name)) tools.push(tool);
@@ -1113,8 +1133,13 @@ async function runAgent(tabId, prompt, apiKey, model, allowTools = true, provide
       const cacheSeedValue = promptCache
         ? cacheSeed({ origin: normalizeOrigin(tab?.webContents?.getURL?.() || ''), prompt, model })
         : '';
+      let modelRequests = 0;
       for (let step = 0; step < maxSteps; step++) {
         if (runController.signal.aborted) throw Object.assign(new Error('Tarefa interrompida pelo usuário.'), { name: 'AbortError' });
+        if (Number.isFinite(maxModelCalls) && modelRequests >= maxModelCalls) {
+          trace.stopReason = 'max_model_calls';
+          return { success: false, error: `Limite de chamadas ao modelo atingido (${maxModelCalls}).`, usageLimit: true };
+        }
         emit({ type: 'step', step: step + 1, maxSteps });
         stage('human-check', step);
         const humanCheck = await this.detectHumanCheck(tabId);
@@ -1199,6 +1224,12 @@ async function runAgent(tabId, prompt, apiKey, model, allowTools = true, provide
               };
               trace.requestMetrics.push(requestMetric);
             }
+            if (Number.isFinite(maxModelCalls) && modelRequests >= maxModelCalls) {
+              trace.stopReason = 'max_model_calls';
+              return { success: false, error: `Limite de chamadas ao modelo atingido (${maxModelCalls}).`, usageLimit: true };
+            }
+            modelRequests += 1;
+            if (trace) trace.modelRequests = modelRequests;
             response = await this.fetch(providerUrl, {
               method: 'POST',
               headers: requestHeaders,

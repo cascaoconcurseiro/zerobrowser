@@ -2427,3 +2427,63 @@ body.dark .ai-working-status-pill {
 #ai-panel .grokbot-briefing-actions,
 #ai-panel .grokbot-specialist-welcome-modes,
 #ai-panel .grokbot-tech-drawer { display: none !important; }
+
+/* Configurações: superfícies claras e cartões, mantendo a largura nativa do painel. */
+#settings-panel {
+  --settings-surface: #f5f8fe;
+  --settings-card: #fff;
+  --settings-border: #dce5f1;
+  background: var(--settings-surface);
+}
+body.dark #settings-panel {
+  --settings-surface: #20272f;
+  --settings-card: #2a333e;
+  --settings-border: #465362;
+}
+#settings-panel .panel-header {
+  min-height: 80px;
+  padding: 16px 18px;
+  background: var(--settings-card);
+  border-color: var(--settings-border);
+}
+#settings-panel .panel-heading strong { font-size: 20px; line-height: 1.2; }
+#settings-panel .panel-subtitle { line-height: 1.4; }
+#settings-panel .panel-close { min-width: 40px; min-height: 40px; }
+#settings-panel .settings-content { padding: 18px 16px 24px; }
+#settings-panel .settings-search { padding: 0 0 12px; }
+#settings-panel .settings-search input {
+  background: var(--settings-card);
+  border-color: var(--settings-border);
+}
+#settings-panel .settings-index {
+  gap: 8px;
+  padding: 8px 0 12px;
+  background: var(--settings-surface);
+}
+#settings-panel .settings-index button {
+  min-height: 40px;
+  padding: 8px 12px;
+  background: var(--settings-card);
+  border-color: var(--settings-border);
+  color: var(--fg-primary);
+  font-size: 12px;
+}
+#settings-panel .settings-index button:hover,
+#settings-panel .settings-index button:focus-visible { border-color: var(--accent); color: var(--accent); }
+#settings-panel .settings-index button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+#settings-panel .settings-section {
+  padding: 18px;
+  margin-bottom: 12px;
+  background: var(--settings-card);
+  border-color: var(--settings-border);
+  scroll-margin-top: 64px;
+}
+#settings-panel .settings-section h3 { margin-bottom: 10px; font-size: 15px; line-height: 1.35; }
+#settings-panel .setting-item { min-height: 44px; font-size: 13px; line-height: 1.4; }
+#settings-panel .setting-description { font-size: 12px; line-height: 1.5; }
+#settings-panel .setting-field { font-size: 13px; }
+
+/* Trilho mantém a navegação e os avatares existentes. */
+.delegation-mode .delegation-rail { border-color: #dce5f1; }
+.delegation-mode .delegation-rail-item { border-radius: 10px; }
+.delegation-mode .delegation-rail-item:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }

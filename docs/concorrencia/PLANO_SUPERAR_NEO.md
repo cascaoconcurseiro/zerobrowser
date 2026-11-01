@@ -98,3 +98,7 @@ Ordem fixa. Cada passo só fecha com o teste de sim ou não passando. Nota de pa
    - **Fecha quando:** a tela de Configurações ou o recibo mostra essas garantias sem o usuário procurar.
 
 Limite: "ganhar" só conta com medida. A medida com modelo real depende de orçamento aprovado pelo Wesley.
+
+## Estado conferido em 01/11/2026
+
+Este roteiro comparativo contém observações datadas de 31/10 e várias lacunas que mudaram desde então. No código `0.1.78-dev`, executor, isolamento por Bot, agenda persistente e painel já existem; a conversa do Bot usa `BotRunner`. O painel foi redesenhado e verificado localmente em seis tamanhos via `test:delegation-layout`. O teste pareado registrado acima continua sendo somente 1 rodada e não foi repetido nesta sessão: 4/5 vs. 5/5 permanece a única evidência comparativa listada aqui. Grupo de abas por Bot, ajuda humana, conectores reais, tela de agentes conectados e revisão no app instalado seguem pendentes. Não inferir superioridade ao neo/GrokBot pelos testes de integração locais.

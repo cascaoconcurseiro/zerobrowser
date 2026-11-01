@@ -229,10 +229,10 @@ test('GrokBot Especialistas: 9 especialidades prontas, aba exclusiva vs. 2º pla
   });
   assert.equal(erpBot.executionMode, 'dedicated-tab');
 
-  const runner = new BotRunner({ store });
+  const runner = new BotRunner({ store, stepExecutor: async (step) => ({ ok: true, data: step.mockData }) });
   const attentionEvents = [];
 
-  // 1. Execução em 2º plano que atinge a meta deve sinalizar shouldBringToFront: true ('goal_reached')
+  // 1. Declaração do passo não prova que a meta foi atingida.
   const goalRun = await runner.runBotNow(priceBot.id, {
     steps: [
       { tool: 'snapshot', mockData: { price: 1899 } },
@@ -241,10 +241,9 @@ test('GrokBot Especialistas: 9 especialidades prontas, aba exclusiva vs. 2º pla
     onAttention: (ev) => attentionEvents.push(ev)
   });
   assert.equal(goalRun.status, 'completed');
-  assert.equal(goalRun.shouldBringToFront, true);
-  assert.equal(goalRun.bringToFrontReason, 'goal_reached');
-  assert.equal(attentionEvents.length, 1);
-  assert.equal(attentionEvents[0].reason, 'goal_reached');
+  assert.equal(goalRun.shouldBringToFront, false);
+  assert.equal(goalRun.bringToFrontReason, null);
+  assert.equal(attentionEvents.length, 0);
 
   // 2. Execução em 2º plano que encontra CAPTCHA/login deve pausar e trazer para frente ('human_intervention')
   const captchaRun = await runner.runBotNow(priceBot.id, {

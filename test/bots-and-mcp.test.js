@@ -68,7 +68,7 @@ test('BotTaskStore persiste ficha, bloqueia memória de origem externa e exporta
 test('BotRunner respeita limites de passos/gasto, bloqueia escrita em modo leitura e para todos os Bots em < 1s', async () => {
   const store = new BotTaskStore();
   let clock = 1_000;
-  const runner = new BotRunner({ store, now: () => clock });
+  const runner = new BotRunner({ store, now: () => clock, stepExecutor: async (step) => ({ ok: true, data: step.mockData ?? null }) });
 
   const bot = store.createBot({
     name: 'Monitor Leitura',

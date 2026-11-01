@@ -136,3 +136,7 @@ Fontes: https://github.com/electron/electron/issues/42140 · https://developers.
 - Implementação **só em uma sessão aberta na pasta principal**; a cópia de trabalho ficou como histórico e não recebe código.
 - Antes de cada marco, ler só o plano correspondente (`docs/bots/PLANO_BOTS.md` para o Marco 1 e 2; `PLANO_DESIGN_UX.md` para o 4).
 - Ao terminar um marco: marcar no `CHECKLIST_PLANOS_2026-10-31.md`, atualizar o topo do `HANDOFF.md` e só então abrir o seguinte.
+
+## Atualização — 01/11/2026 (`0.1.78-dev`)
+
+O registro de estado da seção 2 é histórico de 31/10 e não descreve o checkout atual. Hoje executor, isolamento por Bot, agenda persistente e Tray estão no código; conversas do Bot entram no `BotRunner`. O painel foi reconstruído e testes locais passaram (`npm test` 458/458, UI, layout e persistência). Falta validar o Marco 1 em site/provedor real por período prolongado. Criação de Bot por uma frase, pós-condição para tarefas abertas, conectores reais, grupos de abas e confirmação humana recuperável continuam como trabalho separado.

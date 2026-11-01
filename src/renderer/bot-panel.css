@@ -1,0 +1,87 @@
+/* Superfície do painel de bots. As cores continuam ligadas aos tokens do aplicativo. */
+.delegation-rail { padding: 16px 8px; gap: 14px; background: #edf2fa; }
+.delegation-rail-label { color: #425578; font-size: 11px; font-weight: 800; letter-spacing: .12em; }
+.grokbot-rail-specialists { border: 0; margin: 0; padding: 0; gap: 10px; }
+.grokbot-rail-spec-btn { background: #fff; }
+.grokbot-rail-spec-btn .bot-avatar-symbol { width: 32px; height: 32px; }
+.delegation-rail-nav { gap: 4px; }
+.delegation-rail-item { min-height: 54px; font-size: 11px; }
+.delegation-mode #ai-panel { background: #f8faff; color: #202a3a; }
+.delegation-mode #ai-panel .panel-header { min-height: 72px; padding: 14px 18px; gap: 10px; background: #fff; }
+#ai-panel .panel-heading { gap: 2px; }
+#ai-panel .panel-heading strong { font-size: 21px; line-height: 1.2; letter-spacing: -.025em; }
+#ai-panel .panel-kicker { color: #586a87; font-size: 10px; font-weight: 750; letter-spacing: .12em; }
+.delegation-mode .delegation-top-stop { min-height: 40px; background: #fff; border-color: #d8dfeb; color: #3c4b62; }
+.delegation-mode .delegation-top-stop:not(:disabled) { background: #aa302c; border-color: #aa302c; color: #fff; }
+#ai-panel .panel-close { min-width: 40px; min-height: 40px; }
+#ai-panel .ai-ready-status { width: 100%; padding: 8px 18px; border: 0; border-bottom: 1px solid #e2e8f2; color: #53637c; background: #fff; text-align: left; font: inherit; font-size: 12px; cursor: pointer; }
+#ai-panel .ai-ready-status:hover { color: #0648be; background: #f5f8ff; }
+#ai-panel .delegation-tabs { gap: 8px; padding: 10px 18px; border-bottom: 1px solid #e2e8f2; background: #fff; }
+#ai-panel .delegation-tab { min-height: 38px; padding: 8px 14px; border: 0; border-radius: 9px; color: #53637c; font-size: 13px; }
+#ai-panel .delegation-tab.ativo { color: #0648be; background: #eaf1ff; }
+#ai-panel .delegation-pane-bots { flex: 1; min-height: 0; padding: 24px 18px; }
+#ai-panel .bot-own-head { align-items: flex-start; gap: 12px; margin-bottom: 20px; }
+#ai-panel .delegation-pane-title { font-size: 18px; letter-spacing: -.02em; }
+#ai-panel .delegation-pane-sub { margin: 5px 0 0; color: #52617a; line-height: 1.4; }
+#ai-panel .bot-own-create { min-height: 40px; }
+#ai-panel .bot-own-list { gap: 10px; }
+#ai-panel .bot-own-item { min-height: 72px; padding: 12px; border-color: #e0e7f2; background: #fff; }
+#ai-panel .bot-own-mark { width: 46px; height: 46px; flex-basis: 46px; background: #f6f8fd; }
+#ai-panel .bot-own-mark .bot-avatar-symbol { width: 36px; height: 36px; }
+#ai-panel .bot-own-copy span { color: #53637c; font-size: 12px; }
+#ai-panel .bot-own-empty { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 32px 20px; border: 1px solid #e0e7f2; background: #fff; text-align: center; color: #53637c; }
+#ai-panel .bot-own-empty[hidden] { display: none; }
+#ai-panel .bot-own-empty img { width: 72px; height: 72px; object-fit: contain; image-rendering: pixelated; }
+#ai-panel .bot-own-empty strong { color: #202a3a; font-size: 15px; }
+#ai-panel .bot-own-empty span { max-width: 260px; line-height: 1.5; }
+#ai-panel .grokbot-briefing-bar { padding: 16px 18px; background: #f8faff; border-bottom: 0; }
+#ai-panel .grokbot-active-ring { width: 46px; height: 46px; background: #fff; }
+#ai-panel .grokbot-active-ring .bot-avatar-symbol { width: 36px; height: 36px; }
+#ai-panel .grokbot-briefing-copy { gap: 3px; }
+#ai-panel .grokbot-briefing-copy span { font-size: 12px; }
+#ai-panel .bot-panel-tabs { gap: 6px; padding: 0 18px 10px; border: 0; background: #f8faff; }
+#ai-panel .bot-panel-tab { flex: 0 1 auto; min-height: 38px; padding: 8px 14px; border-radius: 9px; font-size: 13px; }
+#ai-panel .ai-chat-toolbar { padding: 8px 18px; }
+#ai-panel .ai-chat { padding: 16px 18px; min-height: 80px; }
+#ai-panel .ai-input-area { padding: 14px 18px 18px; background: #fff; border-top: 1px solid #e2e8f2; }
+#ai-panel .ai-textarea { min-height: 70px; background: #f8faff; }
+#ai-panel .ai-route-status, #ai-panel .ai-privacy-note, #ai-panel .ai-quick-model { font-size: 12px; }
+#ai-panel .bot-schedule-form { display: grid; gap: 10px; }
+#ai-panel .bot-schedule-form label { display: grid; gap: 6px; font-weight: 600; }
+#ai-panel .bot-schedule-form input { min-height: 40px; padding: 8px; border: 1px solid var(--border); border-radius: 8px; font: inherit; }
+#ai-panel .bot-schedule-form p { margin: 0; color: var(--fg-secondary); line-height: 1.5; }
+#ai-panel .bot-schedule-form button { min-height: 40px; }
+@media (max-width: 700px) {
+  #ai-panel .bot-own-head { flex-wrap: wrap; }
+  #ai-panel .ai-composer-actions { flex-wrap: wrap; }
+}
+.delegation-mode #ai-panel .panel-header { min-height: 64px; padding-top: 10px; padding-bottom: 10px; }
+#ai-panel .bot-details { flex: 1; min-height: 0; overflow-y: auto; padding: 8px 18px 20px; }
+#ai-panel .bot-details.hidden { display: none; }
+#ai-panel .bot-details .bot-subview { display: flex; overflow: visible; padding: 16px; margin-bottom: 12px; border: 1px solid #e0e7f2; border-radius: 12px; background: #fff; }
+#ai-panel .bot-subview h3 { margin: 0; font-size: 15px; }
+#ai-panel .bot-subview p { margin: 0; color: #53637c; line-height: 1.5; }
+#ai-panel .bot-memory-form { display: flex; flex-wrap: wrap; gap: 8px; }
+#ai-panel .bot-memory-form label { display: grid; flex: 1 1 180px; gap: 6px; font-weight: 600; }
+#ai-panel .bot-memory-form input { min-height: 40px; padding: 8px; border: 1px solid var(--border); border-radius: 8px; font: inherit; }
+#ai-panel .bot-memory-form button { align-self: end; min-height: 40px; }
+#ai-panel .bot-memory-list { margin: 0; padding-left: 20px; line-height: 1.5; }
+#ai-panel .bot-history-controls { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; }
+#ai-panel .bot-history-controls label:first-child { display: grid; flex: 1 1 180px; gap: 6px; font-weight: 600; }
+#ai-panel .bot-history-controls input[type="search"] { width: 100%; min-height: 40px; padding: 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-secondary); color: var(--fg-primary); font: inherit; }
+#ai-panel .bot-history-controls input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+#ai-panel .bot-history-filter { display: flex; align-items: center; min-height: 40px; gap: 8px; }
+#ai-panel .bot-history-filter input { width: 18px; height: 18px; accent-color: var(--accent); }
+#ai-panel .bot-history-results { display: grid; gap: 8px; }
+#ai-panel .bot-history-status { font-size: 12px; }
+#ai-panel .grokbot-briefing-actions { display: flex !important; }
+#ai-panel .grokbot-briefing-actions #btn-grokbot-run-bg,
+#ai-panel .grokbot-briefing-actions #btn-grokbot-teach-quick { display: none; }
+#ai-panel #btn-bot-run-now { min-height: 40px; white-space: nowrap; font-size: 12px; }
+#ai-panel #btn-bot-run-now[hidden] { display: none; }
+.bot-specialist-modal .bot-central-header { padding: 18px; }
+.bot-specialist-modal .bot-specialist-body { padding: 18px; gap: 18px; }
+.bot-specialist-modal .bot-specialist-label { font-size: 13px; }
+.bot-specialist-modal .bot-create-note { margin: 0; color: var(--fg-secondary); font-size: 12px; line-height: 1.5; }
+.bot-specialist-modal .bot-specialist-footer { justify-content: flex-end; gap: 8px; padding: 14px 18px; }
+.bot-specialist-modal .bot-specialist-footer button { min-height: 40px; }

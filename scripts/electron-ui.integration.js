@@ -10,6 +10,7 @@ const messages = [];
 let newTabCalls = 0;
 let downloads = [];
 let extensionActionCalls = 0;
+let botRunCalls = [];
 let delayNextHistory = false;
 let deferredHistoryResolve = null;
 let testWindow = null;
@@ -42,6 +43,12 @@ function mockSidePanelLayout() {
       : null
   };
 }
+
+let botTasks = [
+    { id: 'bot-spec-fixture', name: 'Bot Caçador de Preços', specialty: 'price-hunter', specialtyTitle: 'Pesquisador de Preços', executionMode: 'background-auto-foreground', defaultUrl: 'https://www.google.com/shopping', accent: '#168f72', autonomyStep: 1, memory: ['Regra inicial'], history: [] },
+    { id: 'bot-spec-market', name: 'Bot de Mercado', specialty: 'market-watch', specialtyTitle: 'Monitor de mercado', executionMode: 'background-auto-foreground', defaultUrl: 'https://example.test', accent: '#2480d2', autonomyStep: 1, memory: [], history: [] },
+    { id: 'bot-spec-inbox', name: 'Bot de E-mail', specialty: 'inbox-triage', specialtyTitle: 'Triagem de e-mail', executionMode: 'dedicated-tab', defaultUrl: 'https://example.test', accent: '#8966d4', autonomyStep: 1, memory: [], history: [] }
+  ];
 
 // O painel conversa com o main por IPC; aqui basta responder o suficiente para o init não travar.
 const stubs = {
@@ -85,16 +92,30 @@ const stubs = {
   'automation:cancel-agent': () => ({ success: false, error: 'Não há execução ativa.' }),
   'bots:get-presets': () => require('../src/bots/bot-store').SPECIALIST_BOT_PRESETS,
   'bots:get-symbols': () => [{ id: 'radar', label: 'Radar', svgPath: 'M12 3a9 9 0 1 0 9 9' }],
-  'bots:list-tasks': () => [
-    { id: 'bot-spec-fixture', name: 'Bot Caçador de Preços', specialty: 'price-hunter', specialtyTitle: 'Pesquisador de Preços', executionMode: 'background-auto-foreground', defaultUrl: 'https://www.google.com/shopping', accent: '#168f72', autonomyStep: 1, memory: ['Regra inicial'], history: [] },
-    { id: 'bot-spec-market', name: 'Bot de Mercado', specialty: 'market-watch', specialtyTitle: 'Monitor de mercado', executionMode: 'background-auto-foreground', defaultUrl: 'https://example.test', accent: '#2480d2', autonomyStep: 1, memory: [], history: [] },
-    { id: 'bot-spec-inbox', name: 'Bot de E-mail', specialty: 'inbox-triage', specialtyTitle: 'Triagem de e-mail', executionMode: 'dedicated-tab', defaultUrl: 'https://example.test', accent: '#8966d4', autonomyStep: 1, memory: [], history: [] }
-  ],
-  'bots:create-task': (_e, spec) => ({ id: `bot-task-smoke-${Date.now()}`, ...spec }),
-  'bots:run-now': () => ({ status: 'completed', shouldBringToFront: true, attentionReason: 'goal_reached', summary: 'Menor valor encontrado.', receipt: { receiptHash: 'abc123456789' } }),
+  'bots:list-tasks': () => structuredClone(botTasks),
+  'bots:update-schedule': (_e, { botId, enabled, dailyAt }) => {
+    const bot = botTasks.find((item) => item.id === botId);
+    if (!bot) throw new Error('Bot não encontrado');
+    bot.schedule = enabled ? { enabled, kind: 'daily', dailyAt } : { ...bot.schedule, enabled: false };
+    return structuredClone(bot);
+  },
+  'bots:active-runs': () => ({ revision: 0, runs: [] }),
+  'bots:create-task': (_e, spec) => {
+    if (spec.name === 'Falha de armazenamento') throw new Error('Falha de armazenamento simulada');
+    const bot = { id: `bot-task-smoke-${Date.now()}`, memory: [], history: [], ...spec };
+    botTasks.push(bot);
+    return structuredClone(bot);
+  },
+  'bots:run-now': (_e, botId, options) => { botRunCalls.push({ botId, options }); return { runId: 'run-ui-fixture', status: 'completed', durationMs: 750, receiptHash: 'a'.repeat(64), output: [{ summary: 'Missão de teste concluída' }] }; },
   'bots:stop-all': () => ({ stoppedCount: 0, elapsedMs: 0 }),
   'bots:run-missed-schedules': () => [],
-  'bots:add-memory': () => ({ ok: true }),
+  'bots:add-memory': (_e, { botId, text }) => {
+    const bot = botTasks.find((item) => item.id === botId);
+    if (!bot || !text) throw new Error('Memória inválida');
+    const item = { id: 'memory-fixture', text };
+    bot.memory.push(item);
+    return item;
+  },
   'bots:promote-autonomy': () => ({ autonomyStep: 2 }),
   'bots:register-trigger': () => ({ id: 'trig-1' }),
   'bots:list-triggers': () => [],
@@ -122,6 +143,7 @@ const stubs = {
   'browser:extensions:list': () => [{ id: 'fixture-action', name: 'Ação Fixture', version: '1.0', permissions: ['activeTab'], enabled: true, hasAction: true }],
   'browser:extensions:invoke-action': () => { extensionActionCalls += 1; return { success: true, activeTabGranted: true }; },
   'ai:get-config': () => ({ provider: 'openrouter', model: '', hasApiKey: false, keyHint: '' }),
+  'ai:save-config': (_e, config) => ({ provider: config.provider, model: config.model, hasApiKey: config.provider !== 'ollama', keyHint: config.provider === 'ollama' ? '' : 'fixture' }),
   'flame:status': () => ({ available: false }),
   'library:bookmarks': () => [],
   'library:import-sources': () => [],
@@ -179,6 +201,18 @@ app.whenReady().then(async () => {
 
     window.show();
     window.focus();
+    if (process.env.ZERO_UI_CAPTURE_DIR) {
+      const fs = require('node:fs');
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      await window.webContents.executeJavaScript("window.app.showDelegationTab('bots')");
+      fs.writeFileSync(path.join(process.env.ZERO_UI_CAPTURE_DIR, 'bots-list.png'), (await window.webContents.capturePage()).toPNG());
+      await window.webContents.executeJavaScript("window.app.selectSpecialistBot(window.app.storedSpecialistTasks[0]); window.app.showDelegationTab('chat')");
+      fs.writeFileSync(path.join(process.env.ZERO_UI_CAPTURE_DIR, 'bots-chat.png'), (await window.webContents.capturePage()).toPNG());
+      await window.webContents.executeJavaScript("window.app.switchBotPanelTab('details')");
+      await new Promise((resolve) => setTimeout(resolve, 80));
+      fs.writeFileSync(path.join(process.env.ZERO_UI_CAPTURE_DIR, 'bots-details.png'), (await window.webContents.capturePage()).toPNG());
+      await window.webContents.executeJavaScript("window.app.switchBotPanelTab('chat'); window.app.showDelegationTab('bots')");
+    }
     await window.webContents.executeJavaScript("document.getElementById('address-bar').focus()");
     sendTab(window.webContents);
     sendTab(window.webContents, { shift: true });
@@ -238,6 +272,25 @@ app.whenReady().then(async () => {
     assert.ok(shell.headerHeight > 0 && shell.headerHeight < 70, `cabeçalho do painel precisa ser compacto (${shell.headerHeight}px)`);
     assert.ok(shell.newTab && shell.newTab.width >= 24, 'botão + de nova aba precisa estar visível');
     assert.equal(shell.newTab.afterTab, true, 'botão + deve ficar logo depois da última aba');
+
+    const localAiFlow = await window.webContents.executeJavaScript(`(async () => {
+      const modelId = 'ollama-fixture-model';
+      window.app.aiModelCatalog = [{ id: modelId, supportsTools: true }];
+      const option = document.createElement('option');
+      option.value = modelId;
+      option.textContent = modelId;
+      window.app.elements.aiModel.appendChild(option);
+      window.app.elements.aiProvider.value = 'ollama';
+      window.app.elements.aiModel.value = modelId;
+      window.app.elements.aiApiKey.value = '';
+      await window.app.connectAi();
+      window.app.aiConnected = false;
+      const readyWithoutKey = await window.app.useSavedAiConfig();
+      return { connected: window.app.aiConnected, readyWithoutKey, keyRequired: window.app.aiProviderConfigs.get('ollama')?.hasApiKey === true };
+    })()`);
+    assert.equal(localAiFlow.connected, true, 'Ollama local conecta sem chave de API');
+    assert.equal(localAiFlow.readyWithoutKey, true, 'Ollama salvo pode executar tarefas sem chave de API');
+    assert.equal(localAiFlow.keyRequired, false, 'a conexão local não inventa uma chave');
     assert.ok(shell.settingsIndex >= 8, `indice das configuracoes incompleto (${shell.settingsIndex})`);
     assert.ok(shell.aiProviders.includes('openai'), 'OpenAI direto precisa estar disponível no seletor de provedores');
     assert.equal(shell.tipografia, '13px', `escala tipografica do chat fora do padrao (${shell.tipografia})`);
@@ -319,22 +372,80 @@ app.whenReady().then(async () => {
     await new Promise((resolve) => setTimeout(resolve, 120));
     assert.equal(await window.webContents.executeJavaScript("document.querySelector('#bot-central-list [data-bot-id=\"bot-other\"] [data-bot-action=\"archive\"]')?.textContent"), 'Arquivar', 'restaurar retorna o Bot à seção ativa');
 
+    window.webContents.send('bots:active-runs-changed', { revision: 1, runs: [{ runId: 'run-scheduled', botId: 'bot-spec-fixture', stopping: false }] });
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    const scheduledState = await window.webContents.executeJavaScript(`({
+      stopEnabled: !document.getElementById('btn-stop-task').disabled,
+      state: document.querySelector('#bot-own-list [data-specialist-id="bot-spec-fixture"]')?.dataset.botState
+    })`);
+    assert.equal(scheduledState.stopEnabled, true, 'execução agendada habilita Parar tudo');
+    assert.equal(scheduledState.state, 'working', 'execução agendada atualiza o bot');
+    window.webContents.send('bots:active-runs-changed', { revision: 2, runs: [] });
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    assert.equal(await window.webContents.executeJavaScript("document.getElementById('btn-stop-task').disabled"), true, 'parada termina e desabilita o botão');
+
+    const detailsFlow = await window.webContents.executeJavaScript(`(async () => {
+      window.app.selectSpecialistBot(window.app.storedSpecialistTasks[0]);
+      window.app.switchBotPanelTab('details');
+      await new Promise((r) => setTimeout(r, 50));
+      const form = document.querySelector('.bot-schedule-form');
+      form.querySelector('input').value = '10:35';
+      form.requestSubmit();
+      await new Promise((r) => setTimeout(r, 100));
+      const saved = window.app.storedSpecialistTasks[0].schedule;
+      document.querySelector('.bot-schedule-form button[type="button"]').click();
+      await new Promise((r) => setTimeout(r, 100));
+      const disabled = window.app.storedSpecialistTasks[0].schedule;
+      const memory = document.querySelector('.bot-memory-form');
+      memory.querySelector('input').value = 'Preferência de teste';
+      memory.requestSubmit();
+      await new Promise((r) => setTimeout(r, 100));
+      const savedMemory = window.app.storedSpecialistTasks[0].memory.some((item) => item.text === 'Preferência de teste');
+      window.app.switchBotPanelTab('chat');
+      return { saved, disabled, savedMemory };
+    })()`);
+    assert.equal(detailsFlow.saved.enabled, true, 'rotina é salva no bot');
+    assert.equal(detailsFlow.saved.dailyAt, '10:35', 'horário escolhido é persistido');
+    assert.equal(detailsFlow.disabled.enabled, false, 'desligar rotina altera os dados');
+    assert.equal(detailsFlow.savedMemory, true, 'memória é salva no bot correto');
+
+    const failedCreation = await window.webContents.executeJavaScript(`(async () => {
+      window.app.openSpecialistBotModal('price-hunter');
+      document.getElementById('bot-specialist-name').value = 'Falha de armazenamento';
+      document.getElementById('bot-specialist-goal').value = 'Missão de teste';
+      const before = window.app.tabs.size;
+      const result = await window.app.launchSpecialistBotFromModal();
+      return { result, tabs: window.app.tabs.size - before, open: !document.getElementById('bot-specialist-modal').classList.contains('hidden') };
+    })()`);
+    assert.equal(failedCreation.result, null, 'falha ao salvar não cria bot fictício');
+    assert.equal(failedCreation.tabs, 0, 'falha ao salvar não abre aba');
+    assert.equal(failedCreation.open, true, 'formulário permanece aberto para correção');
+
     const specialistFlow = await window.webContents.executeJavaScript(`(async () => {
       const initialTabId = window.app.activeTabId;
       window.app.openSpecialistBotModal('price-hunter');
       const modalVisible = !document.getElementById('bot-specialist-modal').classList.contains('hidden');
-      const presetCount = document.querySelectorAll('#bot-specialist-presets .bot-specialist-preset-btn').length;
+      document.getElementById('bot-specialist-name').value = 'Pesquisa';
+      document.getElementById('bot-specialist-goal').value = 'Pesquisar uma página';
+      document.getElementById('bot-specialist-check').value = 'Página encontrada';
+      document.getElementById('bot-specialist-model-calls').value = '7';
       const launched = await window.app.launchSpecialistBotFromModal();
-      const keptBackground = window.app.activeTabId === initialTabId && launched.tabId !== initialTabId;
-      const promoted = window.app.bringSpecialistBotToFront(launched.botId, 'goal_reached');
-      const switchedToBotTab = window.app.activeTabId === launched.tabId;
-      window.app.closeTab(launched.tabId);
-      return { modalVisible, presetCount, keptBackground, promoted, switchedToBotTab };
+      const saved = window.app.storedSpecialistTasks.some((bot) => bot.id === launched.botId);
+      const keptPage = window.app.activeTabId === initialTabId && launched.tabId === null;
+      const selected = window.app.activeSpecialistBot?.id === launched.botId;
+      const createdBot = window.app.storedSpecialistTasks.find((bot) => bot.id === launched.botId);
+      return { modalVisible, saved, keptPage, selected, checks: createdBot?.verificationChecks, maxModelCalls: createdBot?.limits?.maxModelCalls };
     })()`);
     assert.equal(specialistFlow.modalVisible, true, 'clicar em Criar Bot abre o criador de Bot Especialista');
-    assert.equal(specialistFlow.presetCount, 9, 'criador exibe as 9 especialidades prontas');
-    assert.equal(specialistFlow.keptBackground, true, 'modo em 2º plano cria a aba do Bot sem roubar o foco da aba atual');
-    assert.equal(specialistFlow.promoted && specialistFlow.switchedToBotTab, true, 'atingir a meta ou precisar de ação traz a aba do Bot automaticamente para frente');
+    assert.equal(specialistFlow.saved, true, 'bot criado é persistido');
+    assert.equal(specialistFlow.keptPage, true, 'criação não abre aba nem inicia tarefa');
+    assert.equal(specialistFlow.selected, true, 'bot criado abre sua conversa');
+    assert.deepEqual(specialistFlow.checks, [{ kind: 'text', value: 'Página encontrada' }], 'condição informada vai para o Bot');
+    assert.equal(specialistFlow.maxModelCalls, 7, 'limite escolhido chega ao motor do Bot');
+    const selectedBotId = await window.webContents.executeJavaScript('window.app.activeSpecialistBot.id');
+    await window.webContents.executeJavaScript('window.app.runSavedBotMission()');
+    assert.equal(botRunCalls.at(-1).botId, selectedBotId, 'executar missão chama o runner para o bot selecionado');
+    assert.equal(botRunCalls.at(-1).options.request, '', 'missão salva usa seu próprio contrato, sem tratar a missão como pedido avulso');
 
     const grokbotSurface = await window.webContents.executeJavaScript(`(async () => {
       const briefingVisible = !document.getElementById('grokbot-briefing-bar')?.classList.contains('hidden');
@@ -374,14 +485,12 @@ app.whenReady().then(async () => {
       window.app.elements.aiInput.value = 'Compare preços e frete desta loja';
       window.app.routeOverrideForDraft = null;
       window.app.updateOrchestratorRouteStatus(window.app.elements.aiInput.value);
-      const specialistRouteIsVisible = document.getElementById('ai-route-label')?.textContent.includes('orquestrador') === true
+      const specialistRouteIsVisible = document.getElementById('ai-route-label')?.textContent.includes('Sugestão:') === true
         && document.getElementById('btn-ai-route-mode')?.hidden === false;
       window.app.elements.aiInput.value = '';
       window.app.routeOverrideForDraft = null;
       window.app.updateOrchestratorRouteStatus('');
-      window.app.switchBotPanelTab('routes');
-      await new Promise((r) => setTimeout(r, 80));
-      const routesText = document.getElementById('bot-view-routes')?.textContent || '';
+      window.app.selectSpecialistBot(window.app.storedSpecialistTasks[0]);
       window.app.switchBotPanelTab('agenda');
       await new Promise((r) => setTimeout(r, 80));
       const agendaText = document.getElementById('bot-view-agenda')?.textContent || '';
@@ -391,19 +500,20 @@ app.whenReady().then(async () => {
       window.app.switchBotPanelTab('chat');
       const initialFgTab = window.app.activeTabId;
       window.app.aiConnected = true;
-      const bgRun = await window.app.sendAiMessageInBackground('Compare preços de fone sem fio até R$ 150,00');
-      const keptForeground = window.app.activeTabId === initialFgTab && bgRun.tabId !== initialFgTab;
-      const specialistPromptApplied = document.getElementById('ai-chat')?.textContent.includes('[PERFIL APLICADO]') === true;
+      const botRun = await window.app.sendAiMessageInBackground('Compare preços de fone sem fio até R$ 150,00');
+      const specialistRoutedToBotRunner = window.app.activeTabId === initialFgTab
+        && botRun.status === 'completed'
+        && botRun.botId === window.app.activeSpecialistBot?.id;
+      const specialistPromptApplied = document.getElementById('ai-chat')?.textContent.includes('Missão de teste concluída') === true;
       const hasStepper = document.querySelectorAll('.grokbot-stepper .grokbot-step-row').length === 4;
-      const hasInlineReceipt = !!document.querySelector('.grokbot-inline-receipt');
+      const hasInlineReceipt = document.getElementById('ai-chat')?.textContent.includes('Registro da execução · 0,8 s · SHA-256 aaaaaaaaaaaaaaaa') === true;
       const hasConfirmCard = !!document.querySelector('.grokbot-confirm-card');
-      const motorResultVisible = document.getElementById('ai-chat')?.textContent.includes('Resultado do motor de fixture.') === true;
-      const notClaimedVerified = bgRun.taskVerified === false && document.querySelector('.grokbot-inline-receipt')?.textContent.includes('Revise o resultado') === true;
+      const motorResultVisible = document.getElementById('ai-chat')?.textContent.includes('Missão de teste concluída') === true;
+      const notClaimedVerified = !document.getElementById('ai-chat')?.textContent.includes('resultado verificado');
       const hasTechDrawer = !!document.querySelector('.grokbot-tech-drawer');
       const techClaimsAreLive = !document.querySelector('.grokbot-tech-drawer')?.textContent.includes('410ms')
         && !document.querySelector('.grokbot-tech-drawer')?.textContent.includes('27,3%');
       const visualControlsStayInSettings = document.querySelectorAll('.grokbot-tech-drawer button').length === 0;
-      if (bgRun?.tabId) await window.app.closeTab(bgRun.tabId);
       return {
         briefingVisible,
         stopDisabledWhenIdle,
@@ -416,12 +526,11 @@ app.whenReady().then(async () => {
         specialistRouteIsVisible,
         welcomeCardContrast,
         switchedBotSession: switchedSessionId.startsWith('bot-chat-'),
-        keptForeground,
+        specialistRoutedToBotRunner,
         specialistPromptApplied,
         tabNames,
-        hasRoutesOrder: routesText.includes('WebMCP'),
-        hasMandate: agendaText.includes('Mandato Delegado'),
-        hasAutonomy: memoryText.includes('Autonomia Conquistada'),
+        hasRealSchedule: agendaText.includes('Horário diário'),
+        hasMemory: memoryText.includes('O que este bot lembra'),
         hasStepper,
         hasInlineReceipt,
         hasConfirmCard,
@@ -445,12 +554,12 @@ app.whenReady().then(async () => {
     assert.equal(grokbotSurface.welcomeCardContrast.length, 2, 'as duas opções de envio aparecem na apresentação inicial do Bot');
     assert.ok(grokbotSurface.welcomeCardContrast.flat().every((ratio) => ratio >= 4.5), `título e descrição das opções de envio têm contraste legível sobre o cartão: ${JSON.stringify(grokbotSurface.welcomeCardContrast)}`);
     assert.equal(grokbotSurface.switchedBotSession, true, 'clicar em outro Bot Especialista troca para a conversa exclusiva daquele Bot');
-    assert.equal(grokbotSurface.keptForeground, true, 'enviar ordem em 2º plano abre aba oculta do Bot mantendo a aba atual');
-    assert.equal(grokbotSurface.specialistPromptApplied, true, 'pedido encaminhado inclui a orientação local do perfil no motor geral');
+    assert.equal(grokbotSurface.specialistRoutedToBotRunner, true, 'pedido especializado executa o Bot pelo runner sem trocar a aba aberta');
+    assert.equal(botRunCalls.at(-1).options.request, 'Compare preços de fone sem fio até R$ 150,00', 'o pedido digitado chega como missão atual do Bot');
+    assert.equal(grokbotSurface.specialistPromptApplied, true, 'resumo devolvido pelo Bot aparece na conversa');
     assert.deepEqual(grokbotSurface.tabNames, ['chat', 'details'], 'painel do Bot tem só Conversa e Detalhes');
-    assert.equal(grokbotSurface.hasRoutesOrder, true, 'aba Rotas exibe a ordem de preferência e rotas aprendidas');
-    assert.equal(grokbotSurface.hasMandate, true, 'aba Agenda exibe gatilhos por evento e mandato com envelope');
-    assert.equal(grokbotSurface.hasAutonomy, true, 'aba Memória exibe escada de autonomia conquistada');
+    assert.equal(grokbotSurface.hasRealSchedule, true, 'detalhes oferecem rotina diária do bot');
+    assert.equal(grokbotSurface.hasMemory, true, 'detalhes mostram memória do bot');
     assert.equal(grokbotSurface.hasStepper, false, 'a interface não inventa passos que o motor não retornou');
     assert.equal(grokbotSurface.hasInlineReceipt, true, 'a execução mostra o estado do fluxo real do motor');
     assert.equal(grokbotSurface.hasConfirmCard, false, 'a interface não inventa uma aprovação sem ação pendente');
@@ -460,6 +569,45 @@ app.whenReady().then(async () => {
     assert.equal(grokbotSurface.techClaimsAreLive, true, 'a gaveta não apresenta métricas fixas como medições atuais');
     assert.equal(grokbotSurface.visualControlsStayInSettings, true, 'preferências visuais ficam em Configurações, não no chat');
     assert.equal(grokbotSurface.hasProviderCards, true, 'Configurações exibe os cartões visuais de provedor de IA');
+
+    const receiptFilter = await window.webContents.executeJavaScript(`(() => {
+      const app = window.app;
+      const previousBot = app.activeSpecialistBot;
+      const previousReceipts = app.actionReceipts;
+      app.activeSpecialistBot = { id: 'history-filter-test', name: 'Teste', history: [
+        { runId: 'one', status: 'completed', error: null, shouldBringToFront: true, bringToFrontReason: 'goal_reached' },
+        { runId: 'two', status: 'needs_attention', error: 'Entrar no site' },
+        { runId: 'three', status: 'blocked', error: 'Ação bloqueada' },
+        { runId: 'four', status: 'failed', error: 'Falhou' },
+        { runId: 'five', status: 'stopped_limit', error: 'Limite atingido' }
+      ] };
+      app.actionReceipts = [
+        { id: 'notice-error', title: 'Falha da sessão', kind: 'error' },
+        { id: 'notice-warning', title: 'Aviso da sessão', kind: 'warning' },
+        { id: 'notice-info', title: 'Informação da sessão', kind: 'info' }
+      ];
+      const container = document.getElementById('bot-view-history');
+      app.renderBotHistoryView(container);
+      const filter = container.querySelector('.bot-history-filter input');
+      filter.checked = true;
+      filter.dispatchEvent(new Event('change'));
+      const attentionCount = container.querySelectorAll('.ai-receipt-card').length;
+      const search = container.querySelector('input[type=search]');
+      search.value = 'bloqueada';
+      search.dispatchEvent(new Event('input'));
+      const searchedCount = container.querySelectorAll('.ai-receipt-card').length;
+      app.renderBotHistoryView(container);
+      const restored = container.querySelector('input[type=search]').value === 'bloqueada'
+        && container.querySelector('.bot-history-filter input').checked
+        && container.querySelectorAll('.ai-receipt-card').length === 1;
+      app.activeSpecialistBot = previousBot;
+      app.actionReceipts = previousReceipts;
+      app.renderBotHistoryView(container);
+      return { attentionCount, searchedCount, restored };
+    })()`);
+    assert.equal(receiptFilter.attentionCount, 6, 'o filtro inclui falhas, bloqueios, limites, pedidos de atenção e avisos ou erros da sessão');
+    assert.equal(receiptFilter.searchedCount, 1, 'busca e filtro funcionam juntos');
+    assert.equal(receiptFilter.restored, true, 'filtros permanecem ao reabrir os detalhes do mesmo Bot');
 
     await window.webContents.executeJavaScript("window.app.openLibrary('downloads')");
     assert.equal(await window.webContents.executeJavaScript("document.querySelector('.library-tab[aria-pressed=\"true\"]')?.dataset.modo"), 'downloads', 'modo ativo da biblioteca atualiza seu estado acessível');

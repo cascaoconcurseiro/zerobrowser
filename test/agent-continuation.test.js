@@ -26,6 +26,30 @@ function fixture(replies) {
 const inspect = (id) => ({ role: 'assistant', content: null, tool_calls: [{ id, type: 'function', function: { name: 'inspect_page', arguments: '{}' } }] });
 const done = { role: 'assistant', content: 'Transferência conferida.' };
 
+test('bot em somente leitura recusa ferramentas de escrita mesmo se o modelo as pedir', async () => {
+  const calls = [
+    ['click', { index: 0 }], ['type_text', { index: 0, text: 'teste' }],
+    ['locator_action', { strategy: 'css', query: 'input', action: 'fill', value: 'teste' }],
+    ['tabs', { action: 'new', url: 'https://example.test/' }],
+    ['run_steps', { steps: [] }], ['sheets', { action: 'write' }], ['calculate', { expression: '1+1' }]
+  ];
+  const message = { role: 'assistant', tool_calls: calls.map(([name, args], i) => ({ id: `readonly-${i}`, type: 'function', function: { name, arguments: JSON.stringify(args) } })) };
+  const { service, requests, run } = fixture([message, done]);
+  let writes = 0;
+  service.executeAXAction = async () => { writes++; return { success: true }; };
+  service.browserControls.createTab = async () => { writes++; return { tabId: 'new' }; };
+  await run({ botReadOnly: true, isolatedTabs: true, actionScripts: true, advancedInput: true });
+  assert.equal(writes, 0);
+  const offered = requests[0].tools.map((tool) => tool.function.name);
+  assert.ok(!offered.includes('click') && !offered.includes('run_steps') && !offered.includes('sheets'));
+  const messages = requests.at(-1).messages;
+  for (let i = 0; i < calls.length - 1; i++) {
+    const response = messages.find((item) => item.tool_call_id === `readonly-${i}`);
+    assert.match(response.content, /somente leitura/i, calls[i][0]);
+  }
+  assert.match(messages.find((item) => item.tool_call_id === 'readonly-6').content, /2/);
+});
+
 test('long-task fixture measures message growth and preserves unique page evidence', async (t) => {
   async function measure(unique, deduplicateSnapshots = false) {
     const calls = Array.from({ length: 8 }, (_, i) => inspect(`read-${i}`));

@@ -104,9 +104,9 @@ O Zero já é um programa só (aplicativo Electron). Os planos são camadas do m
 
 Direção geral e marcos: `ROTEIRO_DO_MENTOR.md`. Esta seção detalha a parte de bots.
 
-**Achado principal (31/10, antes da 0.1.69).** O executor do bot era uma casca: `src/main/main.js:267-271` lançava "Esta rotina ainda não está conectada ao executor do navegador". `bots:run-now` exigia passos já prontos (`main.js:1672`). Os conectores recebem dados de exemplo (`mockItems`). O agendador, o mandato, os gatilhos e o gravador existem e têm teste. **Na 0.1.69 o executor foi ligado** (`src/bots/agent-executor.js`): a missão roda no agente em aba oculta e fecha no fim; "rodar agora" e a agenda usam a missão quando não há passos. Ainda falta o perfil isolado por tarefa, o bloqueio rígido de escrita por Bot e a prova com site real.
+**Achado histórico (31/10, antes da 0.1.69).** O executor era uma casca e `bots:run-now` exigia passos prontos. Na `0.1.69` a missão foi ligada ao agente em aba oculta. Na `0.1.78-dev`, o perfil isolado, a política de site, a allowlist de ferramentas somente leitura e as rotas de conversa pelo `BotRunner` também existem no código e têm cobertura local. Conectores externos continuam usando exemplos/mocks; prova com site/provedor real e garantia de gasto seguem pendentes.
 
-**Caminho de um bot (só navegador).** Gatilho (horário, intervalo, evento) → abre aba oculta com o perfil do bot → roda o agente que já funciona pela conversa, com a missão e as permissões do bot → cada passo alimenta o anel e a linha "o que faz agora" → recibo e histórico → aviso. Uma execução por vez no começo. O perfil isolado por tarefa ainda **não existe**: hoje a execução usa o perfil atual e isso faz parte do Marco 1, não de algo pronto.
+**Caminho de um bot (navegador).** Gatilho (horário, intervalo, evento) ou conversa iniciada no Bot → abre aba oculta no perfil isolado do bot → roda o agente com missão e política → estado/resultado/recibo → histórico e aviso. A implementação tem testes locais; a prova ponta a ponta em site real ainda não foi feita.
 
 **Criar bot por descrição.** Você escreve uma frase; a IA devolve uma ficha em formato fixo: nome, símbolo, missão, quando roda, sites, permissões, limites de passo/tempo/gasto, aviso e teste sugerido. O sistema valida o formato e tenta de novo até 3 vezes; se falhar, abre o formulário simples. **A IA propõe, você aprova as permissões** (núcleo intocável). A ficha é mostrada em frases curtas: o que vai fazer, quando, onde, o que não vai fazer, quanto pode gastar. O OpenMausBot, pelo README, não faz isso.
 
@@ -207,3 +207,9 @@ As Fases 1 e 2 não dependem do benchmark e podem começar já. A Fase 3 deve es
 - Primeiro bot: pesquisador de preços, em quais lojas, com qual produto de teste.
 - Aviso: notificação do Windows já na Fase 2; e-mail ou celular só depois, se necessário.
 - Permitir ou não que bots rodem com o Zero fechado (Fase 5).
+
+## Estado confirmado em 01/11/2026 (`0.1.78-dev`)
+
+A conversa iniciada dentro de um Bot passa pelo `BotRunner` e pelo executor do agente, assim como `bots:run-now` e as rotinas. O executor abre tarefa em contexto isolado e aplica a allowlist de somente leitura para ferramentas; a UI recebe estado, resultado e recibo. Sucesso verificado depende de pós-condição, não apenas da resposta do modelo. O painel novo usa os 40 PNGs existentes; cópia anterior em `backups/2026-11-01-painel-antes-redesenho/`.
+
+Evidências locais: suíte 458/458; `test:ui`, `test:delegation-layout` e `electron-bot-persistence.integration.js` PASS. Isso confirma integração de código e persistência em fixture. Não confirma qualidade/autonomia equivalente ao GrokBot em site real. A7 real, custo/teto de uso, conectores externos e validação independente continuam abertos. A criação simplificada por frase e sala de equipe também não estão entregues.

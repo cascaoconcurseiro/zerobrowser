@@ -147,7 +147,14 @@ const browserApi = {
     getPresets: () => ipcRenderer.invoke('bots:get-presets'),
     getSymbols: () => ipcRenderer.invoke('bots:get-symbols'),
     listTasks: () => ipcRenderer.invoke('bots:list-tasks'),
+    activeRuns: () => ipcRenderer.invoke('bots:active-runs'),
+    onActiveRunsChanged: (callback) => {
+      const handler = (_event, data) => callback(data);
+      ipcRenderer.on('bots:active-runs-changed', handler);
+      return () => ipcRenderer.removeListener('bots:active-runs-changed', handler);
+    },
     createTask: (spec) => ipcRenderer.invoke('bots:create-task', spec),
+    updateSchedule: (botId, enabled, dailyAt) => ipcRenderer.invoke('bots:update-schedule', { botId, enabled, dailyAt }),
     addMemory: (botId, text) => ipcRenderer.invoke('bots:add-memory', { botId, text }),
     promoteAutonomy: (botId, targetStep, confirmedByUser = false) => ipcRenderer.invoke('bots:promote-autonomy', { botId, targetStep, confirmedByUser }),
     registerTrigger: (payload) => ipcRenderer.invoke('bots:register-trigger', payload),

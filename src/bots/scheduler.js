@@ -8,7 +8,8 @@ class BotScheduler {
     store,
     runner,
     now = () => Date.now(),
-    notify = null
+    notify = null,
+    shouldPauseStale = () => true
   } = {}) {
     if (!store) throw new Error('BotScheduler requer BotTaskStore.');
     if (!runner) throw new Error('BotScheduler requer BotRunner.');
@@ -16,6 +17,7 @@ class BotScheduler {
     this.runner = runner;
     this.now = now;
     this.notify = typeof notify === 'function' ? notify : () => {};
+    this.shouldPauseStale = shouldPauseStale;
     this.lastRunByBot = new Map();
     this.notifications = [];
     this.eventTriggers = new Map();
@@ -228,8 +230,7 @@ class BotScheduler {
   start({ intervalMs = 60_000 } = {}) {
     if (this._timer) return;
     this._timer = setInterval(() => {
-      this.pauseStaleBots();
-      this.runMissedSchedulesOnce().catch((err) => {
+      this.runScheduledTick().catch((err) => {
         try {
           this.notify({
             botId: null,
@@ -243,6 +244,11 @@ class BotScheduler {
     if (typeof this._timer.unref === 'function') {
       this._timer.unref();
     }
+  }
+
+  async runScheduledTick() {
+    if (await this.shouldPauseStale()) this.pauseStaleBots();
+    return this.runMissedSchedulesOnce();
   }
 
   stop() {
@@ -263,14 +269,14 @@ class BotScheduler {
         const runTimestamp = this.now();
         this.lastRunByBot.set(bot.id, runTimestamp);
         this._recordBotScheduleRun(bot.id, runTimestamp);
-        const steps = stepPlansByBotId[bot.id] || [{ tool: AGENT_TASK_TOOL, prompt: bot.goal, url: bot.defaultUrl, usesModel: true }];
+        const steps = stepPlansByBotId[bot.id] || [{ tool: AGENT_TASK_TOOL, prompt: bot.goal, url: bot.defaultUrl, usesModel: true, ...(bot.verificationChecks ? { verify: bot.verificationChecks } : {}) }];
         const result = await this.runner.runBotNow(bot.id, { steps });
         executed.push({ botId: bot.id, runId: result.runId, status: result.status });
         this.emitNotification({
           botId: bot.id,
-          title: `Execução concluída: ${bot.name}`,
-          body: result.error ? `Falha: ${result.error}` : 'Tarefa agendada executada com sucesso.',
-          kind: result.error ? 'error' : 'success'
+          title: `Execução encerrada: ${bot.name}`,
+          body: result.status === 'completed' ? 'A execução agendada terminou. Confira o resultado no histórico.' : (result.error || `Estado: ${result.status || 'desconhecido'}.`),
+          kind: result.status === 'completed' ? 'info' : 'error'
         });
       }
     }
@@ -281,7 +287,7 @@ class BotScheduler {
     const pausedBotIds = [];
     for (const bot of this.store.listBots()) {
       if (!bot.active) continue;
-      const lastVerifiedIso = bot.history?.find((h) => h.status === 'completed')?.startedAt || bot.createdAt;
+      const lastVerifiedIso = bot.history?.find((h) => h.status === 'completed' && h.taskVerified === true)?.startedAt || bot.createdAt;
       const lastVerifiedMs = Date.parse(lastVerifiedIso);
       if (Number.isFinite(lastVerifiedMs) && (currentTimeMs - lastVerifiedMs) > STALE_BOT_THRESHOLD_MS) {
         const raw = this.store.bots.get(bot.id);

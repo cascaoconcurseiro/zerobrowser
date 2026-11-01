@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { evaluateChecks, validateChecks, countOccurrences } = require('../src/automation/task-verifier');
+const { evaluateChecks, validateChecks, countOccurrences, parseBrlAmounts } = require('../src/automation/task-verifier');
 
 test('url, text and absent checks describe the final state without trusting the model', () => {
   const state = { url: 'https://shop.test/checkout/ok', text: 'Pedido confirmado. Entrega em 3 dias.' };
@@ -26,11 +26,25 @@ test('download checks require a completed file and match by basename', () => {
   assert.equal(evaluateChecks([{ kind: 'download', value: 'x.csv' }], { downloads: [] }).ok, false);
 });
 
+test('price verification parses Brazilian reais and associates one amount with the named product block', () => {
+  assert.deepEqual(parseBrlAmounts('Notebook R$ 1.234,56'), [{ value: 1234.56, index: 9, raw: 'R$ 1.234,56' }]);
+  const check = [{ kind: 'currencyAtMost', value: 'Notebook Aurora 14', max: 1300, currency: 'BRL' }];
+  assert.equal(evaluateChecks(check, { priceEvidence: [{ product: 'Notebook Aurora 14', text: 'Notebook Aurora 14\nR$ 1.234,56' }] }).ok, true);
+  const above = evaluateChecks(check, { priceEvidence: [{ product: 'Notebook Aurora 14', text: 'Notebook Aurora 14\nR$ 1.499,90\nFrete R$ 19,90' }] });
+  assert.equal(above.ok, false, 'preço acima do alvo reprova mesmo que o frete seja menor');
+  assert.match(above.results[0].detail, /associação ambígua/, 'dois valores no bloco falham fechados');
+  assert.equal(evaluateChecks(check, { priceEvidence: [{ product: 'Notebook Aurora 14', text: 'Notebook Aurora 14\nR$ 1.499,90' }] }).ok, false);
+  assert.equal(evaluateChecks(check, { priceEvidence: [{ product: 'Monitor Aurora 14', text: 'Monitor Aurora 14\nR$ 999,00' }] }).ok, false, 'preço de outro produto não satisfaz');
+  assert.equal(evaluateChecks(check, { priceEvidence: [{ product: 'Notebook Aurora 14', text: 'Notebook Aurora 14\n12 unidades' }] }).ok, false, 'número sem marcador monetário não é preço');
+});
+
 test('invalid contracts are rejected before reading the page', () => {
   assert.match(validateChecks([]), /ao menos/);
   assert.match(validateChecks([{ kind: 'css' }]), /kind/);
   assert.match(validateChecks([{ kind: 'text' }]), /value/);
   assert.match(validateChecks([{ kind: 'textCount', value: 'x', min: 3, max: 1 }]), /min maior/);
+  assert.match(validateChecks([{ kind: 'currencyAtMost', value: 'x', max: 10 }]), /distintivo/);
+  assert.match(validateChecks([{ kind: 'currencyAtMost', value: 'Produto X', max: -1 }]), /não negativo/);
   assert.match(validateChecks(new Array(21).fill({ kind: 'text', value: 'x' })), /No máximo/);
   assert.equal(validateChecks([{ kind: 'download' }]), null);
 });

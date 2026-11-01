@@ -36,6 +36,17 @@ test('A6: aviso e recibo — emissão de notificação legível pelo BotSchedule
   assert.ok(note.timestamp > 0);
 });
 
+test('execução encerrada pelo modelo não conta como sucesso verificado sem pós-condição', () => {
+  const store = new BotTaskStore();
+  const bot = store.createBot({ name: 'Verificação' });
+
+  store.recordRunResult(bot.id, { status: 'completed', output: [{ summary: 'O agente terminou.' }] });
+  assert.equal(store.getBot(bot.id).verifiedSuccessCount, 0);
+
+  store.recordRunResult(bot.id, { status: 'completed', taskVerified: true, output: [{ summary: 'Pós-condição confirmada.' }] });
+  assert.equal(store.getBot(bot.id).verifiedSuccessCount, 1);
+});
+
 test('A6: aviso e recibo — bloqueio de site gera mensagem clara e em português para usuário leigo', () => {
   const allowed = ['loja.exemplo.com.br'];
   const blockedUrl = 'https://site-estranho.com/golpe';

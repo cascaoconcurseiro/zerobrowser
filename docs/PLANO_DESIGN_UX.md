@@ -205,3 +205,7 @@ Feedback do Wesley sobre a interface atual: "bagunçada, parece criada por IA, o
 - Excesso de interface: se a janela mostrar bots demais, perde o ar de navegador. Regra: sem bots, o trilho fica recolhido por padrão.
 - Anel animado pode cansar: limitar a um por vez na área do trilho ("N bots trabalhando" agrupado acima de 3).
 - Decisões: nome e avatar padrão dos bots (emoji, ilustrações próprias ou iniciais); se o trilho fica à esquerda (proposto) ou integrado à barra de abas; se vale contratar um logotipo final.
+
+## Estado da reconstrução do painel — 01/11/2026
+
+Implementado localmente em `0.1.78-dev`: lista, conversa, detalhes, controles de rotina e memória conectados ao estado do Bot; mascotes vêm dos PNGs fornecidos e o painel anterior está em `backups/2026-11-01-painel-antes-redesenho/`. `test:ui` e `test:delegation-layout` passam. A criação por frase, sala de equipe e inspeção no app instalado continuam pendentes; portanto, o roteiro de UX ainda não está totalmente concluído.

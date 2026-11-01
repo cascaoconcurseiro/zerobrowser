@@ -22,6 +22,7 @@ const { BotScheduler } = require('../bots/scheduler');
 const { AGENT_TASK_TOOL, createAgentStepExecutor } = require('../bots/agent-executor');
 const { botPartitionFor } = require('../bots/site-policy');
 const { createBotSiteGuard } = require('../bots/bot-site-guard');
+const { tagValueOrigin } = require('../automation/service/intent-firewall');
 const { createSystemTray } = require('./system-tray');
 const { TeachTaskRecorder } = require('../bots/recorder');
 const { LearnedRouteLibrary, LocalTwinSandbox } = require('../automation/learned-routes');
@@ -257,23 +258,9 @@ async function initializeApp() {
     botAvatarCatalog.seed();
     botAvatarCatalog.syncProfiles(profiles.listProfiles(profilesRoot()).filter((profile) => profile.type === 'bot'));
     botTaskStore = new BotTaskStore({ filePath: path.join(app.getPath('userData'), 'bot-tasks.json') });
-    if (botTaskStore.listBots().length === 0) {
-      for (const preset of SPECIALIST_BOT_PRESETS.slice(0, 3)) {
-        botTaskStore.createBot({
-          name: preset.defaultName,
-          specialty: preset.id,
-          specialtyTitle: preset.title,
-          executionMode: preset.executionMode,
-          defaultUrl: preset.defaultUrl,
-          accent: preset.accent,
-          goal: preset.goal,
-          permission: preset.permission,
-          schedule: { enabled: true, kind: 'daily', dailyAt: '09:00' }
-        });
-      }
-    }
     botRunner = new BotRunner({
       store: botTaskStore,
+      onRunsChanged: (snapshot) => sendToRenderer('bots:active-runs-changed', snapshot),
       stepExecutor: createAgentStepExecutor({
         // Aba oculta: cria sem trocar a aba do usuário, num perfil isolado e com a lista de sites do Bot.
         createBackgroundTab: async (url, bot) => createNewTab(url || 'about:blank', bot ? { bot } : {}),
@@ -288,10 +275,10 @@ async function initializeApp() {
     botScheduler = new BotScheduler({
       store: botTaskStore,
       runner: botRunner,
+      shouldPauseStale: async () => (await store.get('bots.autoPauseStale')) !== false,
       notify: (item) => sendToRenderer('bots:notification', item)
     });
-    botScheduler.pauseStaleBots();
-    botScheduler.runMissedSchedulesOnce().catch(logError);
+    botScheduler.runScheduledTick().catch(logError);
     botScheduler.start();
     global.teachTaskRecorder = new TeachTaskRecorder({ store: botTaskStore });
     global.learnedRouteLibrary = new LearnedRouteLibrary();
@@ -937,27 +924,25 @@ function getSidePanelLayout(bounds = browserViews.get(activeBrowserTabId)?.view.
 
 function closeTab(tabId) {
   const entry = browserViews.get(tabId);
-  if (entry) {
-    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.contentView.removeChildView(entry.view);
-    automationService?.unregisterTab(tabId);
-    closeFlamePanel(tabId);
-    if (!entry.view.webContents.isDestroyed()) {
-      const closedUrl = entry.view.webContents.getURL();
-      extensionHost?.rememberClosed(closedUrl, entry.view.webContents.getTitle());
-      if (closedUrl && !shuttingDown) {
-        closedTabs.push(closedUrl);
-        if (closedTabs.length > 25) closedTabs.shift();
-      }
+  if (!entry) return true;
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.contentView.removeChildView(entry.view);
+  automationService?.unregisterTab(tabId);
+  closeFlamePanel(tabId);
+  if (!entry.view.webContents.isDestroyed()) {
+    const closedUrl = entry.view.webContents.getURL();
+    extensionHost?.rememberClosed(closedUrl, entry.view.webContents.getTitle());
+    if (closedUrl && !shuttingDown) {
+      closedTabs.push(closedUrl);
+      if (closedTabs.length > 25) closedTabs.shift();
     }
-    if (!entry.view.webContents.isDestroyed()) {
-      entry.view.webContents.close();
-    }
-    browserViews.delete(tabId);
-    scheduleSessionSave();
-    if (activeBrowserTabId === tabId) activeBrowserTabId = null;
-    sendToRenderer('tab:closed', { tabId });
-    updateBrowserViewBounds();
   }
+  if (!entry.view.webContents.isDestroyed()) entry.view.webContents.close();
+  browserViews.delete(tabId);
+  scheduleSessionSave();
+  if (activeBrowserTabId === tabId) activeBrowserTabId = null;
+  sendToRenderer('tab:closed', { tabId });
+  updateBrowserViewBounds();
+  return !browserViews.has(tabId);
 }
 
 function switchTab(tabId) {
@@ -1695,11 +1680,21 @@ handleMainUiIpc('flame:status', () => ({ available: Boolean(extensionHost?.prima
 handleMainUiIpc('bots:get-presets', () => SPECIALIST_BOT_PRESETS);
 handleMainUiIpc('bots:get-symbols', () => BOT_STROKE_SYMBOLS);
 handleMainUiIpc('bots:list-tasks', () => (botTaskStore ? botTaskStore.listBots() : []));
+handleMainUiIpc('bots:active-runs', () => (botRunner ? botRunner.getActiveRuns() : { revision: 0, runs: [] }));
 handleMainUiIpc('bots:create-task', (_event, spec = {}) => (botTaskStore ? botTaskStore.createBot(spec) : null));
+handleMainUiIpc('bots:update-schedule', (_event, { botId, enabled, dailyAt } = {}) => {
+  if (!botTaskStore) throw new Error('A agenda de bots não está disponível.');
+  const bot = botTaskStore.getBot(String(botId || ''));
+  if (!bot) throw new Error('Bot não encontrado.');
+  if (typeof enabled !== 'boolean') throw new Error('Estado da rotina inválido.');
+  if (!enabled) return botTaskStore.updateBotSchedule(bot.id, { enabled: false });
+  if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(String(dailyAt || ''))) throw new Error('Informe um horário válido.');
+  return botTaskStore.updateBotSchedule(bot.id, { enabled: true, kind: 'daily', dailyAt });
+});
 handleMainUiIpc('bots:add-memory', (_event, { botId, text, note } = {}) => {
   if (!botTaskStore) return null;
   return botTaskStore.addMemoryItem(String(botId), {
-    content: { value: String(text || note || ''), origin: 'usuario' },
+    content: tagValueOrigin(String(text || note || ''), 'usuario'),
     confirmedByUser: true
   });
 });
@@ -1789,9 +1784,11 @@ handleMainUiIpc('bots:run-now', (_event, botId, options = {}) => {
   if (!bot) throw new Error(`Bot "${botId}" não encontrado.`);
   // Sem passos gravados, a própria missão do Bot vira o passo entregue ao agente.
   const providedSteps = Array.isArray(options?.steps) ? options.steps.filter(Boolean) : [];
+  const request = typeof options?.request === 'string' ? options.request.trim().slice(0, 12000) : '';
+  const context = Array.isArray(options?.context) ? options.context.slice(-8).filter((item) => item && ['user', 'assistant'].includes(item.role) && typeof item.content === 'string').map((item) => ({ role: item.role, content: item.content.slice(0, 2000) })) : [];
   const steps = providedSteps.length
     ? providedSteps
-    : [{ tool: AGENT_TASK_TOOL, prompt: bot.goal, url: bot.defaultUrl, usesModel: true }];
+    : [{ tool: AGENT_TASK_TOOL, prompt: request || bot.goal, context, url: bot.defaultUrl, usesModel: true, ...(!request && bot.verificationChecks ? { verify: bot.verificationChecks } : {}) }];
   return botRunner.runBotNow(String(botId), {
     steps,
     onAttention: (attention) => sendToRenderer('bots:attention', attention)

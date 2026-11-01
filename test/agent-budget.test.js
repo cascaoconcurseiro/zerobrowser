@@ -32,6 +32,24 @@ function fakeProvider(script) {
   return { requests, restore: () => { global.fetch = original; } };
 }
 
+test('Bot para antes de exceder o limite de chamadas ao modelo', async () => {
+  const service = serviceWithTab();
+  const provider = fakeProvider(() => call('inspect_page', {}));
+  const trace = { modelCalls: 0, inputTokens: 0, outputTokens: 0, usageAvailable: true, toolCalls: [] };
+  try {
+    const result = await service.runAgent('tab-b', 'Leia a página', 'k', 'm', true, 'openrouter', false, {
+      maxModelCalls: 1, trace
+    });
+    assert.equal(provider.requests.length, 1, 'a segunda requisição não chega ao provedor');
+    assert.equal(result.success, false);
+    assert.equal(result.usageLimit, true);
+    assert.match(result.error, /Limite de chamadas ao modelo atingido \(1\)/);
+    assert.equal(trace.modelRequests, 1);
+  } finally {
+    provider.restore();
+  }
+});
+
 const call = (name, args, id = `c${Math.random().toString(36).slice(2, 8)}`) => ({
   role: 'assistant',
   tool_calls: [{ id, type: 'function', function: { name, arguments: JSON.stringify(args) } }]

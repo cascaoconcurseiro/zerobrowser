@@ -6,6 +6,7 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: https: http:; connect-src 'none'; object-src 'none'; base-uri 'none'; frame-src 'none'; form-action 'none'">
   <title>Zero Browser</title>
   <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="bot-panel.css">
 </head>
 <body>
   <div id="app">
@@ -65,7 +66,8 @@
     <div id="browser-container">
     </div>
 
-    <aside id="delegation-rail" class="delegation-rail hidden" aria-label="Navegação do modo Delegar">
+    <aside id="delegation-rail" class="delegation-rail hidden" aria-label="Navegação dos bots">
+      <span class="delegation-rail-label">ZERO</span>
       <div id="grokbot-rail-specialists" class="grokbot-rail-specialists" role="group" aria-label="Seus bots"></div>
       <nav class="delegation-rail-nav" aria-label="Seções">
         <button id="btn-rail-bots" class="delegation-rail-item" type="button" aria-label="Bots" aria-pressed="true" title="Bots"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="7" width="16" height="12" rx="3"/><path d="M12 3v4"/><path d="M9 13h.01"/><path d="M15 13h.01"/></svg><span>Bots</span></button>
@@ -76,90 +78,80 @@
     <section id="bot-specialist-modal" class="bot-specialist-modal hidden" role="dialog" aria-modal="false" aria-labelledby="bot-specialist-title">
       <header class="bot-central-header">
         <div class="bot-central-heading">
-          <span class="bot-central-kicker">Zero Browser · Bot especialista</span>
-          <h2 id="bot-specialist-title">Criar Bot Especialista</h2>
-          <p id="bot-specialist-summary">Escolha a especialidade. A nova aba usa o perfil de navegação atual; cookies e logins são compartilhados com ele.</p>
+          <span class="bot-central-kicker">SEU TIME</span>
+          <h2 id="bot-specialist-title">Criar bot</h2>
+          <p>Defina uma missão e escolha um mascote. Você poderá iniciar a tarefa depois.</p>
         </div>
-        <button id="btn-specialist-close" type="button" aria-label="Fechar criador de Bot Especialista" title="Fechar">×</button>
+        <button id="btn-specialist-close" type="button" aria-label="Fechar criação de bot">×</button>
       </header>
       <div class="bot-specialist-body">
-        <div class="bot-specialist-field">
-          <span class="bot-specialist-label">1. Especialidade do Bot</span>
-          <div id="bot-specialist-presets" class="bot-specialist-presets" role="group" aria-label="Especialidades disponíveis"></div>
-        </div>
         <label class="bot-specialist-field" for="bot-specialist-name">
-          <span class="bot-specialist-label">Nome do Especialista</span>
-          <input id="bot-specialist-name" class="ai-input" type="text" maxlength="60" placeholder="Ex.: Bot Caçador de Preços">
-        </label>
-        <label class="bot-specialist-field" for="bot-specialist-url">
-          <span class="bot-specialist-label">Site inicial (ou about:blank para usar a página atual)</span>
-          <input id="bot-specialist-url" class="ai-input" type="text" maxlength="240" placeholder="https://www.google.com/shopping">
+          <span class="bot-specialist-label">Nome</span>
+          <input id="bot-specialist-name" class="ai-input" type="text" maxlength="60" placeholder="Ex.: Pesquisa de preços">
         </label>
         <label class="bot-specialist-field" for="bot-specialist-goal">
-          <span class="bot-specialist-label">Missão e gatilho de alerta</span>
-          <textarea id="bot-specialist-goal" class="ai-textarea bot-specialist-textarea" rows="3" placeholder="Descreva o que o Bot deve monitorar ou executar e quando deve chamar você"></textarea>
+          <span class="bot-specialist-label">O que este bot deve fazer?</span>
+          <textarea id="bot-specialist-goal" class="ai-textarea bot-specialist-textarea" rows="4" placeholder="Descreva a tarefa em suas palavras"></textarea>
+        </label>
+        <label class="bot-specialist-field" for="bot-specialist-url">
+          <span class="bot-specialist-label">Site inicial (opcional)</span>
+          <input id="bot-specialist-url" class="ai-input" type="url" maxlength="240" placeholder="https://exemplo.com">
+        </label>
+        <label class="bot-specialist-field" for="bot-specialist-check">
+          <span class="bot-specialist-label">Texto que deve aparecer ao fim (opcional)</span>
+          <input id="bot-specialist-check" class="ai-input" type="text" maxlength="200" placeholder="Ex.: Pedido confirmado" aria-describedby="bot-specialist-check-help">
+          <span id="bot-specialist-check-help" class="bot-create-note">O bot confere se esse texto está visível na página final. Escolha um texto que indique o resultado desejado.</span>
+        </label>
+        <fieldset class="bot-specialist-field">
+          <legend class="bot-specialist-label">Monitorar preço (opcional)</legend>
+          <input id="bot-specialist-price-product" class="ai-input" type="text" maxlength="120" placeholder="Nome distintivo do produto">
+          <input id="bot-specialist-price-max" class="ai-input" type="number" min="0" step="0.01" inputmode="decimal" placeholder="Preço máximo em R$" aria-describedby="bot-specialist-price-help">
+          <span id="bot-specialist-price-help" class="bot-create-note">A checagem só passa se encontrar exatamente um preço em reais no mesmo bloco visível do produto.</span>
+        </fieldset>
+        <label class="bot-specialist-field" for="bot-specialist-model-calls">
+          <span class="bot-specialist-label">Máximo de chamadas ao modelo por tarefa</span>
+          <input id="bot-specialist-model-calls" class="ai-input tabular-nums" type="number" min="1" max="100" step="1" value="15">
+          <span class="bot-create-note">O Bot para antes de ultrapassar esse número. O custo em dinheiro depende do provedor e ainda não tem teto monetário.</span>
         </label>
         <div class="bot-specialist-field">
-          <span class="bot-specialist-label">2. Como este Bot deve trabalhar?</span>
-          <div class="bot-specialist-modes" role="radiogroup" aria-label="Modo de operação da aba do Bot">
-            <label class="bot-mode-option" data-mode-card="background-auto-foreground">
-              <input type="radio" name="bot-execution-mode" id="bot-mode-background" value="background-auto-foreground" checked>
-              <div class="bot-mode-copy">
-                <strong>Trabalhar em 2º plano e trazer para frente (Recomendado)</strong>
-                <span>Abre uma aba em segundo plano no perfil atual. Traz a aba para frente quando atingir a meta ou precisar de você.</span>
-              </div>
-            </label>
-            <label class="bot-mode-option" data-mode-card="dedicated-tab">
-              <input type="radio" name="bot-execution-mode" id="bot-mode-dedicated" value="dedicated-tab">
-              <div class="bot-mode-copy">
-                <strong>Abrir em uma nova aba agora</strong>
-                <span>Cria e foca imediatamente a aba dedicada do Bot com a cor e o selo dele para você acompanhar ao vivo.</span>
-              </div>
-            </label>
-          </div>
+          <span class="bot-specialist-label">Escolha um mascote</span>
+          <div id="bot-specialist-mascots" class="bot-specialist-mascots" role="group" aria-label="Mascote do bot"></div>
         </div>
-        <div class="bot-specialist-field">
-          <span class="bot-specialist-label">3. Mascote do Bot</span>
-          <div id="bot-specialist-mascots" class="bot-specialist-mascots" role="radiogroup" aria-label="Mascote do Bot"></div>
-        </div>
+        <p class="bot-create-note">O bot recebe instruções para apenas ler. A execução em segundo plano usa uma sessão separada e pode precisar de login feito por você.</p>
       </div>
       <footer class="bot-specialist-footer">
-        <button id="btn-specialist-profile-menu" class="btn-secondary" type="button" title="Abrir menu de perfis isolados em janela separada">Janela isolada…</button>
-        <div class="bot-specialist-footer-right">
-          <button id="btn-specialist-cancel" class="btn-secondary" type="button">Cancelar</button>
-          <button id="btn-specialist-launch" class="btn-primary" type="button">Lançar Bot Especialista</button>
-        </div>
+        <button id="btn-specialist-cancel" class="btn-secondary" type="button">Cancelar</button>
+        <button id="btn-specialist-launch" class="btn-primary" type="button">Criar bot</button>
       </footer>
     </section>
-    <div id="ai-panel" class="panel hidden" aria-label="Modo Delegar">
+    <div id="ai-panel" class="panel hidden" aria-label="Painel de bots">
       <div class="panel-header">
         <div class="panel-heading">
-          <span class="panel-kicker panel-brand"><img src="../../assets/icon.svg" alt="">ZERO BROWSER</span>
+          <span class="panel-kicker">SEU ESPAÇO</span>
           <strong>Bots</strong>
-          <span class="panel-subtitle">Os bots trabalham na aba aberta. Acompanhe a execução e pare a tarefa quando quiser.</span>
         </div>
         <button id="btn-stop-task" class="delegation-top-stop" type="button" disabled aria-label="Parar todas as tarefas em execução" title="Parar todas as tarefas em execução"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2"/></svg><span>Parar tudo</span></button>
         <button id="btn-close-ai" class="panel-close" aria-label="Fechar agente"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
       </div>
-      <div id="ai-ready-status" class="ai-ready-status" role="status">Carregando configuração do agente…</div>
-      <div class="delegation-tabs" role="tablist" aria-label="Painel Delegar">
-        <button type="button" role="tab" id="delegation-tab-bots" class="delegation-tab" data-delegation-tab="bots" aria-controls="delegation-pane-bots" aria-selected="true">Bots</button>
-        <button type="button" role="tab" id="delegation-tab-chat" class="delegation-tab" data-delegation-tab="chat" aria-selected="false">Conversa</button>
+      <button id="ai-ready-status" class="ai-ready-status" type="button" aria-live="polite" aria-label="Abrir configurações do provedor e modelo de IA">Carregando configuração do agente…</button>
+      <div class="delegation-tabs" role="group" aria-label="Navegação do painel">
+        <button type="button" id="delegation-tab-bots" class="delegation-tab" data-delegation-tab="bots" aria-controls="delegation-pane-bots" aria-pressed="true">Seus bots</button>
+        <button type="button" id="delegation-tab-chat" class="delegation-tab" data-delegation-tab="chat" aria-pressed="false">Conversa</button>
       </div>
-      <section id="delegation-pane-bots" class="delegation-pane-bots" role="tabpanel" aria-labelledby="delegation-tab-bots">
+      <section id="delegation-pane-bots" class="delegation-pane-bots" aria-labelledby="delegation-tab-bots">
         <div class="bot-own-head">
-          <h2 class="delegation-pane-title">Seus bots</h2>
-          <button id="btn-bot-new" class="btn-primary bot-own-create" type="button">+ Criar bot</button>
+          <div><h2 class="delegation-pane-title">Seu time</h2><p class="delegation-pane-sub">Escolha um bot para acompanhar ou conversar.</p></div>
+          <button id="btn-bot-new" class="btn-primary bot-own-create" type="button">Criar bot</button>
         </div>
         <ul id="bot-own-list" class="bot-own-list" aria-label="Seus bots"></ul>
-        <p id="bot-own-empty" class="bot-own-empty" hidden>Você ainda não criou bots. Crie um para conversar com ele em uma sessão própria.</p>
+        <div id="bot-own-empty" class="bot-own-empty" hidden><img src="../../assets/bots/mascotes/05_pingo.png" alt=""><strong>Seu primeiro bot começa aqui</strong><span>Crie um bot para guardar uma missão e acompanhar suas tarefas.</span></div>
       </section>
       <div id="tab-control-banner" class="tab-control-banner hidden" role="region" aria-label="Controle da aba ativa" aria-live="polite">
         <span class="tab-control-bot-badge" aria-hidden="true"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M5 3l14 8-6 2 4 7-3 1-4-7-5 4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg></span>
         <span id="tab-control-label" class="tab-control-label">Navegador controlado por <strong>Preços</strong></span>
         <button id="btn-tab-takeover" class="btn-ghost tab-control-action" type="button">Assumir</button>
       </div>
-      <div data-delegation-chat id="grokbot-briefing-bar" class="grokbot-briefing-bar" role="region" aria-label="Bot Especialista ativo">
+      <div data-delegation-chat id="grokbot-briefing-bar" class="grokbot-briefing-bar" role="region" aria-label="Bot selecionado">
         <div class="grokbot-briefing-identity">
           <span id="grokbot-active-ring" class="grokbot-active-ring" data-bot-state="idle" aria-hidden="true"></span>
           <div class="grokbot-briefing-copy">
@@ -171,6 +163,7 @@
           </div>
         </div>
         <div class="grokbot-briefing-actions">
+          <button id="btn-bot-run-now" class="btn-secondary" type="button">Executar missão</button>
           <button id="btn-grokbot-run-bg" class="btn-ghost grokbot-chip-btn" type="button" title="Executar missão do Bot em 2º plano e trazer para frente ao atingir a meta">2º plano</button>
           <button id="btn-grokbot-teach-quick" class="btn-ghost grokbot-chip-btn" type="button" title="Gravar tarefa passo a passo na aba (Teach a Task)">Gravar</button>
         </div>
@@ -199,10 +192,11 @@
         </details>
       </div>
       <div data-delegation-chat id="ai-chat" class="ai-chat" aria-live="polite"></div>
-      <div data-delegation-chat id="bot-view-agenda" class="bot-subview hidden" role="region" aria-label="Agenda do Bot"></div>
-      <div data-delegation-chat id="bot-view-memory" class="bot-subview hidden" role="region" aria-label="Memória do Bot"></div>
-      <div data-delegation-chat id="bot-view-routes" class="bot-subview hidden" role="region" aria-label="Caminhos aprendidos"></div>
-      <div data-delegation-chat id="bot-view-history" class="bot-subview hidden" role="region" aria-label="Histórico de execuções e recibos"></div>
+      <div data-delegation-chat id="bot-details" class="bot-details hidden">
+        <section id="bot-view-agenda" class="bot-subview" aria-label="Rotina do bot"></section>
+        <section id="bot-view-memory" class="bot-subview" aria-label="Memória do bot"></section>
+        <section id="bot-view-history" class="bot-subview" aria-label="Histórico do bot"></section>
+      </div>
       <div data-delegation-chat class="ai-input-area">
         <textarea id="ai-input" class="ai-textarea" placeholder="O que você quer que o bot faça? (Enter envia · Shift+Enter quebra linha)" aria-label="Pedido para o bot"></textarea>
         <div class="ai-route-status" role="status" aria-live="polite">
@@ -422,7 +416,7 @@
           </label>
           <label class="setting-item">
             <input type="checkbox" id="setting-bot-auto-pause-stale" checked>
-            <span>Pausar agendas sem uso após 14 dias</span>
+            <span>Pausar bots sem resultado verificado após 14 dias</span>
           </label>
         </section>
         <section class="settings-section" id="mcp-clients-settings-section">
@@ -440,14 +434,14 @@
         </section>
         <section class="settings-section" id="spend-limits-settings-section">
           <h3>Limites de gasto</h3>
-          <p class="setting-description">Teto de chamadas e passos por Bot e por dia. Valores com alinhamento numérico tabular.</p>
+          <p class="setting-description">Os limites abaixo ainda não controlam o gasto das chamadas de IA e estão indisponíveis. O limite de passos definido em cada Bot continua aplicado.</p>
           <label class="setting-field" for="setting-spend-daily-calls">
             <span>Máximo de chamadas ao modelo por dia</span>
-            <input type="number" id="setting-spend-daily-calls" class="ai-input tabular-nums" value="120" min="10" max="5000">
+            <input type="number" id="setting-spend-daily-calls" class="ai-input tabular-nums" value="120" min="10" max="5000" disabled>
           </label>
           <label class="setting-field" for="setting-spend-per-bot-steps">
             <span>Máximo de passos por execução de Bot</span>
-            <input type="number" id="setting-spend-per-bot-steps" class="ai-input tabular-nums" value="25" min="5" max="100">
+            <input type="number" id="setting-spend-per-bot-steps" class="ai-input tabular-nums" value="25" min="5" max="100" disabled>
           </label>
         </section>
               </div>

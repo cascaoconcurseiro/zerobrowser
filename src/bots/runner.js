@@ -18,12 +18,23 @@ const WRITE_TOOLS = new Set([
 ]);
 
 class BotRunner {
-  constructor({ store, stepExecutor = null, now = () => Date.now() } = {}) {
+  constructor({ store, stepExecutor = null, now = () => Date.now(), onRunsChanged = null } = {}) {
     if (!store) throw new Error('BotRunner requer uma instância de BotTaskStore.');
     this.store = store;
     this.stepExecutor = stepExecutor;
     this.now = now;
     this.activeRuns = new Map();
+    this.runsRevision = 0;
+    this.onRunsChanged = onRunsChanged;
+  }
+
+  getActiveRuns() {
+    return { revision: this.runsRevision, runs: [...this.activeRuns.values()].map(({ runId, botId, aborted }) => ({ runId, botId, stopping: aborted })) };
+  }
+
+  notifyRunsChanged() {
+    this.runsRevision += 1;
+    try { this.onRunsChanged?.(this.getActiveRuns()); } catch {}
   }
 
   getActiveRunCount() {
@@ -41,7 +52,7 @@ class BotRunner {
       }
       stoppedRunIds.push(runId);
     }
-    this.activeRuns.clear();
+    if (stoppedRunIds.length) this.notifyRunsChanged();
     const elapsedMs = Math.max(0, this.now() - startedStopAt);
     return {
       ok: true,
@@ -66,15 +77,20 @@ class BotRunner {
       abort: null
     };
     this.activeRuns.set(runId, controller);
+    this.notifyRunsChanged();
 
     let stepsExecuted = 0;
     let spendUsd = 0;
     let tokensUsed = 0;
+    let modelUsageUnknown = false;
     let shouldBringToFront = false;
     let bringToFrontReason = null;
+    let executionInFlight = false;
+    let finalized = false;
+    let taskVerified = false;
     const outputs = [];
     const abortController = new AbortController();
-    const executeFn = stepExecutor || this.stepExecutor || (async (step) => ({ ok: true, data: step.mockData ?? null }));
+    const executeFn = stepExecutor || this.stepExecutor;
 
     const notifyAttention = (reason, step = null) => {
       shouldBringToFront = true;
@@ -87,7 +103,11 @@ class BotRunner {
     };
 
     const finalize = (status, error = null) => {
-      this.activeRuns.delete(runId);
+      finalized = true;
+      if (!executionInFlight) {
+        this.activeRuns.delete(runId);
+        this.notifyRunsChanged();
+      }
       const durationMs = Math.max(0, this.now() - startedAtMs);
       const receiptHash = crypto
         .createHash('sha256')
@@ -99,18 +119,22 @@ class BotRunner {
         startedAt: startedAtIso,
         durationMs,
         stepsExecuted,
-        tokensUsed,
-        spendUsd,
-        usedRecipeOnly: steps.every((s) => !s.usesModel),
+        tokensUsed: modelUsageUnknown ? null : tokensUsed,
+        spendUsd: modelUsageUnknown ? null : spendUsd,
+        usedRecipeOnly: Array.isArray(steps) && steps.length > 0 && steps.every((s) => !s.usesModel),
         output: outputs,
         error,
         receiptHash,
+        taskVerified: status === 'completed' && taskVerified,
         shouldBringToFront,
         bringToFrontReason
       });
     };
 
     try {
+      if (!Array.isArray(steps) || steps.length === 0) {
+        return finalize('failed', 'Nenhuma tarefa foi definida para este Bot.');
+      }
       for (const step of steps) {
         if (controller.aborted) {
           return finalize('stopped', controller.abortReason || 'Interrompido pelo usuário.');
@@ -138,6 +162,7 @@ class BotRunner {
         // pela aprovação e pelo firewall do próprio agente. Ele só bloqueia leitura quando
         // o passo declara explicitamente efeito de escrita.
         const isAgentTask = tool === AGENT_TASK_TOOL;
+        if (isAgentTask || step.usesModel) modelUsageUnknown = true;
         const isWriteTool = isAgentTask
           ? step.effect === 'escreve'
           : step.effect === 'escreve' || WRITE_TOOLS.has(tool) || !READ_ONLY_TOOLS.includes(tool);
@@ -164,10 +189,17 @@ class BotRunner {
           return finalize('blocked', firewallCheck.reason);
         }
 
+        if (typeof executeFn !== 'function') {
+          return finalize('failed', 'O executor do Bot não está disponível.');
+        }
+
         const stepResult = await new Promise((resolve, reject) => {
           const remainingMs = Math.max(1, bot.limits.maxDurationMs - (this.now() - startedAtMs));
           const timer = setTimeout(() => {
+            controller.aborted = true;
+            controller.abortReason = 'Limite de tempo da execução atingido.';
             abortController.abort();
+            this.notifyRunsChanged();
             reject(new Error('Limite de tempo da execução atingido.'));
           }, remainingMs);
           controller.abort = () => {
@@ -175,8 +207,13 @@ class BotRunner {
             clearTimeout(timer);
             resolve({ __aborted: true });
           };
-          Promise.resolve().then(() => executeFn(step, { hiddenTab: bot.executionMode !== 'dedicated-tab', bot, signal: abortController.signal }))
-            .then((result) => { clearTimeout(timer); resolve(result); }, (error) => { clearTimeout(timer); reject(error); });
+          executionInFlight = true;
+          Promise.resolve().then(() => controller.aborted ? { __aborted: true } : executeFn(step, { hiddenTab: bot.executionMode !== 'dedicated-tab', bot, runId, signal: abortController.signal }))
+            .then((result) => { clearTimeout(timer); resolve(result); }, (error) => { clearTimeout(timer); reject(error); })
+            .finally(() => {
+              executionInFlight = false;
+              if (finalized && this.activeRuns.delete(runId)) this.notifyRunsChanged();
+            });
         });
 
         if (controller.aborted || stepResult?.__aborted) {
@@ -190,14 +227,11 @@ class BotRunner {
         spendUsd = nextSpend;
         tokensUsed += Number(step.tokens) || 0;
         outputs.push(redactSecrets(stepResult?.data ?? stepResult));
+        taskVerified = steps.length === 1 && isAgentTask && stepResult?.taskVerified === true;
 
-        if ((step.goalReached || stepResult?.goalReached) && bot.autoForegroundOnGoal !== false) {
+        if (stepResult?.taskVerified === true && stepResult?.goalReached === true && bot.autoForegroundOnGoal !== false) {
           notifyAttention('goal_reached', step);
         }
-      }
-
-      if (!shouldBringToFront && bot.executionMode === 'background-auto-foreground' && bot.autoForegroundOnGoal !== false && steps.length > 0) {
-        notifyAttention('goal_reached', steps[steps.length - 1]);
       }
 
       return finalize('completed', null);

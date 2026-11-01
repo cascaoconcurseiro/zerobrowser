@@ -107,3 +107,7 @@ Hoje o Zero **não faz** tudo isso de ponta a ponta: o executor do bot foi ligad
 ## 6. Decisões
 - **Decidido em 31/10/2026:** Wesley aceitou o limite de paridade da seção 1 (sincronização e aplicativo móvel adiados) e o Desfazer como aposta principal.
 - Em aberto: por quais ações do dia a dia começar o Desfazer (e-mail, compras, agenda).
+
+## Estado do painel e execução — 01/11/2026
+
+O plano comparativo é uma meta, não prova de paridade. No `0.1.78-dev`, o painel e a conversa do Bot foram reconstruídos/integrados ao `BotRunner`, e as verificações locais passaram (458/458 + UI/layout/persistência). A comparação real registrada não foi atualizada nesta sessão. Sem teste pareado atual com páginas/condições iguais, sem custo medido e sem verificação de tarefa em site real, não declarar equivalência ou superioridade a GrokBot/neo.

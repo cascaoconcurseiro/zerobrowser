@@ -153,3 +153,9 @@ Cada passo: mockup com a paleta azul antes de tela nova; depois `npm test`, `npm
 **Situação em 31/10/2026:** o Wesley aceitou as propostas. Decididos: 1 (mascote em pixel art para identidade do bot; símbolo de traço só em ações da interface), 3 (15 min para pausar no login e expirar aprovação; lembrete de aviso em 1 h), 4 (rodar uma vez ao abrir, com aviso), 5 (lixeira de 30 dias para perfil), 6 (aviso do Windows genérico), 7 (3 bots em cadeia, 5 abas por bot). **Ainda aberto: item 2**, a primeira rotina real (Polare ou monitor de preço), que não tinha proposta; só bloqueia o passo 8 em diante da seção 3. Antes de mexer no catálogo de avatares, conferir o histórico da 0.1.67 para não desfazer o que ela preservou (identidade de upgrade).
 
 **Atualização (31/10/2026, tarde):** o Wesley esclareceu que o Polare era só exemplo e que os bots são para todos os usuários. O item 2 está resolvido: biblioteca de 48 modelos em `docs/bots/CASOS_DE_USO_BOTS.md`, primeiro validado = monitor de preço. Os passos 8 em diante da seção 3 não esperam mais resposta do Wesley.
+
+## Atualização de estado — 01/11/2026 (`0.1.78-dev`)
+
+A conversa do Bot não é somente uma caixa de mensagem: é roteada ao `BotRunner`, com execução pelo agente, estado de parada, resultado e recibo. A UI do painel, agenda e memória está conectada aos contratos do processo principal. A verificação independente continua obrigatória para contar sucesso. Evidência local: `npm test` 458/458, `test:ui` PASS, `test:delegation-layout` PASS, integração de persistência após duas reinicializações PASS.
+
+Não declarar paridade com GrokBot: falta execução real autorizada em site/provedor, medição de custo e cobertura funcional dos conectores externos. A implementação local e as fixtures não provam essas partes.

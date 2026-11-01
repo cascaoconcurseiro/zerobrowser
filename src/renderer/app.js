@@ -45,6 +45,9 @@ class ZeroBrowserApp {
     this.botTabs = new Map();
     this.specialistBots = new Map();
     this.backgroundAgentJobs = new Map();
+    this.botRuns = [];
+    this.pendingBotRequests = new Set();
+    this.botRunsRevision = -1;
     this.selectedSpecialistPresetId = "price-hunter";
     this.pendingApprovalCards = new Map();
     this.approvalUiReady = false;
@@ -209,6 +212,10 @@ class ZeroBrowserApp {
     this.elements.btnBotCentralNew.addEventListener('click', () => this.openSpecialistBotModal());
     this.elements.btnCloseAi.addEventListener('click', () => this.closeAiPanel());
     this.elements.btnSettings.addEventListener('click', () => this.toggleSettingsPanel());
+    this.elements.aiReadyStatus.addEventListener('click', async () => {
+      if (this.elements.settingsPanel.classList.contains('hidden')) await this.toggleSettingsPanel();
+      document.getElementById('ai-provider')?.focus();
+    });
     this.elements.btnCloseSettings.addEventListener('click', () => this.closeSettingsPanel());
     this.bindDelegationResizerEvents();
 
@@ -266,6 +273,7 @@ class ZeroBrowserApp {
       'setting-agent-recipes': 'automation.recipes',
       'setting-agent-transforms': 'automation.transforms',
       'setting-agent-prompt-cache': 'automation.promptCache',
+      'setting-bot-auto-pause-stale': 'bots.autoPauseStale',
       'setting-agent-max-steps': 'automation.maxSteps'
     };
     for (const [id, key] of Object.entries(settingKeys)) {
@@ -1561,6 +1569,7 @@ class ZeroBrowserApp {
     document.getElementById('setting-agent-recipes').checked = settings['automation.recipes'] !== false;
     document.getElementById('setting-agent-transforms').checked = false;
     document.getElementById('setting-agent-prompt-cache').checked = settings['automation.promptCache'] === true;
+    document.getElementById('setting-bot-auto-pause-stale').checked = settings['bots.autoPauseStale'] !== false;
     const steps = Number(settings['automation.maxSteps']);
     document.getElementById('setting-agent-max-steps').value = String([20, 40, 60].includes(steps) ? steps : 40);
   }
@@ -2120,7 +2129,7 @@ class ZeroBrowserApp {
     mark.setAttribute('aria-hidden', 'true');
     const avatar = bot?.avatar || {};
     // Todo bot tem mascote fixo: o número do avatar, ou (se não houver) um derivado do id do bot.
-    const fromAvatar = Number(String(avatar.id || bot?.avatarId || '').match(/(\d+)$/)?.[1]);
+    const fromAvatar = Number(bot?.mascot) || Number(String(avatar.id || bot?.avatarId || '').match(/(\d+)$/)?.[1]);
     const number = fromAvatar || [...String(bot?.id || '')].reduce((sum, ch) => sum + ch.charCodeAt(0), 0) % BOT_MASCOTS.length + 1;
     const mascot = BOT_MASCOTS[(number - 1) % BOT_MASCOTS.length];
     const img = document.createElement('img');
@@ -2135,7 +2144,7 @@ class ZeroBrowserApp {
     const stopBtn = this.elements?.btnStopTask;
     if (!stopBtn) return;
     const bgCount = this.backgroundAgentJobs ? this.backgroundAgentJobs.size : 0;
-    const totalRunning = (this.aiRunning ? 1 : 0) + bgCount;
+    const totalRunning = (this.aiRunning ? 1 : 0) + bgCount + this.botRuns.length;
     stopBtn.disabled = totalRunning === 0;
     const labelSpan = stopBtn.querySelector('span');
     if (labelSpan) {
@@ -2144,8 +2153,11 @@ class ZeroBrowserApp {
   }
 
   async stopAllRunningTasks() {
+    let botStopFailed = false;
     if (window.zeroBrowser?.bots?.stopAll) {
-      await window.zeroBrowser.bots.stopAll().catch(() => {});
+      try { await window.zeroBrowser.bots.stopAll(); } catch { botStopFailed = true; }
+    } else if (this.botRuns.length) {
+      botStopFailed = true;
     }
     if (this.aiRunning) {
       window.zeroBrowser?.automation?.cancelAgent(this.runningAgentTabId || this.activeTabId).catch(() => {});
@@ -2159,7 +2171,7 @@ class ZeroBrowserApp {
     this.syncStopAllButton();
     this.syncGrokBotBriefingBar();
     this.renderSpecialistRail();
-    this.showToast('Pedido para interromper as tarefas enviado.', 'info');
+    this.showToast(botStopFailed ? 'Não foi possível enviar a parada aos bots. Tente novamente.' : 'Pedido para interromper as tarefas enviado.', botStopFailed ? 'error' : 'info');
   }
 
   setupDelegationTabs() {
@@ -2180,7 +2192,7 @@ class ZeroBrowserApp {
     document.querySelectorAll('[data-delegation-tab]').forEach((tab) => {
       const active = tab.dataset.delegationTab === name;
       tab.classList.toggle('ativo', active);
-      tab.setAttribute('aria-selected', String(active));
+      tab.setAttribute('aria-pressed', String(active));
     });
     if (onBots) this.renderBotOwnList();
   }
@@ -2243,8 +2255,14 @@ class ZeroBrowserApp {
     if (!container) return;
     container.replaceChildren();
     const tasks = Array.isArray(this.storedSpecialistTasks) ? this.storedSpecialistTasks : [];
+    const nameCounts = new Map();
+    const nameOrdinals = new Map();
+    for (const task of tasks) nameCounts.set(task.name, (nameCounts.get(task.name) || 0) + 1);
     const activeId = this.activeSpecialistBot?.id || null;
     for (const task of tasks) {
+      const ordinal = (nameOrdinals.get(task.name) || 0) + 1;
+      nameOrdinals.set(task.name, ordinal);
+      const displayName = nameCounts.get(task.name) > 1 ? `${task.name} · ${ordinal}` : task.name;
       const btn = document.createElement('button');
       btn.type = 'button';
       const isSelected = task.id === activeId;
@@ -2253,11 +2271,14 @@ class ZeroBrowserApp {
       btn.dataset.specialistId = task.id;
       btn.dataset.botState = isWorking ? 'working' : 'idle';
       btn.style.setProperty('--bot-accent', task.accent || '#0254ec');
-      btn.title = `${task.name} (${task.specialtyTitle || 'Especialista'})${isWorking ? ' · Trabalhando' : ' · Pronto'}`;
-      btn.setAttribute('aria-label', `Conversar com ${task.name}`);
+      btn.title = `${displayName} (${task.specialtyTitle || 'Especialista'})${isWorking ? ' · Trabalhando' : ' · Pronto'}`;
+      btn.setAttribute('aria-label', `${displayName}, ${isWorking ? 'trabalhando' : 'pronto'}`);
       btn.setAttribute('aria-pressed', String(isSelected));
-      btn.innerHTML = this.getSpecialistSymbolSvg(task);
-      btn.addEventListener('click', () => this.selectSpecialistBot(task));
+      btn.appendChild(this.createBotAvatarMark(task));
+      btn.addEventListener('click', () => {
+        this.selectSpecialistBot(task);
+        this.showDelegationTab('chat');
+      });
       container.appendChild(btn);
     }
   }
@@ -2320,8 +2341,8 @@ class ZeroBrowserApp {
     if (route.kind === 'specialist') {
       const botName = route.bot.name || 'Bot especialista';
       label.textContent = route.reason === 'user-selected'
-        ? `Você escolheu ${botName}. O agente geral executará na aba atual com este perfil.`
-        : `Sugestão do orquestrador: ${botName}. O agente geral usa a aba e o perfil atuais.`;
+        ? `Você está conversando com ${botName}. A tarefa usa a sessão própria do bot.`
+        : `Sugestão: ${botName}. A tarefa usa a sessão própria do bot.`;
       button.textContent = route.reason === 'user-selected' ? 'Usar agente geral' : 'Fazer aqui mesmo';
       button.hidden = false;
     } else if (this.executionRouteMode === 'general' || this.routeOverrideForDraft === 'general') {
@@ -2437,17 +2458,24 @@ class ZeroBrowserApp {
   isSpecialistTaskWorking(task) {
     const isWorkingBg = [...(this.backgroundAgentJobs?.values() || [])].some((job) => job.botId === task.id);
     const isWorkingFg = this.aiRunning && this.activeSpecialistBot?.id === task.id;
-    return isWorkingBg || isWorkingFg || task.state === 'working';
+    return isWorkingBg || isWorkingFg || this.botRuns.some((run) => run.botId === task.id) || task.state === 'working';
   }
 
   renderBotOwnList() {
     const list = document.getElementById('bot-own-list');
     if (!list) return;
     const tasks = Array.isArray(this.storedSpecialistTasks) ? this.storedSpecialistTasks : [];
+    const nameCounts = new Map();
+    const nameOrdinals = new Map();
+    for (const task of tasks) nameCounts.set(task.name, (nameCounts.get(task.name) || 0) + 1);
     list.replaceChildren();
     document.getElementById('bot-own-empty')?.toggleAttribute('hidden', tasks.length > 0);
     for (const task of tasks) {
+      const ordinal = (nameOrdinals.get(task.name) || 0) + 1;
+      nameOrdinals.set(task.name, ordinal);
+      const displayName = nameCounts.get(task.name) > 1 ? `${task.name} · ${ordinal}` : task.name;
       const isWorking = this.isSpecialistTaskWorking(task);
+      const isStopping = this.botRuns.some((run) => run.botId === task.id && run.stopping);
       const item = document.createElement('li');
       const button = document.createElement('button');
       button.type = 'button';
@@ -2455,17 +2483,17 @@ class ZeroBrowserApp {
       button.dataset.specialistId = task.id;
       button.dataset.botState = isWorking ? 'working' : 'idle';
       button.style.setProperty('--bot-accent', task.accent || '#0254ec');
-      button.setAttribute('aria-label', `Conversar com ${task.name}, ${isWorking ? 'trabalhando' : 'pronto'}`);
+      button.setAttribute('aria-label', `Conversar com ${displayName}, ${isStopping ? 'parando' : isWorking ? 'trabalhando' : 'pronto'}`);
       const mark = document.createElement('span');
       mark.className = 'bot-own-mark';
       mark.setAttribute('aria-hidden', 'true');
-      mark.innerHTML = this.getSpecialistSymbolSvg(task);
+      mark.appendChild(this.createBotAvatarMark(task));
       const copy = document.createElement('span');
       copy.className = 'bot-own-copy';
       const name = document.createElement('strong');
-      name.textContent = task.name;
+      name.textContent = displayName;
       const meta = document.createElement('span');
-      meta.textContent = `${task.specialtyTitle || 'Especialista'} · ${isWorking ? 'Trabalhando' : 'Pronto'}`;
+      meta.textContent = isStopping ? 'Parando' : isWorking ? 'Trabalhando' : 'Pronto';
       copy.append(name, meta);
       button.append(mark, copy);
       button.addEventListener('click', () => {
@@ -2670,9 +2698,6 @@ class ZeroBrowserApp {
 
   initBotPanelTabs() {
     this.activeBotTab = 'chat';
-    this.botAgendaItems = [
-      { id: 'ag-1', title: 'Monitor de preços matinal', cadence: 'Diariamente às 09:00', mode: 'Somente leitura', active: true }
-    ];
     this.botRingSymbols = [];
     this.storedSpecialistTasks = [];
     this.activeSpecialistBot = null;
@@ -2684,6 +2709,7 @@ class ZeroBrowserApp {
     });
     document.getElementById('btn-grokbot-teach-quick')?.addEventListener('click', () => this.startTeachTaskFlow());
     this.initSpecialistBotModal();
+    document.getElementById('btn-bot-run-now')?.addEventListener('click', () => this.runSavedBotMission());
     this.refreshSpecialistTasksFromStore();
   }
 
@@ -2695,13 +2721,12 @@ class ZeroBrowserApp {
       }
       if (window.zeroBrowser?.bots?.listTasks) {
         const tasks = await window.zeroBrowser.bots.listTasks();
-        if (Array.isArray(tasks) && tasks.length) {
-          this.storedSpecialistTasks = tasks;
-          if (this.activeSpecialistBot) {
-            const updated = tasks.find((t) => t.id === this.activeSpecialistBot.id);
-            this.activeSpecialistBot = updated || null;
-          }
-        } else this.storedSpecialistTasks = [];
+        this.storedSpecialistTasks = Array.isArray(tasks) ? tasks : [];
+        if (this.activeSpecialistBot) {
+          const updated = this.storedSpecialistTasks.find((t) => t.id === this.activeSpecialistBot.id) || null;
+          this.activeSpecialistBot = updated;
+          if (!updated) this.chatSession = null;
+        }
       }
     } catch {}
     this.syncGrokBotBriefingBar();
@@ -2720,15 +2745,21 @@ class ZeroBrowserApp {
       ? (String(bot.name || 'Bot especialista').replace(/^Bot\s+(Caçador\s+de\s+|Radar\s+de\s+|Triagem\s+)?/i, '') || 'Bot especialista')
       : 'Agente geral';
     const isWorkingBg = [...(this.backgroundAgentJobs?.values() || [])].some((j) => bot ? j.botId === bot.id : !j.botId);
-    const isWorking = Boolean(this.aiRunning || isWorkingBg);
+    const isRunnerWorking = Boolean(bot && this.botRuns.some((run) => run.botId === bot.id));
+    const isRunnerStopping = Boolean(bot && this.botRuns.some((run) => run.botId === bot.id && run.stopping));
+    const isWorking = Boolean((this.aiRunning && (!bot || this.activeSpecialistBot?.id === bot.id)) || isWorkingBg || isRunnerWorking);
     if (ringEl) {
       ringEl.style.setProperty('--bot-accent', bot?.accent || '#0254ec');
       ringEl.dataset.botState = isWorking ? 'working' : 'idle';
-      ringEl.innerHTML = this.getSpecialistSymbolSvg(bot || { id: 'general', specialty: 'general', symbolId: 'compass' });
+      ringEl.replaceChildren();
+      if (bot) ringEl.appendChild(this.createBotAvatarMark(bot));
+      else ringEl.innerHTML = this.getSpecialistSymbolSvg({ id: 'general', specialty: 'general', symbolId: 'compass' });
     }
     if (nameEl) nameEl.textContent = shortName;
     if (statusEl) {
-      statusEl.textContent = isWorkingBg
+      statusEl.textContent = isRunnerStopping
+        ? '● Parando'
+        : isWorkingBg || isRunnerWorking
         ? '● Trabalhando em 2º plano'
         : this.aiRunning
           ? '● Trabalhando nesta aba'
@@ -2738,9 +2769,14 @@ class ZeroBrowserApp {
     if (metaEl) {
       metaEl.textContent = bot?.goal || 'O orquestrador sugere um perfil especialista quando reconhece a tarefa; caso contrário, o agente geral cuida dela.';
     }
+    const runButton = document.getElementById('btn-bot-run-now');
+    if (runButton) {
+      runButton.hidden = !bot;
+      runButton.disabled = isWorking;
+    }
     if (this.elements?.aiInput) {
       this.elements.aiInput.placeholder = bot
-        ? `Descreva o pedido para ${shortName}; o agente geral executará na aba atual…`
+        ? `Escreva um pedido para ${shortName}…`
         : 'Descreva a tarefa. O orquestrador escolhe o Bot adequado ou usa o agente geral…';
     }
     this.syncStopAllButton();
@@ -2759,6 +2795,12 @@ class ZeroBrowserApp {
 
   initSpecialistBotModal() {
     this.specialistPresets = [];
+    if (window.zeroBrowser?.bots?.onActiveRunsChanged) {
+      window.zeroBrowser.bots.onActiveRunsChanged((snapshot) => this.updateBotRuns(snapshot));
+    }
+    if (window.zeroBrowser?.bots?.activeRuns) {
+      window.zeroBrowser.bots.activeRuns().then((snapshot) => this.updateBotRuns(snapshot)).catch(() => {});
+    }
     if (window.zeroBrowser?.bots?.getPresets) {
       window.zeroBrowser.bots.getPresets().then((list) => {
         if (Array.isArray(list) && list.length) {
@@ -2800,7 +2842,16 @@ class ZeroBrowserApp {
     });
   }
 
-  openSpecialistBotModal(presetId = 'price-hunter') {
+  updateBotRuns(snapshot) {
+    if (!snapshot || !Number.isInteger(snapshot.revision) || snapshot.revision < this.botRunsRevision || !Array.isArray(snapshot.runs)) return;
+    this.botRunsRevision = snapshot.revision;
+    this.botRuns = snapshot.runs;
+    this.syncGrokBotBriefingBar();
+    this.renderSpecialistRail();
+    this.renderBotOwnList();
+  }
+
+  openSpecialistBotModal() {
     const modal = document.getElementById('bot-specialist-modal');
     if (!modal) return;
     if (this.elements.aiPanel.classList.contains('hidden')) {
@@ -2808,9 +2859,74 @@ class ZeroBrowserApp {
     }
     this.elements.aiPanel.classList.add('hidden');
     modal.classList.remove('hidden');
-    this.renderSpecialistPresetButtons(presetId);
-    this.selectSpecialistPreset(presetId);
+    document.getElementById('bot-specialist-name').value = '';
+    document.getElementById('bot-specialist-goal').value = '';
+    document.getElementById('bot-specialist-url').value = '';
+    document.getElementById('bot-specialist-check').value = '';
+    document.getElementById('bot-specialist-price-product').value = '';
+    document.getElementById('bot-specialist-price-max').value = '';
+    document.getElementById('bot-specialist-model-calls').value = '15';
+    this.selectedSpecialistMascot = 1;
+    this.renderSpecialistMascotGrid();
     document.getElementById('bot-specialist-name')?.focus();
+  }
+
+  async runSavedBotMission() {
+    const bot = this.activeSpecialistBot;
+    if (!bot?.id) return;
+    return this.runBotRequest(bot, bot.goal || '', { recordUser: false });
+  }
+
+  async runBotRequest(bot, request, { recordUser = true } = {}) {
+    if (!bot?.id) return;
+    if (!window.zeroBrowser?.bots?.runNow) {
+      this.showToast('O executor de Bots não está disponível nesta janela.', 'error');
+      return { success: false, botId: bot.id, error: 'Executor indisponível' };
+    }
+    if (this.pendingBotRequests.has(bot.id) || this.botRuns.some((run) => run.botId === bot.id)) {
+      this.showToast('Este bot já está trabalhando.', 'info');
+      return;
+    }
+    const session = this.chatSession;
+    if (!session || session.botId !== bot.id) return;
+    const context = (session.messages || []).filter((item) => ['user', 'assistant'].includes(item.role)).slice(-8).map(({ role, content }) => ({ role, content: String(content).slice(0, 2000) }));
+    if (recordUser) this.addAiMessage('user', request);
+    else this.addAiMessage('assistant', `Iniciando a missão de ${bot.name}.`);
+    this.pendingBotRequests.add(bot.id);
+    try {
+      const result = await window.zeroBrowser.bots.runNow(bot.id, { request: recordUser ? request : '', context });
+      if (!result) throw new Error('O executor não respondeu.');
+      const labels = { completed: 'Execução encerrada', failed: 'Falhou', blocked: 'Bloqueada', stopped: 'Interrompida', stopped_limit: 'Interrompida por limite', needs_attention: 'Precisa de você' };
+      const summary = result.output?.find?.((entry) => entry?.summary)?.summary;
+      const duration = Number(result.durationMs) > 0
+        ? `${new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(Number(result.durationMs) / 1000)} s · `
+        : '';
+      const receipt = result.receiptHash
+        ? `\nRegistro da execução · ${duration}SHA-256 ${String(result.receiptHash).slice(0, 16)}`
+        : '';
+      const message = `${labels[result.status] || 'Execução encerrada'}${result.error ? `: ${result.error}` : summary ? `: ${summary}` : '.'}${receipt}`;
+      if (this.chatSession === session) this.addAiMessage('assistant', message);
+      else if (this.chatSessions.includes(session)) {
+        session.messages.push({ role: 'assistant', content: message, at: Date.now() });
+        session.updatedAt = Date.now();
+        this.persistChatSessions();
+      }
+      this.showToast(`${bot.name}: ${message}`, result.status === 'completed' ? 'success' : 'warning');
+      await this.refreshSpecialistTasksFromStore();
+      return { success: result.status === 'completed', botId: bot.id, status: result.status, summary: message };
+    } catch {
+      this.showToast('Não foi possível executar a missão. Confira a configuração e tente novamente.', 'error');
+      const failure = 'Não foi possível iniciar a tarefa. Confira as configurações e tente novamente.';
+      if (this.chatSession === session) this.addAiMessage('error', failure);
+      else if (this.chatSessions.includes(session)) {
+        session.messages.push({ role: 'error', content: failure, at: Date.now() });
+        session.updatedAt = Date.now();
+        this.persistChatSessions();
+      }
+      return { success: false, botId: bot.id, error: failure };
+    } finally {
+      this.pendingBotRequests.delete(bot.id);
+    }
   }
 
   closeSpecialistBotModal() {
@@ -2935,98 +3051,74 @@ class ZeroBrowserApp {
   }
 
   async launchSpecialistBotFromModal() {
-    const presets = this.specialistPresets || this.getSpecialistPresets();
-    const preset = presets.find((p) => p.id === this.selectedSpecialistPresetId) || presets[0];
-    if (!preset) return;
-    const name = (document.getElementById('bot-specialist-name')?.value || preset.defaultName || 'Bot Especialista').trim();
-    const rawUrl = (document.getElementById('bot-specialist-url')?.value || preset.defaultUrl || 'about:blank').trim();
-    const goal = (document.getElementById('bot-specialist-goal')?.value || preset.goal || '').trim();
-    const executionMode = document.getElementById('bot-mode-dedicated')?.checked
-      ? 'dedicated-tab'
-      : 'background-auto-foreground';
-    this.closeSpecialistBotModal();
-    return this.launchSpecialistBot({
-      name,
-      specialty: preset.id,
-      specialtyTitle: preset.title,
-      defaultUrl: rawUrl,
-      goal,
-      permission: preset.permission || 'somente-leitura',
-      executionMode,
-      accent: preset.accent || '#0254ec',
-      mascot: this.selectedSpecialistMascot
-    });
-  }
-
-  async launchSpecialistBot(spec = {}) {
-    const executionMode = spec.executionMode === 'dedicated-tab' ? 'dedicated-tab' : 'background-auto-foreground';
-    const isBackground = executionMode === 'background-auto-foreground';
-    const targetUrl = spec.defaultUrl && /^(https?:\/\/|about:blank|zero:\/\/newtab)/i.test(spec.defaultUrl)
-      ? spec.defaultUrl
-      : 'about:blank';
-
-    let createdTask = null;
-    if (window.zeroBrowser?.bots?.createTask) {
+    const nameInput = document.getElementById('bot-specialist-name');
+    const goalInput = document.getElementById('bot-specialist-goal');
+    const urlInput = document.getElementById('bot-specialist-url');
+    const name = nameInput.value.trim();
+    const goal = goalInput.value.trim();
+    const rawUrl = urlInput.value.trim();
+    const checkText = document.getElementById('bot-specialist-check').value.trim();
+    const priceProduct = document.getElementById('bot-specialist-price-product').value.trim();
+    const priceMaxRaw = document.getElementById('bot-specialist-price-max').value.trim();
+    if (Boolean(priceProduct) !== Boolean(priceMaxRaw)) {
+      this.showToast('Para monitorar preço, informe o produto e o valor máximo.', 'warning');
+      return;
+    }
+    const priceMax = priceMaxRaw ? Number(priceMaxRaw) : null;
+    if (priceMaxRaw && (!Number.isFinite(priceMax) || priceMax < 0)) {
+      this.showToast('Informe um preço máximo válido em reais.', 'warning');
+      return;
+    }
+    const modelCallsInput = document.getElementById('bot-specialist-model-calls');
+    const maxModelCalls = Number(modelCallsInput.value);
+    if (!Number.isInteger(maxModelCalls) || maxModelCalls < 1 || maxModelCalls > 100) {
+      this.showToast('Escolha entre 1 e 100 chamadas ao modelo por tarefa.', 'warning');
+      modelCallsInput.focus();
+      return null;
+    }
+    if (!name || !goal) {
+      this.showToast('Informe o nome e a missão do bot.', 'warning');
+      (name ? goalInput : nameInput).focus();
+      return null;
+    }
+    let url = 'about:blank';
+    if (rawUrl) {
       try {
-        createdTask = await window.zeroBrowser.bots.createTask({
-          name: spec.name || 'Bot Especialista',
-          specialty: spec.specialty || 'custom-specialist',
-          specialtyTitle: spec.specialtyTitle || 'Especialista',
-          executionMode,
-          defaultUrl: targetUrl,
-          accent: spec.accent || '#0254ec',
-          mascot: spec.mascot,
-          goal: spec.goal || '',
-          permission: spec.permission || 'somente-leitura'
-        });
-      } catch {}
-    }
-
-    const botId = createdTask?.id || `bot-spec-${Date.now()}`;
-    const botMeta = {
-      botId,
-      name: spec.name || createdTask?.name || 'Bot Especialista',
-      specialty: spec.specialty || 'custom-specialist',
-      specialtyTitle: spec.specialtyTitle || createdTask?.specialtyTitle || 'Especialista',
-      executionMode,
-      accent: spec.accent || createdTask?.accent || '#0254ec',
-      mascot: spec.mascot || createdTask?.mascot || null,
-      goal: spec.goal || createdTask?.goal || '',
-      shortBadge: (spec.name || 'Bot').replace(/^Bot\s+/i, '').slice(0, 14)
-    };
-
-    const previousActiveTabId = this.activeTabId;
-    const botTabId = await this.createTab(targetUrl, {
-      background: isBackground,
-      botMeta
-    });
-    if (botTabId) {
-      botMeta.tabId = botTabId;
-      this.specialistBots.set(botId, botMeta);
-      if (isBackground && previousActiveTabId && previousActiveTabId !== botTabId) {
-        this.activeTabId = previousActiveTabId;
+        const parsed = new URL(rawUrl);
+        if (!['http:', 'https:'].includes(parsed.protocol) || parsed.username || parsed.password) throw new Error('Endereço inválido');
+        url = parsed.href;
+      } catch {
+        this.showToast('Informe um endereço completo que comece com http:// ou https://.', 'warning');
+        urlInput.focus();
+        return null;
       }
     }
-
-    this.recordActionReceipt({
-      title: `${botMeta.name} (${botMeta.specialtyTitle})`,
-      detail: isBackground
-        ? 'Em 2º plano · trará a aba para frente ao atingir a meta ou precisar de você'
-        : 'Aba dedicada aberta e ativa'
-    });
-
-    if (isBackground) {
-      this.showToast(`${botMeta.name} iniciado em 2º plano. Ele trará a aba para frente quando atingir a meta ou precisar de você.`, 'info');
-    } else {
-      this.switchBotPanelTab('chat');
-      if (this.elements.aiInput && botMeta.goal) {
-        this.elements.aiInput.value = botMeta.goal;
-        this.elements.aiInput.focus();
-      }
-      this.showToast(`${botMeta.name} aberto em uma nova aba do perfil atual.`, 'success');
+    const button = document.getElementById('btn-specialist-launch');
+    button.disabled = true;
+    try {
+      const created = await window.zeroBrowser.bots.createTask({
+        name, goal, defaultUrl: url, specialty: 'custom-specialist', specialtyTitle: 'Bot',
+        permission: 'somente-leitura', executionMode: 'background-auto-foreground',
+        limits: { maxModelCalls },
+        accent: '#0254ec', mascot: this.selectedSpecialistMascot,
+        ...((checkText || priceProduct) ? { verificationChecks: [
+          ...(checkText ? [{ kind: 'text', value: checkText }] : []),
+          ...(priceProduct ? [{ kind: 'currencyAtMost', value: priceProduct, max: priceMax, currency: 'BRL' }] : [])
+        ] } : {})
+      });
+      if (!created?.id) throw new Error('Bot não salvo');
+      await this.refreshSpecialistTasksFromStore();
+      this.closeSpecialistBotModal();
+      this.selectSpecialistBot(created);
+      this.showDelegationTab('chat');
+      this.showToast(`${created.name} criado. A missão ainda não foi iniciada.`, 'success');
+      return { botId: created.id, tabId: null };
+    } catch {
+      this.showToast('Não foi possível criar o bot. Tente novamente.', 'error');
+      return null;
+    } finally {
+      button.disabled = false;
     }
-
-    return { botId, tabId: botTabId, executionMode, botMeta };
   }
 
   bringSpecialistBotToFront(botIdOrTabId, reason = 'goal_reached') {
@@ -3091,17 +3183,12 @@ class ZeroBrowserApp {
     document.querySelector('.ai-input-area')?.classList.toggle('hidden', !isChat);
     const agendaView = document.getElementById('bot-view-agenda');
     const memoryView = document.getElementById('bot-view-memory');
-    const routesView = document.getElementById('bot-view-routes');
     const historyView = document.getElementById('bot-view-history');
     const inDetails = tabName === 'details';
-    agendaView?.classList.toggle('hidden', !inDetails);
-    memoryView?.classList.toggle('hidden', !inDetails);
-    routesView?.classList.toggle('hidden', !inDetails);
-    historyView?.classList.toggle('hidden', !inDetails);
+    document.getElementById('bot-details')?.classList.toggle('hidden', !inDetails);
     if (inDetails) {
       this.renderBotAgendaView(agendaView);
       this.renderBotMemoryView(memoryView);
-      this.renderBotRoutesView(routesView);
       this.renderBotHistoryView(historyView);
     }
   }
@@ -3109,269 +3196,119 @@ class ZeroBrowserApp {
   async renderBotAgendaView(container) {
     if (!container) return;
     container.replaceChildren();
-    const bot = this.activeSpecialistBot || (this.storedSpecialistTasks || [])[0];
-    const botId = bot?.id || 'bot-default-price';
-
-    // 1. Rotinas por horário
-    const header = document.createElement('div');
-    header.className = 'bot-subview-header';
-    const title = document.createElement('strong');
-    title.textContent = 'Rotinas agendadas deste Bot';
-    const addBtn = document.createElement('button');
-    addBtn.type = 'button';
-    addBtn.className = 'btn-ghost';
-    addBtn.textContent = '+ Agendar tarefa';
-    addBtn.addEventListener('click', () => {
-      const taskName = window.prompt('Qual tarefa o Bot deve repetir em somente leitura?', 'Verificar variações de preço');
-      if (taskName && taskName.trim() && window.zeroBrowser?.bots?.createTask) {
-        window.zeroBrowser.bots.createTask({ name: taskName.trim().slice(0, 80), goal: taskName.trim().slice(0, 80), permission: 'somente-leitura', schedule: { enabled: true, kind: 'daily', dailyAt: '09:00' } }).catch(() => {});
+    const bot = this.activeSpecialistBot;
+    const heading = document.createElement('h3');
+    heading.textContent = 'Rotina';
+    container.appendChild(heading);
+    if (!bot?.id) {
+      const message = document.createElement('p');
+      message.textContent = 'Escolha um bot para ver sua rotina.';
+      container.appendChild(message);
+      return;
+    }
+    const schedule = bot.schedule || {};
+    const status = document.createElement('p');
+    if (!schedule.enabled) status.textContent = 'A rotina está desligada. O bot só trabalha quando você iniciar uma tarefa.';
+    else if (schedule.kind === 'daily') status.textContent = `Ligada: todos os dias às ${schedule.dailyAt || '09:00'}, no horário deste computador.`;
+    else status.textContent = `Rotina ligada (${schedule.kind || 'tipo não informado'}). Desligue-a antes de escolher outro horário.`;
+    const form = document.createElement('form');
+    form.className = 'bot-schedule-form';
+    const label = document.createElement('label');
+    label.textContent = 'Horário diário';
+    const time = document.createElement('input');
+    time.type = 'time';
+    time.required = true;
+    time.value = /^([01]\d|2[0-3]):[0-5]\d$/.test(schedule.dailyAt || '') ? schedule.dailyAt : '09:00';
+    label.appendChild(time);
+    const note = document.createElement('p');
+    note.textContent = 'A rotina pode chamar o modelo configurado e gerar custos. O limite de gasto ainda não é aplicado às chamadas de IA. Se o horário de hoje já passou, ela pode começar em seguida.';
+    const save = document.createElement('button');
+    save.type = 'submit';
+    save.className = 'btn-primary';
+    save.textContent = schedule.enabled ? 'Salvar horário diário' : 'Ativar rotina diária';
+    const disable = document.createElement('button');
+    disable.type = 'button';
+    disable.className = 'btn-secondary';
+    disable.textContent = 'Desligar rotina';
+    disable.hidden = !schedule.enabled;
+    const update = async (enabled) => {
+      save.disabled = true;
+      disable.disabled = true;
+      try {
+        const updated = await window.zeroBrowser.bots.updateSchedule(bot.id, enabled, time.value);
+        if (!updated?.id) throw new Error('A agenda não respondeu.');
+        await this.refreshSpecialistTasksFromStore();
+        this.showToast(enabled ? 'Rotina diária salva.' : 'Rotina desligada.', 'success');
+        if (this.activeSpecialistBot?.id === bot.id) this.renderBotAgendaView(container);
+      } catch {
+        this.showToast('Não foi possível salvar a rotina. Tente novamente.', 'error');
+        save.disabled = false;
+        disable.disabled = false;
       }
-      if (!taskName || !taskName.trim()) return;
-      this.botAgendaItems.unshift({
-        id: `ag-${Date.now()}`,
-        title: taskName.trim().slice(0, 80),
-        cadence: 'Diariamente às 09:00',
-        mode: 'Somente leitura',
-        active: true
-      });
-      this.renderBotAgendaView(container);
-    });
-    header.append(title, addBtn);
-    container.appendChild(header);
-    for (const item of this.botAgendaItems) {
-      const card = document.createElement('div');
-      card.className = 'ai-receipt-card';
-      const copy = document.createElement('div');
-      copy.className = 'ai-receipt-copy';
-      const h = document.createElement('strong');
-      h.textContent = item.title;
-      const meta = document.createElement('span');
-      meta.textContent = `${item.cadence} · ${item.mode} · ${item.active ? 'Ativa' : 'Pausada'}`;
-      copy.append(h, meta);
-      const toggle = document.createElement('button');
-      toggle.type = 'button';
-      toggle.className = 'btn-ghost btn-undo-receipt';
-      toggle.textContent = item.active ? 'Pausar' : 'Retomar';
-      toggle.addEventListener('click', () => {
-        item.active = !item.active;
-        this.renderBotAgendaView(container);
-      });
-      card.append(copy, toggle);
-      container.appendChild(card);
-    }
-
-    // 2. Gatilhos por Evento (Mudança na página / Preço abaixo da meta / E-mail urgente)
-    let triggers = [];
-    if (window.zeroBrowser?.bots?.listTriggers) {
-      triggers = await window.zeroBrowser.bots.listTriggers().catch(() => []);
-    }
-    const trigCard = document.createElement('div');
-    trigCard.className = 'grokbot-central-card';
-    const trigTitle = document.createElement('h4');
-    trigTitle.textContent = `Gatilhos por Evento (${triggers.length})`;
-    const trigSub = document.createElement('p');
-    trigSub.textContent = 'Dispara o Bot em 2º plano quando o preço cai, a página muda ou chega e-mail urgente.';
-    const trigActions = document.createElement('div');
-    trigActions.className = 'grokbot-central-actions';
-    for (const [evType, evLabel] of [
-      ['price-below-target', '+ Meta de Preço'],
-      ['page-changed', '+ Mudança na Página'],
-      ['new-email', '+ E-mail Urgente']
-    ]) {
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.className = 'btn-ghost';
-      b.textContent = evLabel;
-      b.addEventListener('click', async () => {
-        if (window.zeroBrowser?.bots?.registerTrigger) {
-          await window.zeroBrowser.bots.registerTrigger({ botId, eventType: evType, targetPrice: 2500 }).catch(() => {});
-          this.showToast(`Gatilho registrado: ${evLabel}`, 'success');
-          this.renderBotAgendaView(container);
-        }
-      });
-      trigActions.appendChild(b);
-    }
-    trigCard.append(trigTitle, trigSub, trigActions);
-    container.appendChild(trigCard);
-
-    // 3. Mandato Delegado com Envelope (valor máximo R$, validade, usos)
-    let mandate = null;
-    if (window.zeroBrowser?.bots?.getMandate) {
-      mandate = await window.zeroBrowser.bots.getMandate(botId).catch(() => null);
-    }
-    const mandateCard = document.createElement('div');
-    mandateCard.className = 'grokbot-central-card';
-    const mTitle = document.createElement('h4');
-    mTitle.textContent = 'Mandato Delegado com Envelope';
-    const mDesc = document.createElement('p');
-    mDesc.textContent = mandate && !mandate.revoked
-      ? `Ativo: ação "${mandate.allowedAction}" · teto R$ ${Number(mandate.maxAmountBrl ?? mandate.maxAmountBRL ?? 0).toFixed(2)} · usos ${mandate.usedCount}/${mandate.maxUses}`
-      : 'Sem mandato ativo. Emita um envelope com limite em R$, prazo e número máximo de usos.';
-    const mActions = document.createElement('div');
-    mActions.className = 'grokbot-central-actions';
-    const mBtn = document.createElement('button');
-    mBtn.type = 'button';
-    mBtn.className = 'btn-ghost';
-    mBtn.textContent = 'Emitir envelope (R$ 200 · 1 uso)';
-    mBtn.addEventListener('click', async () => {
-      if (window.zeroBrowser?.bots?.createMandate) {
-        await window.zeroBrowser.bots.createMandate({
-          botId,
-          allowedAction: 'reserve-price-offer',
-          maxAmountBRL: 200,
-          maxUses: 1
-        }).catch(() => {});
-        this.showToast('Mandato com envelope emitido (teto R$ 200,00 · 1 uso).', 'success');
-        this.renderBotAgendaView(container);
-      }
-    });
-    mActions.appendChild(mBtn);
-    mandateCard.append(mTitle, mDesc, mActions);
-    container.appendChild(mandateCard);
-
-    // 4. Tarefa Agendada do Windows (Zero fechado)
-    if (window.zeroBrowser?.bots?.getWindowsTaskSpec) {
-      const winSpec = await window.zeroBrowser.bots.getWindowsTaskSpec(botId).catch(() => null);
-      if ((winSpec?.schtasksCommand || winSpec?.schtasksCreateCommand)) {
-        const winCard = document.createElement('div');
-        winCard.className = 'grokbot-central-card';
-        const wTitle = document.createElement('h4');
-        wTitle.textContent = 'Execução com Zero Fechado (Agendador do Windows)';
-        const wDesc = document.createElement('p');
-        wDesc.textContent = `Tarefa: ${winSpec.taskName} · Horário: ${(winSpec.time || winSpec.dailyAt || "09:00")}`;
-        const wActions = document.createElement('div');
-        wActions.className = 'grokbot-central-actions';
-        const copyCmdBtn = document.createElement('button');
-        copyCmdBtn.type = 'button';
-        copyCmdBtn.className = 'btn-ghost';
-        copyCmdBtn.textContent = 'Copiar comando schtasks';
-        copyCmdBtn.addEventListener('click', () => {
-          this.copiarTexto((winSpec.schtasksCommand || winSpec.schtasksCreateCommand));
-          this.showToast('Comando do Agendador de Tarefas do Windows copiado.', 'success');
-        });
-        wActions.appendChild(copyCmdBtn);
-        winCard.append(wTitle, wDesc, wActions);
-        container.appendChild(winCard);
-      }
-    }
+    };
+    form.addEventListener('submit', (event) => { event.preventDefault(); update(true); });
+    disable.addEventListener('click', () => update(false));
+    form.append(label, note, save, disable);
+    container.append(status, form);
   }
 
   async renderBotMemoryView(container) {
     if (!container) return;
     container.replaceChildren();
-    await this.refreshSpecialistTasksFromStore();
     const bot = this.activeSpecialistBot;
-
-    // 1. Escada de Autonomia Conquistada (Degrau 1 -> 2 -> 3)
-    const stepCard = document.createElement('div');
-    stepCard.className = 'grokbot-central-card';
-    const stepNames = {
-      1: 'Degrau 1 · Somente Leitura e Pesquisa',
-      2: 'Degrau 2 · Preparar Rascunho / Formulário (sem enviar)',
-      3: 'Degrau 3 · Execução com Envelope e Recibo Desfazer'
-    };
-    const currentStep = Number(bot?.autonomyStep || 1);
-    const sTitle = document.createElement('h4');
-    sTitle.textContent = `Autonomia Conquistada: ${stepNames[currentStep] || stepNames[1]}`;
-    const sDesc = document.createElement('p');
-    sDesc.textContent = 'Todo Bot nasce no Degrau 1. A subida de degrau exige histórico limpo e confirmação humana explícita.';
-    const sActions = document.createElement('div');
-    sActions.className = 'grokbot-central-actions';
-    if (currentStep < 3 && bot?.id) {
-      const promoteBtn = document.createElement('button');
-      promoteBtn.type = 'button';
-      promoteBtn.className = 'btn-ghost';
-      promoteBtn.textContent = `Subir para Degrau ${currentStep + 1}`;
-      promoteBtn.addEventListener('click', async () => {
-        if (window.zeroBrowser?.bots?.promoteAutonomy) {
-          await window.zeroBrowser.bots.promoteAutonomy({ botId: bot.id, targetStep: currentStep + 1, confirmedByUser: true }).catch(() => {});
-          await this.refreshSpecialistTasksFromStore();
-          this.showToast(`Bot promovido para o Degrau ${currentStep + 1}.`, 'success');
-          this.renderBotMemoryView(container);
-        }
-      });
-      sActions.appendChild(promoteBtn);
-    }
-    stepCard.append(sTitle, sDesc, sActions);
-    container.appendChild(stepCard);
-
-    // 2. O que este Bot sabe (Memória isolada protegida pelo Firewall de Intenção)
-    const botMemCard = document.createElement('div');
-    botMemCard.className = 'grokbot-central-card';
-    const bmTitle = document.createElement('h4');
-    bmTitle.textContent = `O que ${bot?.name || 'este Bot'} sabe (${(bot?.memory || []).length})`;
-    const bmDesc = document.createElement('p');
-    bmDesc.textContent = 'Protegido pelo Firewall de Intenção: conteúdo de páginas nunca pode gravar regras aqui.';
-    const inputRow = document.createElement('div');
-    inputRow.className = 'grokbot-input-row';
-    const memInput = document.createElement('input');
-    memInput.type = 'text';
-    memInput.placeholder = 'Adicionar preferência ou regra para este Bot…';
-    const memSave = document.createElement('button');
-    memSave.type = 'button';
-    memSave.className = 'btn-ghost';
-    memSave.textContent = 'Salvar';
-    memSave.addEventListener('click', async () => {
-      const note = memInput.value.trim();
-      if (!note || !bot?.id) return;
-      if (window.zeroBrowser?.bots?.addMemory) {
-        const res = await window.zeroBrowser.bots.addMemory({ botId: bot.id, note, source: 'user' }).catch(() => null);
-        if (res?.ok === false) {
-          this.showToast(res.error || 'Bloqueado pelo Firewall de Intenção.', 'error');
-          return;
-        }
-      }
-      memInput.value = '';
-      await this.refreshSpecialistTasksFromStore();
-      this.showToast('Memória salva no Bot Especialista.', 'success');
-      this.renderBotMemoryView(container);
-    });
-    inputRow.append(memInput, memSave);
-    botMemCard.append(bmTitle, bmDesc, inputRow);
-    for (const fact of bot?.memory || []) {
-      const item = document.createElement('div');
-      item.className = 'grokbot-central-item';
-      const span = document.createElement('span');
-      span.textContent = typeof fact === "string" ? fact : (fact?.text || fact?.value || JSON.stringify(fact));
-      const badge = document.createElement('span');
-      badge.className = 'grokbot-pill';
-      badge.textContent = 'Origem: Você';
-      item.append(span, badge);
-      botMemCard.appendChild(item);
-    }
-    container.appendChild(botMemCard);
-
-    // 3. Memória de fatos por site do perfil
-    let memories = [];
-    try {
-      memories = await window.zeroBrowser.automation.memory('list');
-    } catch {}
-    const header = document.createElement('div');
-    header.className = 'bot-subview-header';
-    const title = document.createElement('strong');
-    title.textContent = `Memória isolada (${memories.length})`;
-    header.appendChild(title);
-    container.appendChild(header);
-    if (!memories.length) {
-      const empty = document.createElement('p');
-      empty.className = 'ai-memory-empty';
-      empty.textContent = 'Nenhum fato salvo neste perfil. Somente dados de origem do usuário ou aprovados entram na memória.';
-      container.appendChild(empty);
+    const title = document.createElement('h3');
+    title.textContent = 'O que este bot lembra';
+    container.appendChild(title);
+    if (!bot?.id) {
+      const message = document.createElement('p');
+      message.textContent = 'Escolha um bot para ver sua memória.';
+      container.appendChild(message);
       return;
     }
-    for (const mem of memories) {
-      const card = document.createElement('div');
-      card.className = 'ai-receipt-card';
-      const copy = document.createElement('div');
-      copy.className = 'ai-receipt-copy';
-      const h = document.createElement('strong');
-      h.textContent = mem.text || '';
-      const meta = document.createElement('span');
-      meta.textContent = `${mem.origin || 'geral'} · origem verificada`;
-      copy.append(h, meta);
-      card.appendChild(copy);
-      container.appendChild(card);
+    const form = document.createElement('form');
+    form.className = 'bot-memory-form';
+    const label = document.createElement('label');
+    label.textContent = 'Adicionar uma informação';
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.maxLength = 500;
+    input.required = true;
+    input.placeholder = 'Uma preferência ou instrução para este bot';
+    label.appendChild(input);
+    const save = document.createElement('button');
+    save.type = 'submit';
+    save.className = 'btn-secondary';
+    save.textContent = 'Salvar';
+    form.append(label, save);
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const value = input.value.trim();
+      if (!value) return;
+      save.disabled = true;
+      try {
+        const result = await window.zeroBrowser.bots.addMemory(bot.id, value);
+        if (!result?.id) throw new Error('A memória não foi salva.');
+        await this.refreshSpecialistTasksFromStore();
+        this.showToast('Informação salva.', 'success');
+        if (this.activeSpecialistBot?.id === bot.id) this.renderBotMemoryView(container);
+      } catch {
+        this.showToast('Não foi possível salvar a informação.', 'error');
+        save.disabled = false;
+      }
+    });
+    const list = document.createElement('ul');
+    list.className = 'bot-memory-list';
+    for (const fact of bot.memory || []) {
+      const item = document.createElement('li');
+      item.textContent = typeof fact === 'string' ? fact : String(fact?.text || '');
+      list.appendChild(item);
     }
+    if (!list.childElementCount) {
+      const empty = document.createElement('p');
+      empty.textContent = 'Nenhuma informação salva para este bot.';
+      container.appendChild(empty);
+    } else container.appendChild(list);
+    container.appendChild(form);
   }
 
   async renderBotRoutesView(container) {
@@ -3453,21 +3390,25 @@ class ZeroBrowserApp {
     container.replaceChildren();
     const botHistory = this.activeSpecialistBot?.history || [];
     const allReceipts = [
-      ...this.actionReceipts,
+      ...this.actionReceipts.map((receipt) => ({
+        ...receipt,
+        needsAttention: ['error', 'warning'].includes(receipt.kind)
+      })),
       ...botHistory.map((h) => ({
-        id: h.id,
-        title: `${this.activeSpecialistBot?.name || 'Bot'}: ${h.summary || h.status}`,
-        detail: `${h.durationMs || 0} ms · ${h.usedDeterministicRecipe ? 'Receita sem modelo (0 tokens)' : `${h.tokensUsed || 0} tokens`} · SHA-256: ${String(h.receiptHash || '').slice(0, 12)}`
+        id: h.runId,
+        title: `${this.activeSpecialistBot?.name || 'Bot'}: ${h.error || h.summary || h.status}`,
+        detail: `${h.startedAt ? new Date(h.startedAt).toLocaleString() + ' · ' : ''}${h.durationMs || 0} ms · ${h.tokensUsed > 0 ? `${h.tokensUsed} tokens informados` : 'Consumo não comprovado'}${h.receiptHash ? ` · SHA-256: ${String(h.receiptHash).slice(0, 12)}` : ''}`,
+        needsAttention: ['failed', 'stopped_limit', 'needs_attention', 'blocked'].includes(h.status)
       }))
     ];
     const header = document.createElement('div');
     header.className = 'bot-subview-header';
     const title = document.createElement('strong');
-    title.textContent = `Recibos de execução (${allReceipts.length})`;
+    title.textContent = `Recibos do bot e ações da sessão (${allReceipts.length})`;
     const exportBtn = document.createElement('button');
     exportBtn.type = 'button';
     exportBtn.className = 'btn-ghost';
-    exportBtn.textContent = 'Exportar recibos';
+    exportBtn.textContent = 'Copiar todos';
     exportBtn.addEventListener('click', () => {
       const payload = JSON.stringify(allReceipts, null, 2);
       this.copiarTexto(payload);
@@ -3482,19 +3423,59 @@ class ZeroBrowserApp {
       container.appendChild(empty);
       return;
     }
-    for (const rec of allReceipts) {
-      const card = document.createElement('div');
-      card.className = 'ai-receipt-card';
-      const copy = document.createElement('div');
-      copy.className = 'ai-receipt-copy';
-      const h = document.createElement('strong');
-      h.textContent = rec.title;
-      const meta = document.createElement('span');
-      meta.textContent = rec.detail || 'Auditado';
-      copy.append(h, meta);
-      card.appendChild(copy);
-      container.appendChild(card);
-    }
+    const controls = document.createElement('div');
+    controls.className = 'bot-history-controls';
+    const searchLabel = document.createElement('label');
+    searchLabel.textContent = 'Buscar nos recibos';
+    const search = document.createElement('input');
+    search.type = 'search';
+    search.placeholder = 'Buscar por descrição';
+    this.botHistoryFilters ||= {};
+    const filterKey = this.activeSpecialistBot?.id || 'session';
+    const savedFilter = this.botHistoryFilters[filterKey] || {};
+    search.value = savedFilter.query || '';
+    searchLabel.appendChild(search);
+    const filterLabel = document.createElement('label');
+    filterLabel.className = 'bot-history-filter';
+    const filter = document.createElement('input');
+    filter.type = 'checkbox';
+    filter.checked = savedFilter.attention === true;
+    filterLabel.append(filter, document.createTextNode('Precisa de atenção'));
+    controls.append(searchLabel, filterLabel);
+    const results = document.createElement('div');
+    results.className = 'bot-history-results';
+    const status = document.createElement('p');
+    status.className = 'bot-history-status';
+    status.setAttribute('role', 'status');
+    const renderResults = () => {
+      this.botHistoryFilters[filterKey] = { query: search.value, attention: filter.checked };
+      const query = search.value.trim().toLocaleLowerCase();
+      const visible = allReceipts.filter((rec) => (!filter.checked || rec.needsAttention) && `${rec.title || ''} ${rec.detail || ''}`.toLocaleLowerCase().includes(query));
+      results.replaceChildren();
+      status.textContent = visible.length ? `${visible.length} ${visible.length === 1 ? 'recibo encontrado' : 'recibos encontrados'}` : 'Nenhum recibo corresponde aos filtros.';
+      for (const rec of visible) {
+        const card = document.createElement('div');
+        card.className = 'ai-receipt-card';
+        const copy = document.createElement('div');
+        copy.className = 'ai-receipt-copy';
+        const h = document.createElement('strong');
+        h.textContent = rec.title;
+        const meta = document.createElement('span');
+        meta.textContent = rec.detail || 'Auditado';
+        copy.append(h, meta);
+        if (rec.needsAttention) {
+          const attention = document.createElement('span');
+          attention.textContent = 'Precisa de atenção';
+          copy.appendChild(attention);
+        }
+        card.appendChild(copy);
+        results.appendChild(card);
+      }
+    };
+    search.addEventListener('input', renderResults);
+    filter.addEventListener('change', renderResults);
+    container.append(controls, status, results);
+    renderResults();
   }
 
   async openExtensionsManager() {
@@ -3763,7 +3744,7 @@ class ZeroBrowserApp {
 
     try {
       const saved = await window.zeroBrowser.ai.saveConfig({ provider, model, apiKey: apiKey || undefined });
-      if (!saved.hasApiKey) throw new Error(`Informe a chave API do ${provider === 'openai' ? 'OpenAI' : provider === 'deepseek' ? 'DeepSeek' : 'OpenRouter'}`);
+      if (provider !== 'ollama' && !saved.hasApiKey) throw new Error(`Informe a chave API do ${provider === 'openai' ? 'OpenAI' : provider === 'deepseek' ? 'DeepSeek' : 'OpenRouter'}`);
       const result = await window.zeroBrowser.automation.runAgent(this.activeTabId, 'Use inspect_page exatamente uma vez para confirmar que as chamadas de ferramenta funcionam. Não clique, navegue ou altere nada.', true, true);
       if (!result.success) throw new Error(result.error);
       this.aiConnected = true;
@@ -3786,7 +3767,7 @@ class ZeroBrowserApp {
     const provider = this.elements.aiProvider.value;
     const model = this.elements.aiModel.value;
     const config = this.aiProviderConfigs.get(provider);
-    if (!config?.hasApiKey || !model) return false;
+    if ((!config?.hasApiKey && provider !== 'ollama') || !model) return false;
     if (config.model !== model) this.aiProviderConfigs.set(provider, await window.zeroBrowser.ai.saveConfig({ provider, model }));
     this.aiConnected = true;
     return true;
@@ -4047,6 +4028,12 @@ class ZeroBrowserApp {
       this.showToast('Escreva a tarefa que o agente deve executar.', 'warning');
       this.elements.aiInput?.focus();
       return { success: false, error: 'Tarefa vazia' };
+    }
+    if (bot) {
+      if (this.activeSpecialistBot?.id !== bot.id || this.chatSession?.botId !== bot.id) this.selectSpecialistBot(bot, { routeMode: 'specialist' });
+      if (customPrompt === null && this.elements.aiInput) this.elements.aiInput.value = '';
+      this.showDelegationTab('chat');
+      return this.runBotRequest(bot, promptText);
     }
     const shortName = bot
       ? (String(bot.name || 'Bot especialista').replace(/^Bot\s+(Caçador\s+de\s+|Radar\s+de\s+|Triagem\s+)?/i, '') || 'Bot especialista')
@@ -4478,6 +4465,11 @@ class ZeroBrowserApp {
     const text = this.elements.aiInput.value.trim();
     if (!resumeId && !text) return;
     const route = this.prepareExecutionRoute(text, resumeId);
+    if (!resumeId && route.kind === 'specialist') {
+      this.elements.aiInput.value = '';
+      this.updateOrchestratorRouteStatus('');
+      return this.runBotRequest(route.bot, text);
+    }
 
     this.aiRunning = true;
     this.runningAgentTabId = this.activeTabId;

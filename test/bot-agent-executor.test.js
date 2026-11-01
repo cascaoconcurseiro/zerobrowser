@@ -17,6 +17,50 @@ function makeBot(store, extra = {}) {
   });
 }
 
+test('contrato de verificação passa pelo agente e só registra sucesso quando o host confirma', async () => {
+  const store = new BotTaskStore();
+  const bot = makeBot(store);
+  const checks = [{ kind: 'text', value: 'Pedido confirmado' }];
+  let verdict = true;
+  let received;
+  const executor = createAgentStepExecutor({
+    createBackgroundTab: async () => ({ tabId: 'verify-tab' }),
+    closeTab: async () => true,
+    getAgentConfig: async () => ({ provider: 'ollama', model: 'fixture' }),
+    runAgent: async (...args) => {
+      received = args[7];
+      return { success: true, message: 'Terminei', verification: { ok: verdict, results: [{ kind: 'text', ok: verdict, detail: 'texto ausente' }] } };
+    }
+  });
+  const runner = new BotRunner({ store, stepExecutor: executor });
+  const step = { tool: AGENT_TASK_TOOL, verify: checks };
+  const verified = await runner.runBotNow(bot.id, { steps: [step] });
+  assert.deepEqual(received.verify, checks);
+  assert.equal(verified.taskVerified, true);
+  assert.equal(store.getBot(bot.id).verifiedSuccessCount, 1);
+  verdict = false;
+  const failed = await runner.runBotNow(bot.id, { steps: [step] });
+  assert.equal(failed.status, 'failed');
+  assert.match(failed.error, /verificação.*falhou/i);
+  assert.equal(failed.taskVerified, false);
+  assert.equal(store.getBot(bot.id).verifiedSuccessCount, 1);
+  const invalid = await runner.runBotNow(bot.id, { steps: [{ tool: AGENT_TASK_TOOL, verify: [] }] });
+  assert.equal(invalid.status, 'failed');
+  assert.match(invalid.error, /verificação inválida/i);
+});
+
+test('agenda entrega contrato persistido apenas para a missão do Bot', async () => {
+  const store = new BotTaskStore();
+  const checks = [{ kind: 'text', value: 'Preço' }];
+  const bot = makeBot(store, { verificationChecks: checks, schedule: { enabled: true, kind: 'interval', intervalHours: 1 } });
+  let received;
+  const scheduler = new BotScheduler({ store, runner: { runBotNow: async (_id, options) => { received = options.steps; return { status: 'completed' }; } } });
+  await scheduler.runMissedSchedulesOnce();
+  assert.deepEqual(received[0].verify, checks);
+  assert.deepEqual(store.getBot(bot.id).verificationChecks, checks);
+  assert.throws(() => makeBot(store, { verificationChecks: [] }), /verificação inválida/i);
+});
+
 test('executor entrega a missão ao agente, devolve resultado e fecha a aba oculta', async () => {
   const store = new BotTaskStore();
   const bot = makeBot(store);
@@ -42,6 +86,8 @@ test('executor entrega a missão ao agente, devolve resultado e fecha a aba ocul
   assert.equal(result.status, 'completed');
   assert.ok(result.receiptHash);
   assert.equal(result.output[0].summary, 'O notebook está por R$ 2.899 na loja.');
+  assert.equal(result.tokensUsed, null, 'uso real do modelo não é inventado');
+  assert.equal(result.spendUsd, null, 'custo real do modelo não é inventado');
   assert.deepEqual(calls.created, [bot.defaultUrl]);
   assert.deepEqual(calls.closed, ['tab-bot-1']);
 
@@ -58,6 +104,7 @@ test('executor entrega a missão ao agente, devolve resultado e fecha a aba ocul
   assert.equal(options.maxSteps, bot.limits.maxSteps);
   assert.equal(options.resumable, false);
   assert.equal(options.isolatedTabs, true);
+  assert.equal(options.botReadOnly, true);
 });
 
 test('falha do agente vira execução falha e ainda fecha a aba', async () => {
@@ -77,6 +124,25 @@ test('falha do agente vira execução falha e ainda fecha a aba', async () => {
   assert.equal(result.status, 'failed');
   assert.match(result.error, /não respondeu/);
   assert.deepEqual(closed, ['tab-bot-2']);
+});
+
+test('falha ao fechar a aba vira execução falha, sem registrar sucesso', async () => {
+  const store = new BotTaskStore();
+  const bot = makeBot(store);
+  let closeAttempts = 0;
+  const executor = createAgentStepExecutor({
+    createBackgroundTab: async () => ({ tabId: 'tab-close-error' }),
+    closeTab: async () => { closeAttempts++; throw new Error('A aba continua aberta.'); },
+    runAgent: async () => ({ success: true, message: 'Leitura terminada.' }),
+    getAgentConfig: async () => ({ provider: 'ollama', model: 'modelo-de-teste' })
+  });
+  const runner = new BotRunner({ store, stepExecutor: executor });
+
+  const result = await runner.runBotNow(bot.id, { steps: [{ tool: AGENT_TASK_TOOL }] });
+  assert.equal(result.status, 'failed');
+  assert.match(result.error, /não foi possível encerrar a aba/i);
+  assert.equal(closeAttempts, 2, 'uma segunda tentativa de fechamento é feita');
+  assert.equal(store.getBot(bot.id).verifiedSuccessCount, 0);
 });
 
 test('cancelar o Bot avisa o agente e fecha a aba', async () => {
@@ -111,6 +177,31 @@ test('cancelar o Bot avisa o agente e fecha a aba', async () => {
   assert.equal(result.status, 'stopped');
   assert.equal(cancelTabId, 'tab-bot-3');
   assert.deepEqual(closed, ['tab-bot-3']);
+});
+
+test('cancelamento durante abertura da aba não inicia o agente e fecha a aba', async () => {
+  const store = new BotTaskStore();
+  const bot = makeBot(store);
+  let finishOpening;
+  let startedOpening;
+  const opening = new Promise((resolve) => { startedOpening = resolve; });
+  const closed = [];
+  let agentCalled = false;
+  const executor = createAgentStepExecutor({
+    createBackgroundTab: () => { startedOpening(); return new Promise((resolve) => { finishOpening = resolve; }); },
+    closeTab: async (id) => { closed.push(id); },
+    runAgent: async () => { agentCalled = true; return { success: true }; },
+    getAgentConfig: async () => ({ provider: 'ollama', model: 'modelo-de-teste' })
+  });
+  const runner = new BotRunner({ store, stepExecutor: executor });
+  const pending = runner.runBotNow(bot.id, { steps: [{ tool: AGENT_TASK_TOOL }] });
+  await opening;
+  runner.stopAllBots();
+  finishOpening({ tabId: 'tab-opened-after-stop' });
+  assert.equal((await pending).status, 'stopped');
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(agentCalled, false);
+  assert.deepEqual(closed, ['tab-opened-after-stop']);
 });
 
 test('passo desconhecido não abre aba nem chama o agente', async () => {

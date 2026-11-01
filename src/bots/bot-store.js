@@ -175,6 +175,11 @@ class BotTaskStore {
     if (!name) {
       throw new Error('O Bot precisa de um nome.');
     }
+    if (spec.verificationChecks !== undefined) {
+      const { validateChecks } = require('../automation/task-verifier');
+      const invalid = validateChecks(spec.verificationChecks);
+      if (invalid) throw new Error(`Verificação inválida: ${invalid}`);
+    }
     const id = String(spec.id || `bot-task-${crypto.randomUUID().slice(0, 8)}`);
     const allowedSites = Array.isArray(spec.allowedSites)
       ? spec.allowedSites.map((s) => String(s).trim()).filter(Boolean)
@@ -185,7 +190,7 @@ class BotTaskStore {
       : [...READ_ONLY_TOOLS];
 
     const specialtyId = String(spec.specialty || spec.template || 'custom-specialist').trim();
-    const preset = SPECIALIST_BOT_PRESETS.find((p) => p.id === specialtyId) || SPECIALIST_BOT_PRESETS[SPECIALIST_BOT_PRESETS.length - 1];
+    const preset = SPECIALIST_BOT_PRESETS.find((p) => p.id === specialtyId) || null;
     const executionMode = spec.executionMode === EXECUTION_MODES.DEDICATED_TAB
       ? EXECUTION_MODES.DEDICATED_TAB
       : EXECUTION_MODES.BACKGROUND_AUTO_FOREGROUND;
@@ -195,15 +200,16 @@ class BotTaskStore {
       name,
       profileId: spec.profileId || null,
       template: spec.template || specialtyId,
-      specialty: preset.id,
-      specialtyTitle: String(spec.specialtyTitle || preset.title),
+      specialty: preset?.id || specialtyId,
+      specialtyTitle: String(spec.specialtyTitle || preset?.title || 'Bot'),
       executionMode,
       autoForegroundOnGoal: spec.autoForegroundOnGoal !== false,
       autoForegroundOnIntervention: spec.autoForegroundOnIntervention !== false,
-      defaultUrl: String(spec.defaultUrl || preset.defaultUrl || 'about:blank').trim(),
-      accent: String(spec.accent || preset.accent || '#168f72').trim(),
+      defaultUrl: String(spec.defaultUrl || preset?.defaultUrl || 'about:blank').trim(),
+      accent: String(spec.accent || preset?.accent || '#168f72').trim(),
       mascot: Number.isInteger(spec.mascot) && spec.mascot >= 1 && spec.mascot <= 40 ? spec.mascot : null,
-      goal: String(spec.goal || spec.objetivo || preset.goal || '').trim(),
+      goal: String(spec.goal || spec.objetivo || preset?.goal || '').trim(),
+      verificationChecks: spec.verificationChecks === undefined ? null : structuredClone(spec.verificationChecks),
       inputs: stripSecretsFromObject(spec.inputs || {}),
       allowedSites,
       permission,
@@ -211,6 +217,7 @@ class BotTaskStore {
       autonomyStep: 1, // Degrau 1 (somente leitura / sugestão) por padrão
       limits: {
         maxSteps: Math.max(1, Number(spec.limits?.maxSteps) || 15),
+        maxModelCalls: Math.max(1, Math.min(100, Number(spec.limits?.maxModelCalls) || 15)),
         maxDurationMs: Math.max(500, Number(spec.limits?.maxDurationMs) || 60_000),
         maxSpendUsd: Math.max(0, Number(spec.limits?.maxSpendUsd ?? 0.25)),
         monthlySpendCapUsd: Math.max(0, Number(spec.limits?.monthlySpendCapUsd ?? 5.0))
@@ -301,12 +308,13 @@ class BotTaskStore {
       startedAt: runEntry.startedAt || new Date().toISOString(),
       durationMs: Number(runEntry.durationMs) || 0,
       stepsExecuted: Number(runEntry.stepsExecuted) || 0,
-      tokensUsed: Number(runEntry.tokensUsed) || 0,
-      spendUsd: Number(runEntry.spendUsd) || 0,
+      tokensUsed: runEntry.tokensUsed == null ? null : Number(runEntry.tokensUsed) || 0,
+      spendUsd: runEntry.spendUsd == null ? null : Number(runEntry.spendUsd) || 0,
       usedRecipeOnly: Boolean(runEntry.usedRecipeOnly),
       output: redactSecrets(runEntry.output ?? null),
       error: runEntry.error || null,
       receiptHash: runEntry.receiptHash || null,
+      taskVerified: runEntry.taskVerified === true,
       shouldBringToFront: Boolean(runEntry.shouldBringToFront),
       bringToFrontReason: runEntry.bringToFrontReason || null
     };
@@ -314,7 +322,7 @@ class BotTaskStore {
     if (bot.history.length > MAX_HISTORY_ENTRIES) {
       bot.history.length = MAX_HISTORY_ENTRIES;
     }
-    if (normalized.status === 'completed' && !normalized.error) {
+    if (normalized.status === 'completed' && !normalized.error && normalized.taskVerified) {
       bot.verifiedSuccessCount += 1;
     } else if (normalized.status === 'failed' || normalized.status === 'blocked') {
       // Rebaixamento automático ao falhar

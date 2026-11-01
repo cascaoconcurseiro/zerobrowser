@@ -1103,8 +1103,15 @@ class AutomationService {
         text = await wc.executeJavaScript(`(document.body?.innerText||'').slice(0,30000)`).catch(() => '');
       }
     }
+    const priceChecks = checks.filter((check) => check.kind === 'currencyAtMost');
+    const priceEvidence = [];
+    if (wc && !wc.isDestroyed?.() && priceChecks.length) {
+      const labels = priceChecks.map((check) => check.value);
+      const script = `(() => { const labels=${JSON.stringify(labels)}; const visible=e=>{const r=e.getBoundingClientRect();const s=getComputedStyle(e);return r.width>0&&r.height>0&&s.visibility!=='hidden'&&s.display!=='none'}; const all=[...document.body.querySelectorAll('*')]; return labels.map(label=>{const q=label.toLocaleLowerCase(); const found=all.filter(e=>visible(e)&&typeof e.innerText==='string'&&e.innerText.toLocaleLowerCase().includes(q)&&e.innerText.includes('R$')).map(e=>({text:e.innerText.trim()})).filter(x=>x.text.length<=1200).sort((a,b)=>a.text.length-b.text.length); return {product:label,text:found[0]?.text||''};}); })()`;
+      try { const result = await wc.executeJavaScript(script); if (Array.isArray(result)) priceEvidence.push(...result); } catch {}
+    }
     const downloads = (this.browserControls.listDownloads?.() || []).filter((item) => (item.startedAt || 0) >= since);
-    return evaluateChecks(checks, { url, text: String(text || ''), downloads });
+    return evaluateChecks(checks, { url, text: String(text || ''), downloads, priceEvidence });
   }
 
   // Leitura/gravação determinística de intervalo A1; usada pela ferramenta sheets e por receitas.
@@ -2216,10 +2223,11 @@ class AutomationService {
           streaming: z.boolean().optional(),
           effectJournal: z.boolean().optional(),
           verify: z.array(z.object({
-            kind: z.enum(['url', 'text', 'absent', 'textCount', 'download']),
+            kind: z.enum(['url', 'text', 'absent', 'textCount', 'download', 'currencyAtMost']),
             value: z.string().max(500).optional(),
             min: z.number().int().min(0).optional(),
-            max: z.number().int().min(0).optional()
+            max: z.number().nonnegative().optional(),
+            currency: z.enum(['BRL']).optional()
           })).max(20).optional(),
           requireVerification: z.boolean().optional(),
           correctionRounds: z.number().int().min(0).max(3).optional(),

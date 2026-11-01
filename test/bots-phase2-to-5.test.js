@@ -20,6 +20,7 @@ test('BotScheduler executa tarefa perdida uma única vez ao iniciar e pausa Bots
     name: 'Resumo Diário',
     schedule: { enabled: true, kind: 'interval', intervalHours: 4 }
   });
+  store.bots.get(bot.id).createdAt = new Date(clock).toISOString();
 
   // 1ª verificação roda a execução pendente
   const firstPass = await scheduler.runMissedSchedulesOnce();
@@ -35,6 +36,21 @@ test('BotScheduler executa tarefa perdida uma única vez ao iniciar e pausa Bots
   clock += STALE_BOT_THRESHOLD_MS + 3_600_000;
   const paused = scheduler.pauseStaleBots(clock);
   assert.deepEqual(paused, [bot.id]);
+  assert.equal(store.getBot(bot.id).active, false);
+});
+
+test('preferência de pausa é consultada em cada ciclo do agendador', async () => {
+  const store = new BotTaskStore();
+  let clock = Date.UTC(2026, 9, 1);
+  let enabled = false;
+  const bot = store.createBot({ name: 'Rotina antiga' });
+  store.bots.get(bot.id).createdAt = new Date(clock).toISOString();
+  clock += STALE_BOT_THRESHOLD_MS + 1;
+  const scheduler = new BotScheduler({ store, runner: { runBotNow: async () => ({ status: 'completed' }) }, now: () => clock, shouldPauseStale: async () => enabled });
+  await scheduler.runScheduledTick();
+  assert.equal(store.getBot(bot.id).active, true);
+  enabled = true;
+  await scheduler.runScheduledTick();
   assert.equal(store.getBot(bot.id).active, false);
 });
 
