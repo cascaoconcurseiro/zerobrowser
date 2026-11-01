@@ -1,9 +1,9 @@
 # Checklist consolidado dos planos — 31/10/2026
 
-Tudo abaixo é **proposta**; nada foi implementado ainda, salvo onde estiver marcado `[x]`. Marcar só com evidência (teste, execução ou arquivo). Este arquivo está separado do `CHECKLIST.md` principal de propósito: a análise foi feita sobre a árvore principal (0.1.43-dev, 29 arquivos sem commit) e estes documentos nasceram numa cópia de trabalho. Para incorporar: copiar os documentos `docs/PLANO_*.md` e este arquivo para a pasta principal e acrescentar uma linha no topo do `HANDOFF.md` apontando para cá.
+Tudo abaixo é **proposta**; nada foi implementado ainda, salvo onde estiver marcado `[x]`. Marcar só com evidência (teste, execução ou arquivo). Este arquivo está separado do `CHECKLIST.md` principal de propósito. A análise original foi feita sobre a árvore principal na 0.1.43-dev; os documentos já foram incorporados a `docs/` da pasta principal em 31/10/2026 — o estado vigente está no topo do `HANDOFF.md`.
 
 ## Índice dos documentos
-Guia completo de leitura e ordem de construção para outra IA (GPT): `docs/LEIA_ME_PRIMEIRO_IA.md`. Além dos quatro abaixo, existem `PLANO_DESIGN_UX.md`, `PLANO_ROTAS_E_FIREWALL.md`, `PLANO_APPS_VIVOS.md`, `PLANO_NAVEGADOR_NATIVO_IA.md` e `PLANO_PARIDADE_E_SALTO.md`.
+**Direção, marcos e regras de simplicidade (ler primeiro): `docs/ROTEIRO_DO_MENTOR.md`.** Guia completo de leitura e ordem de construção para outra IA (GPT): `docs/LEIA_ME_PRIMEIRO_IA.md`. Além dos quatro abaixo, existem `PLANO_DESIGN_UX.md`, `PLANO_ROTAS_E_FIREWALL.md`, `PLANO_APPS_VIVOS.md`, `PLANO_NAVEGADOR_NATIVO_IA.md` e `PLANO_PARIDADE_E_SALTO.md`.
 
 - `docs/PLANO_SUPERAR_CONCORRENTES.md` — posicionamento, três afirmações a provar, portões.
 - `docs/PLANO_MOTOR.md` — velocidade, tokens e custo.
@@ -17,6 +17,7 @@ Guia completo de leitura e ordem de construção para outra IA (GPT): `docs/LEIA
 - [x] Filtrar a lista de modelos da OpenAI para chat com ferramentas (`src/automation/model-catalog.js`, `normalizeModel`, coberto em `test/model-catalog.test.js`).
 - [x] Backup da instalação antes de testar no pacote instalado (`backups/2026-10-31-before-0.1.52-install/`, 184 arquivos) e perfil principal preservado.
 - [x] Decidir a pasta de trabalho: documentos copiados de `analise-projeto-atual-bf8fc8` para `docs/` da árvore principal.
+- [x] Estado vigente em 31/10 (noite): `0.1.68-dev`, `main` em `80eaf1f`, árvore limpa (só `audit-*.txt`) e `npm test` 414/414. Roteiro do mentor incorporado (ver 4g).
 
 ## 1. Posicionamento e concorrentes (`PLANO_SUPERAR_CONCORRENTES.md`)
 - [ ] Confirmar o nicho: navegador-agente controlável para usuários técnicos.
@@ -117,6 +118,21 @@ Guia completo de leitura e ordem de construção para outra IA (GPT): `docs/LEIA
 - [ ] Rede de rotas opt-in: decidir só depois das fases 2 a 4.
 - [x] Limite de paridade e Desfazer como aposta principal aceitos pelo Wesley em 31/10/2026 (sincronização e app móvel adiados; implementação pendente).
 - [ ] Decidir: primeiras ações para o Desfazer (e-mail, compras, agenda).
+
+## 4g. Roteiro do mentor (`ROTEIRO_DO_MENTOR.md`)
+- [x] Documento de direção criado: produto em uma frase, estado real, alvo (o próprio Wesley), regras do mentor, regras de simplicidade, marcos 1 a 4, lista de cortes, design e pesquisa.
+- [x] Roteiro e seções novas incorporados à pasta principal em 31/10/2026 (documentos apenas; nenhum código alterado).
+- [x] Já corrigido antes do roteiro, não refazer: erro de ferramenta interrompe a execução e cancelamento entrega `AbortSignal` (`src/bots/runner.js`, `0.1.65-dev`); avatares em símbolo de traço (`0.1.67-dev`).
+- [ ] Marco 1: ligar o executor; bot de monitor de preço roda 7 dias seguidos com o Zero na bandeja (bandeja, abrir ao ligar o PC, rodar atrasados ao acordar). Medir antes: aba oculta com janela minimizada. Falta também o perfil isolado por tarefa.
+- [ ] Marco 2: uma frase cria o bot (ficha em formato fixo, validação, 3 tentativas, IA propõe e você aprova). Teste: 8 de 10 frases viram ficha correta.
+- [ ] Marco 3: uma rotina real do Wesley (sugestão: Polare) com recibo e Desfazer, tempo ganho medido.
+- [ ] Marco 4: painel novo simples e demonstração em vídeo; teste de 5 segundos 4 de 5.
+- [ ] Remover "GrokBot", "Perfis" e "Especialistas" do texto da interface; trocar emoji por símbolo de traço.
+- [ ] Mockup da criação de bot e do painel novo (aguarda decisão sobre sair do verde).
+- [ ] Estudar o gerenciador de permissões e a separação motor/interface do OpenMausBot (Apache-2.0; não usar `enterprise/`) antes de desenhar o recibo.
+- [ ] Testar `upload_file` de ponta a ponta com a pasta Downloads liberada.
+- [ ] Marcos 5 a 9 (e-mail, equipe de bots, servidor próprio, conectores e comunidade, desktop): só depois dos quatro primeiros; teste de cada um a definir quando chegar a vez.
+- [ ] Perguntas ao Wesley: rotina real do primeiro bot, loja do primeiro teste, PC ligado ou não, sair do verde, primeiras ações do Desfazer, pasta liberada para anexar.
 
 ## 5. Dependências do usuário
 - [ ] Teto de gasto com API e escolha do provedor (OpenRouter ou OpenAI) para o benchmark.

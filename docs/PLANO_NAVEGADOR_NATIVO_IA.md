@@ -35,6 +35,27 @@ Regras:
 - **Extensões do Zero:** pacotes com manifesto que podem declarar comandos, painéis, conectores, bots e modelos de app. Instalação em um clique, permissões listadas antes de ativar, ativação por perfil.
 - **Extensão criada pela IA:** o usuário descreve, a IA gera o pacote, o Zero mostra o que ele pede de permissão e o código em resumo legível, e só ativa com aprovação. Roda isolada.
 
+## 3b. Revisão de 31/10 (noite): itens da comunidade, e-mail, arquivos e desktop
+
+Direção geral em `ROTEIRO_DO_MENTOR.md`.
+
+**Quatro tipos de item que um usuário poderia adicionar (nada construído):**
+
+| Tipo | De onde | Risco |
+|---|---|---|
+| Extensões do Chrome | Chrome Web Store | O Electron só tem suporte parcial; fazer inventário do que roda |
+| Servidores MCP | Repositórios e catálogos da comunidade | **Alto:** é um programa rodando no PC com o acesso que você der |
+| Bots como arquivo (Markdown ou JSON) | Pasta de um repositório que você controla | Baixo (só texto), mas pode conter instruções maliciosas para a IA |
+| Rotas aprendidas e apps vivos | Compartilhamento de receitas de sites | Médio: uma rota alterada pode apontar para outro destino |
+
+Ordem: começar por bots como arquivo e rotas (dados, cobertos pelo firewall); MCP de terceiros depois e sempre com aprovação; loja comunitária só com usuários e revisão. Regras de instalação: sempre por escolha sua, nunca automática; antes de instalar mostrar o que o item pede (sites, arquivos, e-mail, envio); versão fixa com código de conferência (hash), atualização é nova aprovação; **núcleo intocável vale para tudo que vem de fora**; itens de terceiros começam com autonomia baixa. O OpenMausBot instala "times" por arquivo Markdown com tela de revisão, conexões desligadas e rotinas pausadas até aprovação: bom modelo.
+
+**Conectores de e-mail e agenda.** Hoje o código tem só dados de exemplo (`src/connectors/index.js`). Para e-mail ao vivo, ver `PLANO_BOTS.md` 0f (degraus de resposta, assinatura "pull" do Gmail, renovação a cada 7 dias). Telegram segue como primeiro canal de aviso e comando.
+
+**Arquivos do computador.** Anexar da pasta Downloads com `upload_file`, sem controlar o desktop; pasta liberada, recibo com nome e destino, o usuário decide o arquivo. Um conector de arquivos mais amplo (ler, salvar relatórios) usa a mesma regra: pasta liberada, só leitura de início, recibo antes de gravar.
+
+**Controle do desktop (clicar em qualquer programa).** Conector tardio, **desligado por padrão**, ligado por bot, só leitura no início, só em aplicativos que você liberar. Entra depois de o núcleo intocável estar provado no navegador (Marco 3 do roteiro). Motivos: sem pedido de rede para o firewall conferir, o Desfazer é mais difícil, é mais lento e quebra mais, e é onde outros produtos já competem.
+
 ## 4. A IA modifica o próprio navegador
 
 Camada de personalização que a IA pode criar e alterar: painéis, atalhos, temas, scripts por site, mini-apps (apps vivos). Regras:

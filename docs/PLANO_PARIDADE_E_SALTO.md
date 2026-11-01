@@ -65,6 +65,26 @@ Antes de ligar um bot novo ou depois de uma mudança do site, rodar o bot contra
 ### Peça 4 — Rotas e firewall
 Conforme `PLANO_ROTAS_E_FIREWALL.md`. A classe de reversibilidade vira um campo da ficha da rota.
 
+## 2b. Revisão de 31/10 (noite): o que o Grok Bot faz, só no navegador
+
+Direção geral em `ROTEIRO_DO_MENTOR.md`. Resumo; detalhes em `PLANO_BOTS.md` 0f. Descrições do Grok Bot vêm de terceiros.
+
+| O que o Grok Bot faz | No Zero, só no navegador |
+|---|---|
+| Bots com nome e conversa contínua | Sim (perfil isolado com histórico) |
+| Rotinas agendadas com histórico | Sim, quando o executor for ligado |
+| Gravar tarefa (Teach a Task) | Sim; o gravador existe, falta ligar ao executor |
+| Aprovações | Sim; o recibo mostra mais detalhe |
+| Pausar quando você está ausente | Sim (o código já pausa bots parados) |
+| Usar sites logados | Sim, ponto forte |
+| Rodar com o PC desligado | Não: servidor próprio (degrau 2) |
+| Computador na nuvem compartilhado | Não: degrau 3 |
+| Programas fora do navegador | Não: conector de desktop, por último |
+| App no celular | Não: adiado |
+| Centenas de integrações | Parcial: começa com poucas |
+
+Hoje o Zero **não faz** nada disso de ponta a ponta: o executor do bot é uma casca (`src/main/main.js:267-271`). A resposta é "conseguimos fazer", não "já faz". Vantagem possível: recibo, firewall e Desfazer; não provada.
+
 ## 3. O que isso muda nos outros planos
 - `PLANO_ROTAS_E_FIREWALL.md`: ficha da rota ganha `reversibilidade` (classe, janela, rota inversa).
 - `PLANO_BOTS.md`: a escada de autonomia passa a ser alimentada pelo histórico verificado.

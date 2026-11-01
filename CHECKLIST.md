@@ -16,6 +16,7 @@
 - [x] Corrigir a legibilidade visual dos dois cartões explicativos de envio no estado inicial do Bot; contraste AA é medido pela fixture Electron.
 - [ ] Medir velocidade, acerto, tokens e custo por tarefa; comparar com concorrentes em conjunto pareado, sem chamadas pagas sem orçamento aprovado.
 - [ ] Commit local e instalação verificada após cada fatia utilizável; sem push.
+- [ ] Executar os marcos 1–4 de `docs/ROTEIRO_DO_MENTOR.md` (bot roda 7 dias; uma frase cria o bot; uma rotina real do Wesley; painel novo) e marcar cada um só com o teste de sim ou não. O roteiro vale sobre os planos.
 
 ## Fatia utilizável em preparação — 0.1.65-dev
 

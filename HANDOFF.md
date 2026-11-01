@@ -1,5 +1,11 @@
 # Handoff — Zero Browser
 
+## Direção — 31/10/2026 (noite): roteiro do mentor
+
+`docs/ROTEIRO_DO_MENTOR.md` passa a ser o documento de direção e vale sobre os planos. Estado conferido nesta rodada: `0.1.68-dev`, `main` no commit `80eaf1f`, árvore limpa exceto os `audit-*.txt` não rastreados, `npm test` 414/414. Nenhum código foi alterado: só documentos incorporados e corrigidos (roteiro novo; seções 0f, 11d, 3b e 2b; índice; seção 4g do checklist de planos). As versões da cópia de trabalho (`analise-projeto-atual-bf8fc8`) estavam paradas na 0.1.43 e não foram copiadas inteiras para não regredir estados já implementados.
+
+Próximo passo concreto: resposta do Wesley sobre a rotina real do primeiro bot (Polare ou monitor de preço) e, em seguida, o Marco 1 — ligar o executor real do Bot. A revisão visual da UI instalada continua pendente.
+
 ## Sessão de 31/10/2026 — fatia 0.1.68-dev
 
 Código em preparação em `main`, próximo passo utilizável do projeto a partir da 0.1.67-dev. A meta ampla permanece ativa: execução autônoma real de Bots, conectores, consentimentos, UX completa de Configurações/Extensões e benchmark pareado ainda não foram concluídos.
@@ -12,6 +18,6 @@ Validação: `npm test` 414/414; `npm run test:ui` PASS após corrigir a ordem d
 
 Entrega local: commit da fatia `8b3ad15`; instalador NSIS executado com `ExitCode 0` em `C:\Users\Wesley\AppData\Local\Programs\navegante`. Executável informa `0.1.68-dev` / `0.1.68.0`; o hash instalado do `app.asar` confere com a build (`DD7589AB05D7F94AD6EAEA816E5A65F8DB7BB79C282482B78C0059A809369F04`). Instalador SHA-256: `1D2A088B05B73264DFBAB4964ACE77FC9643D8F6D19967430E85489B084BBA05`. O perfil pessoal foi preservado, mas Gmail e chave não foram abertos ou testados.
 
-Próximo passo concreto: revisar visualmente a UI instalada com Wesley; em seguida retomar auditoria/execução real de Bot e demais itens da meta. Não incluir os arquivos `audit-*.txt` já presentes no worktree; são artifacts não relacionados. Sem push.
+Próximo passo da fatia (agora reorganizado pelo roteiro): revisar visualmente a UI instalada com Wesley; em seguida retomar auditoria/execução real de Bot e demais itens da meta. Não incluir os arquivos `audit-*.txt` já presentes no worktree; são artifacts não relacionados. Sem push.
 
 Bloqueios: chamadas pagas continuam sem orçamento aprovado. O teste foi local com fixture; não houve chamada real de provedor ou uso da conta Gmail.

@@ -2,6 +2,7 @@
 
 Use esta ordem ao continuar o projeto:
 
+0. `docs/ROTEIRO_DO_MENTOR.md`: **direção, marcos e regras de simplicidade.** Vale sobre os demais documentos; se um plano contradisser o roteiro, corrija o plano. É o primeiro a ler.
 1. `HANDOFF.md`: estado atual confirmado, versão instalada, bloqueios e próxima ação única.
 2. `MASTER_BLUEPRINT.md`: arquitetura e decisões já tomadas; não reabrir sem evidência que exija mudar uma decisão.
 3. `CHECKLIST.md`: ordem ativa, donos, limites entre frentes e gates de entrega. Só itens daqui são trabalho ativo.

@@ -182,6 +182,24 @@ A interface é declarativa: o layout (painéis, barras, trilho, modos) é descri
 - Teste de comando: 10 pedidos em português na barra de comando (3 de navegação, 3 de interface, 4 de bots); 8 de 10 acertam a intenção sem corrigir.
 - Teste do núcleo: pedir à IA para esconder parar tudo ou o indicador de controle deve ser recusado.
 
+## 11d. Revisão de 31/10 (noite): simplicidade, painel de bots e inspiração no neo
+
+Feedback do Wesley sobre a interface atual: "bagunçada, parece criada por IA, os bots não se mexem nem conversam, e quem cria o bot devia só descrever e a IA descrever o que ele faz". Direção geral em `ROTEIRO_DO_MENTOR.md`.
+
+**Diagnóstico do que existe (`src/renderer/index.html`).** Painel do bot com camadas demais: cabeçalho de três linhas, aviso de status, faixa de controle da aba, barra do bot, 5 abas, barra de conversas e menu "Mais ações" com 9 itens. Três nomes para a mesma coisa (Perfis, Especialistas, Bots) e "GrokBot" no texto. Emoji como ícone (🛒). Criar bot é um formulário de quatro campos mais dois modos técnicos; a IA não ajuda.
+
+**Regras de simplicidade (valem para toda tela):** um nome só ("Bot"); palavras fixas (Bot, Rotina, Avisar, Recibo, Desfazer, Parar tudo); cada tela faz uma pergunta; no máximo três ações visíveis; a IA explica o que o bot fará em frases curtas; sem jargão; sem emoji como ícone. Prova: teste de 5 segundos, 4 de 5 pessoas dizem o que o bot faz e o que fazer a seguir.
+
+**Painel de bots novo.** Cabeçalho de uma linha, conversa, campo de texto. Agenda, memória, rotas e histórico vão para a página do bot. Os 9 itens do menu viram menu de contexto.
+
+**Criar bot.** Um campo de frase; a IA devolve a ficha (nome, símbolo, missão, quando roda, sites, permissões, limites, teste); você ajusta, aprova e clica "Testar agora". Detalhes de execução em `PLANO_BOTS.md` 0f.
+
+**Bots vivos.** O anel muda de forma por estado (parado, trabalhando, esperando você, erro, pausado), já previsto na seção 1. Cada bot mostra uma linha do que faz agora, com o último passo. A troca entre bots aparece numa sala da equipe, mostrando quem pediu o quê. Todo movimento respeita "movimento reduzido" e cada estado também tem texto, não só forma e cor. Risco: animação com vários bots rodando juntos pode pesar; medir no protótipo.
+
+**Inspiração visual: BrowserOS neo.** Medido no site (não no app, que não consegui abrir; a conexão com o neo falhou): fundo azulado claro #F9FBFF, texto #393F49, azul de ação #0254EC, botões com cantos de 12 px, títulos em serifa (EB Garamond) com uma palavra em itálico azul, corpo em Inter, rótulos em fonte mono, desenho de órbitas com cartões de agente. Pela descrição do produto: página de nova aba como painel com um bloco ao vivo por agente (nome, ferramenta, status) e replay de sessão com linha do tempo. Aproveitar o espírito (claro, calmo, uma cor de ação, hierarquia pela tipografia, um bloco vivo por bot, replay como o recibo) **sem copiar** cores e fontes exatas.
+
+**Decisão pendente:** sair do verde (#326f61, seção 6) para paleta clara com uma cor de ação própria. Até o Wesley aceitar, o verde segue. **Próximo passo:** mockup visual da criação de bot e do painel novo antes de qualquer código.
+
 ## 12. Riscos e decisões suas
 
 - Excesso de interface: se a janela mostrar bots demais, perde o ar de navegador. Regra: sem bots, o trilho fica recolhido por padrão.

@@ -100,6 +100,32 @@ O Zero já é um programa só (aplicativo Electron). Os planos são camadas do m
 5. Central: visão única de bots, execuções, aprovações, auditoria e gastos.
 "Faz tudo no navegador" significa tudo o que uma página web permite com as suas sessões logadas. Programas do Windows fora do navegador ficam fora desta meta. Regra de construção: cada camada só avança depois que a anterior passa nos seus testes; não construir a interface dos bots antes de o executor e o histórico existirem.
 
+## 0f. Revisão de 31/10 (noite): fazer o bot funcionar de verdade, só no navegador
+
+Direção geral e marcos: `ROTEIRO_DO_MENTOR.md`. Esta seção detalha a parte de bots.
+
+**Achado principal.** O executor do bot é uma casca: `src/main/main.js:267-271` lança "Esta rotina ainda não está conectada ao executor do navegador". `bots:run-now` exige passos já prontos (`main.js:1672`). Os conectores recebem dados de exemplo (`mockItems`). O agendador, o mandato, os gatilhos e o gravador existem e têm teste. **Falta ligar o motor; por isso os bots não parecem bots.**
+
+**Caminho de um bot (só navegador).** Gatilho (horário, intervalo, evento) → abre aba oculta com o perfil do bot → roda o agente que já funciona pela conversa, com a missão e as permissões do bot → cada passo alimenta o anel e a linha "o que faz agora" → recibo e histórico → aviso. Uma execução por vez no começo. O perfil isolado por tarefa ainda **não existe**: hoje a execução usa o perfil atual e isso faz parte do Marco 1, não de algo pronto.
+
+**Criar bot por descrição.** Você escreve uma frase; a IA devolve uma ficha em formato fixo: nome, símbolo, missão, quando roda, sites, permissões, limites de passo/tempo/gasto, aviso e teste sugerido. O sistema valida o formato e tenta de novo até 3 vezes; se falhar, abre o formulário simples. **A IA propõe, você aprova as permissões** (núcleo intocável). A ficha é mostrada em frases curtas: o que vai fazer, quando, onde, o que não vai fazer, quanto pode gastar. O OpenMausBot, pelo README, não faz isso.
+
+**Continuar rodando em segundo plano.** Fechar a janela vai para a bandeja; abrir ao ligar o PC (aplicar de fato a configuração); ao acordar do sono, rodar o que ficou atrasado (a função existe). Risco a medir primeiro: aba oculta pode parar com a janela minimizada (relatos no Electron; correções recentes que não verifiquei se a versão em uso inclui). Plano B: agendador do Windows (a especificação já existe em `buildWindowsScheduledTaskSpec`). Teste de aceite do Marco 1: 7 dias seguidos com o Zero na bandeja.
+
+**Equipe de bots.** Padrão orquestrador-trabalhadores: um bot líder divide a tarefa e delega a bots trabalhadores com contexto separado; a troca aparece numa sala da equipe (quem pediu o quê). Segundo a Anthropic, gasta cerca de 15 vezes mais tokens que um chat: exige limite de gasto por equipe e só vale quando a tarefa se divide em partes independentes. Depois do Marco 4.
+
+**Monitor de páginas.** Comparar texto ou valor, não imagem (imagem dá alarme falso). Modo preço/estoque com mínimo, máximo e porcentagem de variação. A IA só é chamada quando algo muda. Intervalo mínimo por site (padrão sugerido 5 a 15 min; sem dado sobre limites de cada loja, testar). Usos do mesmo mecanismo: estoque, vaga de agendamento, edital, prazo, mudança de texto, concorrente, fatura. Só lê: risco baixo.
+
+**E-mail ao vivo.** Degraus por remetente ou tipo: (1) só avisa e resume; (2) rascunho; (3) pergunta "posso responder?" e envia após o seu OK; (4) responde sozinho só para casos que você liberou, com limite pequeno. Enviar a terceiros exige aprovação e a IA não pode desligar isso (núcleo); o degrau 4 só existe se você ativar na interface. O texto do e-mail é dado externo: pode ser lido, mas não decide destinatário nem ação. Técnica: assinatura "pull" do Gmail (sem servidor público), renovar a cada 7 dias no máximo, buscar o conteúdo pelo histórico, conferir de tempos em tempos. Só com o Zero aberto. Revisão do Google para esse acesso: não verificada.
+
+**Arquivos do computador.** `upload_file` (existe na lista de ferramentas) anexa um arquivo de Downloads ao campo da página, sem controlar o desktop. Regras: só pastas liberadas (Downloads por padrão); nome e destino entram no recibo; só o pedido do usuário decide qual arquivo e para onde; mais de uma correspondência: perguntar; arquivo com cara de documento pessoal, chave ou senha: confirmar. Não testado de ponta a ponta.
+
+**Outros usos pedidos (por risco).** Seguros (só leitura): monitoramento, resumo da manhã, pesquisa com fontes, arquivar notas e comprovantes. Médios (rascunho e aprovação): e-mail, respostas a mensagens, agenda, carrinho de compras (para antes de pagar), formulários repetidos. Altos (sempre com a sua aprovação, risco de bloqueio da conta): publicar e responder em redes sociais (Instagram, X, LinkedIn). A maioria das redes proíbe automação por navegador; existem APIs oficiais, possivelmente pagas e com limites: confirmar na documentação antes de planejar. Pagar e transferir dinheiro ficam sempre com você.
+
+**Grok Bot só no navegador.** Faz: bots com nome e conversa contínua, rotinas com histórico, gravar tarefa (Teach a Task), aprovações, pausar quando você está ausente, usar sites logados. Não faz sem outro degrau: rodar com o PC desligado (servidor próprio, 0c2), computador na nuvem compartilhado (nuvem), programas fora do navegador (conector de desktop, por último), aplicativo no celular (adiado), centenas de integrações prontas (começa com poucas). Detalhes do Grok Bot vêm de terceiros.
+
+**Já corrigido antes desta revisão.** Erro de ferramenta interrompe a execução e o cancelamento entrega `AbortSignal` ao executor (`src/bots/runner.js`, coberto na `0.1.65-dev`). Não refazer; o que falta é o executor real, a agenda recorrente com persistência e a prova com uso real.
+
 ## 1. O que é
 
 Um **bot** é uma ficha salva no navegador: objetivo, entradas, o que pode fazer, quando roda e o que entrega. Ele roda sozinho no horário, guarda o histórico e avisa quando há algo relevante. Exemplo principal: **pesquisador de preços**.
@@ -116,8 +142,8 @@ Não é um agente novo. É o agente atual (`run_task`) chamado por um agendador,
 | Tarefa que pode ser retomada (`src/automation/job-store.js`) | existe |
 | Aprovação de ação consequente, aviso de prompt injection (`injection-guard.js`) | existe |
 | Armazenamento de dados do usuário (`src/store/index.js`, `src/main/library/`) | existe |
-| Agendador, ficha de bot, histórico de execuções, notificação, tela de bots | **não existe** |
-| Execução em segundo plano sem atrapalhar a aba do usuário | **não existe** |
+| Agendador, ficha de bot, histórico de execuções, notificação, tela de bots | **Atualizado em 31/10 (noite):** existem na pasta principal (`src/bots/scheduler.js`, `bot-store.js`, `runner.js`, `templates.js`, `recorder.js`; tela em `index.html`). Falta ligar o executor (ver 0f). |
+| Execução em segundo plano sem atrapalhar a aba do usuário | **não existe:** sem bandeja, sem reação a dormir/acordar; "abrir ao ligar o PC" só guarda a configuração |
 
 ## 3. Desenho
 
