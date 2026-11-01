@@ -57,7 +57,7 @@ Tudo abaixo é **proposta**; nada foi implementado ainda, salvo onde estiver mar
 - [ ] Rotina do "dia 05" (sistema do trabalho): testar duração da sessão antes de desenhar.
 
 ## 4. Controle total por IA (`PLANO_CONTROLE_TOTAL_IA.md`)
-- [x] Fase 1: obter o `tools/list` real, gravar como contrato (`docs/MCP_TOOLS_COMPARATIVO.md`), comparar com Playwright MCP e Chrome DevTools MCP (`0.1.56-dev`).
+- [x] Fase 1: obter o `tools/list` real, gravar como contrato (`docs/COMO_CONECTAR_IA_EXTERNA.md`), comparar com Playwright MCP e Chrome DevTools MCP (`0.1.56-dev`).
 - [x] Fase 2: clientes pareados, níveis (`observar`, `interagir`, `desenvolvedor`, `total`), validade e escopo, log, parar tudo, segredos redigidos (`src/automation/mcp-diagnostics.js`, `0.1.56-dev`).
 - [x] Fase 3: `console_messages`, `page_errors`, `network_requests` com redação de segredos (`0.1.56-dev`).
 - [x] Fase 4: cookies/armazenamento, emulação, diálogos, upload, PDF, árvore de acessibilidade, arrastar, teclas, iframes (`src/automation/mcp-diagnostics.js`, `0.1.60-dev`).
@@ -87,7 +87,7 @@ Tudo abaixo é **proposta**; nada foi implementado ainda, salvo onde estiver mar
 - [x] Observador de rede, compilador de rota, executor com queda automática, biblioteca, WebMCP, ensaio (gêmeo local) em `src/automation/learned-routes.js` (`0.1.58-dev`).
 - [x] Suíte de 50+ ataques em 5 famílias e linha de base no Zero atual (`test/intent-firewall-attacks.test.js`, 50/50 bloqueados na `0.1.55-dev`).
 - [x] Etiquetas de origem, política de efeitos, recibo antes de executar (recibo igual à requisição enviada, `0.1.55-dev`).
-- [x] Publicar "N de N ataques sem efeito indevido" e taxa de falsos bloqueios (`docs/RELATORIO_FIREWALL_ATAQUES.md`: 50 de 50 ataques bloqueados, 0% falsos bloqueios, `0.1.60-dev`).
+- [x] Publicar "N de N ataques sem efeito indevido" e taxa de falsos bloqueios (`docs/PLANO_ROTAS_E_FIREWALL.md`: 50 de 50 ataques bloqueados, 0% falsos bloqueios, `0.1.60-dev`).
 - [x] Deixar explícito no produto o limite: texto livre externo copiado para campos livres (`containsExternalText` / `warningLabel` em `src/automation/service/intent-firewall.js`, `0.1.55-dev`).
 
 ## 4d. Apps vivos (`docs/arquivo/PLANO_APPS_VIVOS.md`)

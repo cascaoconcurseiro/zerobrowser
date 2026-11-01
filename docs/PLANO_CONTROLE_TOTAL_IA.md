@@ -1,6 +1,6 @@
 # Plano — Zero Browser controlável por qualquer IA (inclusive console)
 
-Data: 31/10/2026. **Status: Fases 1 a 7 implementadas (`0.1.56-dev` a `0.1.60-dev` em `src/automation/mcp-diagnostics.js`, `src/automation/mcp-http-server.js`, `docs/MCP_TOOLS_COMPARATIVO.md` e `docs/COMO_CONECTAR_IA_EXTERNA.md`).**
+Data: 31/10/2026. **Status: Fases 1 a 7 implementadas (`0.1.56-dev` a `0.1.60-dev` em `src/automation/mcp-diagnostics.js`, `src/automation/mcp-http-server.js`, `docs/COMO_CONECTAR_IA_EXTERNA.md` e `docs/COMO_CONECTAR_IA_EXTERNA.md`).**
 
 ## 1. O que existe hoje
 

@@ -19,9 +19,9 @@ Regra: **poucos documentos vivos, o resto em arquivo.** Antes de criar um docume
 | **Concorrência** (Grok, neo, Comparativo, "Agentes conectados"/MCP, teste pareado, paridade e salto) | `docs/concorrencia/` — `PLANO_SUPERAR_NEO.md`, `COMPARATIVO_CONCORRENTES_2026-10-28.md`, `PLANO_SUPERAR_CONCORRENTES.md`, `PLANO_PARIDADE_E_SALTO.md` |
 | Design, UX e paleta (azul aceita em 31/10) | `docs/PLANO_DESIGN_UX.md`; protótipos em `docs/prototipos/` |
 | Motor, velocidade e custo | `docs/PLANO_MOTOR.md`, `docs/EVOLUCAO_MOTOR.md`, `docs/PLANILHAS_E_SITES_DIFICEIS.md` |
-| Controle por IA externa / MCP | `docs/PLANO_CONTROLE_TOTAL_IA.md`, `docs/COMO_CONECTAR_IA_EXTERNA.md`, `docs/MCP_TOOLS_COMPARATIVO.md`, `docs/CATALOGO_COMANDOS_NAVEGADOR.md` |
+| Controle por IA externa / MCP | `docs/PLANO_CONTROLE_TOTAL_IA.md`, `docs/COMO_CONECTAR_IA_EXTERNA.md`, `docs/CATALOGO_COMANDOS_NAVEGADOR.md` (contrato das ferramentas MCP está em COMO_CONECTAR_IA_EXTERNA) |
 | Navegador nativo, extensões | `docs/PLANO_NAVEGADOR_NATIVO_IA.md`, `docs/COMPATIBILIDADE_EXTENSOES_CHROME.md` |
-| Segurança (firewall, recibo) | `docs/PLANO_ROTAS_E_FIREWALL.md`, `docs/RELATORIO_FIREWALL_ATAQUES.md` |
+| Segurança (firewall, recibo) | `docs/PLANO_ROTAS_E_FIREWALL.md` (inclui relatório de ataques) |
 | Como testar à mão | `docs/COMO_TESTAR.md` |
 | Índice dos planos de 31/10 e seus itens | `docs/CHECKLIST_PLANOS_2026-10-31.md` |
 
