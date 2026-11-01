@@ -1,4 +1,10 @@
-# Novidades — Zero Browser 0.1.76-dev
+# Novidades — Zero Browser 0.1.77-dev
+
+## 0.1.77-dev — Painel Bots mais simples
+
+- **Conversa e Detalhes:** o painel tem duas abas por bot. Agenda, Memória, Rotas e Histórico ficam dentro de Detalhes.
+- **Aviso de privacidade e linha de rota:** voltam a aparecer na conversa.
+- **Textos:** o cabeçalho diz Bots e a caixa de texto pergunta o que o bot deve fazer.
 
 ## 0.1.76-dev — Correção de inicialização
 

@@ -154,7 +154,7 @@
       <div class="panel-header">
         <div class="panel-heading">
           <span class="panel-kicker panel-brand"><img src="../../assets/icon.svg" alt="">ZERO BROWSER</span>
-          <strong>Delegar</strong>
+          <strong>Bots</strong>
           <span class="panel-subtitle">O agente trabalha na aba aberta. Acompanhe a execução e pare a tarefa quando quiser.</span>
         </div>
         <button id="btn-close-ai" class="panel-close" aria-label="Fechar agente"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
@@ -199,10 +199,7 @@
       </div>
       <div data-delegation-chat id="bot-panel-tabs" class="bot-panel-tabs" role="group" aria-label="Abas do Bot">
         <button type="button" class="bot-panel-tab ativo" data-bot-tab="chat" aria-pressed="true">Conversa</button>
-        <button type="button" class="bot-panel-tab" data-bot-tab="agenda" aria-pressed="false">Agenda</button>
-        <button type="button" class="bot-panel-tab" data-bot-tab="memory" aria-pressed="false">Memória</button>
-        <button type="button" class="bot-panel-tab" data-bot-tab="routes" aria-pressed="false">Rotas</button>
-        <button type="button" class="bot-panel-tab" data-bot-tab="history" aria-pressed="false">Histórico</button>
+        <button type="button" class="bot-panel-tab" data-bot-tab="details" aria-pressed="false">Detalhes</button>
       </div>
       <div data-delegation-chat class="ai-chat-toolbar">
         <label class="sr-only" for="ai-session">Conversa</label>
@@ -229,7 +226,7 @@
       <div data-delegation-chat id="bot-view-routes" class="bot-subview hidden" role="region" aria-label="Rotas aprendidas e Gêmeo Local"></div>
       <div data-delegation-chat id="bot-view-history" class="bot-subview hidden" role="region" aria-label="Histórico de execuções e recibos"></div>
       <div data-delegation-chat class="ai-input-area">
-        <textarea id="ai-input" class="ai-textarea" placeholder="Descreva a tarefa para o agente… (Enter envia · Shift+Enter quebra linha)" aria-label="Comando para o agente"></textarea>
+        <textarea id="ai-input" class="ai-textarea" placeholder="O que você quer que o bot faça? (Enter envia · Shift+Enter quebra linha)" aria-label="Pedido para o bot"></textarea>
         <div class="ai-route-status" role="status" aria-live="polite">
           <span class="ai-route-mark" aria-hidden="true">⌁</span>
           <span id="ai-route-label">O orquestrador escolhe um Bot especialista ou executa com o agente geral.</span>

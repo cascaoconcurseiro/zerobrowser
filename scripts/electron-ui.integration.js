@@ -469,7 +469,7 @@ app.whenReady().then(async () => {
     assert.equal(grokbotSurface.switchedBotSession, true, 'clicar em outro Bot Especialista troca para a conversa exclusiva daquele Bot');
     assert.equal(grokbotSurface.keptForeground, true, 'enviar ordem em 2º plano abre aba oculta do Bot mantendo a aba atual');
     assert.equal(grokbotSurface.specialistPromptApplied, true, 'pedido encaminhado inclui a orientação local do perfil no motor geral');
-    assert.deepEqual(grokbotSurface.tabNames, ['chat', 'agenda', 'memory', 'routes', 'history'], 'painel do Bot tem as 5 abas GrokBot');
+    assert.deepEqual(grokbotSurface.tabNames, ['chat', 'details'], 'painel do Bot tem só Conversa e Detalhes');
     assert.equal(grokbotSurface.hasRoutesOrder, true, 'aba Rotas exibe a ordem de preferência e rotas aprendidas');
     assert.equal(grokbotSurface.hasMandate, true, 'aba Agenda exibe gatilhos por evento e mandato com envelope');
     assert.equal(grokbotSurface.hasAutonomy, true, 'aba Memória exibe escada de autonomia conquistada');

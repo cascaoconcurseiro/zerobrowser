@@ -3404,7 +3404,9 @@ class ZeroBrowserApp {
     return false;
   }
 
-  switchBotPanelTab(tabName = 'chat') {
+  switchBotPanelTab(requestedTab = 'chat') {
+    const detailTabs = ['agenda', 'memory', 'routes', 'history'];
+    const tabName = detailTabs.includes(requestedTab) ? 'details' : requestedTab;
     this.activeBotTab = tabName;
     for (const tab of document.querySelectorAll('.bot-panel-tab')) {
       const selected = tab.dataset.botTab === tabName;
@@ -3419,14 +3421,17 @@ class ZeroBrowserApp {
     const memoryView = document.getElementById('bot-view-memory');
     const routesView = document.getElementById('bot-view-routes');
     const historyView = document.getElementById('bot-view-history');
-    agendaView?.classList.toggle('hidden', tabName !== 'agenda');
-    memoryView?.classList.toggle('hidden', tabName !== 'memory');
-    routesView?.classList.toggle('hidden', tabName !== 'routes');
-    historyView?.classList.toggle('hidden', tabName !== 'history');
-    if (tabName === 'agenda') this.renderBotAgendaView(agendaView);
-    if (tabName === 'memory') this.renderBotMemoryView(memoryView);
-    if (tabName === 'routes') this.renderBotRoutesView(routesView);
-    if (tabName === 'history') this.renderBotHistoryView(historyView);
+    const inDetails = tabName === 'details';
+    agendaView?.classList.toggle('hidden', !inDetails);
+    memoryView?.classList.toggle('hidden', !inDetails);
+    routesView?.classList.toggle('hidden', !inDetails);
+    historyView?.classList.toggle('hidden', !inDetails);
+    if (inDetails) {
+      this.renderBotAgendaView(agendaView);
+      this.renderBotMemoryView(memoryView);
+      this.renderBotRoutesView(routesView);
+      this.renderBotHistoryView(historyView);
+    }
   }
 
   async renderBotAgendaView(container) {

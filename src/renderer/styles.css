@@ -2448,9 +2448,7 @@ body.dark .ai-working-status-pill {
 .bot-specialist-mascot:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .tab-bot-mascot { width: 16px; height: 16px; object-fit: contain; image-rendering: pixelated; display: block; }
 
-/* Conversa do painel Delegar: menos informação visível (a lógica continua no código) */
-#ai-panel .ai-route-status,
-#ai-panel #ai-privacy-note,
+/* Conversa do painel Bots: menos informação visível (a lógica continua no código). Linha de rota e aviso de privacidade voltam a aparecer. */
 #ai-panel .grokbot-briefing-actions,
 #ai-panel .grokbot-specialist-welcome-modes,
 #ai-panel .grokbot-tech-drawer { display: none !important; }
