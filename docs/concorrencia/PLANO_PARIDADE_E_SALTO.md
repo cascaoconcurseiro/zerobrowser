@@ -2,7 +2,7 @@
 
 Data: 31/10/2026. **Status: Implementado (`0.1.54-dev` a `0.1.60-dev` em `src/main/command-registry.js`, `src/main/parity-essentials.js` e `src/automation/learned-routes.js`).**
 
-Base do estado atual: `docs/COMPARATIVO_CONCORRENTES_2026-10-28.md` na árvore principal (fontes de mercado de 28/10/2026, status do Zero de 29/10/2026). Pesquisas adicionais de 31/10/2026 citadas na seção 3.
+Base do estado atual: `docs/concorrencia/COMPARATIVO_CONCORRENTES_2026-10-28.md` na árvore principal (fontes de mercado de 28/10/2026, status do Zero de 29/10/2026). Pesquisas adicionais de 31/10/2026 citadas na seção 3.
 
 ## 1. Paridade: "tudo que os grandes têm" precisa de um limite
 
@@ -67,7 +67,7 @@ Conforme `PLANO_ROTAS_E_FIREWALL.md`. A classe de reversibilidade vira um campo 
 
 ## 2b. Revisão de 31/10 (noite): o que o Grok Bot faz, só no navegador
 
-Direção geral em `ROTEIRO_DO_MENTOR.md`. Resumo; detalhes em `PLANO_BOTS.md` 0f. Descrições do Grok Bot vêm de terceiros.
+Direção geral em `ROTEIRO_DO_MENTOR.md`. Resumo; detalhes em `docs/bots/PLANO_BOTS.md` 0f. Descrições do Grok Bot vêm de terceiros.
 
 | O que o Grok Bot faz | No Zero, só no navegador |
 |---|---|
@@ -83,11 +83,11 @@ Direção geral em `ROTEIRO_DO_MENTOR.md`. Resumo; detalhes em `PLANO_BOTS.md` 0
 | App no celular | Não: adiado |
 | Centenas de integrações | Parcial: começa com poucas |
 
-Hoje o Zero **não faz** nada disso de ponta a ponta: o executor do bot é uma casca (`src/main/main.js:267-271`). A resposta é "conseguimos fazer", não "já faz". Vantagem possível: recibo, firewall e Desfazer; não provada.
+Hoje o Zero **não faz** tudo isso de ponta a ponta: o executor do bot foi ligado na `0.1.69-dev` (missão → agente em aba oculta, com recibo), mas ainda faltam perfil isolado, agenda com persistência e prova com site real. A resposta é "conseguimos fazer", não "já faz". Vantagem possível: recibo, firewall e Desfazer; não provada.
 
 ## 3. O que isso muda nos outros planos
 - `PLANO_ROTAS_E_FIREWALL.md`: ficha da rota ganha `reversibilidade` (classe, janela, rota inversa).
-- `PLANO_BOTS.md`: a escada de autonomia passa a ser alimentada pelo histórico verificado.
+- `docs/bots/PLANO_BOTS.md`: a escada de autonomia passa a ser alimentada pelo histórico verificado.
 - `PLANO_DESIGN_UX.md`: recibo mostra reversibilidade; painel "Confiança"; botão "Desfazer" no comprovante.
 - `PLANO_NAVEGADOR_NATIVO_IA.md`: o registro de comandos inclui o campo de reversibilidade em todo comando de escrita.
 

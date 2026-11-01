@@ -50,7 +50,7 @@ Direção geral em `ROTEIRO_DO_MENTOR.md`.
 
 Ordem: começar por bots como arquivo e rotas (dados, cobertos pelo firewall); MCP de terceiros depois e sempre com aprovação; loja comunitária só com usuários e revisão. Regras de instalação: sempre por escolha sua, nunca automática; antes de instalar mostrar o que o item pede (sites, arquivos, e-mail, envio); versão fixa com código de conferência (hash), atualização é nova aprovação; **núcleo intocável vale para tudo que vem de fora**; itens de terceiros começam com autonomia baixa. O OpenMausBot instala "times" por arquivo Markdown com tela de revisão, conexões desligadas e rotinas pausadas até aprovação: bom modelo.
 
-**Conectores de e-mail e agenda.** Hoje o código tem só dados de exemplo (`src/connectors/index.js`). Para e-mail ao vivo, ver `PLANO_BOTS.md` 0f (degraus de resposta, assinatura "pull" do Gmail, renovação a cada 7 dias). Telegram segue como primeiro canal de aviso e comando.
+**Conectores de e-mail e agenda.** Hoje o código tem só dados de exemplo (`src/connectors/index.js`). Para e-mail ao vivo, ver `docs/bots/PLANO_BOTS.md` 0f (degraus de resposta, assinatura "pull" do Gmail, renovação a cada 7 dias). Telegram segue como primeiro canal de aviso e comando.
 
 **Arquivos do computador.** Anexar da pasta Downloads com `upload_file`, sem controlar o desktop; pasta liberada, recibo com nome e destino, o usuário decide o arquivo. Um conector de arquivos mais amplo (ler, salvar relatórios) usa a mesma regra: pasta liberada, só leitura de início, recibo antes de gravar.
 
@@ -81,7 +81,7 @@ O usuário pode mudar essas proteções, mas apenas por ação humana na interfa
 
 ## 6. Mais perto do Grok Bot
 
-Já previsto em `PLANO_BOTS.md` seção 0c; acrescentar:
+Já previsto em `docs/bots/PLANO_BOTS.md` seção 0c; acrescentar:
 - Conectores nativos (seção 2) como "plugins" dos bots.
 - Rotinas por evento: e-mail novo, mudança de página, mensagem recebida, horário.
 - Canal de mensagens (Telegram) para conversar e aprovar fora da janela.

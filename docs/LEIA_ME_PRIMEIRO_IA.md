@@ -1,16 +1,33 @@
-# Leia primeiro — Zero Browser
+# Leia primeiro — Zero Browser (índice único dos documentos)
 
-Use esta ordem ao continuar o projeto:
+Regra: **poucos documentos vivos, o resto em arquivo.** Antes de criar um documento novo, procure o assunto abaixo e acrescente nele.
 
-0. `docs/ROTEIRO_DO_MENTOR.md`: **direção, marcos e regras de simplicidade.** Vale sobre os demais documentos; se um plano contradisser o roteiro, corrija o plano. É o primeiro a ler.
-1. `HANDOFF.md`: estado atual confirmado, versão instalada, bloqueios e próxima ação única.
-2. `MASTER_BLUEPRINT.md`: arquitetura e decisões já tomadas; não reabrir sem evidência que exija mudar uma decisão.
-3. `CHECKLIST.md`: ordem ativa, donos, limites entre frentes e gates de entrega. Só itens daqui são trabalho ativo.
-4. `docs/COMPARATIVO_CONCORRENTES_2026-10-28.md`: estado competitivo, evidência e limites do que foi comparado.
-5. `docs/CHECKLIST_PLANOS_2026-10-31.md`: índice e checklist consolidado dos planos estratégicos de 31/10/2026 (`PLANO_SUPERAR_CONCORRENTES.md`, `PLANO_MOTOR.md`, `PLANO_BOTS.md`, `PLANO_CONTROLE_TOTAL_IA.md`, `PLANO_DESIGN_UX.md`, `PLANO_ROTAS_E_FIREWALL.md`, `PLANO_APPS_VIVOS.md`, `PLANO_NAVEGADOR_NATIVO_IA.md`, `PLANO_PARIDADE_E_SALTO.md`).
-6. Abra o `docs/PLANO_*.md` da frente somente quando for iniciar aquela frente. Planos são propostas; verifique o código antes de afirmar implementação.
+## 1. Núcleo (ler nesta ordem ao continuar o projeto)
 
-Histórico extenso foi preservado em `docs/HANDOFF_HISTORICO_ATE_0.1.50.md` e `docs/CHECKLIST_HISTORICO.md`. Não use o backlog antigo como lista de execução sem reclassificar o item no `CHECKLIST.md`.
+1. `docs/ROTEIRO_DO_MENTOR.md` — direção, marcos e regras de simplicidade. Vale sobre os demais; se um plano contradisser, corrija o plano.
+2. `docs/ROTEIRO_EXECUCAO_IA.md` — quadro vivo: primeira tarefa aberta, critério de pronto, registro de sessões.
+3. `HANDOFF.md` — estado atual, versão instalada, bloqueios e próxima ação (só o topo, máx. 20 linhas).
+4. `MASTER_BLUEPRINT.md` — arquitetura e decisões tomadas; não reabrir sem evidência.
+5. `CHECKLIST.md` — ordem ativa e gates de entrega. Só itens daqui são trabalho ativo (buscar com grep, não ler inteiro).
+6. `README.md` — visão geral e como rodar. `docs/NOVIDADES.md` — texto que o app mostra ao usuário (lido por código e teste; não mover).
+
+## 2. Por assunto (abrir só quando iniciar aquela frente)
+
+| Assunto | Documento |
+|---|---|
+| **Bots** (plano, fluxo de UX, notificações, perfis tipo Chrome, 40 mascotes, situações/defeitos A01–A12/N01–N06, casos de uso para todos os usuários) | `docs/bots/` — `PLANO_BOTS.md`, `FLUXO_UX_BOTS.md`, `BOTS_SITUACOES_E_PENDENCIAS.md`, `CASOS_DE_USO_BOTS.md` |
+| **Concorrência** (Grok, neo, Comparativo, "Agentes conectados"/MCP, teste pareado, paridade e salto) | `docs/concorrencia/` — `PLANO_SUPERAR_NEO.md`, `COMPARATIVO_CONCORRENTES_2026-10-28.md`, `PLANO_SUPERAR_CONCORRENTES.md`, `PLANO_PARIDADE_E_SALTO.md` |
+| Design, UX e paleta (azul aceita em 31/10) | `docs/PLANO_DESIGN_UX.md`; protótipos em `docs/prototipos/` |
+| Motor, velocidade e custo | `docs/PLANO_MOTOR.md`, `docs/EVOLUCAO_MOTOR.md`, `docs/PLANILHAS_E_SITES_DIFICEIS.md` |
+| Controle por IA externa / MCP | `docs/PLANO_CONTROLE_TOTAL_IA.md`, `docs/COMO_CONECTAR_IA_EXTERNA.md`, `docs/MCP_TOOLS_COMPARATIVO.md`, `docs/CATALOGO_COMANDOS_NAVEGADOR.md` |
+| Navegador nativo, extensões | `docs/PLANO_NAVEGADOR_NATIVO_IA.md`, `docs/COMPATIBILIDADE_EXTENSOES_CHROME.md` |
+| Segurança (firewall, recibo) | `docs/PLANO_ROTAS_E_FIREWALL.md`, `docs/RELATORIO_FIREWALL_ATAQUES.md` |
+| Como testar à mão | `docs/COMO_TESTAR.md` |
+| Índice dos planos de 31/10 e seus itens | `docs/CHECKLIST_PLANOS_2026-10-31.md` |
+
+## 3. Arquivo (histórico; não é lista de execução)
+
+`docs/arquivo/` guarda, sem apagar nada: checklists e handoffs antigos (`CHECKLIST_HISTORICO`, `HANDOFF_HISTORICO_ATE_0.1.50`, `HANDOFF_ARQUIVO`, `CHECKLIST_GERAL_PROJETO`), auditorias (`AUDITORIA_*`, fonte dos defeitos A01–A12), planos já feitos ou superados (`PLANO_APPS_VIVOS`, `PLANO_ZERO_CHROMIUM_AI`, `PLANO_FORK_BROWSEROS` — adiado, `PLANO_NOME_E_PERFIS` — perfis agora em `docs/bots/FLUXO_UX_BOTS.md` seção 12, `PLANO_MATURIDADE_4`, `PLANO_UX_EXTENSAO`, `PLANO_NAVEGADOR_IA`, `PLANO_ATUALIZACAO_ASSINADA`), registros (`PONTOS_DE_RESTAURACAO`, `REGISTRO_INTEGRACAO_0.1.5`), análises REA (`REA-ChatGPT-Browser-Analysis`, `VALIDACAO-REA`), `RELATORIO_AUDITORIA_E_DIRETRIZES_IA` e `conceitos/`. Para reclassificar um item antigo, copie-o para o `CHECKLIST.md` com dono e critério.
 
 ## Divisão de responsabilidade
 

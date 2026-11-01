@@ -70,7 +70,7 @@ Usar `trace.requestMetrics` para separar, por tarefa: tempo do modelo (primeiro 
 - Ollama serve para medir passos e chamadas sem gasto, mas o acerto depende do modelo local; não generalizar.
 
 ### Etapa 6 — Comparação com rivais (M)
-Só depois das etapas 1 a 5: levar o perfil padrão ao benchmark do plano geral (`PLANO_SUPERAR_CONCORRENTES.md`) contra BrowserOS neo e mais um rival.
+Só depois das etapas 1 a 5: levar o perfil padrão ao benchmark do plano geral (`docs/concorrencia/PLANO_SUPERAR_CONCORRENTES.md`) contra BrowserOS neo e mais um rival.
 
 ## 4. Portões
 - **Fim da Etapa 1:** o perfil padrão reduz custo por tarefa resolvida em pelo menos 20% contra a base, sem perder acerto. Se não reduzir, o problema não está nas flags; ir direto para a Etapa 5 (modelo).

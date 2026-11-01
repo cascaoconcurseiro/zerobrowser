@@ -3,11 +3,11 @@
 Tudo abaixo é **proposta**; nada foi implementado ainda, salvo onde estiver marcado `[x]`. Marcar só com evidência (teste, execução ou arquivo). Este arquivo está separado do `CHECKLIST.md` principal de propósito. A análise original foi feita sobre a árvore principal na 0.1.43-dev; os documentos já foram incorporados a `docs/` da pasta principal em 31/10/2026 — o estado vigente está no topo do `HANDOFF.md`.
 
 ## Índice dos documentos
-**Direção, marcos e regras de simplicidade (ler primeiro): `docs/ROTEIRO_DO_MENTOR.md`.** Guia completo de leitura e ordem de construção para outra IA (GPT): `docs/LEIA_ME_PRIMEIRO_IA.md`. Além dos quatro abaixo, existem `PLANO_DESIGN_UX.md`, `PLANO_ROTAS_E_FIREWALL.md`, `PLANO_APPS_VIVOS.md`, `PLANO_NAVEGADOR_NATIVO_IA.md` e `PLANO_PARIDADE_E_SALTO.md`.
+**Direção, marcos e regras de simplicidade (ler primeiro): `docs/ROTEIRO_DO_MENTOR.md`.** Quadro de execução com a primeira tarefa aberta: `docs/ROTEIRO_EXECUCAO_IA.md`. Guia completo de leitura e ordem de construção para outra IA (GPT): `docs/LEIA_ME_PRIMEIRO_IA.md`. Além dos quatro abaixo, existem `PLANO_DESIGN_UX.md`, `PLANO_ROTAS_E_FIREWALL.md`, `docs/arquivo/PLANO_APPS_VIVOS.md`, `PLANO_NAVEGADOR_NATIVO_IA.md` e `docs/concorrencia/PLANO_PARIDADE_E_SALTO.md`.
 
-- `docs/PLANO_SUPERAR_CONCORRENTES.md` — posicionamento, três afirmações a provar, portões.
+- `docs/concorrencia/PLANO_SUPERAR_CONCORRENTES.md` — posicionamento, três afirmações a provar, portões.
 - `docs/PLANO_MOTOR.md` — velocidade, tokens e custo.
-- `docs/PLANO_BOTS.md` — bots como espaços criados pelo usuário, rotinas, agendamento, ideias além do óbvio.
+- `docs/bots/PLANO_BOTS.md` — bots como espaços criados pelo usuário, rotinas, agendamento, ideias além do óbvio.
 - `docs/PLANO_CONTROLE_TOTAL_IA.md` — MCP completo, console/rede, permissões por cliente.
 
 ## 0. Estado e pendências imediatas
@@ -17,9 +17,9 @@ Tudo abaixo é **proposta**; nada foi implementado ainda, salvo onde estiver mar
 - [x] Filtrar a lista de modelos da OpenAI para chat com ferramentas (`src/automation/model-catalog.js`, `normalizeModel`, coberto em `test/model-catalog.test.js`).
 - [x] Backup da instalação antes de testar no pacote instalado (`backups/2026-10-31-before-0.1.52-install/`, 184 arquivos) e perfil principal preservado.
 - [x] Decidir a pasta de trabalho: documentos copiados de `analise-projeto-atual-bf8fc8` para `docs/` da árvore principal.
-- [x] Estado vigente em 31/10 (noite): `0.1.68-dev`, `main` em `80eaf1f`, árvore limpa (só `audit-*.txt`) e `npm test` 414/414. Roteiro do mentor incorporado (ver 4g).
+- [x] Estado vigente em 31/10 (noite): `0.1.69-dev`, árvore com A1/A2 implementadas e `npm test` 421/421. Roteiro do mentor e quadro de execução incorporados (ver 4g); a próxima tarefa aberta é A3 em `docs/ROTEIRO_EXECUCAO_IA.md`.
 
-## 1. Posicionamento e concorrentes (`PLANO_SUPERAR_CONCORRENTES.md`)
+## 1. Posicionamento e concorrentes (`docs/concorrencia/PLANO_SUPERAR_CONCORRENTES.md`)
 - [ ] Confirmar o nicho: navegador-agente controlável para usuários técnicos.
 - [ ] Provar A (acerto ≥ 90% do melhor rival), B (tokens ≤ 1,2×) e C (segurança) com dados públicos.
 - [ ] Etapa 1: higiene (itens da seção 0).
@@ -39,7 +39,7 @@ Tudo abaixo é **proposta**; nada foi implementado ainda, salvo onde estiver mar
 - [ ] Etapa 6: levar o perfil final ao benchmark contra rivais.
 - [ ] Portão do fim da Etapa 1: custo por tarefa resolvida −20% sem perder acerto.
 
-## 3. Bots (`PLANO_BOTS.md`)
+## 3. Bots (`docs/bots/PLANO_BOTS.md`)
 - [x] Fase 1: ficha do bot (`src/bots/bot-store.js`), executor manual somente leitura (`src/bots/runner.js`), histórico, limites de passos/tempo/gasto e parada em < 1s (`0.1.56-dev`).
 - [x] Fase 2: agendador (`src/bots/scheduler.js`: intervalo, diário, dia do mês), execução perdida ao abrir (`runMissedSchedulesOnce`), notificação e iniciar com o Windows na bandeja (`0.1.57-dev`).
 - [x] Fase 3: modelo "pesquisador de preços" (`src/bots/templates.js`: confirmação do produto, receita por loja, alerta, histórico); modelo "preço de ação" (somente leitura, `0.1.57-dev`).
@@ -47,10 +47,10 @@ Tudo abaixo é **proposta**; nada foi implementado ainda, salvo onde estiver mar
 - [ ] Fase 5: tarefa agendada do Windows para rodar com o Zero fechado.
 - [x] Bot como espaço isolado: perfil próprio, memória visível e editável (nunca gravada por conteúdo de página), autonomia em degraus, orçamento próprio (`0.1.56-dev` a `0.1.60-dev`).
 - [x] Ideias além do óbvio: mandato (autoridade com limite), comprovante automático, site vira ferramenta MCP, observa e oferece, bot de teste para desenvolvedores; memória da web pessoal só se houver demanda (`0.1.56-dev` a `0.1.60-dev`).
-- [x] Meta "Grok Bot do navegador" (ver seção 0c do `PLANO_BOTS.md`): painel de conversa por bot; aprender por demonstração (gravador de ações) como recurso central; rotinas por evento (e-mail novo, mudança de página); equipe de bots depois da Fase 4 (`0.1.57-dev` a `0.1.60-dev`).
-- [x] Interface dos bots (seção 0d do `PLANO_BOTS.md`), só depois de executor e histórico existirem: barra de avatares com anel de estado (texto + cor, nunca só cor); painel de conversa por bot (`Conversa`/`Agenda`/`Memória`/`Histórico`); abrir a aba do bot e assumir o controle; central de atividade com "parar tudo"; contador na bandeja; cor por bot/perfil; botão "+" para criar bot; teclado, nomes acessíveis, contraste e redução de movimento (`0.1.53-dev` a `0.1.60-dev`).
+- [x] Meta "Grok Bot do navegador" (ver seção 0c do `docs/bots/PLANO_BOTS.md`): painel de conversa por bot; aprender por demonstração (gravador de ações) como recurso central; rotinas por evento (e-mail novo, mudança de página); equipe de bots depois da Fase 4 (`0.1.57-dev` a `0.1.60-dev`).
+- [x] Interface dos bots (seção 0d do `docs/bots/PLANO_BOTS.md`), só depois de executor e histórico existirem: barra de avatares com anel de estado (texto + cor, nunca só cor); painel de conversa por bot (`Conversa`/`Agenda`/`Memória`/`Histórico`); abrir a aba do bot e assumir o controle; central de atividade com "parar tudo"; contador na bandeja; cor por bot/perfil; botão "+" para criar bot; teclado, nomes acessíveis, contraste e redução de movimento (`0.1.53-dev` a `0.1.60-dev`).
 - [x] Integração em camadas (seção 0e): navegador, motor, bots, controle por IA e central; cada camada só avança após passar nos testes da anterior (`0.1.52-dev` a `0.1.60-dev`).
-- [x] Caminho até Grok Bot completo (seção 0c2 do `PLANO_BOTS.md`): degraus local, servidor próprio, nuvem oferecida; recomendação é ir ao degrau 2 antes de pensar no 3.
+- [x] Caminho até Grok Bot completo (seção 0c2 do `docs/bots/PLANO_BOTS.md`): degraus local, servidor próprio, nuvem oferecida; recomendação é ir ao degrau 2 antes de pensar no 3.
 - [x] Preparar a porta desde já: executor sem janela (headless), bot como arquivo exportável, cofre de segredos trocável, canal de mensagens abstrato, login remoto, estado portável (`src/bots/bot-store.js`, `src/bots/runner.js`, `src/connectors/index.js`).
 - [ ] Lacunas assumidas: funcionar com o PC desligado (só com modo servidor, opcional e futuro) e falar com o bot pelo celular (futuro, exige desenho de segurança).
 - [ ] Bot de e-mail: só rascunho primeiro; teste com e-mails hostis antes de qualquer envio.
@@ -90,7 +90,7 @@ Tudo abaixo é **proposta**; nada foi implementado ainda, salvo onde estiver mar
 - [x] Publicar "N de N ataques sem efeito indevido" e taxa de falsos bloqueios (`docs/RELATORIO_FIREWALL_ATAQUES.md`: 50 de 50 ataques bloqueados, 0% falsos bloqueios, `0.1.60-dev`).
 - [x] Deixar explícito no produto o limite: texto livre externo copiado para campos livres (`containsExternalText` / `warningLabel` em `src/automation/service/intent-firewall.js`, `0.1.55-dev`).
 
-## 4d. Apps vivos (`PLANO_APPS_VIVOS.md`)
+## 4d. Apps vivos (`docs/arquivo/PLANO_APPS_VIVOS.md`)
 - [x] Fase 0: painel de vencimentos com 3 fontes (`createWeeklyDueAppPrototype` em `src/live-apps/live-app-engine.js`, `0.1.59-dev`; 7 dias de uso real pendente).
 - [x] Geração por conversa, edição e versões, ações com recibo e firewall, pacotes sem dados pessoais (`src/live-apps/live-app-engine.js`, `0.1.59-dev`).
 - [ ] Decidir: primeiro app de prova (financeiro ou trabalho) e se pacotes compartilháveis entram.
@@ -108,7 +108,7 @@ Tudo abaixo é **proposta**; nada foi implementado ainda, salvo onde estiver mar
 - [x] Núcleo intocável aceito pelo Wesley em 31/10/2026 (implementação pendente).
 - [ ] Decidir: lista e ordem dos conectores; Telegram primeiro; servidores MCP de terceiros.
 
-## 4f. Paridade e salto (`PLANO_PARIDADE_E_SALTO.md`)
+## 4f. Paridade e salto (`docs/concorrencia/PLANO_PARIDADE_E_SALTO.md`)
 - [x] Paridade essencial: atualização automática com volta atrás (`SignedUpdateVerifier`), abas avançadas e divisão de tela (`SplitViewManager`), perfis validados, contexto de várias abas (`read_batch`), conectores (`NativeConnectorsHub`), bloqueador de rastreadores com contador (`AdTrackerListFilter`), ponte PDF (`PdfQuestionBridge`), replay/comprovante e onboarding com 3 modelos (`0.1.59-dev` e `0.1.60-dev`).
 - [x] Campo de reversibilidade (reversível, parcial, irreversível por padrão) em toda ação de escrita; zero escrita sem classe (`0.1.54-dev`).
 - [x] Recibo mostra janela de reversão; Desfazer em sequência de compensações; 5 de 5 fixtures restauradas (`test/command-registry.test.js`, `0.1.54-dev`).
@@ -123,9 +123,9 @@ Tudo abaixo é **proposta**; nada foi implementado ainda, salvo onde estiver mar
 - [x] Documento de direção criado: produto em uma frase, estado real, alvo (o próprio Wesley), regras do mentor, regras de simplicidade, marcos 1 a 4, lista de cortes, design e pesquisa.
 - [x] Roteiro e seções novas incorporados à pasta principal em 31/10/2026 (documentos apenas; nenhum código alterado).
 - [x] Já corrigido antes do roteiro, não refazer: erro de ferramenta interrompe a execução e cancelamento entrega `AbortSignal` (`src/bots/runner.js`, `0.1.65-dev`); avatares em símbolo de traço (`0.1.67-dev`).
-- [ ] Marco 1: ligar o executor; bot de monitor de preço roda 7 dias seguidos com o Zero na bandeja (bandeja, abrir ao ligar o PC, rodar atrasados ao acordar). Medir antes: aba oculta com janela minimizada. Falta também o perfil isolado por tarefa.
+- [ ] Marco 1: executor ligado na `0.1.69-dev` (A1/A2; `npm test` 421/421). Falta: perfil isolado e política de site (A3), agenda com persistência e fuso local (A4), bandeja e medição da aba oculta (A5), aviso/recibo na tela (A6) e a prova de 7 dias (A7).
 - [ ] Marco 2: uma frase cria o bot (ficha em formato fixo, validação, 3 tentativas, IA propõe e você aprova). Teste: 8 de 10 frases viram ficha correta.
-- [ ] Marco 3: uma rotina real do Wesley (sugestão: Polare) com recibo e Desfazer, tempo ganho medido.
+- [ ] Marco 3: uma rotina real e repetida de um usuário (primeira: monitor de preço) com recibo e Desfazer, tempo ganho medido.
 - [ ] Marco 4: painel novo simples e demonstração em vídeo; teste de 5 segundos 4 de 5.
 - [ ] Remover "GrokBot", "Perfis" e "Especialistas" do texto da interface; trocar emoji por símbolo de traço.
 - [ ] Mockup da criação de bot e do painel novo (aguarda decisão sobre sair do verde).

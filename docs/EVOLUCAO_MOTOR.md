@@ -1036,7 +1036,7 @@ caixa de nome, então planilha com a caixa de nome quebrada continua exigindo `s
 
 Varredura completa (57 arquivos, ~12.200 linhas em `src/`) com checagem de sintaxe, suíte, comparação automática de
 IPC × preload, comparação de ids do DOM × renderer e leitura dirigida dos fluxos críticos. Relatório completo:
-`docs/AUDITORIA_2026-10-28.md`.
+`docs/arquivo/AUDITORIA_2026-10-28.md`.
 
 Correções com impacto real:
 

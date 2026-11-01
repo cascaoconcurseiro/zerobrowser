@@ -104,7 +104,7 @@ O Zero já é um programa só (aplicativo Electron). Os planos são camadas do m
 
 Direção geral e marcos: `ROTEIRO_DO_MENTOR.md`. Esta seção detalha a parte de bots.
 
-**Achado principal.** O executor do bot é uma casca: `src/main/main.js:267-271` lança "Esta rotina ainda não está conectada ao executor do navegador". `bots:run-now` exige passos já prontos (`main.js:1672`). Os conectores recebem dados de exemplo (`mockItems`). O agendador, o mandato, os gatilhos e o gravador existem e têm teste. **Falta ligar o motor; por isso os bots não parecem bots.**
+**Achado principal (31/10, antes da 0.1.69).** O executor do bot era uma casca: `src/main/main.js:267-271` lançava "Esta rotina ainda não está conectada ao executor do navegador". `bots:run-now` exigia passos já prontos (`main.js:1672`). Os conectores recebem dados de exemplo (`mockItems`). O agendador, o mandato, os gatilhos e o gravador existem e têm teste. **Na 0.1.69 o executor foi ligado** (`src/bots/agent-executor.js`): a missão roda no agente em aba oculta e fecha no fim; "rodar agora" e a agenda usam a missão quando não há passos. Ainda falta o perfil isolado por tarefa, o bloqueio rígido de escrita por Bot e a prova com site real.
 
 **Caminho de um bot (só navegador).** Gatilho (horário, intervalo, evento) → abre aba oculta com o perfil do bot → roda o agente que já funciona pela conversa, com a missão e as permissões do bot → cada passo alimenta o anel e a linha "o que faz agora" → recibo e histórico → aviso. Uma execução por vez no começo. O perfil isolado por tarefa ainda **não existe**: hoje a execução usa o perfil atual e isso faz parte do Marco 1, não de algo pronto.
 

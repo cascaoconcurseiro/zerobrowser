@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="claro">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Maquete — painel do Bot e criação em uma frase (Zero Browser)</title>
+  <style>
+    :root {
+      --bg: #F9FBFF;
+      --surface: #FFFFFF;
+      --surface-2: #F1F4FA;
+      --fg: #393F49;
+      --muted: #5E6673;
+      --accent: #0254EC;
+      --accent-soft: #E8EFFF;
+      --border: #DDE3EF;
+      --ok: #0E7A5F;
+      --warn: #9A5300;
+      --danger: #B3261E;
+      --radius: 12px;
+      --shadow: 0 1px 2px rgba(20, 30, 50, 0.05), 0 8px 24px rgba(20, 30, 50, 0.06);
+      --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      --mono: ui-monospace, "Cascadia Mono", Consolas, monospace;
+    }
+    html[data-theme="verde"] {
+      --bg: #F4F7F6;
+      --surface: #FFFFFF;
+      --surface-2: #EAF0EE;
+      --fg: #22302B;
+      --muted: #5B6B65;
+      --accent: #326F61;
+      --accent-soft: #E3EFEB;
+      --border: #D5E0DC;
+      --ok: #256B57;
+      --warn: #8A5A00;
+      --danger: #A63A32;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--fg);
+      font-family: var(--sans);
+      font-size: 14px;
+      line-height: 1.45;
+    }
+    button { font: inherit; color: inherit; }
+    :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    .sr-only {
+      position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+      overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+    }
+
+    .topbar {
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px 16px; background: var(--surface);
+      border-bottom: 1px solid var(--border);
+    }
+    .brand { font-family: var(--sans); font-weight: 700; font-size: 19px; letter-spacing: -0.3px; }
+    .brand em { color: var(--accent); font-style: italic; }
+    .address {
+      flex: 1; min-width: 0; height: 34px; display: flex; align-items: center;
+      padding: 0 12px; border: 1px solid var(--border); border-radius: 999px;
+      background: var(--surface-2); color: var(--muted); font-size: 12.5px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .topbar-actions { display: flex; gap: 8px; }
+    .btn {
+      min-height: 34px; padding: 0 14px; border-radius: 999px;
+      border: 1px solid var(--border); background: var(--surface); cursor: pointer;
+      font-weight: 600; font-size: 13px;
+    }
+    .btn:hover { border-color: var(--accent); color: var(--accent); }
+    .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .btn.primary:hover { filter: brightness(0.94); color: #fff; }
+    .btn.danger { color: var(--danger); border-color: currentColor; background: transparent; }
+
+    .screen-label {
+      display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+      padding: 22px 24px 10px;
+    }
+    .screen-label h2 {
+      margin: 0; font-family: var(--sans); font-weight: 600; font-size: 24px; letter-spacing: -0.4px;
+    }
+    .screen-label p { margin: 0; color: var(--muted); font-size: 12.5px; }
+
+    .app {
+      display: grid; grid-template-columns: 64px minmax(320px, 420px) 1fr;
+      height: 560px; margin: 0 24px 8px; border: 1px solid var(--border);
+      border-radius: var(--radius); overflow: hidden; background: var(--surface); box-shadow: var(--shadow);
+    }
+    .rail {
+      display: flex; flex-direction: column; align-items: center; gap: 14px;
+      padding: 14px 0; background: var(--surface-2); border-right: 1px solid var(--border);
+    }
+    .ring {
+      width: 40px; height: 40px; border-radius: 50%; border: 2px solid var(--border);
+      background: var(--surface); display: grid; place-items: center; cursor: pointer; padding: 0;
+      position: relative;
+    }
+    .ring svg { width: 18px; height: 18px; stroke: var(--muted); fill: none; stroke-width: 1.8; }
+    .ring[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); }
+    .ring[aria-pressed="true"] svg { stroke: var(--accent); }
+    .ring[data-state="working"]::after {
+      content: ""; position: absolute; right: -2px; bottom: -2px; width: 9px; height: 9px;
+      border-radius: 50%; background: var(--ok); border: 2px solid var(--surface);
+    }
+    .ring[data-state="attention"]::after {
+      content: "!"; position: absolute; right: -3px; bottom: -3px; width: 14px; height: 14px;
+      border-radius: 50%; background: var(--warn); color: #fff; font-size: 10px;
+      display: grid; place-items: center; border: 2px solid var(--surface); font-weight: 700;
+    }
+    .rail .add { margin-top: auto; border-style: dashed; }
+    .rail .add svg { stroke: var(--muted); }
+
+    .panel { border-right: 1px solid var(--border); display: flex; flex-direction: column; min-width: 0; }
+    .panel-head {
+      display: flex; align-items: center; gap: 10px; padding: 12px 14px;
+      border-bottom: 1px solid var(--border);
+    }
+    .panel-head .name { font-weight: 700; font-size: 14px; }
+    .state {
+      margin-left: auto; display: inline-flex; align-items: center; gap: 6px;
+      font-size: 12px; color: var(--ok); font-weight: 600;
+    }
+    .state::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+    .now { padding: 8px 14px; border-bottom: 1px solid var(--border); color: var(--muted); font-size: 12.5px; }
+    .now strong { color: var(--fg); font-weight: 600; }
+
+    .chat { flex: 1; overflow: auto; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+    .msg { max-width: 88%; padding: 9px 12px; border-radius: 10px; font-size: 13px; }
+    .msg.bot { background: var(--surface-2); border: 1px solid var(--border); align-self: flex-start; }
+    .msg.user { background: var(--accent); color: #fff; align-self: flex-end; }
+
+    .receipt {
+      margin: 0 14px 10px; border: 1px solid var(--border); border-left: 3px solid var(--ok);
+      border-radius: 10px; padding: 10px 12px; background: var(--surface);
+    }
+    .receipt h3 { margin: 0 0 6px; font-size: 12px; letter-spacing: 0.4px; text-transform: uppercase; color: var(--muted); font-family: var(--mono); }
+    .receipt ul { margin: 0 0 8px; padding-left: 16px; font-size: 12.5px; color: var(--fg); }
+    .receipt li { margin: 2px 0; }
+    .receipt .actions { display: flex; gap: 8px; }
+
+    .composer { display: flex; gap: 8px; padding: 10px 14px; border-top: 1px solid var(--border); }
+    .composer input {
+      flex: 1; min-width: 0; height: 38px; padding: 0 12px; border-radius: 10px;
+      border: 1px solid var(--border); background: var(--surface); color: var(--fg); font: inherit;
+    }
+    .composer input::placeholder { color: var(--muted); }
+
+    .stage { padding: 18px; background: var(--bg); overflow: auto; }
+    .stage h3 { margin: 0 0 4px; font-family: var(--sans); font-weight: 600; font-size: 18px; }
+    .stage p.lead { margin: 0 0 14px; color: var(--muted); font-size: 12.5px; }
+    .steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0; }
+    .steps li { display: grid; grid-template-columns: 22px 1fr; gap: 10px; padding: 0 0 14px; position: relative; }
+    .steps li:not(:last-child)::before {
+      content: ""; position: absolute; left: 10px; top: 20px; bottom: 0; width: 1px; background: var(--border);
+    }
+    .dot {
+      width: 20px; height: 20px; border-radius: 50%; border: 1px solid var(--border);
+      background: var(--surface); display: grid; place-items: center; font-size: 10px; color: var(--muted);
+    }
+    .dot.done { border-color: var(--ok); color: var(--ok); }
+    .dot.live { border-color: var(--accent); color: var(--accent); }
+    .steps b { display: block; font-size: 13px; }
+    .steps span { color: var(--muted); font-size: 12px; }
+    .hint {
+      margin-top: 6px; padding: 12px; border: 1px dashed var(--border); border-radius: 10px;
+      color: var(--muted); font-size: 12px; background: var(--surface);
+    }
+
+    .create { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 0 24px 28px; }
+    .card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 18px; box-shadow: var(--shadow);
+    }
+    .card h3 { margin: 0 0 6px; font-family: var(--sans); font-weight: 600; font-size: 19px; }
+    .card p { margin: 0 0 12px; color: var(--muted); font-size: 12.5px; }
+    .field { display: flex; gap: 8px; }
+    .field input {
+      flex: 1; min-width: 0; height: 42px; padding: 0 12px; border-radius: 10px;
+      border: 1px solid var(--border); background: var(--surface-2); color: var(--fg); font: inherit;
+    }
+    .field input:focus { background: var(--surface); }
+    .ficha { display: flex; flex-direction: column; gap: 8px; margin: 0 0 14px; }
+    .ficha div { display: grid; grid-template-columns: 96px 1fr; gap: 10px; font-size: 12.5px; }
+    .ficha dt { color: var(--muted); font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.4px; }
+    .ficha dd { margin: 0; }
+    .badge {
+      display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px;
+      background: var(--accent-soft); color: var(--accent); font-weight: 600;
+    }
+    .note { margin: 0 24px 28px; color: var(--muted); font-size: 12px; }
+
+    .theme-switch { display: flex; gap: 4px; padding: 3px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface-2); }
+    .theme-switch button { border: 0; background: transparent; padding: 4px 10px; border-radius: 999px; cursor: pointer; font-size: 12px; color: var(--muted); }
+    .theme-switch button[aria-pressed="true"] { background: var(--surface); color: var(--fg); box-shadow: 0 1px 2px rgba(0,0,0,0.08); }
+
+    @media (max-width: 900px) {
+      .app { grid-template-columns: 56px 1fr; height: auto; }
+      .stage { display: none; }
+      .create { grid-template-columns: 1fr; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      * { animation: none !important; transition: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">Zero <em>Browser</em></div>
+    <div class="address">zero://painel · maquete estática</div>
+    <div class="topbar-actions">
+      <div class="theme-switch" role="group" aria-label="Comparar paleta">
+        <button type="button" data-theme-set="claro" aria-pressed="true">Claro (proposto)</button>
+        <button type="button" data-theme-set="verde" aria-pressed="false">Verde atual</button>
+      </div>
+      <button class="btn danger" type="button">Parar tudo</button>
+      <button class="btn" type="button">Central</button>
+    </div>
+  </header>
+
+  <div class="screen-label">
+    <h2>Painel do Bot</h2>
+    <p>Uma linha de cabeçalho, uma conversa, um recibo. Nada de cinco abas.</p>
+  </div>
+
+  <main class="app" aria-label="Maquete do painel do Bot">
+    <nav class="rail" aria-label="Bots">
+      <button class="ring" type="button" aria-pressed="true" data-state="working" aria-label="Bot Preços, trabalhando">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4l7 14H5z"/></svg>
+      </button>
+      <button class="ring" type="button" aria-pressed="false" data-state="attention" aria-label="Bot Entregas, esperando você">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2"/></svg>
+      </button>
+      <button class="ring" type="button" aria-pressed="false" aria-label="Bot E-mail, parado">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="7"/></svg>
+      </button>
+      <button class="ring" type="button" aria-pressed="false" aria-label="Bot Relatórios, parado">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 17l4-6 3 4 3-5 4 7"/></svg>
+      </button>
+      <button class="ring add" type="button" aria-label="Criar um Bot">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 6v12M6 12h12"/></svg>
+      </button>
+    </nav>
+
+    <section class="panel" aria-label="Conversa com o Bot Preços">
+      <div class="panel-head">
+        <span class="name">Preços</span>
+        <span class="state">Trabalhando</span>
+      </div>
+      <p class="now"><strong>Agora:</strong> comparando o mesmo notebook em 3 lojas</p>
+
+      <div class="chat">
+        <p class="msg user">Me avise quando esse notebook custar menos de R$ 3.000.</p>
+        <p class="msg bot">Combinado. Vou conferir uma vez por dia e avisar só quando o preço cair.</p>
+        <p class="msg bot">Achei R$ 2.899 na Loja A. A Loja B ainda está em R$ 3.149.</p>
+      </div>
+
+      <article class="receipt" aria-label="Recibo da execução">
+        <h3>Recibo · hoje, 10:23</h3>
+        <ul>
+          <li>3 lojas conferidas, 1 preço abaixo da meta</li>
+          <li>Nada foi comprado nem enviado</li>
+        </ul>
+        <div class="actions">
+          <button class="btn primary" type="button">Ver prova</button>
+          <button class="btn" type="button">Desfazer</button>
+        </div>
+      </article>
+
+      <form class="composer" onsubmit="return false">
+        <label class="sr-only" for="msg">Mensagem para o Bot</label>
+        <input id="msg" type="text" placeholder="Escreva para o Bot…">
+        <button class="btn primary" type="submit">Enviar</button>
+      </form>
+    </section>
+
+    <section class="stage" aria-label="O que o Bot está fazendo">
+      <h3>O que o Bot faz agora</h3>
+      <p class="lead">A aba de trabalho fica oculta. Você vê só o andamento.</p>
+      <ol class="steps">
+        <li><span class="dot done">✓</span><div><b>Abriu a Loja A</b><span>10:21 · leu o preço e o frete</span></div></li>
+        <li><span class="dot done">✓</span><div><b>Abriu a Loja B</b><span>10:22 · preço acima da meta</span></div></li>
+        <li><span class="dot live">•</span><div><b>Conferindo a Loja C</b><span>agora · só leitura</span></div></li>
+        <li><span class="dot">3</span><div><b>Fecha a aba e entrega o recibo</b><span>próximo passo</span></div></li>
+      </ol>
+      <p class="hint">Se o Bot precisar de você (login, CAPTCHA ou aprovação), ele para e mostra um cartão com no máximo três ações.</p>
+    </section>
+  </main>
+
+  <div class="screen-label">
+    <h2>Criar um Bot em uma frase</h2>
+    <p>Você descreve. A IA devolve a ficha. Você aprova.</p>
+  </div>
+
+  <section class="create" aria-label="Maquete de criação de Bot">
+    <div class="card">
+      <h3>O que você quer que o Bot faça?</h3>
+      <p>Uma frase basta. Não precisa escolher perfil, modo nem permissão.</p>
+      <form class="field" onsubmit="return false">
+        <label class="sr-only" for="frase">Frase de criação</label>
+        <input id="frase" type="text" value="Conferir as entregas do mês no Polare e me avisar do que está pendente.">
+        <button class="btn primary" type="submit">Criar</button>
+      </form>
+      <p class="hint" style="margin-top:14px">Exemplos: “me avise quando este edital abrir” · “conferir minhas entregas do mês” · “resumir os e-mails de hoje”.</p>
+    </div>
+
+    <div class="card">
+      <h3>Ficha do Bot</h3>
+      <p>A IA explica em frases curtas. Você só aprova ou ajusta.</p>
+      <dl class="ficha">
+        <div><dt>Nome</dt><dd>Entregas</dd></div>
+        <div><dt>Missão</dt><dd>Conferir as entregas do mês e listar o que está pendente.</dd></div>
+        <div><dt>Quando</dt><dd>Todo dia 5, às 09:00</dd></div>
+        <div><dt>Onde</dt><dd>polare.exemplo.org</dd></div>
+        <div><dt>Pode</dt><dd><span class="badge">Só ler</span></dd></div>
+        <div><dt>Não pode</dt><dd>Criar, finalizar ou alterar entregas sem você aprovar.</dd></div>
+        <div><dt>Limite</dt><dd>10 minutos · nenhum gasto</dd></div>
+      </dl>
+      <div class="actions" style="display:flex;gap:8px">
+        <button class="btn primary" type="button">Testar agora</button>
+        <button class="btn" type="button">Ajustar</button>
+        <button class="btn" type="button">Cancelar</button>
+      </div>
+    </div>
+  </section>
+
+  <p class="note">Maquete estática para decisão visual. Não é o aplicativo e nada aqui está implementado. Paleta clara e azul só na ação, como no app do neo (fundo azul-claro, cartões brancos, títulos sem serifa); a versão “Verde atual” mostra o tema de hoje para comparação.</p>
+
+  <script>
+    const buttons = document.querySelectorAll('[data-theme-set]');
+    for (const button of buttons) {
+      button.addEventListener('click', () => {
+        document.documentElement.dataset.theme = button.dataset.themeSet;
+        for (const other of buttons) other.setAttribute('aria-pressed', String(other === button));
+      });
+    }
+  </script>
+</body>
+</html>

@@ -46,7 +46,7 @@ Eu faço, na pasta principal:
 
 ### Etapa 4 — Uso diário mínimo (G) → **Portão 3**
 Só o que impede o público técnico de usar de verdade:
-- Atualização automática assinada com volta atrás (`docs/PLANO_ATUALIZACAO_ASSINADA.md`). Sem isso ninguém recebe as correções.
+- Atualização automática assinada com volta atrás (`docs/arquivo/PLANO_ATUALIZACAO_ASSINADA.md`). Sem isso ninguém recebe as correções.
 - Abas e downloads sem falhas nos fluxos que você usa; perfis conferidos no app instalado (dois ao mesmo tempo).
 - Replay da execução do agente (ver o que ele fez, passo a passo): é o ponto forte de BrowserOS neo e Edge.
 - **Portão 3:** você usa o Zero como navegador principal por 7 dias e registra cada falha. Zero falhas que bloqueiem o uso, e as demais corrigidas, antes de convidar mais gente.

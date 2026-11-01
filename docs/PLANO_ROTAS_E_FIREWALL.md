@@ -70,7 +70,7 @@ O firewall protege **destino, valor e ação**. Texto livre copiado de uma fonte
 - Não substitui as aprovações atuais para ações financeiras; soma a elas.
 
 ## 3. Relação com os outros planos
-- `PLANO_BOTS.md`: bots usam rotas e passam pelo firewall; mandato e comprovante usam o recibo e a evidência.
+- `docs/bots/PLANO_BOTS.md`: bots usam rotas e passam pelo firewall; mandato e comprovante usam o recibo e a evidência.
 - `PLANO_CONTROLE_TOTAL_IA.md`: clientes externos também passam pelo firewall; o nível "total" não desliga o bloqueio de origem externa em ações com efeito.
 - `PLANO_MOTOR.md`: a Fase 0 de rotas entra na medição de custo por tarefa resolvida.
 - `PLANO_DESIGN_UX.md`: cartão de aprovação e comprovante mostram origem e requisição real.

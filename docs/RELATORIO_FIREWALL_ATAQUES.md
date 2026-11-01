@@ -1,7 +1,7 @@
 # Relatório Público da Suíte de Ataques — Firewall de Intenção e Recibo Verificado
 
 > **Data:** 31/10/2026
-> **Referência:** `docs/PLANO_ROTAS_E_FIREWALL.md` (Parte 2) e `docs/PLANO_SUPERAR_CONCORRENTES.md` (Afirmação C / Portão 2)
+> **Referência:** `docs/PLANO_ROTAS_E_FIREWALL.md` (Parte 2) e `docs/concorrencia/PLANO_SUPERAR_CONCORRENTES.md` (Afirmação C / Portão 2)
 > **Arquivo de teste executável:** `test/intent-firewall-attacks.test.js` e `src/automation/service/intent-firewall.js`
 
 ## 1. Resumo Executivo

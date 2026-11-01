@@ -96,16 +96,16 @@ Continuam abertos porque exigem segredo/conta do usuário ou custo de inferênci
 
 ### Reconciliação com o checklist histórico
 
-Esta tabela registra a reconciliação feita na data do comparativo. O roteiro ativo agora está em `CHECKLIST.md`; o inventário disponível antes desta reorganização foi preservado em `docs/CHECKLIST_HISTORICO.md`. Os números e estados abaixo são históricos e não representam o estado atual. A cópia arquivada não é um snapshot exato da data do comparativo; revalidar cada tarefa no código antes de reabri-la.
+Esta tabela registra a reconciliação feita na data do comparativo. O roteiro ativo agora está em `CHECKLIST.md`; o inventário disponível antes desta reorganização foi preservado em `docs/arquivo/CHECKLIST_HISTORICO.md`. Os números e estados abaixo são históricos e não representam o estado atual. A cópia arquivada não é um snapshot exato da data do comparativo; revalidar cada tarefa no código antes de reabri-la.
 | Itens | Estado ao final desta sessão | Evidência/limite |
 |---|---|---|
-| `docs/CHECKLIST_HISTORICO.md` 182, 199, 209 e 218 | **Abertos; mesmo gate de autenticação real** | Testes de UI, chave mock, catálogo mock e resposta HTTP 401 sem chave não demonstram chat autenticado. A nota histórica de 199 sobre diagnóstico insuficiente é superada por testes de rede com erro tipado, mas a chamada real segue não executada. |
-| `docs/CHECKLIST_HISTORICO.md` 329 e 433 | **Abertos; comparação entre modelos** | DeepSeek Flash tem medições históricas, mas falta segundo modelo e repetição pareada antes de qualquer conclusão geral. |
-| `docs/CHECKLIST_HISTORICO.md` 378 | **Aberto; cobertura difícil repetida** | Requisito histórico de 28/28 em duas rodadas; a suíte local de 301 testes não substitui essa avaliação browser/modelo. |
-| `docs/CHECKLIST_HISTORICO.md` 471 e 513 | **Abertos; benchmark real de flags** | O resultado exploratório de uma execução em 514 não fecha a comparação de `--scripts`, `--journal` e `--preinspect` em 44/33 nem o benchmark com amostra suficiente. |
-| `docs/CHECKLIST_HISTORICO.md` 507 e 512 | **Abertos; validação real de Planilhas** | Dependem de uma planilha de teste autorizada; não foram executados nem marcados. |
-| `docs/CHECKLIST_HISTORICO.md` 514 | **Concluído historicamente, só exploratório** | Preservar a nota de 1 execução por condição como evidência estreita; não usar como resultado estatístico ou prova de paridade. |
-| `docs/CHECKLIST_HISTORICO.md` 569 e 584 | **Em aberto; objetivo amplo não concluído** | A auditoria de inventário está atualizada nesta rodada, mas gates de autenticação, benchmark real, cobertura difícil e Sheets autorizados permanecem. Não marcar os agregadores até comprovar todos os requisitos. |
+| `docs/arquivo/CHECKLIST_HISTORICO.md` 182, 199, 209 e 218 | **Abertos; mesmo gate de autenticação real** | Testes de UI, chave mock, catálogo mock e resposta HTTP 401 sem chave não demonstram chat autenticado. A nota histórica de 199 sobre diagnóstico insuficiente é superada por testes de rede com erro tipado, mas a chamada real segue não executada. |
+| `docs/arquivo/CHECKLIST_HISTORICO.md` 329 e 433 | **Abertos; comparação entre modelos** | DeepSeek Flash tem medições históricas, mas falta segundo modelo e repetição pareada antes de qualquer conclusão geral. |
+| `docs/arquivo/CHECKLIST_HISTORICO.md` 378 | **Aberto; cobertura difícil repetida** | Requisito histórico de 28/28 em duas rodadas; a suíte local de 301 testes não substitui essa avaliação browser/modelo. |
+| `docs/arquivo/CHECKLIST_HISTORICO.md` 471 e 513 | **Abertos; benchmark real de flags** | O resultado exploratório de uma execução em 514 não fecha a comparação de `--scripts`, `--journal` e `--preinspect` em 44/33 nem o benchmark com amostra suficiente. |
+| `docs/arquivo/CHECKLIST_HISTORICO.md` 507 e 512 | **Abertos; validação real de Planilhas** | Dependem de uma planilha de teste autorizada; não foram executados nem marcados. |
+| `docs/arquivo/CHECKLIST_HISTORICO.md` 514 | **Concluído historicamente, só exploratório** | Preservar a nota de 1 execução por condição como evidência estreita; não usar como resultado estatístico ou prova de paridade. |
+| `docs/arquivo/CHECKLIST_HISTORICO.md` 569 e 584 | **Em aberto; objetivo amplo não concluído** | A auditoria de inventário está atualizada nesta rodada, mas gates de autenticação, benchmark real, cobertura difícil e Sheets autorizados permanecem. Não marcar os agregadores até comprovar todos os requisitos. |
 
 ## Fontes e critério
 

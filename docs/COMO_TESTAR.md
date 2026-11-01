@@ -139,5 +139,5 @@ Estes itens não são bug do build; são gates que faltam:
   `backups/2026-10-27-before-motor-leaps/app` (cópia da instalação) ou
   `backups/2026-10-27-before-0.1.5-dev/installer/Zero Browser Setup 0.1.4.exe` (release anterior).
 - Código: `git reset --hard motor-pre-leaps-2026-10-27` (antes dos saltos) ou
-  `git revert <commit>` do salto específico (lista em `docs/PONTOS_DE_RESTAURACAO.md`).
+  `git revert <commit>` do salto específico (lista em `docs/arquivo/PONTOS_DE_RESTAURACAO.md`).
 - Diagnóstico: `%APPDATA%\navegante\navegante-error.log`.

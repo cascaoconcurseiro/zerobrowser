@@ -16,7 +16,7 @@
 - [x] Corrigir a legibilidade visual dos dois cartões explicativos de envio no estado inicial do Bot; contraste AA é medido pela fixture Electron.
 - [ ] Medir velocidade, acerto, tokens e custo por tarefa; comparar com concorrentes em conjunto pareado, sem chamadas pagas sem orçamento aprovado.
 - [ ] Commit local e instalação verificada após cada fatia utilizável; sem push.
-- [ ] Executar os marcos 1–4 de `docs/ROTEIRO_DO_MENTOR.md` (bot roda 7 dias; uma frase cria o bot; uma rotina real do Wesley; painel novo) e marcar cada um só com o teste de sim ou não. O roteiro vale sobre os planos.
+- [ ] Executar os marcos 1–4 de `docs/ROTEIRO_DO_MENTOR.md` (bot roda 7 dias; uma frase cria o bot; uma rotina real do Wesley; painel novo) e marcar cada um só com o teste de sim ou não. O roteiro vale sobre os planos. A ordem prática e o critério de pronto de cada tarefa estão em `docs/ROTEIRO_EXECUCAO_IA.md`; a primeira tarefa aberta é A1 (ligar o executor).
 
 ## Fatia utilizável em preparação — 0.1.65-dev
 
@@ -60,7 +60,7 @@
 
 - [x] Rastrear executor, agendador, conectores, integração de Apps Vivos, catálogo visual e configuração de modelos.
 - [x] Executar verificações locais: npm test 404/405; test:bot-runtime PASS; test:ui FAIL; test:delegation-layout PASS.
-- [x] Registrar achados e limites em docs/AUDITORIA_INTEGRADA_2026-10-31.md.
+- [x] Registrar achados e limites em docs/arquivo/AUDITORIA_INTEGRADA_2026-10-31.md.
 - [ ] Corrigir A01–A04: executor real, propagação de erro, cancelamento e agenda.
 - [ ] Concluir cobertura operacional pendente no relatório. A declaração histórica de todas as fases concluídas abaixo está suspensa.
 
@@ -90,7 +90,7 @@ Este resumo descrevia a versão 0.1.63-dev e foi superado pela auditoria de 31/1
 - [x] Etiqueta explícita de reversibilidade (`Reversível`, `Parcialmente reversível`, `Não reversível`) no cartão de aprovação no chat.
 - [x] Testes automatizados (`npm test` 375/375, `npm run test:delegation-layout` PASS, `npm run test:ui` PASS).
 - [x] Próximo passo de Design/UX: recibo pós-ação com botão `Desfazer` para ações reversíveis e barra de comando por intenção (`Ctrl+K`) concluídos na `0.1.54-dev`.
-- Este arquivo contém apenas a ordem ativa e o backlog priorizado. O inventário cronológico antigo foi preservado em `docs/CHECKLIST_HISTORICO.md`; itens abertos lá não são tarefas autorizadas/ativas até serem promovidos para cá.
+- Este arquivo contém apenas a ordem ativa e o backlog priorizado. O inventário cronológico antigo foi preservado em `docs/arquivo/CHECKLIST_HISTORICO.md`; itens abertos lá não são tarefas autorizadas/ativas até serem promovidos para cá.
 - Planos em `docs/PLANO_*.md` são propostas. Confirmar cada capacidade no código e no executável antes de mudar status para concluído.
 
 ## Entrega concluída — Central, ciclo dos Bots e divisor Delegar (0.1.52-dev)
@@ -181,3 +181,10 @@ Este resumo descrevia a versão 0.1.63-dev e foi superado pela auditoria de 31/1
 - [x] Teste Electron com retorno controlado confirma que a resposta do motor aparece sem passos nem confirmação fabricada; não usa provedor real.
 - [ ] Aplicar allowlist, custo/tempo e cancelamento por execução no processo principal; confirmar pós-condição real do objetivo.
 - [ ] Após fechar a fatia: commit local, instalar e verificar versão.
+- [ ] Tela "Agentes conectados" (endereço MCP, conectar com um clique, nível e revogação por agente): ver `docs/concorrencia/PLANO_SUPERAR_NEO.md`.
+- [ ] Superar o neo com medida: teste pareado, grupo de abas por bot, ajuda humana, painel "acontecendo agora" e histórico. Ver `docs/concorrencia/PLANO_SUPERAR_NEO.md`.
+- [ ] Aprovar `docs/bots/FLUXO_UX_BOTS.md` (fluxo de criar, trabalhar, pedir ajuda, aprovar, Sala da equipe e Parar tudo) antes do mockup e do código.
+- [ ] Revisar `docs/bots/CASOS_DE_USO_BOTS.md` (48 modelos, ordem de validação) e reverificar os defeitos A01–A12 no código da 0.1.68 antes de implementar.
+- [ ] Importar os 40 mascotes pixel art (`Bots_Pixel_Art_Todos_40.zip`) como ativos individuais, após confirmação do Wesley (ver `docs/bots/FLUXO_UX_BOTS.md` seção 13).
+
+- [ ] Revisar a reorganização de documentos (docs/arquivo, docs/bots, docs/concorrencia) e aprovar o commit.

@@ -119,7 +119,7 @@ Data: 31/10/2026. **Status: Implementado (`0.1.53-dev` a `0.1.60-dev`).** Base: 
 4. Passagem de teclado e leitor de tela nos fluxos principais.
 5. Só depois: refinamento de marca (logotipo final, família tipográfica).
 
-## 11. Ordem de construção (liga ao `PLANO_BOTS.md`)
+## 11. Ordem de construção (liga ao `docs/bots/PLANO_BOTS.md`)
 
 1. Tokens: anel de estado, paleta de bots, escala de espaçamento no `styles.css` (sem mudar telas).
 2. Trilho de bots + painel (depende do executor e histórico da Fase 1 dos bots).
@@ -192,13 +192,13 @@ Feedback do Wesley sobre a interface atual: "bagunçada, parece criada por IA, o
 
 **Painel de bots novo.** Cabeçalho de uma linha, conversa, campo de texto. Agenda, memória, rotas e histórico vão para a página do bot. Os 9 itens do menu viram menu de contexto.
 
-**Criar bot.** Um campo de frase; a IA devolve a ficha (nome, símbolo, missão, quando roda, sites, permissões, limites, teste); você ajusta, aprova e clica "Testar agora". Detalhes de execução em `PLANO_BOTS.md` 0f.
+**Criar bot.** Um campo de frase; a IA devolve a ficha (nome, símbolo, missão, quando roda, sites, permissões, limites, teste); você ajusta, aprova e clica "Testar agora". Detalhes de execução em `docs/bots/PLANO_BOTS.md` 0f.
 
 **Bots vivos.** O anel muda de forma por estado (parado, trabalhando, esperando você, erro, pausado), já previsto na seção 1. Cada bot mostra uma linha do que faz agora, com o último passo. A troca entre bots aparece numa sala da equipe, mostrando quem pediu o quê. Todo movimento respeita "movimento reduzido" e cada estado também tem texto, não só forma e cor. Risco: animação com vários bots rodando juntos pode pesar; medir no protótipo.
 
-**Inspiração visual: BrowserOS neo.** Medido no site (não no app, que não consegui abrir; a conexão com o neo falhou): fundo azulado claro #F9FBFF, texto #393F49, azul de ação #0254EC, botões com cantos de 12 px, títulos em serifa (EB Garamond) com uma palavra em itálico azul, corpo em Inter, rótulos em fonte mono, desenho de órbitas com cartões de agente. Pela descrição do produto: página de nova aba como painel com um bloco ao vivo por agente (nome, ferramenta, status) e replay de sessão com linha do tempo. Aproveitar o espírito (claro, calmo, uma cor de ação, hierarquia pela tipografia, um bloco vivo por bot, replay como o recibo) **sem copiar** cores e fontes exatas.
+**Inspiração visual: BrowserOS neo.** Visto no app instalado em 31/10 (só leitura): fundo azul-claro, cartões brancos, azul só na ação, títulos em sans-serif (a serifa com itálico azul é só do site), cinco telas (Home, Skills, Connected agents, History, Settings). Detalhes e comparação em `docs/concorrencia/PLANO_SUPERAR_NEO.md`. Aproveitar o espírito (claro, calmo, uma cor de ação, um bloco vivo por bot, replay como o recibo) **sem copiar** cores e fontes exatas.
 
-**Decisão pendente:** sair do verde (#326f61, seção 6) para paleta clara com uma cor de ação própria. Até o Wesley aceitar, o verde segue. **Próximo passo:** mockup visual da criação de bot e do painel novo antes de qualquer código.
+**Decisão aceita pelo Wesley (31/10/2026): sair do verde (#326f61, seção 6) para paleta clara com uma cor de ação própria (azul, como na referência do neo).** O verde só sai do código quando o novo visual for implementado. **Maquete pronta:** `docs/prototipos/painel-bot-prototipo.html` (painel do Bot e criação em uma frase, com comparação entre a paleta clara e o verde atual). Próximo passo: leitura e aprovação do Wesley; só depois implementar.
 
 ## 12. Riscos e decisões suas
 

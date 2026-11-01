@@ -1,4 +1,13 @@
-# Novidades — Zero Browser 0.1.68-dev
+# Novidades — Zero Browser 0.1.69-dev
+
+## 0.1.69-dev — O Bot roda a missão pelo agente
+
+- O executor do Bot deixou de ser uma casca: um passo de missão abre uma aba oculta e entrega o objetivo do Bot ao mesmo agente que roda pela conversa.
+- A aba do usuário não muda de foco; a aba do Bot é fechada ao terminar, inclusive em falha ou cancelamento.
+- "Parar todos os Bots" cancela a execução do agente e encerra a aba oculta.
+- Quando não há passos gravados, "rodar agora" e a agenda usam a missão do Bot como passo, em vez de exigir passos prontos.
+- A suíte cobre sucesso, falha, cancelamento, passo desconhecido e missão vazia (7 testes novos).
+- Limites desta fatia: o isolamento de perfil e o bloqueio rígido de escrita por Bot ainda não existem; a prova com um site real e 7 dias seguidos é a tarefa A7 do quadro de execução.
 
 ## 0.1.68-dev — Orquestrador no modo Delegar
 
@@ -155,7 +164,7 @@
 - O avatar do perfil atual anima enquanto a tarefa está em execução; a preferência por movimento reduzido é respeitada.
 - O teste de UI verifica a abertura em Delegar e a renderização da Central; o teste de catálogo verifica armazenamento, associação e remoção de perfis obsoletos.
 - O carregamento sob demanda das ferramentas avançadas reduziu o esquema serializado do primeiro pedido de 11.139 para 8.096 bytes (27,3%) na fixture. Isso não mede tokens faturados, latência ou precisão com provedor real.
-- Avaliação comparativa atualizada em `docs/COMPARATIVO_CONCORRENTES_2026-10-28.md`; a nota mede prontidão pública, não desempenho pareado.
+- Avaliação comparativa atualizada em `docs/concorrencia/COMPARATIVO_CONCORRENTES_2026-10-28.md`; a nota mede prontidão pública, não desempenho pareado.
 
 ## Histórico — 0.1.46-dev
 
@@ -169,7 +178,7 @@
 ## Validação de Bots e conceito do modo Delegar — 31/10/2026
 
 - Smoke Electron isolado confirmou que o perfil ativo é `Bot Fixture` e bloqueou tentativas de preencher senha e identificador de login sem formulário, mesmo com `allow-all` previamente preparado apenas nos dados temporários de teste. O campo permaneceu vazio nos dois casos; validação pelo IPC da interface, sem chamada de modelo. Ainda falta validar o caminho MCP.
-- Incluído o conceito visual do modo Delegar em `docs/CONCEITO_VISUAL_MODO_DELEGAR.md`. É uma proposta de layout, não uma tela implementada ou versão pronta para instalar.
+- Incluído o conceito visual do modo Delegar em `docs/arquivo/CONCEITO_VISUAL_MODO_DELEGAR.md`. É uma proposta de layout, não uma tela implementada ou versão pronta para instalar.
 
 ## Espaços de Bots — 31/10/2026
 

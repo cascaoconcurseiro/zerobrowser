@@ -51,7 +51,7 @@ Navegador desktop próprio, pensado para navegação humana e controle amplo e s
 | 2026-10-27 | Instalar 0.1.5-dev em produção após validar `win-unpacked`, conferir hash e criar backup restaurável | Pedido explícito do usuário; produção passa a rodar um candidato até fechar integrações Electron e benchmark, com reversão documentada |
 
 ## Migração arquitetural planejada
-- Plano completo: `docs/PLANO_ZERO_CHROMIUM_AI.md`.
+- Plano completo: `docs/arquivo/PLANO_ZERO_CHROMIUM_AI.md`.
 - Não começar um fork de motor de renderização do zero; acompanhar Chromium upstream e aplicar marca/interface/integração próprias.
 - Separar a orquestração do agente de `webContents` por um contrato de runtime; manter adaptador Electron para comparação com o adaptador Chromium.
 - Não trocar a instalação de uso diário até passar os benchmarks pareados e provar backup, importação de perfil, atualização e rollback.
@@ -64,3 +64,10 @@ Navegador desktop próprio, pensado para navegação humana e controle amplo e s
 - Sem commit, publicação ou instalador novo sem pedido do usuário.
 - Não editar o Flame para ele funcionar no Navegante: corrigir no host/shim.
 - "Limpar dados ao sair" apaga dados dos sites e histórico, mas preserva o armazenamento das extensões.
+
+## Decisões de 31/10/2026 (produto e bots)
+
+- **Perfil ≠ Bot.** Perfil é pessoa/contexto (logins, histórico, extensões); o Bot mora dentro de um perfil e usa os logins dele. Hoje `src/main/profiles.js` mistura os dois (`type: 'bot'`); separar com migração sem perda de dados. Detalhe: `docs/bots/FLUXO_UX_BOTS.md` seções 11–13.
+- **Bots para todos os usuários**, com biblioteca de modelos por categoria e permissão (Ler / Rascunho / Age com aprovação): `docs/bots/CASOS_DE_USO_BOTS.md`.
+- **Visual:** paleta clara com uma cor de ação azul (sai do verde `#326f61` quando o novo visual for implementado); mascotes pixel art identificam bots, símbolos de traço ficam para ações da interface.
+- **Agentes conectados / MCP:** tela própria com endpoint, conexão por agente, nível, validade, revogação e auditoria: `docs/concorrencia/PLANO_SUPERAR_NEO.md`.

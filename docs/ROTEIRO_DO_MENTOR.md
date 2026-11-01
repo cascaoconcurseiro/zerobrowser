@@ -10,7 +10,7 @@ Tudo o que não ajuda essa frase é extra e fica para depois (seção 7).
 
 ## 2. Onde estamos de verdade (conferido no código em 31/10/2026)
 
-Fonte: pasta principal `C:\Users\Wesley\Documents\Navegante`, reconferida ao incorporar este roteiro: versão `0.1.68-dev`, branch `main` no commit `80eaf1f`, árvore limpa (só `audit-*.txt` não rastreados) e `npm test` 414/414. A primeira versão deste texto foi escrita numa cópia de trabalho parada na `0.1.43-dev`; a tabela abaixo já reflete a pasta principal.
+Fonte: pasta principal `C:\Users\Wesley\Documents\Navegante`, reconferida ao incorporar este roteiro: versão `0.1.68-dev`, branch `main` no commit `2dea0dc` (o dos próprios documentos), árvore limpa (só `audit-*.txt` não rastreados) e `npm test` 414/414. A primeira versão deste texto foi escrita numa cópia de trabalho parada na `0.1.43-dev`; a tabela abaixo já reflete a pasta principal.
 
 | Peça | Estado |
 |---|---|
@@ -18,18 +18,18 @@ Fonte: pasta principal `C:\Users\Wesley\Documents\Navegante`, reconferida ao inc
 | Ficha do bot, modelos prontos, gravador de tarefa, catálogo de avatares | **Existe** (`bot-store.js`, `templates.js`, `recorder.js`, `bot-avatar-catalog.js`); desde a 0.1.67 o avatar é símbolo de traço, não retrato |
 | Firewall de intenção, guarda contra injeção, diário de efeitos, rotas aprendidas, registro de comandos | **Existe como arquivo**; falta provar com uso real (`intent-firewall.js`, `injection-guard.js`, `effect-journal.js`, `learned-routes.js`, `command-registry.js`) |
 | Ferramenta de anexar arquivo da pasta Downloads (`upload_file`) | **Existe** na lista de ferramentas do agente; não testada de ponta a ponta |
-| **Executor do bot (o que de fato roda a tarefa)** | **Casca que dá erro.** `src/main/main.js:267-271` lança "Esta rotina ainda não está conectada ao executor do navegador". `bots:run-now` exige passos já prontos (`main.js:1672`). É por isso que os bots "não parecem bots". |
+| **Executor do bot (o que de fato roda a tarefa)** | **Ligado na `0.1.69-dev`.** A missão do bot vira uma execução do mesmo agente da conversa, numa aba oculta que fecha no fim, inclusive em falha ou cancelamento (`src/bots/agent-executor.js`; 7 testes). Prova com site real e 7 dias: ainda não. |
 | Conectores (e-mail, agenda etc.) | **Dados de exemplo** (`mockItems`); não achei login real |
 | Bandeja do sistema, reação a dormir/acordar, "abrir ao ligar o PC" aplicado | **Não existe** (só a configuração é guardada; não há `Tray` nem `powerMonitor` em `main.js`) |
 | Interface dos bots | Existe, mas com camadas demais (seção 8) |
 
-**Corrigido desde o rascunho:** erro de ferramenta já interrompe a execução e o cancelamento já entrega `AbortSignal` ao executor (`src/bots/runner.js`, coberto na `0.1.65-dev`). O que continua faltando é o **executor real**, a **agenda recorrente com persistência** e a **prova com uso real** — não é preciso refazer o que já foi corrigido.
+**Corrigido desde o rascunho:** erro de ferramenta já interrompe a execução e o cancelamento já entrega `AbortSignal` ao executor (`src/bots/runner.js`, coberto na `0.1.65-dev`). O executor real foi ligado na `0.1.69-dev`. O que continua faltando é a **agenda recorrente com persistência**, o **perfil isolado por tarefa** e a **prova com uso real** — não é preciso refazer o que já foi corrigido.
 
-**Leitura honesta:** há muito planejado e várias peças soltas. O que falta é **ligar o motor** e **provar com uso real**. Planejar mais não resolve isso.
+**Leitura honesta:** há muito planejado e várias peças soltas. O que falta agora é **provar com uso real** e fechar o segundo plano (bandeja, dormir/acordar). Planejar mais não resolve isso.
 
 ## 3. O alvo real e a demonstração de um minuto
 
-**Primeiro usuário: o próprio Wesley.** Ele tem rotinas mensais repetidas em sistemas web (por exemplo as entregas no Polare e a conferência da fiscalização). Se o Zero fizer uma delas sozinho e certo, há prova verdadeira e medível: tempo economizado.
+**Primeiro teste: uma rotina real e repetida, de qualquer pessoa** (o Wesley é o primeiro testador). O Bot serve a todos os usuários (ver `docs/bots/CASOS_DE_USO_BOTS.md`). Se o Zero fizer uma rotina sozinho e certo, há prova verdadeira e medível: tempo economizado.
 
 **Demonstração que impressiona qualquer pessoa em um minuto:**
 1. Você escreve "me avise quando esse preço cair" ou "faça minha rotina do mês".
@@ -62,7 +62,7 @@ O sistema tem de ser entendido por quem nunca viu um bot. Regras que valem para 
 ## 6. Marcos de construção (cada um com teste de sim ou não)
 
 **Marco 1 — O bot roda de verdade.**
-Ligar o executor ao agente que já funciona pela conversa. O bot abre uma aba em segundo plano, executa a missão, grava recibo e avisa. *(O perfil isolado por tarefa ainda não existe: hoje a execução usa o perfil atual. Isolar o perfil é parte do marco, não algo já pronto.)*
+Ligar o executor ao agente que já funciona pela conversa. *(Feito na `0.1.69-dev`: a missão abre aba oculta, roda o agente e fecha a aba.)* O bot executa a missão, grava recibo e avisa. *(O perfil isolado por tarefa ainda não existe: hoje a execução usa o perfil atual. Isolar o perfil é parte do marco, não algo já pronto.)*
 Teste: um bot de monitoramento de preço roda por **7 dias seguidos**, com o Zero na bandeja, sem estar em primeiro plano, e avisa quando o preço muda.
 Inclui: bandeja do sistema (fechar vai para a bandeja), abrir ao ligar o PC, rodar o que ficou atrasado ao acordar (a função de execução perdida já existe).
 Risco principal a medir: aba oculta pode parar quando a janela é minimizada (relatos no Electron). Plano B: agendador do Windows (a especificação já existe no código).
@@ -124,7 +124,7 @@ Fontes: https://github.com/electron/electron/issues/42140 · https://developers.
 **Tomadas:** núcleo intocável; paridade limitada e Desfazer como aposta principal; avatares em anel; mockup do modo Delegar como base; produto único com o navegador no centro; desktop por último.
 
 **Abertas (perguntas para o Wesley):**
-1. Qual rotina real sua, repetida, o primeiro bot deve fazer? (sugestão: uma do Polare) — **pendente de resposta**.
+1. Qual rotina real e repetida o primeiro bot valida? Resolvido: o Polare era só exemplo; a primeira rotina validada é o monitor de preço, e as demais saem da biblioteca de modelos em `docs/bots/CASOS_DE_USO_BOTS.md`.
 2. Qual loja ou produto serve de primeiro teste do monitor de preço? — **pendente de resposta**.
 3. O PC fica ligado quando os bots precisam trabalhar? (define se o servidor próprio entra cedo)
 4. Aceita sair do verde para a paleta clara?
@@ -134,5 +134,5 @@ Fontes: https://github.com/electron/electron/issues/42140 · https://developers.
 ## 11. Como usar este roteiro
 
 - Implementação **só em uma sessão aberta na pasta principal**; a cópia de trabalho ficou como histórico e não recebe código.
-- Antes de cada marco, ler só o plano correspondente (`PLANO_BOTS.md` para o Marco 1 e 2; `PLANO_DESIGN_UX.md` para o 4).
+- Antes de cada marco, ler só o plano correspondente (`docs/bots/PLANO_BOTS.md` para o Marco 1 e 2; `PLANO_DESIGN_UX.md` para o 4).
 - Ao terminar um marco: marcar no `CHECKLIST_PLANOS_2026-10-31.md`, atualizar o topo do `HANDOFF.md` e só então abrir o seguinte.
