@@ -166,6 +166,21 @@ const browserApi = {
       const handler = (_event, data) => callback(data);
       ipcRenderer.on('bots:attention', handler);
       return () => ipcRenderer.removeListener('bots:attention', handler);
+    },
+    onNotification: (callback) => {
+      const handler = (_event, data) => callback(data);
+      ipcRenderer.on('bots:notification', handler);
+      return () => ipcRenderer.removeListener('bots:notification', handler);
+    },
+    onSiteBlocked: (callback) => {
+      const handler = (_event, data) => callback(data);
+      ipcRenderer.on('bots:site-blocked', handler);
+      return () => ipcRenderer.removeListener('bots:site-blocked', handler);
+    },
+    onRunEvent: (callback) => {
+      const handler = (_event, data) => callback(data);
+      ipcRenderer.on('bots:run-event', handler);
+      return () => ipcRenderer.removeListener('bots:run-event', handler);
     }
   },
   routes: {

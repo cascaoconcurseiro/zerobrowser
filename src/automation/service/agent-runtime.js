@@ -77,7 +77,7 @@ function recordPostActionTextWait(trace, result) {
   if (result.fallback) metrics.fallbacks += 1;
 }
 
-async function runAgent(tabId, prompt, apiKey, model, allowTools = true, provider = 'openrouter', requireToolCall = false, { maxSteps = 40, trace = null, maxDurationMs = 5 * 60 * 1000, resumable = false, resumeId = null, observeAfterActions = true, captureReadEvidence = false, preInspect = false, actionScripts = false, diffSnapshots = false, deduplicateSnapshots = false, cascadeModel = null, streaming = false, effectJournal = false, verify = null, correctionRounds = 0, structuredExtraction = false, recipes = false, advancedInput = 'auto', saveRecipe = null, promptCache = false, taskStartUrl = null, transforms = false, onEvent = null } = {}) {
+async function runAgent(tabId, prompt, apiKey, model, allowTools = true, provider = 'openrouter', requireToolCall = false, { maxSteps = 40, trace = null, maxDurationMs = 5 * 60 * 1000, resumable = false, resumeId = null, observeAfterActions = true, captureReadEvidence = false, preInspect = false, actionScripts = false, diffSnapshots = false, deduplicateSnapshots = false, cascadeModel = null, streaming = false, effectJournal = false, verify = null, correctionRounds = 0, structuredExtraction = false, recipes = false, advancedInput = 'auto', saveRecipe = null, promptCache = false, taskStartUrl = null, transforms = false, onEvent = null, isolatedTabs = false } = {}) {
     for (const [id, state] of this.pausedAgentRuns) {
       if (state.expiresAt <= Date.now()) this.forgetPausedRun(id);
     }
@@ -264,6 +264,8 @@ async function runAgent(tabId, prompt, apiKey, model, allowTools = true, provide
     const adoptTab = (id) => {
       const next = this.tabs.get(id);
       if (!next?.webContents || next.webContents.isDestroyed()) throw new Error(`Aba ${id} não encontrada; use tabs list`);
+      // Bot em perfil isolado: só trabalha nas abas que ele mesmo abriu. Aba do usuário fica fora.
+      if (isolatedTabs && !agentTabIds.has(id)) throw new Error('Aba fora do escopo do Bot: ele só pode usar as abas que abriu.');
       if (id !== tabId && this.agentTabs.has(id) && !agentTabIds.has(id)) throw new Error('Outra tarefa está usando esta aba.');
       if (taskPolicy && !this.taskApprovalPolicies.has(id)) {
         this.taskApprovalPolicies.set(id, taskPolicy);
@@ -568,7 +570,10 @@ async function runAgent(tabId, prompt, apiKey, model, allowTools = true, provide
         };
       }
       if (name === 'tabs') {
-        if (args.action === 'list') return { success: true, tabs: [...this.tabs.keys()].map(describeTab) };
+        if (args.action === 'list') {
+          const visibleTabs = isolatedTabs ? [...agentTabIds].filter((id) => this.tabs.has(id)) : [...this.tabs.keys()];
+          return { success: true, tabs: visibleTabs.map(describeTab) };
+        }
         if (args.action === 'read_batch') {
           const activeUrl = new URL(tab.webContents.getURL());
           const query = String(args.query || '').trim().slice(0, 100).toLocaleLowerCase();
@@ -692,7 +697,8 @@ async function runAgent(tabId, prompt, apiKey, model, allowTools = true, provide
           const previousTabId = tabId;
           // Registra a aba como pertencente à tarefa antes de iniciar a rede. Um anexo local pode
           // disparar will-download antes de createTab devolver, abrindo indevidamente "Salvar como".
-          const created = await this.browserControls.createTab('about:blank');
+          // fromTabId: a aba nova herda o perfil isolado e a política de site do Bot que a pediu.
+          const created = await this.browserControls.createTab('about:blank', { fromTabId: tabId });
           knownTabs.add(created.tabId);
           adoptTab(created.tabId);
           const destination = tab.webContents;
@@ -725,12 +731,14 @@ async function runAgent(tabId, prompt, apiKey, model, allowTools = true, provide
         if (args.action === 'close') {
           const id = String(args.tabId || tabId);
           if (!this.tabs.has(id)) throw new Error(`Aba ${id} não encontrada`);
+          if (isolatedTabs && !agentTabIds.has(id)) throw new Error('Aba fora do escopo do Bot: ele não fecha abas do usuário.');
           if (this.agentTabs.has(id) && !agentTabIds.has(id)) throw new Error('Outra tarefa está usando esta aba; não posso fechá-la.');
           const approval = await this.confirmConsequentialAction(tabId, { kind: 'browser_close_tab', readOnly: false });
           if (!approval.approved) throw denied(approval, 'O fechamento da aba foi cancelado');
           // Fechar a aba atual volta para a anterior, como no Chrome.
           if (id === tabId) {
-            const back = [...tabTrail].reverse().find((other) => other !== id && this.tabs.has(other)) || [...this.tabs.keys()].find((other) => other !== id);
+            const candidates = isolatedTabs ? [...agentTabIds] : [...this.tabs.keys()];
+            const back = [...tabTrail].reverse().find((other) => other !== id && this.tabs.has(other) && candidates.includes(other)) || candidates.find((other) => other !== id);
             if (!back) throw new Error('Esta é a única aba aberta');
             adoptTab(back);
             this.browserControls.activateTab?.(tabId);

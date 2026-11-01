@@ -156,12 +156,24 @@
         <button id="btn-close-ai" class="panel-close" aria-label="Fechar agente"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
       </div>
       <div id="ai-ready-status" class="ai-ready-status" role="status">Carregando configuração do agente…</div>
+      <div class="delegation-tabs" role="tablist" aria-label="Painel Delegar">
+        <button type="button" role="tab" id="delegation-tab-bots" class="delegation-tab" data-delegation-tab="bots" aria-controls="delegation-pane-bots" aria-selected="true">Bots</button>
+        <button type="button" role="tab" id="delegation-tab-chat" class="delegation-tab" data-delegation-tab="chat" aria-selected="false">Conversa</button>
+      </div>
+      <section id="delegation-pane-bots" class="delegation-pane-bots" role="tabpanel" aria-labelledby="delegation-tab-bots">
+        <h2 class="delegation-pane-title">Quem pode ajudar?</h2>
+        <p class="delegation-pane-sub">Escolha um bot. Você descreve a tarefa depois.</p>
+        <label class="sr-only" for="bot-catalog-search">Buscar bot ou tarefa</label>
+        <input id="bot-catalog-search" class="bot-catalog-search" type="search" placeholder="Buscar por bot ou tarefa" autocomplete="off">
+        <ul id="bot-catalog-list" class="bot-catalog-list" aria-label="Bots disponíveis"></ul>
+        <p class="bot-catalog-footer">Selecione um bot para abrir a conversa.</p>
+      </section>
       <div id="tab-control-banner" class="tab-control-banner hidden" role="region" aria-label="Controle da aba ativa" aria-live="polite">
         <span class="tab-control-bot-badge" aria-hidden="true">🛒</span>
         <span id="tab-control-label" class="tab-control-label">Navegador controlado por <strong>Preços</strong></span>
         <button id="btn-tab-takeover" class="btn-ghost tab-control-action" type="button">Assumir</button>
       </div>
-      <div id="grokbot-briefing-bar" class="grokbot-briefing-bar" role="region" aria-label="Bot Especialista ativo">
+      <div data-delegation-chat id="grokbot-briefing-bar" class="grokbot-briefing-bar" role="region" aria-label="Bot Especialista ativo">
         <div class="grokbot-briefing-identity">
           <span id="grokbot-active-ring" class="grokbot-active-ring" data-bot-state="idle" aria-hidden="true"></span>
           <div class="grokbot-briefing-copy">
@@ -177,14 +189,14 @@
           <button id="btn-grokbot-teach-quick" class="btn-ghost grokbot-chip-btn" type="button" title="Gravar tarefa passo a passo na aba (Teach a Task)">Gravar</button>
         </div>
       </div>
-      <div id="bot-panel-tabs" class="bot-panel-tabs" role="group" aria-label="Abas do Bot">
+      <div data-delegation-chat id="bot-panel-tabs" class="bot-panel-tabs" role="group" aria-label="Abas do Bot">
         <button type="button" class="bot-panel-tab ativo" data-bot-tab="chat" aria-pressed="true">Conversa</button>
         <button type="button" class="bot-panel-tab" data-bot-tab="agenda" aria-pressed="false">Agenda</button>
         <button type="button" class="bot-panel-tab" data-bot-tab="memory" aria-pressed="false">Memória</button>
         <button type="button" class="bot-panel-tab" data-bot-tab="routes" aria-pressed="false">Rotas</button>
         <button type="button" class="bot-panel-tab" data-bot-tab="history" aria-pressed="false">Histórico</button>
       </div>
-      <div class="ai-chat-toolbar">
+      <div data-delegation-chat class="ai-chat-toolbar">
         <label class="sr-only" for="ai-session">Conversa</label>
         <select id="ai-session" class="ai-session-select" aria-label="Histórico de conversas"></select>
         <button id="btn-ai-new-chat" class="btn-ghost" type="button" title="Começar uma conversa nova">Nova</button>
@@ -203,12 +215,12 @@
           </div>
         </details>
       </div>
-      <div id="ai-chat" class="ai-chat" aria-live="polite"></div>
-      <div id="bot-view-agenda" class="bot-subview hidden" role="region" aria-label="Agenda do Bot"></div>
-      <div id="bot-view-memory" class="bot-subview hidden" role="region" aria-label="Memória do Bot"></div>
-      <div id="bot-view-routes" class="bot-subview hidden" role="region" aria-label="Rotas aprendidas e Gêmeo Local"></div>
-      <div id="bot-view-history" class="bot-subview hidden" role="region" aria-label="Histórico de execuções e recibos"></div>
-      <div class="ai-input-area">
+      <div data-delegation-chat id="ai-chat" class="ai-chat" aria-live="polite"></div>
+      <div data-delegation-chat id="bot-view-agenda" class="bot-subview hidden" role="region" aria-label="Agenda do Bot"></div>
+      <div data-delegation-chat id="bot-view-memory" class="bot-subview hidden" role="region" aria-label="Memória do Bot"></div>
+      <div data-delegation-chat id="bot-view-routes" class="bot-subview hidden" role="region" aria-label="Rotas aprendidas e Gêmeo Local"></div>
+      <div data-delegation-chat id="bot-view-history" class="bot-subview hidden" role="region" aria-label="Histórico de execuções e recibos"></div>
+      <div data-delegation-chat class="ai-input-area">
         <textarea id="ai-input" class="ai-textarea" placeholder="Descreva a tarefa para o agente… (Enter envia · Shift+Enter quebra linha)" aria-label="Comando para o agente"></textarea>
         <div class="ai-route-status" role="status" aria-live="polite">
           <span class="ai-route-mark" aria-hidden="true">⌁</span>

@@ -2,6 +2,7 @@
 
 const crypto = require('node:crypto');
 const { READ_ONLY_TOOLS } = require('./bot-store');
+const { AGENT_TASK_TOOL } = require('./agent-executor');
 const { evaluateActionIntent, redactSecrets } = require('../automation/service/intent-firewall');
 
 const WRITE_TOOLS = new Set([
@@ -133,7 +134,13 @@ class BotRunner {
         }
 
         const tool = String(step.tool || 'snapshot').trim();
-        const isWriteTool = step.effect === 'escreve' || WRITE_TOOLS.has(tool) || !READ_ONLY_TOOLS.includes(tool);
+        // O passo de missão entrega a tarefa ao agente, que decide as ações reais e passa
+        // pela aprovação e pelo firewall do próprio agente. Ele só bloqueia leitura quando
+        // o passo declara explicitamente efeito de escrita.
+        const isAgentTask = tool === AGENT_TASK_TOOL;
+        const isWriteTool = isAgentTask
+          ? step.effect === 'escreve'
+          : step.effect === 'escreve' || WRITE_TOOLS.has(tool) || !READ_ONLY_TOOLS.includes(tool);
         if (step.requiresApproval && bot.autoForegroundOnIntervention !== false) {
           notifyAttention('approval_needed', step);
           return finalize('needs_attention', step.approvalMessage || `O Bot solicita sua aprovação para executar "${tool}".`);

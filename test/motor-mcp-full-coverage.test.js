@@ -202,11 +202,11 @@ test('Paridade Essencial: bloqueador de rastreadores com contador por página e 
   assert.match(pdfPayload.prompt, /Cláusula 8/);
 });
 
-test('GrokBot Especialistas: 6 especialidades prontas, aba exclusiva vs. 2º plano com auto-foreground ao atingir meta ou precisar do usuário', async () => {
+test('GrokBot Especialistas: 9 especialidades prontas, aba exclusiva vs. 2º plano com auto-foreground ao atingir meta ou precisar do usuário', async () => {
   const { BotTaskStore, SPECIALIST_BOT_PRESETS, EXECUTION_MODES } = require('../src/bots/bot-store');
   const { BotRunner } = require('../src/bots/runner');
 
-  assert.equal(SPECIALIST_BOT_PRESETS.length, 6, 'Deve oferecer 6 especialidades de Bot');
+  assert.equal(SPECIALIST_BOT_PRESETS.length, 9, 'Deve oferecer 9 especialidades de Bot');
   assert.equal(EXECUTION_MODES.DEDICATED_TAB, 'dedicated-tab');
   assert.equal(EXECUTION_MODES.BACKGROUND_AUTO_FOREGROUND, 'background-auto-foreground');
 
@@ -217,7 +217,7 @@ test('GrokBot Especialistas: 6 especialidades prontas, aba exclusiva vs. 2º pla
     executionMode: 'background-auto-foreground'
   });
   assert.equal(priceBot.specialty, 'price-hunter');
-  assert.equal(priceBot.specialtyTitle, 'Pesquisador de Preços');
+  assert.equal(priceBot.specialtyTitle, 'Monitor de preço');
   assert.equal(priceBot.executionMode, 'background-auto-foreground');
   assert.equal(priceBot.autoForegroundOnGoal, true);
   assert.equal(priceBot.autoForegroundOnIntervention, true);

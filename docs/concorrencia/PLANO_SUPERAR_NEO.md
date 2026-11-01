@@ -79,3 +79,22 @@ O que o neo mostra (visto, só leitura): título e frase ("Esses agentes de IA p
 5. "Configurar à mão" com o passo a passo e aviso de reiniciar o agente.
 6. Contador "N agentes conectados" no canto da barra lateral, levando a essa tela.
 7. Teste de sim ou não: conectar o Claude Code por esta tela, listar as ferramentas, revogar e ver a chamada seguinte ser negada.
+
+## Caminho para igualar o neo (decidido em 31/10/2026)
+
+Ordem fixa. Cada passo só fecha com o teste de sim ou não passando. Nota de partida do Navegante: 5,5/10 (ver `docs/concorrencia/PLANO_SUPERAR_NEO.md` e a avaliação registrada no HANDOFF).
+
+1. **Motor (código pequeno, resultado medido).**
+   - Achar a causa do travamento de 20 s na tarefa 04-checkboxes (N01) e corrigir.
+   - Repetir o teste pareado 3 vezes de cada lado, com as mesmas 5 tarefas.
+   - **Fecha quando:** Navegante 5 de 5 e tempo igual ou menor que o do neo.
+2. **Tela "Agentes conectados".** Endereço MCP, conectar por agente com um clique (com confirmação da alteração exata), nível, validade, revogação e auditoria. Níveis, revogação e auditoria já existem no código; falta a tela.
+   - **Fecha quando:** um agente se conecta pela tela sem editar arquivo à mão, e a chamada seguinte depois de revogar é negada.
+3. **Visual e Configurações.** Mockup azul de Configurações e menu primeiro, aprovado pelo Wesley antes do código. Copiar padrão (layout, hierarquia, espaçamento), não código nem arquivos visuais do neo. Conferir licença antes de qualquer cópia mais próxima.
+   - **Fecha quando:** Wesley aprova no app instalado e os testes de contraste e de seis tamanhos de janela passam.
+4. **Recursos de uso.** Painel "acontecendo agora", histórico, grupo de abas por bot, pedido de ajuda humana. Base já existe: selo de aba do bot e aprovação.
+   - **Fecha quando:** um bot rodando aparece no painel, com aba própria e botão de assumir.
+5. **Mostrar o que já é melhor.** Firewall de intenção, recibo com Desfazer e auditoria aparecem para o usuário, não escondidos.
+   - **Fecha quando:** a tela de Configurações ou o recibo mostra essas garantias sem o usuário procurar.
+
+Limite: "ganhar" só conta com medida. A medida com modelo real depende de orçamento aprovado pelo Wesley.

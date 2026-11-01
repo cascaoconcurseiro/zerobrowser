@@ -151,15 +151,17 @@ async function main() {
   fixtureData.set('/password', '<!doctype html><title>Sign in</title><label>Senha <input id="password" type="password"></label>');
   fixtureData.set('/login-id', '<!doctype html><title>Sign in to workspace</title><h1>Sign in</h1><p>Continue to your account</p><input id="login-id" type="email" placeholder="Email"><button>Continue</button>');
   const electron = require('electron');
+  const childEnv = {
+    ...process.env,
+    APPDATA: appData,
+    ZERO_USER_DATA: botData,
+    ZERO_TEST_PROFILES_ROOT: profileRoot,
+  };
+  delete childEnv.ELECTRON_RUN_AS_NODE;
   child = spawn(electron, [root, `--remote-debugging-port=${cdpPort}`, '--no-first-run'], {
     cwd: root,
     windowsHide: false,
-    env: {
-      ...process.env,
-      APPDATA: appData,
-      ZERO_USER_DATA: botData,
-      ZERO_TEST_PROFILES_ROOT: profileRoot,
-    },
+    env: childEnv,
     stdio: 'ignore'
   });
   const endpoint = `http://127.0.0.1:${cdpPort}`;

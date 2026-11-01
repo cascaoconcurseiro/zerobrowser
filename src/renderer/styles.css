@@ -153,6 +153,7 @@ body.dark {
 .bot-avatar[data-bot-state="paused"]::after { background: var(--bot-state-paused); }
 .bot-avatar-symbol { width: 21px; height: 21px; display: grid; flex: 0 0 auto; place-items: center; color: var(--bot-accent, #168f72); }
 .bot-avatar-symbol svg { width: 100%; height: 100%; display: block; overflow: visible; }
+.bot-avatar-symbol .bot-mascot { width: 100%; height: 100%; display: block; object-fit: contain; image-rendering: pixelated; }
 .bot-avatar.is-working .bot-avatar-symbol { animation: bot-mark-work 1.2s ease-in-out infinite; }
 @keyframes bot-mark-work { 0%, 100% { transform: scale(1); opacity: .88; } 50% { transform: scale(1.08); opacity: 1; } }
 .delegation-mode .bot-rail-action { width: 50px; height: 50px; border: 1px solid var(--border); color: var(--fg-secondary); font-size: 26px; }
@@ -2397,3 +2398,27 @@ body.dark .ai-working-status-pill {
 #settings-panel .extension-item { flex-wrap: wrap; padding: 16px; border-radius: 12px; }
 #settings-panel .extension-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .settings-index button { min-height: 36px; font-size: 12px; }
+
+/* Painel Delegar: abas Bots / Conversa e lista de bots com mascote */
+.delegation-tabs { display: flex; gap: 4px; padding: 0 16px; border-bottom: 1px solid var(--border); }
+.delegation-tab { border: 0; border-bottom: 3px solid transparent; background: none; padding: 12px 10px; color: var(--fg-secondary); font: inherit; font-weight: 500; cursor: pointer; }
+.delegation-tab.ativo { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+.delegation-tab:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.delegation-pane-bots { display: none; padding: 16px 18px; overflow: auto; }
+#ai-panel.delegation-on-bots .delegation-pane-bots { display: block; }
+#ai-panel.delegation-on-bots [data-delegation-chat] { display: none !important; }
+.delegation-pane-title { margin: 0 0 4px; font-size: 20px; color: var(--fg-primary); }
+.delegation-pane-sub { margin: 0 0 14px; color: var(--fg-secondary); font-size: 13px; }
+.bot-catalog-search { width: 100%; box-sizing: border-box; border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; font: inherit; background: var(--bg-soft, #f5f8fd); color: var(--fg-primary); }
+.bot-catalog-list { list-style: none; margin: 14px 0 0; padding: 0; }
+.bot-catalog-item { display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px 4px; border: 0; border-bottom: 1px solid var(--border); background: none; font: inherit; text-align: left; color: inherit; cursor: pointer; }
+.bot-catalog-item:hover, .bot-catalog-item:focus-visible { background: var(--bg-soft, #f5f8fd); outline: none; }
+.bot-catalog-mascot { width: 44px; height: 44px; flex: none; border-radius: 10px; padding: 3px; background: var(--bg-soft, #f5f8fd); object-fit: contain; image-rendering: pixelated; }
+.bot-catalog-text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.bot-catalog-text strong { font-size: 14px; color: var(--fg-primary); }
+.bot-catalog-text > span { font-size: 13px; color: var(--fg-secondary); }
+.bot-level { font-style: normal; font-size: 12px; border-radius: 999px; padding: 1px 8px; margin-top: 4px; align-self: flex-start; }
+.bot-level-ler { background: #e7f6ee; color: #1e7a46; }
+.bot-level-rasc { background: #eaf1ff; color: #0254ec; }
+.bot-level-aprov { background: #fff4e5; color: #8a4b00; }
+.bot-catalog-footer { margin: 14px 0 0; font-size: 12px; color: var(--fg-secondary); }

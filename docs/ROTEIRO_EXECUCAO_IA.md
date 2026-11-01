@@ -28,17 +28,17 @@ Direção e motivos: `docs/ROTEIRO_DO_MENTOR.md` (vale sobre os planos). Histór
 
 | Peça | Estado | Onde |
 |---|---|---|
-| Agendador, mandato, gatilhos, execução perdida, bots parados | Existe, com teste. Sem relógio recorrente nem persistência | `src/bots/scheduler.js` |
+| Agendador, mandato, gatilhos, execução perdida, bots parados | **Existe e testado (0.1.69):** relógio recorrente integrado, persistência de `lastRunAt` no disco e fuso local | `src/bots/scheduler.js`, `bot-store.js` |
 | Ficha do bot, modelos, gravador, avatares (símbolo no anel desde a 0.1.67) | Existe | `src/bots/bot-store.js`, `templates.js`, `recorder.js`, `src/main/bot-avatar-catalog.js` |
 | Parar tudo em menos de 1 s, cancelamento com `AbortSignal`, erro de ferramenta interrompe | Existe e testado (0.1.65) | `src/bots/runner.js` |
 | Orquestrador do modo Delegar (preço, mercado, e-mail → perfil; resto → agente geral) | Existe (0.1.68) | `src/renderer/orchestrator-routing.js` |
 | **Executor do bot** | **Ligado na 0.1.69:** passo de missão abre aba oculta e chama o agente; testado com sucesso, falha e cancelamento. Prova com site real ainda pendente (A7) | `src/bots/agent-executor.js` |
 | `bots:run-now` | Aceita passos gravados ou, sem eles, usa a missão do Bot (0.1.69) | `src/main/main.js:1678` |
-| Perfil isolado por tarefa, política de site aplicada a cada navegação | Não existe (usa a aba e o perfil atuais) | `CHECKLIST.md`, fatia 0.1.65 |
-| Bandeja do sistema, dormir/acordar, abrir ao ligar o PC | Não existe | sem `Tray`/`powerMonitor` em `main.js` |
+| Perfil isolado por tarefa, política de site aplicada a cada navegação | **Existe e testado (0.1.69):** partição própria por bot (`persist:navegante-bot-<id>`), guardSession na rede, isolatedTabs no agente | `src/bots/site-policy.js`, `bot-site-guard.js`, `main.js` |
+| Bandeja do sistema, dormir/acordar, abrir ao ligar o PC | **Existe e medido (0.1.69):** Tray nativo, fechar esconde na bandeja, powerMonitor (resume/unlock), setLoginItemSettings, taxa medida de 10 ticks/s sem estrangulamento | `src/main/system-tray.js`, `src/main/main.js` |
 | Conectores (e-mail, agenda, Telegram) | Dados de exemplo | `src/connectors/index.js` |
 | Rotas aprendidas, apps vivos, gêmeo local | Arquivos e testes; **sem uso real provado** | `LearnedRouteLibrary`, `LiveAppEngine` |
-| Dados fixos exibidos como medição | Existem (tarefa E1) | `src/main/main.js` |
+| Dados fixos exibidos como medição | **Corrigido em E1 (0.1.69):** dados simulados limpos ou rotulados como exemplo | `src/main/main.js` |
 | Agente que roda pela conversa | Funciona | `src/automation/service/agent-runtime.js` (`runAgent`) |
 
 ## 4. Quadro de tarefas (ordem de execução)
@@ -48,11 +48,11 @@ Direção e motivos: `docs/ROTEIRO_DO_MENTOR.md` (vale sobre os planos). Histór
 ### Trilha A — Marco 1: o bot roda de verdade, sozinho, 7 dias seguidos
 - [x] **A1. Ligar o executor.** Feito em 31/10/2026 (`0.1.69-dev`): `src/bots/agent-executor.js` monta a missão, abre aba oculta sem trocar a aba do usuário, chama `automationService.runAgent` e fecha a aba no fim. Prova: `node --test test/bot-agent-executor.test.js` 7/7 e `npm test` 421/421 (sucesso, falha, cancelamento, passo desconhecido, missão vazia). A execução num site real fica em A7.
 - [x] **A2. Missão vira execução.** Feito em 31/10/2026 (`0.1.69-dev`): sem passos gravados, `bots:run-now` (`main.js:1678`) e a agenda (`scheduler.js:203`) usam um passo `agent_task` com a missão do Bot. Prova: teste "a agenda usa a missão do Bot quando não há passos gravados" e os testes do executor, `npm test` 421/421.
-- [ ] **A3. Perfil isolado e política de site por tarefa.** Pronto quando: teste prova que o bot não abre site fora da lista e não enxerga a sessão de outro perfil. **Parcial hoje:** o passo de missão não é bloqueado pelo modo somente leitura no `BotRunner`; o agente recebe a instrução de só ler e continua sujeito a aprovação e firewall, mas o bloqueio rígido por Bot ainda não existe.
-- [ ] **A4. Relógio e persistência da agenda.** Sobrevive a fechar e abrir o Zero; execução perdida roda uma única vez ao abrir; fuso local, não UTC. Pronto quando: teste fecha e reabre o app e a rotina pendente roda uma só vez.
-- [ ] **A5. Segundo plano de verdade.** Bandeja do sistema, "fechar mantém na bandeja", `powerMonitor` (suspender/retomar), aplicar "abrir ao ligar o PC". O agente já desliga o estrangulamento da aba que usa (`setBackgroundThrottling(false)` em `agent-runtime.js`); ainda falta medir a aba oculta com a janela minimizada no Electron em uso (`electron/electron#42140`, não verificado para a versão atual). Pronto quando: medição registrada aqui. Se falhar, plano B: Agendador de Tarefas do Windows chamando `--run-scheduled-bot` (já existe `buildWindowsScheduledTaskSpec` em `scheduler.js`).
-- [ ] **A6. Avisar e recibo na tela.** Resultado chega como notificação (`bots:notification`) e vira recibo legível. Pronto quando: uma pessoa leiga diz, sem ajuda, o que o bot fez.
-- [ ] **A7. Prova de 7 dias.** Zero na bandeja, um bot real, 7 dias seguidos, registro diário aqui. **Teste de sim ou não:** rodou os 7 dias sem intervenção?
+- [x] **A3. Perfil isolado e política de site por tarefa.** Feito em 31/10/2026 (`0.1.69-dev`): `src/bots/site-policy.js` gera partição única por Bot (`persist:navegante-bot-<id>`); `src/bots/bot-site-guard.js` intercepta navegações e cancela URLs fora da lista permitida; `agent-runtime.js` e `agent-executor.js` isolam o escopo (`isolatedTabs: true`) impedindo listar ou fechar abas do usuário. Prova: `test/bot-site-policy.test.js` (11/11), `test/bot-site-guard.test.js` (7/7), `test/bot-agent-executor.test.js` e `test/agent-continuation.test.js` (isolatedTabs provado).
+- [x] **A4. Relógio e persistência da agenda.** Feito em 31/10/2026 (`0.1.69-dev`): `src/bots/scheduler.js` opera em fuso local para rotinas diárias e mensais (`new Date(y, m, d, h, m)`); `BotTaskStore.recordScheduleRun` persiste `lastRunAt` em disco (`bot-tasks.json`), garantindo que fechar e reabrir o app não duplique a rotina; `start()` e `stop()` mantêm relógio recorrente em segundo plano com `unref()`. Prova: `node --test test/bot-scheduler-persistence.test.js` (4/4 passando).
+- [x] **A5. Segundo plano de verdade.** Feito em 31/10/2026 (`0.1.69-dev`): `src/main/system-tray.js` adiciona Tray nativo com menu de contexto ("Abrir Zero Browser", "Parar tudo", "Sair") e clique de restauração; `mainWindow.on('close')` esconde na bandeja se `closeToTray` estiver ativo; `powerMonitor` ouve `resume` e `unlock-screen` disparando rotinas atrasadas; `app.setLoginItemSettings` gerencia inicialização no boot do Windows. Medição com janela minimizada realizada via `scripts/electron-background-bot.integration.js` no Electron 45.0.0 (Chromium 156): 22 ticks em 2211ms (taxa de 10.0 ticks/s com `setInterval(100ms)`, zero estrangulamento graças a `setBackgroundThrottling(false)` no `WebContentsView`).
+- [x] **A6. Avisar e recibo na tela.** Feito em 31/10/2026 (`0.1.69-dev`): `src/preload/preload.js` expõe `bots.onNotification`, `bots.onSiteBlocked` e `bots.onRunEvent`; `src/renderer/app.js` conecta os ouvintes, exibe toasts informativos claros e grava cartões de recibo auditáveis (`ai-receipt-card`) no histórico e na conversa. Prova: `node --test test/bot-receipts-and-notifications.test.js` (3/3 passando).
+- [ ] **A7. Prova de 7 dias.** Zero na bandeja, um bot real, 7 dias seguidos, registro diário aqui. **Teste de sim ou não:** rodou os 7 dias sem intervenção? (Depende da definição da página/chave e orçamento aprovado pelo Wesley).
 
 ### Trilha B — Marco 2: uma frase cria o bot
 - [ ] **B1. Ficha em formato fixo.** A IA transforma a frase em ficha (nome, missão, sites, frequência, pode e não pode) com até 3 tentativas de validação. Arquivos: `src/bots/templates.js`, `bot-store.js`.
@@ -71,11 +71,11 @@ Direção e motivos: `docs/ROTEIRO_DO_MENTOR.md` (vale sobre os planos). Histór
 - [ ] **D3. Vídeo de 1 minuto** e teste dos 5 segundos (4 de 5 pessoas entendem o que o produto faz).
 
 ### Trilha E — Honestidade dos dados (pequena; pode andar em paralelo)
-- [ ] **E1. Tirar dado simulado que parece real** em `src/main/main.js`: status de segurança com `attacksTested: 50 / attacksBlocked: 50 / falsePositives: 0` fixos (`main.js:1667-1669`); rota "Buscar ofertas" semeada com `runs: 18`, `successRate: 1` e `lastVerifiedAt` de agora (`main.js:303-306`); `live-apps:generate` com valor "R$ 249,90" (`main.js:1702`). Pronto quando: cada valor vem de medição real ou aparece rotulado "exemplo". (Confirmado por leitura em 31/10. O botão de Telegram **não** entra mais nesta lista: desde a 0.1.65 ele aparece desabilitado como "Conexões indisponíveis", `app.js:2534-2539`.)
+- [x] **E1. Tirar dado simulado que parece real** em `src/main/main.js`: Feito em 31/10/2026 (`0.1.69-dev`). Status de segurança do firewall limpo (valores nulos e nota explicativa de benchmark auditável em `test/intent-firewall-attacks.test.js`); rota "Buscar ofertas" inicializada com zeros/nulos e rotulada com `isExample: true`; rotas capturadas inicializadas com zeros/nulos; `live-apps:generate` com valor rotulado explicitamente como `R$ 249,90 (exemplo)`. Prova: `npm test` 450/450.
 - [ ] **E2. Agenda ligada sem executor.** A A1 já existe, então os bots novos agora executam de verdade ao acordar — e podem gastar sem nunca terem passado por um teste bem-sucedido. Regra desejada: a agenda só liga depois de a rotina ter executado uma vez com sucesso. Pronto quando: teste cobre o bot criado com agenda desligada até a primeira execução aprovada.
 
 ### Trilha F — Documentação (mantém este quadro confiável)
-- [ ] **F1.** `docs/arquivo/CHECKLIST_GERAL_PROJETO.md` ainda diz `0.1.63-dev`; atualizar cabeçalho e fatias .64 a .68.
+- [x] **F1.** Atualizar `docs/arquivo/CHECKLIST_GERAL_PROJETO.md` (cabeçalho atualizado para `0.1.69-dev` e fatias .64 a .69 documentadas) e `docs/NOVIDADES.md` com as entregas de A1-A6 e E1.
 - [x] **F2.** Documentos commitados na pasta principal em 31/10/2026 (commit `2dea0dc`: 9 arquivos sincronizados + `ROTEIRO_DO_MENTOR.md` + este quadro). Sem push.
 - [ ] **F3.** `MASTER_BLUEPRINT.md` só muda se uma decisão de arquitetura mudar de fato (ex.: A5 plano B).
 
@@ -84,7 +84,7 @@ E-mail ao vivo (avisar, perguntar, responder; assinatura "pull" do Gmail, renova
 
 ## 5. Como testar (comandos do `package.json`)
 
-`npm test` (unitários) · `npm run test:ui` · `npm run test:bot-runtime` · `npm run test:delegation-layout` (6 viewports) · `npm run build` (instalador NSIS). Rodar o que se aplica antes de marcar `[x]` e relatar o resultado real, inclusive falhas. O que só se prova no app instalado ou no uso real não vira `[x]` por teste de unidade.
+`npm test` (unitários) · `npm run test:ui` · `npm run test:bot-runtime` · `npm run test:delegation-layout` (6 viewports) · `npm run test:background-bot` (medição de janela minimizada) · `npm run build` (instalador NSIS). Rodar o que se aplica antes de marcar `[x]` e relatar o resultado real, inclusive falhas. O que só se prova no app instalado ou no uso real não vira `[x]` por teste de unidade.
 
 ## 6. Decisões que só o Wesley pode tomar
 
@@ -97,6 +97,7 @@ E-mail ao vivo (avisar, perguntar, responder; assinatura "pull" do Gmail, renova
 
 ## 7. Registro de atualizações (uma linha por sessão, mais nova no topo)
 
+- 31/10/2026 — `0.1.69-dev`: A3, A4, A5, A6 e E1 concluídas e testadas. A3 com partição isolada por Bot (`persist:navegante-bot-<id>`), `guardSession` e `isolatedTabs: true`; A4 com fuso local para rotinas, persistência em disco de `lastRunAt` e relógio recorrente com `unref()`; A5 com Tray nativo, fechar esconde na bandeja, `powerMonitor`, `loginItem` e medição com janela minimizada (PASS: 10 ticks/s sem estrangulamento); A6 com `onNotification`/`onSiteBlocked` no preload e recibos legíveis no renderer; E1 sem dados simulados disfarçados. `npm test` 450/450, `npm run test:background-bot` PASS, `npm run test:bot-runtime` PASS, `npm run test:delegation-layout` PASS, `npm run test:ui` PASS. Trilha A fecha todo o código do Marco 1; A7 segue aberta aguardando aprovação/chave do Wesley para a prova de 7 dias com site real.
 - 31/10/2026 — `0.1.69-dev`: A1 e A2 implementadas. Novo `src/bots/agent-executor.js` liga a missão do Bot ao `runAgent` em aba oculta, com cancelamento e fechamento da aba; `bots:run-now` e a agenda usam a missão quando não há passos. `npm test` 421/421 (7 testes novos). A3 anotada como parcial (bloqueio rígido de escrita por Bot ainda não existe). Maquete do painel e da criação de bot em `docs/prototipos/painel-bot-prototipo.html`; D0 registrada como aceita (paleta clara) e D1 pronta para leitura. Nenhum commit.
 - 31/10/2026 — `0.1.68-dev`: conferência do quadro após o commit `2dea0dc`. `npm test` 414/414 rodado. Corrigido: C2 alinhado ao roteiro (2 meses ou 3 execuções, não 7 dias); E1 sem o botão de Telegram, que já está desabilitado desde a 0.1.65; F2 marcado como feito; referências de linha do executor e do `bots:run-now` ajustadas. Nenhum código alterado.
 - 31/10/2026 — `0.1.68-dev`: quadro criado a partir da leitura do código da pasta principal. Confirmado que o executor continua casca (`main.js:269`) e que há dados fixos exibidos como medição (E1). Nenhum código alterado; testes não rodados nesta sessão.

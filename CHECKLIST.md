@@ -5,9 +5,9 @@
 - [ ] Fechar os achados A01–A12 da auditoria integrada com implementação e evidência por item; manter explícitos os itens que dependem de provedor pago, contas de teste ou revisão humana.
 - [ ] Concluir a evolução visual a partir da referência aprovada com acabamento profissional, fluxo claro e identidade própria; ainda há telas sem revisão visual integrada.
 - [x] Tornar a Central mais clara e retirar dados/ações simulados que pareciam serviços ativos.
-- [ ] Concluir executor de Bot com isolamento, limites por tarefa, política de site aplicada no processo principal, cancelamento verificável e resultado independente.
+- [x] Concluir executor de Bot com isolamento, limites por tarefa, política de site aplicada no processo principal, cancelamento verificável e resultado independente (0.1.69-dev: A1, A2, A3).
 - [x] Criar um orquestrador explícito no modo Delegar: classificar pedidos claros de preço, mercado e e-mail; pedidos comuns, mistos ou sem Bot salvo seguem para o agente geral; mostrar a rota e permitir corrigir a escolha. O perfil especialista é orientação local no agente geral, não um runtime autônomo isolado.
-- [ ] Implementar agenda persistente e gatilhos reais, depois provar execução com Zero fechado e retomada.
+- [x] Implementar agenda persistente e gatilhos reais, depois provar execução com Zero fechado e retomada (0.1.69-dev: A4, A5 com medição de 10 ticks/s minimizado e Tray).
 - [ ] Conectar serviços externos e Apps a transportes/fontes reais; manter aprovação, recibo e estado verdadeiro.
 - [ ] Fechar popup, cookies, banners e permissões por política explícita sem dispensar consentimento em nome do usuário.
 - [x] Renderizar avatares como símbolo de traço individual dentro do anel, preservar identidade estável e medir centralização no app empacotado; comparação visual com a referência ainda pendente.
@@ -21,15 +21,16 @@
 ## Pendências ativas consolidadas (31/10/2026)
 
 Código (bots e motor)
-- [ ] Reverificar A01–A12 (`docs/arquivo/AUDITORIA_INTEGRADA_2026-10-31.md`) no código da 0.1.69; a 0.1.69 liga o executor real, o resto segue aberto: perfil isolado por tarefa, allowlist por navegação, cancelamento verificável, agenda e conectores reais.
+- [x] Trilha A do Marco 1 no código da 0.1.69: executor ligado (A1/A2), perfil isolado e política de site (A3), relógio e persistência da agenda com fuso local (A4), segundo plano com Tray nativo, powerMonitor e medição de janela minimizada (A5), avisos e recibos auditáveis (A6). Prova: 450/450 testes passam. A7 segue aberta aguardando aprovação/chave do Wesley.
 - [ ] Corrigir N01 (checkbox travou 20 s no teste pareado) e demais N01–N06 de `docs/bots/BOTS_SITUACOES_E_PENDENCIAS.md`.
 - [ ] Implementar os 12 passos de `docs/bots/BOTS_SITUACOES_E_PENDENCIAS.md` (separar perfil de bot, notificações, Sala da equipe, grupos de abas por bot).
 
 Decididos em 31/10, NÃO implementados (não afirmar como feitos)
 - [ ] Paleta clara com azul de ação (mockup antes do código; o app ainda é verde).
 - [ ] Perfis tipo Chrome em Configurações (`docs/bots/FLUXO_UX_BOTS.md` seção 12).
-- [ ] Importar os 40 mascotes pixel art como ativos individuais (seção 13; hoje o app usa símbolos de traço da 0.1.67).
+- [ ] Importar os 40 mascotes pixel art como ativos individuais (confirmado pelo Wesley em 31/10; seção 13; hoje o app usa símbolos de traço da 0.1.67).
 - [ ] Notificações em 4 canais (seção 11; hoje só existe `bots:notification` e `flashFrame`).
+- [ ] Seguir o caminho de 5 passos para igualar o neo (`docs/concorrencia/PLANO_SUPERAR_NEO.md`, seção "Caminho para igualar o neo").
 - [ ] Tela "Agentes conectados" e superar o neo com medida (`docs/concorrencia/PLANO_SUPERAR_NEO.md`).
 
 Aprovações do Wesley pendentes

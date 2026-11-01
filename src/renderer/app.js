@@ -1,3 +1,27 @@
+// 40 mascotes pixel art dos bots (assets/bots/mascotes). O bot usa o mascote de número (avatar - 1) mod 40.
+const BOT_MASCOTS = [
+  '01_faisca', '02_gota', '03_nuvem', '04_nebula', '05_pingo', '06_pistache', '07_floris', '08_cubito',
+  '09_mimi', '10_cometa', '11_bolha', '12_cristal', '13_lumi', '14_geleca', '15_morango', '16_aurora',
+  '17_lua', '18_polvito', '19_cogumelo', '20_fantim', '21_kiwi', '22_trovito', '23_estrela', '24_tofu',
+  '25_orbita', '26_biscoito', '27_pomar', '28_tulipa', '29_veludo', '30_marinho', '31_cacto', '32_espiral',
+  '33_cereja', '34_galax', '35_urso', '36_abobora', '37_placa', '38_sorriso', '39_nevasca', '40_foguete'
+].map((name) => ({ file: `${name}.png`, name: name.slice(3) }));
+
+// Mascote fixo de cada especialista (id do preset -> arquivo sem extensão).
+const PRESET_MASCOTS = {
+  'erp-operator': '01_faisca',
+  researcher: '02_gota',
+  'data-analyst': '03_nuvem',
+  'price-hunter': '05_pingo',
+  planner: '06_pistache',
+  'order-checker': '08_cubito',
+  'inbox-triage': '09_mimi',
+  writer: '13_lumi',
+  'personal-assistant': '17_lua'
+};
+
+const PERMISSION_LEVEL_CLASS = { 'Só ler': 'ler', Rascunho: 'rasc', 'Com aprovação': 'aprov' };
+
 class ZeroBrowserApp {
   constructor() {
     this.tabs = new Map();
@@ -34,6 +58,7 @@ class ZeroBrowserApp {
   async init() {
     this.bindElements();
     this.bindEvents();
+    this.setupDelegationTabs();
     this.initApprovalUi();
     await this.loadSettings();
     await this.createInitialTab();
@@ -848,6 +873,33 @@ class ZeroBrowserApp {
       });
       this.showToast(`${closedUrls.length} aba(s) duplicada(s) fechada(s).`, 'success');
     }
+  }
+
+  recordBotNotificationReceipt(item = {}) {
+    const timeStr = new Date(item.timestamp || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const receipt = {
+      id: `bot-receipt-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      title: String(item.title || 'Aviso do Bot'),
+      detail: `${item.body || 'Operação realizada com sucesso.'} · ${timeStr}`,
+      kind: item.kind || 'info'
+    };
+    this.actionReceipts.push(receipt);
+    if (this.elements.aiChat) {
+      const card = document.createElement('div');
+      card.className = 'ai-receipt-card';
+      card.dataset.receiptId = receipt.id;
+      const copy = document.createElement('div');
+      copy.className = 'ai-receipt-copy';
+      const strong = document.createElement('strong');
+      strong.textContent = receipt.title;
+      const span = document.createElement('span');
+      span.textContent = receipt.detail;
+      copy.append(strong, span);
+      card.appendChild(copy);
+      this.elements.aiChat.appendChild(card);
+      this.elements.aiChat.scrollTop = this.elements.aiChat.scrollHeight;
+    }
+    return receipt;
   }
 
   recordActionReceipt({ title, detail, undo }) {
@@ -2117,6 +2169,15 @@ class ZeroBrowserApp {
     mark.setAttribute('aria-hidden', 'true');
     const avatar = bot?.avatar || {};
     const number = Number(String(avatar.id || bot?.avatarId || '').match(/(\d+)$/)?.[1]);
+    const mascot = BOT_MASCOTS[(Math.max(1, number) - 1) % BOT_MASCOTS.length];
+    if (number && mascot) {
+      const img = document.createElement('img');
+      img.className = 'bot-mascot';
+      img.src = `../../assets/bots/mascotes/${mascot.file}`;
+      img.alt = '';
+      mark.appendChild(img);
+      return mark;
+    }
     const symbols = this.botRingSymbols || [];
     const selected = symbols.find((symbol) => symbol.id === avatar.symbolId)
       || symbols[Math.floor(Math.max(0, number - 1) / 8) % Math.max(1, symbols.length)];
@@ -2168,12 +2229,70 @@ class ZeroBrowserApp {
     this.showToast('Pedido para interromper as tarefas enviado.', 'info');
   }
 
-  getSpecialistTasksCatalog() {
-    if (Array.isArray(this.storedSpecialistTasks) && this.storedSpecialistTasks.length) {
-      return this.storedSpecialistTasks;
+  setupDelegationTabs() {
+    const panel = document.getElementById('ai-panel');
+    if (!panel) return;
+    document.querySelectorAll('[data-delegation-tab]').forEach((tab) => {
+      tab.addEventListener('click', () => this.showDelegationTab(tab.dataset.delegationTab));
+    });
+    document.getElementById('bot-catalog-search')?.addEventListener('input', () => this.renderBotCatalog());
+    this.showDelegationTab('bots');
+  }
+
+  showDelegationTab(name) {
+    const panel = document.getElementById('ai-panel');
+    if (!panel) return;
+    const onBots = name === 'bots';
+    panel.classList.toggle('delegation-on-bots', onBots);
+    document.querySelectorAll('[data-delegation-tab]').forEach((tab) => {
+      const active = tab.dataset.delegationTab === name;
+      tab.classList.toggle('ativo', active);
+      tab.setAttribute('aria-selected', String(active));
+    });
+    if (onBots) this.renderBotCatalog();
+  }
+
+  renderBotCatalog() {
+    const list = document.getElementById('bot-catalog-list');
+    if (!list) return;
+    const query = (document.getElementById('bot-catalog-search')?.value || '').trim().toLowerCase();
+    const presets = this.getDefaultSpecialistPresets()
+      .filter((preset) => !query || `${preset.title} ${preset.subtitle}`.toLowerCase().includes(query));
+    list.replaceChildren();
+    for (const preset of presets) {
+      const item = document.createElement('li');
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'bot-catalog-item';
+      button.setAttribute('aria-label', `${preset.title}, ${preset.levelLabel}`);
+      const mascot = document.createElement('img');
+      mascot.className = 'bot-catalog-mascot';
+      mascot.alt = '';
+      mascot.src = `../../assets/bots/mascotes/${PRESET_MASCOTS[preset.id] || '01_faisca'}.png`;
+      mascot.loading = 'lazy';
+      const text = document.createElement('span');
+      text.className = 'bot-catalog-text';
+      const title = document.createElement('strong');
+      title.textContent = preset.title;
+      const subtitle = document.createElement('span');
+      subtitle.textContent = preset.subtitle;
+      const level = document.createElement('em');
+      level.className = `bot-level bot-level-${PERMISSION_LEVEL_CLASS[preset.levelLabel] || 'ler'}`;
+      level.textContent = preset.levelLabel;
+      text.append(title, subtitle, level);
+      button.append(mascot, text);
+      button.addEventListener('click', () => {
+        this.selectSpecialistBot(this.specialistTaskFromPreset(preset), { switchToChat: true });
+        this.showDelegationTab('chat');
+      });
+      item.appendChild(button);
+      list.appendChild(item);
     }
-    return this.getDefaultSpecialistPresets().slice(0, 4).map((preset, idx) => ({
-      id: idx === 0 ? 'bot-default-price' : `bot-preset-${preset.id}`,
+  }
+
+  specialistTaskFromPreset(preset) {
+    return {
+      id: `bot-preset-${preset.id}`,
       name: preset.defaultName,
       specialty: preset.id,
       specialtyTitle: preset.title,
@@ -2185,6 +2304,16 @@ class ZeroBrowserApp {
       autonomyStep: 1,
       memory: [],
       history: []
+    };
+  }
+
+  getSpecialistTasksCatalog() {
+    if (Array.isArray(this.storedSpecialistTasks) && this.storedSpecialistTasks.length) {
+      return this.storedSpecialistTasks;
+    }
+    return this.getDefaultSpecialistPresets().slice(0, 4).map((preset, idx) => ({
+      ...this.specialistTaskFromPreset(preset),
+      id: idx === 0 ? 'bot-default-price' : `bot-preset-${preset.id}`
     }));
   }
 
@@ -2855,69 +2984,111 @@ class ZeroBrowserApp {
     return [
       {
         id: 'price-hunter',
-        title: 'Pesquisador de Preços',
-        subtitle: 'Compara lojas e frete em 2º plano e traz para frente ao achar o menor valor.',
-        defaultName: 'Bot Caçador de Preços',
+        title: 'Monitor de preço',
+        subtitle: 'Acompanha o preço de um produto e avisa quando cai abaixo do seu limite.',
+        defaultName: 'Bot Monitor de Preço',
         defaultUrl: 'https://www.google.com/shopping',
-        goal: 'Comparar preços e frete nas lojas abertas, montar tabela comparativa e trazer a aba para frente quando atingir a meta.',
+        goal: 'Acompanhar o preço à vista e o frete do produto indicado nas lojas abertas, só em leitura. Se não achar o produto, pedir o nome exato ou o link. Nunca comprar nem preencher cadastro. Quando o preço cair abaixo do limite, avisar com valor, loja e link, e mostrar o recibo.',
+        levelLabel: 'Só ler',
         permission: 'somente-leitura',
         executionMode: 'background-auto-foreground',
         accent: '#168f72'
       },
       {
-        id: 'market-radar',
-        title: 'Radar Financeiro e Ações',
-        subtitle: 'Vigia cotações e variações em silêncio até atingir seu gatilho.',
-        defaultName: 'Bot Radar de Mercado',
-        defaultUrl: 'https://www.google.com/finance',
-        goal: 'Monitorar cotação do ativo em somente leitura e trazer a aba para frente se atingir a faixa de alerta.',
+        id: 'researcher',
+        title: 'Pesquisador',
+        subtitle: 'Junta fontes sobre um assunto e entrega um resumo com os links.',
+        defaultName: 'Bot Pesquisador',
+        defaultUrl: 'https://www.google.com',
+        goal: 'Pesquisar o assunto indicado, juntar até cinco fontes com link e data, resumir em tópicos e citar a origem de cada número. Não inventar fonte. Só ler; ao terminar, mostrar o recibo.',
+        levelLabel: 'Só ler',
         permission: 'somente-leitura',
         executionMode: 'background-auto-foreground',
-        accent: '#1677d9'
+        accent: '#2480d2'
       },
       {
-        id: 'inbox-triage',
-        title: 'Triagem de E-mail e Agenda',
-        subtitle: 'Separa urgências e prepara resumos sem responder sozinho.',
-        defaultName: 'Bot Triagem Executiva',
+        id: 'data-analyst',
+        title: 'Analista de Dados',
+        subtitle: 'Lê tabelas de páginas e responde com números claros.',
+        defaultName: 'Bot Analista',
         defaultUrl: 'about:blank',
-        goal: 'Ler mensagens visíveis, classificar urgências do dia e trazer para frente quando houver item crítico.',
+        goal: 'Extrair a tabela indicada da página, conferir totais e explicar os números em frases simples. Só ler, sem alterar dados. Mostrar o recibo com a origem da tabela.',
+        levelLabel: 'Só ler',
         permission: 'somente-leitura',
         executionMode: 'background-auto-foreground',
-        accent: '#7b4fd4'
+        accent: '#8966d4'
       },
       {
         id: 'erp-operator',
-        title: 'Operador de Trabalho e ERP',
-        subtitle: 'Extrai tabelas e prepara formulários, chamando você antes de gravar.',
+        title: 'Operador ERP',
+        subtitle: 'Extrai dados da aba do sistema e prepara formulários. Pede aprovação antes de enviar.',
         defaultName: 'Bot Operador ERP',
         defaultUrl: 'about:blank',
-        goal: 'Extrair dados operacionais do sistema, preencher rascunho e trazer a aba para frente pedindo aprovação antes de enviar.',
+        goal: 'Extrair dados operacionais da aba do sistema, preparar os campos do formulário e trazer a aba para frente pedindo aprovação antes de enviar. Nunca enviar sem o seu sim; antes, mostrar o conteúdo exato.',
+        levelLabel: 'Com aprovação',
         permission: 'escrita-aprovada',
         executionMode: 'dedicated-tab',
         accent: '#c95f18'
       },
       {
-        id: 'page-sentinel',
-        title: 'Vigia de Editais e Estoque',
-        subtitle: 'Monitora mudanças na página em 2º plano e abre na frente ao detectar novidade.',
-        defaultName: 'Bot Vigia de Mudanças',
+        id: 'writer',
+        title: 'Redator',
+        subtitle: 'Escreve ou revisa textos a partir do que você passar. Entrega só rascunho.',
+        defaultName: 'Bot Redator',
         defaultUrl: 'about:blank',
-        goal: 'Inspecionar conteúdo da página em segundo plano e trazer a aba para frente assim que detectar atualização ou estoque.',
+        goal: 'Escrever ou revisar o texto indicado, em linguagem simples, e entregar apenas o rascunho na conversa. Não enviar, não publicar e não colar em outro site.',
+        levelLabel: 'Rascunho',
+        permission: 'somente-leitura',
+        executionMode: 'background-auto-foreground',
+        accent: '#7b4fd4'
+      },
+      {
+        id: 'personal-assistant',
+        title: 'Assistente Pessoal',
+        subtitle: 'Organiza suas tarefas e prioridades do dia. Só sugere, não age.',
+        defaultName: 'Bot Assistente',
+        defaultUrl: 'about:blank',
+        goal: 'Organizar as tarefas que você listar por prazo e prioridade e entregar um plano em rascunho na conversa. Não criar eventos nem enviar convites sem aprovação.',
+        levelLabel: 'Rascunho',
+        permission: 'somente-leitura',
+        executionMode: 'background-auto-foreground',
+        accent: '#0d9488'
+      },
+      {
+        id: 'planner',
+        title: 'Planejador',
+        subtitle: 'Monta um plano com prazos e etapas para um objetivo seu.',
+        defaultName: 'Bot Planejador',
+        defaultUrl: 'about:blank',
+        goal: 'Montar, a partir do objetivo indicado, um plano com etapas, prazos e riscos, como rascunho na conversa. Não agendar nada sozinho.',
+        levelLabel: 'Rascunho',
+        permission: 'somente-leitura',
+        executionMode: 'background-auto-foreground',
+        accent: '#a17522'
+      },
+      {
+        id: 'inbox-triage',
+        title: 'Resumo de e-mail',
+        subtitle: 'Lê as mensagens do dia e separa o que é urgente. Não responde nem apaga.',
+        defaultName: 'Bot de E-mail',
+        defaultUrl: 'about:blank',
+        goal: 'Ler as mensagens visíveis do dia, separar o que é urgente e resumir cada uma em uma frase. Não responder, não apagar e não abrir anexos.',
+        levelLabel: 'Só ler',
         permission: 'somente-leitura',
         executionMode: 'background-auto-foreground',
         accent: '#b8860b'
       },
       {
-        id: 'custom-specialist',
-        title: 'Especialista Personalizado',
-        subtitle: 'Defina a missão e se o Bot abre uma nova aba ou trabalha em 2º plano no perfil atual.',
-        defaultName: 'Bot Especialista',
+        id: 'order-checker',
+        title: 'Conferir pedidos',
+        subtitle: 'Confere pedidos novos na loja e avisa o que mudou. Só leitura.',
+        defaultName: 'Bot de Pedidos',
         defaultUrl: 'about:blank',
-        goal: 'Executar a missão definida pelo usuário e trazer a aba para frente ao concluir ou quando precisar de decisão.',
+        goal: 'Conferir na loja os pedidos novos desde a última vez e avisar quais mudaram de situação. Só ler; nunca alterar o status de um pedido.',
+        levelLabel: 'Só ler',
         permission: 'somente-leitura',
         executionMode: 'background-auto-foreground',
-        accent: '#0d9488'
+        accent: '#c65684'
       }
     ];
   }
@@ -2932,6 +3103,26 @@ class ZeroBrowserApp {
     if (window.zeroBrowser?.bots?.onAttention) {
       window.zeroBrowser.bots.onAttention((attention) => {
         if (attention?.botId) this.bringSpecialistBotToFront(attention.botId, attention.reason || 'goal_reached');
+      });
+    }
+    if (window.zeroBrowser?.bots?.onNotification) {
+      window.zeroBrowser.bots.onNotification((item) => {
+        if (!item) return;
+        const msg = item.body ? `${item.title}: ${item.body}` : item.title;
+        this.showToast(msg, item.kind === 'error' ? 'error' : 'success');
+        this.recordBotNotificationReceipt(item);
+      });
+    }
+    if (window.zeroBrowser?.bots?.onSiteBlocked) {
+      window.zeroBrowser.bots.onSiteBlocked((blocked) => {
+        if (!blocked) return;
+        this.showToast(blocked.message || 'Navegação bloqueada pelo Bot.', 'warning');
+        this.recordBotNotificationReceipt({
+          title: 'Navegação bloqueada pelo Bot',
+          body: blocked.message,
+          kind: 'warning',
+          timestamp: Date.now()
+        });
       });
     }
     document.getElementById('btn-specialist-close')?.addEventListener('click', () => this.closeSpecialistBotModal());

@@ -1,11 +1,18 @@
 # Handoff — Zero Browser
 
-## Documentação reorganizada — 31/10/2026 (noite)
+## Estado atual — 31/10/2026 (noite, 0.1.69-dev)
 
-De 46 para ~27 documentos ativos: históricos e planos superados foram para `docs/arquivo/` (nada apagado; cópia de segurança fora do repositório), bots em `docs/bots/`, concorrência (incl. neo, Agentes conectados) em `docs/concorrencia/`. Índice único: `docs/LEIA_ME_PRIMEIRO_IA.md`. Decisões aceitas e registradas: paleta clara com azul de ação; perfil (pessoa) separado de bot (mora dentro do perfil); Bot para todos os usuários (Polare era só exemplo, não bloqueia nada); mascotes pixel art só para bots. Código dessas decisões ainda não feito (ver `docs/bots/BOTS_SITUACOES_E_PENDENCIAS.md`, 12 passos). Alterações de docs ainda sem commit.
+Quadro vivo: `docs/ROTEIRO_EXECUCAO_IA.md`. Verificação: `npm test` 450/450, `npm run test:background-bot` PASS, `npm run test:bot-runtime` PASS, `npm run test:delegation-layout` PASS, `npm run test:ui` PASS.
+Concluído nesta sessão:
+- **A1/A2:** Missão vira tarefa em aba oculta (`agent-executor.js`).
+- **A3:** Perfil isolado por Bot (`persist:navegante-bot-<id>`), barreira de rede (`bot-site-guard.js`) e isolamento de abas (`isolatedTabs: true`).
+- **A4:** Fuso local para rotinas, persistência em disco de `lastRunAt` (`bot-tasks.json`) e relógio recorrente com `unref()`.
+- **A5:** Segundo plano com Tray nativo, fechar esconde na bandeja, `powerMonitor`, `loginItem` e medição com janela minimizada (10.0 ticks/s estável, sem estrangulamento).
+- **A6:** Notificações de bot e bloqueio no preload, gerando recibos auditáveis na conversa e no histórico.
+- **E1:** Limpeza de dados simulados em `main.js`.
+- **Instalação:** Versão `0.1.69-dev` instalada no Windows (`ExitCode: 0`), backup da .68 preservado em `backups/2026-10-31-before-0.1.69-install/` e atalhos conferidos.
 
-## Direção — 31/10/2026 (noite): roteiro do mentor
-
-`docs/ROTEIRO_DO_MENTOR.md` passa a ser o documento de direção e vale sobre os planos. O quadro vivo, com a primeira tarefa aberta e o critério de pronto, é `docs/ROTEIRO_EXECUCAO_IA.md`. Estado conferido nesta rodada: `0.1.69-dev`, `npm test` 421/421. Nesta fatia, A1 e A2 foram implementadas: `src/bots/agent-executor.js` liga a missão do Bot ao mesmo agente da conversa, em aba oculta, com cancelamento e fechamento da aba; sem passos gravados, "rodar agora" e a agenda usam a missão do Bot. Nenhum commit, push ou instalação.
-
-Próximo passo concreto: leitura da maquete (`docs/prototipos/painel-bot-prototipo.html`) e, no código, A3 (perfil isolado e política de site por tarefa) e A5 (bandeja e medição da aba oculta com a janela minimizada). A prova com um site real e 7 dias seguidos é A7 e ainda depende de um modelo/chave disponível e da resposta do Wesley sobre a página e o PC ligado. A revisão visual da UI instalada continua pendente.
+Próximos passos:
+1. Aprovação do Wesley para a prova de 7 dias com modelo/chave (A7).
+2. Marco 2: criação de Bot por frase fixa (B1–B3).
+3. Leitura da maquete `docs/prototipos/painel-bot-prototipo.html`.

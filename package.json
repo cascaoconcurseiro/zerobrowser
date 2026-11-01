@@ -1,6 +1,6 @@
 {
   "name": "zero-browser",
-  "version": "0.1.68-dev",
+  "version": "0.1.69-dev",
   "description": "Zero Browser: navegador com agente de IA e arquitetura própria baseada em REA",
   "main": "src/main/main.js",
   "scripts": {
@@ -16,6 +16,7 @@
     "test:bot-runtime": "node scripts/bot-runtime.integration.js",
     "test:delegation-layout": "electron scripts/electron-delegation-layout.integration.js",
     "test:active-tab": "electron scripts/electron-extension-active-tab.integration.js",
+    "test:background-bot": "electron scripts/electron-background-bot.integration.js",
     "bench": "node bench/avaliar.js",
     "mcp": "node scripts/mcp-stdio.js",
     "test:ui": "electron scripts/electron-ui.integration.js"

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, WebContentsView, Menu, session, ipcMain, dialog, shell, screen, webContents, nativeTheme, net, clipboard } = require('electron');
+const { app, BrowserWindow, WebContentsView, Menu, session, ipcMain, dialog, shell, screen, webContents, nativeTheme, net, clipboard, powerMonitor } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const store = require('../store');
@@ -19,6 +19,10 @@ const { BotAvatarCatalog, BOT_STROKE_SYMBOLS } = require('./bot-avatar-catalog')
 const { BotTaskStore, SPECIALIST_BOT_PRESETS } = require('../bots/bot-store');
 const { BotRunner } = require('../bots/runner');
 const { BotScheduler } = require('../bots/scheduler');
+const { AGENT_TASK_TOOL, createAgentStepExecutor } = require('../bots/agent-executor');
+const { botPartitionFor } = require('../bots/site-policy');
+const { createBotSiteGuard } = require('../bots/bot-site-guard');
+const { createSystemTray } = require('./system-tray');
 const { TeachTaskRecorder } = require('../bots/recorder');
 const { LearnedRouteLibrary, LocalTwinSandbox } = require('../automation/learned-routes');
 const { NativeConnectorsHub, AuthorizedMessagingBridge } = require('../connectors');
@@ -78,6 +82,8 @@ let botTaskStore = null;
 let botRunner = null;
 let botScheduler = null;
 let liveAppEngine = null;
+let systemTray = null;
+let isQuitting = false;
 const closedTabs = []; // para Ctrl+Shift+T
 const TAB_BAR_HEIGHT = 60;
 const TOOLBAR_HEIGHT = 52;
@@ -152,8 +158,10 @@ async function initializeApp() {
     logError(err);
   }
   automationService.setBrowserControls({
-    createTab: async (url) => {
-      const created = createNewTab(url || store.getStore().get('browser.defaultHomepage') || 'about:blank');
+    createTab: async (url, tabOptions = {}) => {
+      // Aba nova pedida pelo agente herda o perfil e a política do Bot quando nasce de uma aba de Bot.
+      const inheritedBot = tabOptions?.fromTabId ? botPolicyOfTab(tabOptions.fromTabId) : null;
+      const created = createNewTab(url || store.getStore().get('browser.defaultHomepage') || 'about:blank', inheritedBot ? { bot: inheritedBot } : {});
       switchTab(created.tabId);
       return created;
     },
@@ -266,9 +274,16 @@ async function initializeApp() {
     }
     botRunner = new BotRunner({
       store: botTaskStore,
-      stepExecutor: async () => {
-        throw new Error('Esta rotina ainda não está conectada ao executor do navegador. Execute a tarefa pela conversa do Bot.');
-      }
+      stepExecutor: createAgentStepExecutor({
+        // Aba oculta: cria sem trocar a aba do usuário, num perfil isolado e com a lista de sites do Bot.
+        createBackgroundTab: async (url, bot) => createNewTab(url || 'about:blank', bot ? { bot } : {}),
+        closeTab: async (tabId) => closeTab(tabId),
+        runAgent: (...args) => automationService.runAgent(...args),
+        getAgentConfig,
+        cancelAgentRun: (tabId) => automationService.cancelAgentRun(tabId),
+        onEvent: (event) => sendToRenderer('bots:run-event', event),
+        logError
+      })
     });
     botScheduler = new BotScheduler({
       store: botTaskStore,
@@ -277,6 +292,7 @@ async function initializeApp() {
     });
     botScheduler.pauseStaleBots();
     botScheduler.runMissedSchedulesOnce().catch(logError);
+    botScheduler.start();
     global.teachTaskRecorder = new TeachTaskRecorder({ store: botTaskStore });
     global.learnedRouteLibrary = new LearnedRouteLibrary();
     global.learnedRouteLibrary.addRoute({
@@ -292,10 +308,11 @@ async function initializeApp() {
       reversibility: 'reversivel',
       enabled: true,
       needsRelearning: false,
-      runs: 18,
-      successes: 18,
-      successRate: 1,
-      lastVerifiedAt: new Date().toISOString()
+      runs: 0,
+      successes: 0,
+      successRate: null,
+      lastVerifiedAt: null,
+      isExample: true
     });
     global.learnedRouteLibrary.addRoute({
       id: 'route-finance-quote',
@@ -351,6 +368,42 @@ async function initializeApp() {
   }
   createMainWindow();
 
+  try {
+    systemTray = createSystemTray({
+      mainWindow,
+      botRunner,
+      iconPath: path.join(__dirname, '../../assets/zero-browser-icon.png'),
+      onQuit: () => {
+        isQuitting = true;
+        app.quit();
+      }
+    });
+  } catch (trayErr) {
+    logError(trayErr);
+  }
+
+  try {
+    if (powerMonitor) {
+      powerMonitor.on('resume', () => {
+        botScheduler?.runMissedSchedulesOnce().catch(logError);
+      });
+      powerMonitor.on('unlock-screen', () => {
+        botScheduler?.runMissedSchedulesOnce().catch(logError);
+      });
+    }
+  } catch (powerErr) {
+    logError(powerErr);
+  }
+
+  try {
+    const openAtLogin = Boolean(store.getStore().get('system.openAtLogin', false));
+    if (typeof app.setLoginItemSettings === 'function') {
+      app.setLoginItemSettings({ openAtLogin, openAsHidden: true });
+    }
+  } catch (loginErr) {
+    logError(loginErr);
+  }
+
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createMainWindow();
   });
@@ -404,7 +457,14 @@ function createMainWindow() {
     logError(`did-fail-load: ${errorCode} ${errorDescription}`);
   });
 
-  mainWindow.on('close', () => {
+  mainWindow.on('close', (event) => {
+    const closeToTray = store.getStore().get('system.closeToTray', true);
+    if (!isQuitting && closeToTray && systemTray) {
+      event.preventDefault();
+      saveSessionTabs({ force: true });
+      mainWindow.hide();
+      return;
+    }
     saveSessionTabs({ force: true });
     shuttingDown = true;
   });
@@ -424,14 +484,46 @@ function createMainWindow() {
   return mainWindow;
 }
 
+// Perfil isolado e política de site do Bot (tarefa A3).
+// As abas normais continuam no perfil do usuário. A aba de um Bot nasce numa partição só
+// dele, então não enxerga cookie, login ou sessão de outro perfil, e cada navegação é
+// conferida contra a lista de sites do Bot no processo principal.
+const botGuards = new Map(); // partition -> guarda de navegação daquele Bot
+
+function botPolicyOfTab(tabId) {
+  return browserViews.get(tabId)?.bot || null;
+}
+
+function botGuardForBot(bot) {
+  const partition = botPartitionFor(bot.id);
+  const existing = botGuards.get(partition);
+  if (existing) return existing.updatePolicy(bot);
+  const guard = createBotSiteGuard({
+    bot,
+    onBlocked: ({ botId, url, message }) => {
+      try { sendToRenderer('bots:site-blocked', { botId, url, message }); } catch {}
+      logError(new Error(message));
+    }
+  });
+  botGuards.set(partition, guard);
+  return guard;
+}
+
 function createNewTab(url = 'about:blank', options = {}) {
   const tabId = `tab-${nextTabId++}`;
   const browserId = `browser-${options.browserId || nextBrowserId++}`;
-  // Todas as abas usam o mesmo perfil, como num navegador comum: login feito numa aba vale nas outras.
-  const partition = options.partition || PROFILE_PARTITION;
+  const bot = options.bot && options.bot.id ? options.bot : null;
+  // Aba de Bot: partição própria. Aba normal: perfil do usuário, como antes.
+  const partition = options.partition || (bot ? botPartitionFor(bot.id) : PROFILE_PARTITION);
+  const botGuard = bot ? botGuardForBot(bot) : null;
+
+  if (botGuard && !botGuard.allows(url || 'about:blank')) {
+    throw new Error(botGuard.block(url || 'about:blank'));
+  }
 
   const ses = session.fromPartition(partition);
   configureSession(ses);
+  if (botGuard) botGuard.guardSession(ses);
 
   const popupWebContents = options.openerOptions?.webContents;
   const view = new WebContentsView({
@@ -445,6 +537,8 @@ function createNewTab(url = 'about:blank', options = {}) {
       allowRunningInsecureContent: false
     }
   });
+
+  if (bot) view.webContents.setBackgroundThrottling?.(false);
 
   const isNewTab = url === 'zero://newtab' || url === 'navegante://newtab';
   if (!popupWebContents) {
@@ -465,21 +559,35 @@ function createNewTab(url = 'about:blank', options = {}) {
   // Links in remote pages must not navigate the browser surface to file:, data:, javascript: or custom schemes.
   // The same allowlist is used for address-bar IPC and pop-ups, so top-level navigations follow that policy too.
   view.webContents.on('will-navigate', (event, targetUrl) => {
-    if (!isAllowedRendererNavigation(targetUrl)) event.preventDefault();
+    if (!isAllowedRendererNavigation(targetUrl)) { event.preventDefault(); return; }
+    if (botGuard && !botGuard.allows(targetUrl)) {
+      event.preventDefault();
+      botGuard.block(targetUrl);
+    }
   });
   view.webContents.on('will-redirect', (event, targetUrl) => {
-    if (!isAllowedRendererNavigation(targetUrl)) event.preventDefault();
+    if (!isAllowedRendererNavigation(targetUrl)) { event.preventDefault(); return; }
+    if (botGuard && !botGuard.allows(targetUrl)) {
+      event.preventDefault();
+      botGuard.block(targetUrl);
+    }
   });
 
   // Pop-ups e links com target=_blank viram abas. O Electron cria a página com o vínculo window.opener, que
   // logins como "Entrar com Google" usam para devolver o resultado à aba de origem.
   view.webContents.setWindowOpenHandler(({ url: targetUrl, disposition }) => {
     if (!isAllowedRendererNavigation(targetUrl)) return { action: 'deny' };
+    if (botGuard && !botGuard.allows(targetUrl)) {
+      botGuard.block(targetUrl);
+      return { action: 'deny' };
+    }
     return {
       action: 'allow',
       createWindow: (openerOptions) => {
-        const created = createNewTab(targetUrl, { openerOptions, browserId: browserId.replace('browser-', '') });
-        if (disposition !== 'background-tab') switchTab(created.tabId);
+        // O pop-up de uma aba de Bot continua no perfil e na política do mesmo Bot.
+        const created = createNewTab(targetUrl, { openerOptions, browserId: browserId.replace('browser-', ''), ...(bot ? { bot } : {}) });
+        // Aba de Bot trabalha escondida: não troca a aba que o usuário está vendo.
+        if (disposition !== 'background-tab' && !bot) switchTab(created.tabId);
         return browserViews.get(created.tabId).webContents;
       }
     };
@@ -516,7 +624,14 @@ function createNewTab(url = 'about:blank', options = {}) {
     sendToRenderer('tab:load-error', { tabId, errorCode, errorDescription, url: validatedURL });
   });
 
-  browserViews.set(tabId, { view, webContents: view.webContents, partition, browserId, url });
+  browserViews.set(tabId, {
+    view,
+    webContents: view.webContents,
+    partition,
+    browserId,
+    url,
+    ...(bot ? { bot: { id: String(bot.id), allowedSites: Array.isArray(bot.allowedSites) ? [...bot.allowedSites] : [] } } : {})
+  });
   view.webContents.on('page-favicon-updated', (_e, favicons) => {
     const entry = browserViews.get(tabId);
     if (entry && favicons[0]) entry.favicon = favicons[0];
@@ -1627,10 +1742,10 @@ handleMainUiIpc('routes:capture-current', (_event, { site, name, urlTemplate, ef
     reversibility: effect === 'escreve' ? 'irreversivel' : 'reversivel',
     enabled: effect !== 'escreve',
     needsRelearning: false,
-    runs: 1,
-    successes: 1,
-    successRate: 1,
-    lastVerifiedAt: new Date().toISOString()
+    runs: 0,
+    successes: 0,
+    successRate: null,
+    lastVerifiedAt: null
   });
 });
 handleMainUiIpc('routes:rehearse-twin', (_event, { site, action = 'click', selector = '#btn-confirmar', label = 'Botão principal da página' } = {}) => {
@@ -1656,10 +1771,11 @@ handleMainUiIpc('connectors:status', () => ({
     authorizedSenders: global.telegramBridge ? [...global.telegramBridge.authorizedSenders] : ['wesley-telegram']
   },
   firewall: {
-    attacksTested: 50,
-    attacksBlocked: 50,
-    falsePositives: 0,
-    untouchableCoreActive: true
+    attacksTested: null,
+    attacksBlocked: null,
+    falsePositives: null,
+    untouchableCoreActive: true,
+    benchmarkNote: '50 ataques bloqueados em teste automatizado (test/intent-firewall-attacks.test.js)'
   }
 }));
 handleMainUiIpc('connectors:add-telegram-sender', (_event, senderId) => {
@@ -1669,11 +1785,15 @@ handleMainUiIpc('connectors:add-telegram-sender', (_event, senderId) => {
 });
 handleMainUiIpc('bots:run-now', (_event, botId, options = {}) => {
   if (!botRunner) return null;
-  if (!Array.isArray(options?.steps) || options.steps.length === 0) {
-    throw new Error('A rotina não possui passos executáveis. Defina e revise a tarefa antes de executar.');
-  }
+  const bot = botTaskStore?.getBot(String(botId));
+  if (!bot) throw new Error(`Bot "${botId}" não encontrado.`);
+  // Sem passos gravados, a própria missão do Bot vira o passo entregue ao agente.
+  const providedSteps = Array.isArray(options?.steps) ? options.steps.filter(Boolean) : [];
+  const steps = providedSteps.length
+    ? providedSteps
+    : [{ tool: AGENT_TASK_TOOL, prompt: bot.goal, url: bot.defaultUrl, usesModel: true }];
   return botRunner.runBotNow(String(botId), {
-    steps: Array.isArray(options?.steps) ? options.steps : [],
+    steps,
     onAttention: (attention) => sendToRenderer('bots:attention', attention)
   });
 });
@@ -1687,7 +1807,7 @@ handleMainUiIpc('live-apps:generate', (_event, { title, prompt } = {}) => {
     title: String(title || 'App Vivo Personalizado'),
     prompt: String(prompt || 'Painel consolidado a partir das minhas sessões'),
     sources: [
-      { id: 'src-1', site: 'https://painel.local', label: 'Fonte principal (Rota aprendida)', fresh: true, items: [{ item: String(prompt || 'Indicador principal'), valor: 'R$ 249,90', status: 'Atualizado agora' }] }
+      { id: 'src-1', site: 'https://painel.local', label: 'Fonte de exemplo (Rota aprendida)', fresh: true, items: [{ item: String(prompt || 'Indicador principal'), valor: 'R$ 249,90 (exemplo)', status: 'Exemplo simulado' }] }
     ]
   });
 });
@@ -1722,6 +1842,9 @@ async function clearBrowserSessionData(sessions) {
 }
 
 app.on('before-quit', (event) => {
+  isQuitting = true;
+  try { systemTray?.destroy(); } catch {}
+  try { botScheduler?.stop(); } catch {}
   if (quitCleanupComplete) return;
   let clearOnExit = false;
   try { clearOnExit = store.getStore().get('privacy.clearOnExit') === true; } catch {}

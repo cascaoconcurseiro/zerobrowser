@@ -245,6 +245,31 @@ test('one task can revisit its own tabs while another task retains exclusive own
   assert.deepEqual([...service.agentTabs], ['other']);
 });
 
+test('isolatedTabs: o agente do Bot não enxerga nem toca nas abas do usuário', async () => {
+  const { service, requests, run } = fixture([
+    { role: 'assistant', tool_calls: [
+      { id: 'list', type: 'function', function: { name: 'tabs', arguments: '{"action":"list"}' } },
+      { id: 'switch-user', type: 'function', function: { name: 'tabs', arguments: '{"action":"switch","tabId":"user-tab"}' } },
+      { id: 'close-user', type: 'function', function: { name: 'tabs', arguments: '{"action":"close","tabId":"user-tab"}' } }
+    ] },
+    done
+  ]);
+  service.tabs.set('user-tab', { webContents: { isDestroyed: () => false, getURL: () => 'https://banco.test/saldo' } });
+  await run({ isolatedTabs: true });
+
+  const listRes = requests.flatMap((r) => r.messages).find((m) => m.tool_call_id === 'list');
+  const listedTabs = JSON.parse(listRes.content).tabs;
+  assert.equal(listedTabs.some((t) => t.tabId === 'user-tab'), false, 'aba do usuário não aparece na listagem');
+  assert.equal(listedTabs.some((t) => t.tabId === 'a'), true, 'a própria aba do Bot aparece');
+
+  const switchRes = requests.flatMap((r) => r.messages).find((m) => m.tool_call_id === 'switch-user');
+  assert.match(JSON.parse(switchRes.content).error, /Aba fora do escopo do Bot/);
+
+  const closeRes = requests.flatMap((r) => r.messages).find((m) => m.tool_call_id === 'close-user');
+  assert.match(JSON.parse(closeRes.content).error, /Aba fora do escopo do Bot/);
+  assert.equal(service.tabs.has('user-tab'), true, 'a aba do usuário permanece aberta e intacta');
+});
+
 test('optional observation returns the fresh page after the last action of a batch', async () => {
   const clicks = { role: 'assistant', tool_calls: ['left', 'right'].map((id) => ({ id, type: 'function', function: { name: 'click', arguments: '{"index":0}' } })) };
   const { service, requests, page, run } = fixture([inspect('first'), clicks, done]);

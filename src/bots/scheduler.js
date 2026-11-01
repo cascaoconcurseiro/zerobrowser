@@ -1,6 +1,7 @@
 'use strict';
 
 const STALE_BOT_THRESHOLD_MS = 14 * 24 * 60 * 60 * 1000; // 14 dias
+const { AGENT_TASK_TOOL } = require('./agent-executor');
 
 class BotScheduler {
   constructor({
@@ -53,7 +54,7 @@ class BotScheduler {
         if (!(Number(payload.price) <= Number(trig.condition.targetPrice))) continue;
       }
       const res = await this.runner.runBotNow(trig.botId, {
-        steps: payload.steps || [{ tool: 'snapshot', goalReached: true, mockData: payload }]
+        steps: payload.steps || [{ tool: AGENT_TASK_TOOL, usesModel: true }]
       });
       triggered.push({ triggerId: trig.triggerId, botId: trig.botId, runId: res.runId, status: res.status });
     }
@@ -160,6 +161,7 @@ class BotScheduler {
       return false;
     }
     const lastRunMs = this.lastRunByBot.get(bot.id)
+      ?? (bot.schedule?.lastRunAt ? Date.parse(bot.schedule.lastRunAt) : null)
       ?? (bot.history?.[0]?.startedAt ? Date.parse(bot.history[0].startedAt) : null);
 
     const schedule = bot.schedule;
@@ -174,8 +176,15 @@ class BotScheduler {
         .split(':')
         .map((n) => Number(n) || 0);
       const currentDate = new Date(currentTimeMs);
-      const scheduledToday = new Date(currentDate);
-      scheduledToday.setUTCHours(targetHour, targetMinute, 0, 0);
+      const scheduledToday = new Date(
+        currentDate.getFullYear(),
+        currentDate.getMonth(),
+        currentDate.getDate(),
+        targetHour,
+        targetMinute,
+        0,
+        0
+      );
       if (currentTimeMs < scheduledToday.getTime()) return false;
       if (lastRunMs == null) return true;
       return lastRunMs < scheduledToday.getTime();
@@ -184,8 +193,16 @@ class BotScheduler {
     if (schedule.kind === 'monthly') {
       const dayOfMonth = Math.min(28, Math.max(1, Number(schedule.dayOfMonth) || 5));
       const currentDate = new Date(currentTimeMs);
-      if (currentDate.getUTCDate() < dayOfMonth) return false;
-      const scheduledMonthStart = Date.UTC(currentDate.getUTCFullYear(), currentDate.getUTCMonth(), dayOfMonth, 9, 0, 0);
+      if (currentDate.getDate() < dayOfMonth) return false;
+      const scheduledMonthStart = new Date(
+        currentDate.getFullYear(),
+        currentDate.getMonth(),
+        dayOfMonth,
+        9,
+        0,
+        0,
+        0
+      ).getTime();
       if (currentTimeMs < scheduledMonthStart) return false;
       if (lastRunMs == null) return true;
       return lastRunMs < scheduledMonthStart;
@@ -194,12 +211,59 @@ class BotScheduler {
     return false;
   }
 
+  _recordBotScheduleRun(botId, timestampMs) {
+    if (typeof this.store.recordScheduleRun === 'function') {
+      this.store.recordScheduleRun(botId, timestampMs);
+    } else {
+      const raw = this.store.bots?.get(botId);
+      if (raw) {
+        if (!raw.schedule) raw.schedule = { enabled: false, kind: 'manual' };
+        raw.schedule.lastRunAt = new Date(timestampMs).toISOString();
+        raw.updatedAt = new Date().toISOString();
+        this.store._saveToDisk?.();
+      }
+    }
+  }
+
+  start({ intervalMs = 60_000 } = {}) {
+    if (this._timer) return;
+    this._timer = setInterval(() => {
+      this.pauseStaleBots();
+      this.runMissedSchedulesOnce().catch((err) => {
+        try {
+          this.notify({
+            botId: null,
+            title: 'Erro no agendador de Bots',
+            body: String(err?.message || err),
+            kind: 'error'
+          });
+        } catch {}
+      });
+    }, Math.max(10, Number(intervalMs) || 60_000));
+    if (typeof this._timer.unref === 'function') {
+      this._timer.unref();
+    }
+  }
+
+  stop() {
+    if (this._timer) {
+      clearInterval(this._timer);
+      this._timer = null;
+    }
+  }
+
+  isRunning() {
+    return Boolean(this._timer);
+  }
+
   async runMissedSchedulesOnce(stepPlansByBotId = {}) {
     const executed = [];
     for (const bot of this.store.listBots()) {
       if (this.isBotDue(bot, this.now())) {
-        this.lastRunByBot.set(bot.id, this.now());
-        const steps = stepPlansByBotId[bot.id] || [{ tool: 'snapshot', mockData: { checkedAt: this.now() } }];
+        const runTimestamp = this.now();
+        this.lastRunByBot.set(bot.id, runTimestamp);
+        this._recordBotScheduleRun(bot.id, runTimestamp);
+        const steps = stepPlansByBotId[bot.id] || [{ tool: AGENT_TASK_TOOL, prompt: bot.goal, url: bot.defaultUrl, usesModel: true }];
         const result = await this.runner.runBotNow(bot.id, { steps });
         executed.push({ botId: bot.id, runId: result.runId, status: result.status });
         this.emitNotification({

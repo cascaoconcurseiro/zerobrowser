@@ -214,9 +214,9 @@ app.whenReady().then(async () => {
       delegationModeOnStartup: document.getElementById('app')?.classList.contains('delegation-mode'),
       botRailVisible: !document.getElementById('delegation-rail')?.classList.contains('hidden'),
       botAvatarButtons: document.querySelectorAll('#bot-rail-list button.bot-avatar').length,
-      botAvatarMarks: document.querySelectorAll('#bot-rail-list .bot-avatar-symbol svg path[d]').length,
+      botAvatarMarks: document.querySelectorAll('#bot-rail-list .bot-avatar-symbol img.bot-mascot[src]').length,
       pixelAvatars: document.querySelectorAll('.pixel-avatar').length,
-      botAvatarSymbols: [...document.querySelectorAll('#bot-rail-list .bot-avatar-symbol path')].map((path) => path.getAttribute('d')),
+      botAvatarSymbols: [...document.querySelectorAll('#bot-rail-list .bot-avatar-symbol img.bot-mascot')].map((img) => img.getAttribute('src')),
       currentBotRole: document.querySelector('#bot-rail-list .bot-avatar[aria-current="true"]')?.getAttribute('role'),
       currentBotAccessibleName: document.querySelector('#bot-rail-list .bot-avatar[aria-current="true"]')?.getAttribute('aria-label'),
       botAddressFocusVisible: (() => { const address = document.getElementById('address-bar'); return { focused: document.activeElement === address, matches: address.matches(':focus-visible'), outline: getComputedStyle(address).outlineStyle, color: getComputedStyle(address).outlineColor }; })(),
@@ -255,7 +255,7 @@ app.whenReady().then(async () => {
     assert.equal(shell.delegationModeOnStartup, true, 'o app precisa abrir no novo modo Delegar');
     assert.equal(shell.botRailVisible, true, 'a equipe Bot precisa aparecer no modo Delegar');
     assert.equal(shell.botAvatarButtons, 1, 'perfil de outro Bot deve ser acionável na lateral');
-    assert.equal(shell.botAvatarMarks, 2, 'cada perfil mostra o símbolo individual dentro do anel');
+    assert.equal(shell.botAvatarMarks, 2, 'cada perfil mostra o mascote individual dentro do anel');
     assert.equal(shell.pixelAvatars, 0, 'a interface não deve mais renderizar avatares pixelados');
     assert.equal(new Set(shell.botAvatarSymbols).size, 2, 'os dois perfis da fixture têm símbolos visuais distintos');
     assert.equal(shell.currentBotRole, 'img', 'Bot da janela atual aparece como identidade estática, não ação sem efeito');
@@ -354,7 +354,7 @@ app.whenReady().then(async () => {
       return { modalVisible, presetCount, keptBackground, promoted, switchedToBotTab };
     })()`);
     assert.equal(specialistFlow.modalVisible, true, 'clicar em Criar Bot abre o criador de Bot Especialista');
-    assert.equal(specialistFlow.presetCount, 6, 'criador exibe as 6 especialidades prontas');
+    assert.equal(specialistFlow.presetCount, 9, 'criador exibe as 9 especialidades prontas');
     assert.equal(specialistFlow.keptBackground, true, 'modo em 2º plano cria a aba do Bot sem roubar o foco da aba atual');
     assert.equal(specialistFlow.promoted && specialistFlow.switchedToBotTab, true, 'atingir a meta ou precisar de ação traz a aba do Bot automaticamente para frente');
 
@@ -598,6 +598,7 @@ app.whenReady().then(async () => {
     assert.equal(keyboardTabs.selected, 1, 'somente uma aba fica selecionada');
     assert.equal(keyboardTabs.focusable, 1, 'somente a aba selecionada entra na ordem de tabulação');
     const layout = await window.webContents.executeJavaScript(`(() => {
+      document.getElementById('delegation-tab-chat')?.click();
       const more = document.querySelector('.ai-chat-more');
       more.open = true;
       const toolbar = document.querySelector('.ai-chat-toolbar');

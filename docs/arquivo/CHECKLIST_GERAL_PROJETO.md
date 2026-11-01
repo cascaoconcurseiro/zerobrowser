@@ -1,7 +1,7 @@
 # Checklist Geral do Projeto — Zero Browser
 
 Data de consolidação: `31/10/2026`
-Versão atual (código e instalada): `0.1.63-dev`
+Versão atual (código e instalada): `0.1.69-dev`
 
 Este documento consolida **tudo o que já foi entregue (`[x]`)** e **tudo o que falta (`[ ]`)** no Zero Browser, unificando `CHECKLIST.md`, `HANDOFF.md`, `docs/CHECKLIST_HISTORICO.md`, `docs/CHECKLIST_PLANOS_2026-10-31.md`, `docs/EVOLUCAO_MOTOR.md`, `docs/PLANO_MATURIDADE_4.md` e todos os planos específicos em `docs/PLANO_*.md`.
 
@@ -44,7 +44,45 @@ Este documento consolida **tudo o que já foi entregue (`[x]`)** e **tudo o que 
 
 ---
 
-## 2. Entrega Atual `0.1.52-dev` (`CHECKLIST.md` & `HANDOFF.md`)
+## 2. Histórico de Entregas Recentes (`0.1.52` até `0.1.69`)
+
+### 2.1 Entrega `0.1.69-dev` (Trilha A — Marco 1: Bots Autoexecutáveis em 2º Plano & Honestidade E1)
+
+- [x] **A1/A2 — Executor do Bot conectado ao Agente (`src/bots/agent-executor.js`):** execução em aba oculta sem roubar o foco do usuário; missão do Bot usada como tarefa do agente quando não há passos gravados; encerramento limpo da aba em sucesso, falha ou cancelamento (`stopAllBots`).
+- [x] **A3 — Perfil isolado e Política de Site por Bot:** partição de sessão dedicada por Bot (`persist:navegante-bot-<id>`); guarda de rede (`src/bots/bot-site-guard.js`) com cancelamento rígido de URLs fora da lista permitida; isolamento de abas (`isolatedTabs: true`) no agente impedindo inspecionar ou fechar abas do usuário.
+- [x] **A4 — Relógio e Persistência da Agenda:** agendador (`src/bots/scheduler.js`) operando em fuso local para rotinas diárias e mensais; persistência de `lastRunAt` em `bot-tasks.json` via `BotTaskStore.recordScheduleRun` para evitar reexecuções após reinicialização; timer em segundo plano com `.unref()`.
+- [x] **A5 — Segundo Plano Real e Medição com Janela Minimizada:** bandeja do sistema nativa (`src/main/system-tray.js`) com menu contextual (Abrir, Parar tudo, Sair); fechamento para a bandeja (`closeToTray`); retomada de rotinas perdidas via `powerMonitor` (`resume`/`unlock-screen`); medição real via `scripts/electron-background-bot.integration.js` comprovando 10,0 ticks/s com janela minimizada (zero estrangulamento via `setBackgroundThrottling(false)`).
+- [x] **A6 — Avisos e Recibos na Tela:** exposição em `preload.js` (`bots.onNotification`, `bots.onSiteBlocked`, `bots.onRunEvent`); exibição de toasts informativos na interface e cartões de recibo auditáveis (`ai-receipt-card`) na conversa e histórico.
+- [x] **E1 — Honestidade dos Dados:** remoção de métricas simuladas em `src/main/main.js` (ataques de firewall nulos com ponteiro para a fixture de 50 ataques; rotas de exemplo zeradas e rotuladas com `isExample: true`; valores em apps ao vivo identificados como exemplo).
+- [x] **Qualidade:** 450 testes unitários passando (`npm test`), além dos testes de integração de background, UI, bot-runtime e layout.
+- [x] **Instalação:** Instalador NSIS executado com sucesso (`ExitCode 0`); versão instalada confirmada como `0.1.69-dev` / `0.1.69.0`; hash do `app.asar` instalado idêntico à build; backup da versão anterior preservado em `backups/2026-10-31-before-0.1.69-install/` (184 arquivos); atalhos na Área de Trabalho e Menu Iniciar ativos.
+
+### 2.2 Entrega `0.1.68-dev` (Orquestrador no modo Delegar)
+
+- [x] Classificador local que encaminha pedidos claros de preço, mercado ou e-mail para perfis especialistas sem chamada extra ao provedor.
+- [x] Compositor exibe quem executará e permite corrigir a rota sugerida; seleção manual de Bot permanece explícita.
+- [x] Envio em 1º plano aplica orientação do especialista mantendo execução no agente geral e na aba atual; envio em 2º plano não seleciona Bot por padrão.
+- [x] 414 testes unitários e testes de integração de UI e layout passando.
+
+### 2.3 Entrega `0.1.67-dev` (Identidade Estável e Preservação de Dados)
+
+- [x] Substituição das folhas de retratos pixelados por 25 símbolos SVG de traço e 8 cores (200 identidades únicas estáveis para os 200 perfis).
+- [x] Anéis com movimento discreto durante trabalho, respeitando `prefers-reduced-motion`.
+- [x] Preservação contínua de partição (`persist:navegante`) e perfil `navegante` entre versões sem duplicação de diretórios ou perda de chaves/sessões.
+
+### 2.4 Entrega `0.1.66-dev` (Legibilidade Visual)
+
+- [x] Cartões de orientação "Enviar" e "Em 2º plano" com contraste WCAG AA verificado (≥ 4,5:1).
+- [x] Empilhamento automático em coluna para viewports estreitos.
+
+### 2.5 Entrega `0.1.65-dev` (Central e Bots mais honestos)
+
+- [x] Separação visual entre Perfis de navegação e Tarefas especialistas no trilho e na Central.
+- [x] Contagem real de perfis em vez de contabilizar avatares do catálogo.
+- [x] Descarte de respostas assíncronas obsoletas e remoção de dados/serviços de demonstração simulados (Telegram/Apps).
+- [x] Remoção de tempos e percentuais simulados no painel de detalhes.
+
+### 2.6 Entrega `0.1.52-dev` (`CHECKLIST.md` & `HANDOFF.md`)
 
 - [x] Central de Bots substitui visualmente a conversa do `#ai-panel` enquanto está aberta (`inert = true`, `aria-hidden = 'true'`), sem sobrepor o histórico de chat ao fundo.
 - [x] Central separa claramente **Bots ativos** e **Bots arquivados**, com botão `Arquivar` nos ativos (exceto o Bot em uso no momento) e `Restaurar` nos arquivados.

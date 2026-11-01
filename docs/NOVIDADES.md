@@ -1,13 +1,14 @@
 # Novidades — Zero Browser 0.1.69-dev
 
-## 0.1.69-dev — O Bot roda a missão pelo agente
+## 0.1.69-dev — Bots autoexecutáveis em 2º plano, isolamento e honestidade
 
-- O executor do Bot deixou de ser uma casca: um passo de missão abre uma aba oculta e entrega o objetivo do Bot ao mesmo agente que roda pela conversa.
-- A aba do usuário não muda de foco; a aba do Bot é fechada ao terminar, inclusive em falha ou cancelamento.
-- "Parar todos os Bots" cancela a execução do agente e encerra a aba oculta.
-- Quando não há passos gravados, "rodar agora" e a agenda usam a missão do Bot como passo, em vez de exigir passos prontos.
-- A suíte cobre sucesso, falha, cancelamento, passo desconhecido e missão vazia (7 testes novos).
-- Limites desta fatia: o isolamento de perfil e o bloqueio rígido de escrita por Bot ainda não existem; a prova com um site real e 7 dias seguidos é a tarefa A7 do quadro de execução.
+- **O Bot executa a missão pelo agente (A1/A2):** o executor do Bot conecta passos e missões em texto livre diretamente ao agente (`src/bots/agent-executor.js`) em aba oculta, sem roubar foco da navegação do usuário e com encerramento limpo ao terminar, falhar ou cancelar.
+- **Perfil isolado e política de site (A3):** cada Bot ganha uma partição de sessão isolada (`persist:navegante-bot-<id>`). A guarda de rede (`src/bots/bot-site-guard.js`) intercepta o tráfego e cancela URLs fora da allowlist autorizada. O agente opera com `isolatedTabs: true`, sem visibilidade ou interferência nas abas do usuário.
+- **Agenda persistente e fuso local (A4):** o agendador (`src/bots/scheduler.js`) opera em fuso horário local e grava `lastRunAt` em `bot-tasks.json`, impedindo execuções duplicadas ao reabrir o navegador.
+- **Segundo plano real e medição minimizada (A5):** bandeja do sistema nativa (Tray) com menu ("Abrir Zero Browser", "Parar tudo", "Sair"), opção de fechar para a bandeja e suporte a suspensão do PC (`powerMonitor`). Medição real com janela minimizada comprovando taxa de 10,0 ticks/s sem estrangulamento (`setBackgroundThrottling(false)`).
+- **Avisos e recibos auditáveis na tela (A6):** toasts informativos na interface e cartões de recibo auditáveis (`ai-receipt-card`) na conversa e histórico para cada ação do Bot.
+- **Honestidade de dados (E1):** métricas simuladas foram removidas de `src/main/main.js` (ataques de firewall nulos com ponteiro para a fixture de benchmark de 50 ataques; rotas de exemplo zeradas com `isExample: true`; valores em apps ao vivo rotulados como exemplo).
+- **Cobertura completa:** 450 testes unitários passando (`npm test`) e testes de integração de background, UI, bot-runtime e layout passando 100%.
 
 ## 0.1.68-dev — Orquestrador no modo Delegar
 

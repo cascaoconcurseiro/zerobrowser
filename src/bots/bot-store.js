@@ -16,69 +16,111 @@ const EXECUTION_MODES = Object.freeze({
 const SPECIALIST_BOT_PRESETS = Object.freeze([
   {
     id: 'price-hunter',
-    title: 'Pesquisador de Preços',
-    subtitle: 'Compara ofertas e frete em segundo plano e traz a aba para frente ao atingir seu preço-alvo.',
-    defaultName: 'Bot Caçador de Preços',
+    title: 'Monitor de preço',
+    subtitle: 'Acompanha o preço de um produto e avisa quando cai abaixo do seu limite.',
+    defaultName: 'Bot Monitor de Preço',
     defaultUrl: 'https://www.google.com/shopping',
-    goal: 'Comparar preços e frete nas lojas abertas, montar tabela comparativa e avisar na frente quando encontrar o menor valor ou atingir a meta.',
+    goal: 'Acompanhar o preço à vista e o frete do produto indicado nas lojas abertas, só em leitura. Se não achar o produto, pedir o nome exato ou o link. Nunca comprar nem preencher cadastro. Quando o preço cair abaixo do limite, avisar com valor, loja e link, e mostrar o recibo.',
+    levelLabel: 'Só ler',
     permission: 'somente-leitura',
     executionMode: EXECUTION_MODES.BACKGROUND_AUTO_FOREGROUND,
     accent: '#168f72'
   },
   {
-    id: 'market-radar',
-    title: 'Radar Financeiro e Ações',
-    subtitle: 'Vigia cotações, variações e fatos relevantes silenciosamente até atingir seu gatilho.',
-    defaultName: 'Bot Radar de Mercado',
-    defaultUrl: 'https://www.google.com/finance',
-    goal: 'Monitorar cotação do ativo e indicadores da página em somente leitura e trazer a aba para frente se atingir a faixa de alerta.',
+    id: 'researcher',
+    title: 'Pesquisador',
+    subtitle: 'Junta fontes sobre um assunto e entrega um resumo com os links.',
+    defaultName: 'Bot Pesquisador',
+    defaultUrl: 'https://www.google.com',
+    goal: 'Pesquisar o assunto indicado, juntar até cinco fontes com link e data, resumir em tópicos e citar a origem de cada número. Não inventar fonte. Só ler; ao terminar, mostrar o recibo.',
+    levelLabel: 'Só ler',
     permission: 'somente-leitura',
     executionMode: EXECUTION_MODES.BACKGROUND_AUTO_FOREGROUND,
-    accent: '#1677d9'
+    accent: '#2480d2'
   },
   {
-    id: 'inbox-triage',
-    title: 'Triagem de E-mail e Agenda',
-    subtitle: 'Classifica urgências e prepara resumos sem responder nem apagar nada sozinho.',
-    defaultName: 'Bot Triagem Executiva',
+    id: 'data-analyst',
+    title: 'Analista de Dados',
+    subtitle: 'Lê tabelas de páginas e responde com números claros.',
+    defaultName: 'Bot Analista',
     defaultUrl: 'about:blank',
-    goal: 'Ler as mensagens visíveis, separar o que exige resposta hoje e trazer para frente quando houver item urgente ou rascunho pronto para aprovação.',
+    goal: 'Extrair a tabela indicada da página, conferir totais e explicar os números em frases simples. Só ler, sem alterar dados. Mostrar o recibo com a origem da tabela.',
+    levelLabel: 'Só ler',
     permission: 'somente-leitura',
     executionMode: EXECUTION_MODES.BACKGROUND_AUTO_FOREGROUND,
-    accent: '#7b4fd4'
+    accent: '#8966d4'
   },
   {
     id: 'erp-operator',
-    title: 'Operador de Trabalho e ERP',
-    subtitle: 'Extrai tabelas e prepara preenchimentos operacionais, pausando e chamando você antes de gravar.',
+    title: 'Operador ERP',
+    subtitle: 'Extrai dados da aba do sistema e prepara formulários. Pede aprovação antes de enviar.',
     defaultName: 'Bot Operador ERP',
     defaultUrl: 'about:blank',
-    goal: 'Extrair dados operacionais da aba do sistema, preparar os campos do formulário e trazer a aba para frente pedindo aprovação antes de enviar.',
+    goal: 'Extrair dados operacionais da aba do sistema, preparar os campos do formulário e trazer a aba para frente pedindo aprovação antes de enviar. Nunca enviar sem o seu sim; antes, mostrar o conteúdo exato.',
+    levelLabel: 'Com aprovação',
     permission: 'escrita-aprovada',
     executionMode: EXECUTION_MODES.DEDICATED_TAB,
     accent: '#c95f18'
   },
   {
-    id: 'page-sentinel',
-    title: 'Vigia de Editais, Vagas e Estoque',
-    subtitle: 'Monitora mudanças em páginas específicas em 2º plano e abre na sua frente ao detectar novidade.',
-    defaultName: 'Bot Vigia de Mudanças',
+    id: 'writer',
+    title: 'Redator',
+    subtitle: 'Escreve ou revisa textos a partir do que você passar. Entrega só rascunho.',
+    defaultName: 'Bot Redator',
     defaultUrl: 'about:blank',
-    goal: 'Inspecionar periodicamente o conteúdo desta página em segundo plano e trazer a aba para frente assim que detectar atualização, vaga ou estoque.',
+    goal: 'Escrever ou revisar o texto indicado, em linguagem simples, e entregar apenas o rascunho na conversa. Não enviar, não publicar e não colar em outro site.',
+    levelLabel: 'Rascunho',
+    permission: 'somente-leitura',
+    executionMode: EXECUTION_MODES.BACKGROUND_AUTO_FOREGROUND,
+    accent: '#7b4fd4'
+  },
+  {
+    id: 'personal-assistant',
+    title: 'Assistente Pessoal',
+    subtitle: 'Organiza suas tarefas e prioridades do dia. Só sugere, não age.',
+    defaultName: 'Bot Assistente',
+    defaultUrl: 'about:blank',
+    goal: 'Organizar as tarefas que você listar por prazo e prioridade e entregar um plano em rascunho na conversa. Não criar eventos nem enviar convites sem aprovação.',
+    levelLabel: 'Rascunho',
+    permission: 'somente-leitura',
+    executionMode: EXECUTION_MODES.BACKGROUND_AUTO_FOREGROUND,
+    accent: '#0d9488'
+  },
+  {
+    id: 'planner',
+    title: 'Planejador',
+    subtitle: 'Monta um plano com prazos e etapas para um objetivo seu.',
+    defaultName: 'Bot Planejador',
+    defaultUrl: 'about:blank',
+    goal: 'Montar, a partir do objetivo indicado, um plano com etapas, prazos e riscos, como rascunho na conversa. Não agendar nada sozinho.',
+    levelLabel: 'Rascunho',
+    permission: 'somente-leitura',
+    executionMode: EXECUTION_MODES.BACKGROUND_AUTO_FOREGROUND,
+    accent: '#a17522'
+  },
+  {
+    id: 'inbox-triage',
+    title: 'Resumo de e-mail',
+    subtitle: 'Lê as mensagens do dia e separa o que é urgente. Não responde nem apaga.',
+    defaultName: 'Bot de E-mail',
+    defaultUrl: 'about:blank',
+    goal: 'Ler as mensagens visíveis do dia, separar o que é urgente e resumir cada uma em uma frase. Não responder, não apagar e não abrir anexos.',
+    levelLabel: 'Só ler',
     permission: 'somente-leitura',
     executionMode: EXECUTION_MODES.BACKGROUND_AUTO_FOREGROUND,
     accent: '#b8860b'
   },
   {
-    id: 'custom-specialist',
-    title: 'Especialista Personalizado',
-    subtitle: 'Defina a especialidade, o site inicial e se ele trabalha em aba dedicada ou em 2º plano.',
-    defaultName: 'Bot Especialista',
+    id: 'order-checker',
+    title: 'Conferir pedidos',
+    subtitle: 'Confere pedidos novos na loja e avisa o que mudou. Só leitura.',
+    defaultName: 'Bot de Pedidos',
     defaultUrl: 'about:blank',
-    goal: 'Executar a missão definida pelo usuário respeitando os limites de segurança e trazer a aba para frente quando concluir ou precisar de decisão.',
+    goal: 'Conferir na loja os pedidos novos desde a última vez e avisar quais mudaram de situação. Só ler; nunca alterar o status de um pedido.',
+    levelLabel: 'Só ler',
     permission: 'somente-leitura',
     executionMode: EXECUTION_MODES.BACKGROUND_AUTO_FOREGROUND,
-    accent: '#0d9488'
+    accent: '#c65684'
   }
 ]);
 
@@ -225,6 +267,25 @@ class BotTaskStore {
       throw new Error('Subir degrau de autonomia exige confirmação humana explícita.');
     }
     bot.autonomyStep = nextStep;
+    bot.updatedAt = new Date().toISOString();
+    this._saveToDisk();
+    return structuredClone(bot);
+  }
+
+  updateBotSchedule(botId, schedule = {}) {
+    const bot = this.bots.get(botId);
+    if (!bot) throw new Error(`Bot "${botId}" não encontrado.`);
+    bot.schedule = { ...(bot.schedule || {}), ...schedule };
+    bot.updatedAt = new Date().toISOString();
+    this._saveToDisk();
+    return structuredClone(bot);
+  }
+
+  recordScheduleRun(botId, timestampMs = Date.now()) {
+    const bot = this.bots.get(botId);
+    if (!bot) return null;
+    if (!bot.schedule) bot.schedule = { enabled: false, kind: 'manual' };
+    bot.schedule.lastRunAt = new Date(timestampMs).toISOString();
     bot.updatedAt = new Date().toISOString();
     this._saveToDisk();
     return structuredClone(bot);
