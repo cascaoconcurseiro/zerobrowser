@@ -202,6 +202,7 @@ class BotTaskStore {
       autoForegroundOnIntervention: spec.autoForegroundOnIntervention !== false,
       defaultUrl: String(spec.defaultUrl || preset.defaultUrl || 'about:blank').trim(),
       accent: String(spec.accent || preset.accent || '#168f72').trim(),
+      mascot: Number.isInteger(spec.mascot) && spec.mascot >= 1 && spec.mascot <= 40 ? spec.mascot : null,
       goal: String(spec.goal || spec.objetivo || preset.goal || '').trim(),
       inputs: stripSecretsFromObject(spec.inputs || {}),
       allowedSites,

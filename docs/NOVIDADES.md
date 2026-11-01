@@ -1,4 +1,39 @@
-# Novidades — Zero Browser 0.1.69-dev
+# Novidades — Zero Browser 0.1.76-dev
+
+## 0.1.76-dev — Correção de inicialização
+
+- **Início do app:** removida uma chamada a uma função que não existia mais, que interrompia a inicialização antes de atualizar o aviso de tarefas.
+
+## 0.1.75-dev — Central de Bots abre a conversa
+
+- **Central de Bots:** clicar na linha de um Bot abre a conversa dele no painel Delegar.
+- **Janela:** cada Bot ativo (que não está aberto nesta janela) tem o botão "Janela" para abrir o perfil em janela própria.
+
+## 0.1.74-dev — Clicar no bot abre a conversa
+
+- **Lateral de bots:** clicar em um bot abre a conversa dele no painel Delegar, em vez de abrir uma janela nova.
+
+## 0.1.73-dev — ## 0.1.73-dev — Abas do Bot de volta à Conversa
+
+- **Agenda, Memória, Rotas e Histórico** voltam à linha de abas da Conversa, como antes.
+
+## 0.1.72-dev — ## 0.1.72-dev — Escolha de mascote e Conversa mais enxuta
+
+- **Mascote na criação:** a tela de criar Bot especialista tem a etapa 3, com os 40 mascotes em grade. Começa com o mascote da especialidade e você troca clicando. A escolha fica salva no Bot e aparece no selo da aba.
+- **Conversa mais enxuta:** a aba Conversa do painel Delegar oculta a linha de roteamento, o aviso de privacidade repetido, os botões duplicados do cartão do Bot e a explicação de modos. Agenda, Memória, Rotas e Histórico saíram dessa tela.
+
+## 0.1.71-dev — ## 0.1.71-dev — Mascote em todos os bots
+
+- **Lateral de bots com mascotes:** todo bot aparece com seu mascote pixel art fixo; os ícones genéricos (lupa, carrinho, envelope) saíram. Bots sem número de avatar recebem um mascote derivado do id, sempre o mesmo.
+
+## 0.1.70-dev — ## 0.1.70-dev — Painel Bots com abas, 9 especialistas e mascotes
+
+- **Painel Delegar com duas abas:** "Bots" (padrão) lista os bots com busca, acesso rápido, filtros e favoritos; "Conversa" mostra o chat normal. Clicar em um bot abre a conversa com ele.
+- **9 especialistas prontos:** Monitor de preço, Pesquisador, Analista de Dados, Operador ERP, Redator, Assistente Pessoal, Planejador, Resumo de e-mail e Conferir pedidos. Cada um tem permissão definida (Só ler, Rascunho ou Com aprovação). A lista vem de uma única fonte (`src/bots/bot-store.js`).
+- **Mascotes:** cada bot usa um mascote pixel art fixo (40 opções em `assets/bots/mascotes/`).
+- **Paleta azul:** a cor de ação saiu do verde e passou para azul (#0254EC no tema claro).
+- **Textos e ícones:** "GrokBot" saiu dos textos visíveis; emojis de cadeado, carrinho, pasta e relógio foram trocados por ícones SVG.
+- **Favoritos:** ficam guardados neste computador (não são sincronizados).
 
 ## 0.1.69-dev — Bots autoexecutáveis em 2º plano, isolamento e honestidade
 

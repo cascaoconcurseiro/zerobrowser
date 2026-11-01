@@ -95,7 +95,7 @@
     <section id="bot-specialist-modal" class="bot-specialist-modal hidden" role="dialog" aria-modal="false" aria-labelledby="bot-specialist-title">
       <header class="bot-central-header">
         <div class="bot-central-heading">
-          <span class="bot-central-kicker">Zero Browser · GrokBot Especialista</span>
+          <span class="bot-central-kicker">Zero Browser · Bot especialista</span>
           <h2 id="bot-specialist-title">Criar Bot Especialista</h2>
           <p id="bot-specialist-summary">Escolha a especialidade. A nova aba usa o perfil de navegação atual; cookies e logins são compartilhados com ele.</p>
         </div>
@@ -137,6 +137,10 @@
             </label>
           </div>
         </div>
+        <div class="bot-specialist-field">
+          <span class="bot-specialist-label">3. Mascote do Bot</span>
+          <div id="bot-specialist-mascots" class="bot-specialist-mascots" role="radiogroup" aria-label="Mascote do Bot"></div>
+        </div>
       </div>
       <footer class="bot-specialist-footer">
         <button id="btn-specialist-profile-menu" class="btn-secondary" type="button" title="Abrir menu de perfis isolados em janela separada">Janela isolada…</button>
@@ -173,7 +177,7 @@
         <p class="bot-catalog-footer">Selecione um bot para abrir a conversa.</p>
       </section>
       <div id="tab-control-banner" class="tab-control-banner hidden" role="region" aria-label="Controle da aba ativa" aria-live="polite">
-        <span class="tab-control-bot-badge" aria-hidden="true">🛒</span>
+        <span class="tab-control-bot-badge" aria-hidden="true"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M5 3l14 8-6 2 4 7-3 1-4-7-5 4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg></span>
         <span id="tab-control-label" class="tab-control-label">Navegador controlado por <strong>Preços</strong></span>
         <button id="btn-tab-takeover" class="btn-ghost tab-control-action" type="button">Assumir</button>
       </div>
@@ -333,7 +337,7 @@
             <div class="ai-key-input-row"><input type="password" id="ai-api-key" class="ai-input" placeholder="Chave API do OpenRouter" autocomplete="new-password"><button id="btn-ai-toggle-key" class="btn-secondary" type="button" aria-pressed="false">Mostrar</button></div>
           </label>
           <div class="grokbot-isolated-vault-badge">
-            <strong>🔒 Credenciais ficam no perfil isolado</strong>
+            <strong><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4" fill="none" stroke="currentColor" stroke-width="2"/></svg> Credenciais ficam no perfil isolado</strong>
             <span>Suas chaves de API e dados de navegação são armazenados apenas no perfil isolado de cada Bot, sem acessar seus outros perfis.</span>
           </div>
           <div class="ai-settings-actions"><button id="btn-ai-save-key" class="btn-secondary" type="button">Salvar chave</button><button id="btn-ai-connect" class="btn-secondary" type="button">Testar conexão</button></div>

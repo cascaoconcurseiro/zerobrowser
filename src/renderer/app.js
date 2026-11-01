@@ -71,7 +71,6 @@ class ZeroBrowserApp {
     this.initChatSessions();
     await this.flushPendingApprovalRequests();
     this.initAgentMemoryUi();
-    this.initRunEvents();
     this.refreshJobsBanner();
   }
 
@@ -540,7 +539,7 @@ class ZeroBrowserApp {
         button.addEventListener('click', (e) => (e.ctrlKey ? this.createTab(node.url) : this.navigateTo(node.url)));
         button.addEventListener('auxclick', (e) => { if (e.button === 1) this.createTab(node.url); });
       } else {
-        button.textContent = `📁 ${label}`;
+        button.innerHTML = `${FOLDER} ${label}`;
         button.setAttribute('aria-haspopup', 'menu');
         button.addEventListener('click', () => {
           const rect = button.getBoundingClientRect();
@@ -665,7 +664,7 @@ class ZeroBrowserApp {
       icon.setAttribute('aria-hidden', 'true');
       if (item.favicon) icon.append(this.faviconImage(item.favicon));
       else if (item.kind === 'command') icon.textContent = '⌘';
-      else icon.textContent = item.kind === 'bookmark' ? '★' : '🕘';
+      else icon.innerHTML = item.kind === 'bookmark' ? '★' : `${CLOCK}`;
       const title = document.createElement('span');
       title.className = 'suggestion-title';
       title.textContent = this.bookmarkLabel(item);
@@ -980,7 +979,7 @@ class ZeroBrowserApp {
     const copy = document.createElement('div');
     copy.className = 'ai-receipt-copy';
     const strong = document.createElement('strong');
-    strong.textContent = 'Ensinar tarefa por demonstração (Gravador GrokBot)';
+    strong.textContent = 'Ensinar tarefa por demonstração (Gravador de Bot)';
     const span = document.createElement('span');
     span.textContent = `Página base: ${activeUrl} · 3 passos capturados: 1. Abrir página → 2. Filtrar resultados → 3. Extrair tabela comparativa.`;
     copy.append(strong, span);
@@ -2134,8 +2133,8 @@ class ZeroBrowserApp {
       button.setAttribute('aria-current', 'true');
     } else {
       button.type = 'button';
-      button.setAttribute('aria-label', `Abrir Bot ${bot.name}`);
-      button.title = `${bot.name} · perfil isolado`;
+      button.setAttribute('aria-label', `Conversar com Bot ${bot.name}`);
+      button.title = `Conversar com ${bot.name}`;
     }
     button.className = 'bot-avatar';
     button.style.setProperty('--bot-accent', bot.avatar?.accent || '#0254ec');
@@ -2153,14 +2152,23 @@ class ZeroBrowserApp {
         ? `Bot ${bot.name}, arquivado e aberto nesta janela`
         : `Bot ${bot.name}, perfil aberto nesta janela`);
     } else if (visualState.state !== 'idle') {
-      button.setAttribute('aria-label', `Abrir Bot ${bot.name}, ${visualState.label}`);
+      button.setAttribute('aria-label', `Conversar com Bot ${bot.name}, ${visualState.label}`);
     }
 
     button.appendChild(this.createBotAvatarMark(bot));
-    if (!isCurrent) button.addEventListener('click', () => {
-      window.zeroBrowser.browser.openBotProfile(bot.id).catch((error) => this.showToast(`Não foi possível abrir ${bot.name}: ${error.message}`, 'error'));
-    });
+    if (!isCurrent) button.addEventListener('click', () => this.openBotConversation(bot));
     return button;
+  }
+
+  openBotConversation(bot) {
+    if (this.elements.aiPanel.classList.contains('hidden')) {
+      this.elements.aiPanel.classList.remove('hidden');
+      this.elements.aiPanel.inert = false;
+      this.elements.aiPanel.removeAttribute('aria-hidden');
+      window.zeroBrowser.browser.setSidePanelOpen(true, 'left', 'ai').catch(() => {});
+    }
+    this.selectSpecialistBot({ id: bot.id, name: bot.name, accent: bot.avatar?.accent || '#0254ec', goal: '', executionMode: 'background-auto-foreground', permission: 'somente-leitura' }, { switchToChat: true });
+    this.showDelegationTab('chat');
   }
 
   createBotAvatarMark(bot) {
@@ -2168,33 +2176,15 @@ class ZeroBrowserApp {
     mark.className = 'bot-avatar-symbol';
     mark.setAttribute('aria-hidden', 'true');
     const avatar = bot?.avatar || {};
-    const number = Number(String(avatar.id || bot?.avatarId || '').match(/(\d+)$/)?.[1]);
-    const mascot = BOT_MASCOTS[(Math.max(1, number) - 1) % BOT_MASCOTS.length];
-    if (number && mascot) {
-      const img = document.createElement('img');
-      img.className = 'bot-mascot';
-      img.src = `../../assets/bots/mascotes/${mascot.file}`;
-      img.alt = '';
-      mark.appendChild(img);
-      return mark;
-    }
-    const symbols = this.botRingSymbols || [];
-    const selected = symbols.find((symbol) => symbol.id === avatar.symbolId)
-      || symbols[Math.floor(Math.max(0, number - 1) / 8) % Math.max(1, symbols.length)];
-    const pathData = avatar.symbolPath || selected?.path || selected?.svgPath || 'M12 5v14M5 12h14';
-    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    svg.setAttribute('viewBox', '0 0 24 24');
-    svg.setAttribute('aria-hidden', 'true');
-    svg.setAttribute('focusable', 'false');
-    svg.setAttribute('fill', 'none');
-    svg.setAttribute('stroke', 'currentColor');
-    svg.setAttribute('stroke-width', '1.7');
-    svg.setAttribute('stroke-linecap', 'round');
-    svg.setAttribute('stroke-linejoin', 'round');
-    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    path.setAttribute('d', /^[Mm0-9.,\sLlHhVvCcSsQqTtAaZz+-]+$/.test(pathData) ? pathData : 'M12 5v14M5 12h14');
-    svg.appendChild(path);
-    mark.appendChild(svg);
+    // Todo bot tem mascote fixo: o número do avatar, ou (se não houver) um derivado do id do bot.
+    const fromAvatar = Number(String(avatar.id || bot?.avatarId || '').match(/(\d+)$/)?.[1]);
+    const number = fromAvatar || [...String(bot?.id || '')].reduce((sum, ch) => sum + ch.charCodeAt(0), 0) % BOT_MASCOTS.length + 1;
+    const mascot = BOT_MASCOTS[(number - 1) % BOT_MASCOTS.length];
+    const img = document.createElement('img');
+    img.className = 'bot-mascot';
+    img.src = `../../assets/bots/mascotes/${mascot.file}`;
+    img.alt = '';
+    mark.appendChild(img);
     return mark;
   }
 
@@ -2821,8 +2811,8 @@ class ZeroBrowserApp {
     content.className = 'bot-central-open';
     if (content.tagName === 'BUTTON') {
       content.type = 'button';
-      content.setAttribute('aria-label', `Abrir janela do Bot ${bot.name}`);
-      content.title = `Abrir janela do Bot ${bot.name}`;
+      content.setAttribute('aria-label', `Conversar com Bot ${bot.name}`);
+      content.title = `Conversar com ${bot.name}`;
     } else {
       content.classList.add('bot-central-identity');
       content.setAttribute('aria-label', isArchived
@@ -2853,8 +2843,23 @@ class ZeroBrowserApp {
     row.appendChild(content);
 
     if (!isArchived && !isCurrent) content.addEventListener('click', () => {
-      window.zeroBrowser.browser.openBotProfile(bot.id).catch((error) => this.showToast(`Não foi possível abrir ${bot.name}: ${error.message}`, 'error'));
+      this.closeBotCentral({ restorePanel: false });
+      this.openBotConversation(bot);
     });
+
+    if (!isArchived && !isCurrent) {
+      const windowButton = document.createElement('button');
+      windowButton.type = 'button';
+      windowButton.className = 'bot-central-action is-window';
+      windowButton.dataset.botId = bot.id;
+      windowButton.setAttribute('aria-label', `Abrir janela do Bot ${bot.name}`);
+      windowButton.title = `Abrir janela do Bot ${bot.name}`;
+      windowButton.textContent = 'Janela';
+      windowButton.addEventListener('click', () => {
+        window.zeroBrowser.browser.openBotProfile(bot.id).catch((error) => this.showToast(`Não foi possível abrir ${bot.name}: ${error.message}`, 'error'));
+      });
+      row.appendChild(windowButton);
+    }
 
     const action = document.createElement('button');
     action.type = 'button';
@@ -3169,11 +3174,45 @@ class ZeroBrowserApp {
     }
   }
 
+  defaultMascotForPreset(presetId) {
+    const file = PRESET_MASCOTS[presetId];
+    const index = BOT_MASCOTS.findIndex((mascot) => mascot.file === `${file}.png`);
+    return index >= 0 ? index + 1 : 1;
+  }
+
+  renderSpecialistMascotGrid() {
+    const container = document.getElementById('bot-specialist-mascots');
+    if (!container) return;
+    container.replaceChildren();
+    BOT_MASCOTS.forEach((mascot, index) => {
+      const number = index + 1;
+      const active = number === this.selectedSpecialistMascot;
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'bot-specialist-mascot';
+      button.setAttribute('aria-pressed', String(active));
+      button.setAttribute('aria-label', `Mascote ${mascot.name}`);
+      button.title = mascot.name;
+      const img = document.createElement('img');
+      img.src = `../../assets/bots/mascotes/${mascot.file}`;
+      img.alt = '';
+      img.loading = 'lazy';
+      button.appendChild(img);
+      button.addEventListener('click', () => {
+        this.selectedSpecialistMascot = number;
+        this.renderSpecialistMascotGrid();
+      });
+      container.appendChild(button);
+    });
+  }
+
   selectSpecialistPreset(presetId) {
     const presets = this.specialistPresets || this.getSpecialistPresets();
     const preset = presets.find((p) => p.id === presetId) || presets[0];
     if (!preset) return;
     this.selectedSpecialistPresetId = preset.id;
+    this.selectedSpecialistMascot = this.defaultMascotForPreset(preset.id);
+    this.renderSpecialistMascotGrid();
     for (const btn of document.querySelectorAll('.bot-specialist-preset-btn')) {
       const active = btn.dataset.presetId === preset.id;
       btn.classList.toggle('ativo', active);
@@ -3209,7 +3248,16 @@ class ZeroBrowserApp {
     if (selectBtn && !selectBtn.querySelector('.tab-bot-badge')) {
       const badge = document.createElement('span');
       badge.className = 'tab-bot-badge';
-      badge.textContent = botMeta.shortBadge || botMeta.name || 'Bot';
+      const mascotFile = botMeta.mascot ? BOT_MASCOTS[(botMeta.mascot - 1) % BOT_MASCOTS.length]?.file : null;
+      if (mascotFile) {
+        const img = document.createElement('img');
+        img.className = 'tab-bot-mascot';
+        img.alt = '';
+        img.src = `../../assets/bots/mascotes/${mascotFile}`;
+        badge.appendChild(img);
+      } else {
+        badge.textContent = botMeta.shortBadge || botMeta.name || 'Bot';
+      }
       selectBtn.prepend(badge);
     }
   }
@@ -3233,7 +3281,8 @@ class ZeroBrowserApp {
       goal,
       permission: preset.permission || 'somente-leitura',
       executionMode,
-      accent: preset.accent || '#0254ec'
+      accent: preset.accent || '#0254ec',
+      mascot: this.selectedSpecialistMascot
     });
   }
 
@@ -3254,6 +3303,7 @@ class ZeroBrowserApp {
           executionMode,
           defaultUrl: targetUrl,
           accent: spec.accent || '#0254ec',
+          mascot: spec.mascot,
           goal: spec.goal || '',
           permission: spec.permission || 'somente-leitura'
         });
@@ -3268,6 +3318,7 @@ class ZeroBrowserApp {
       specialtyTitle: spec.specialtyTitle || createdTask?.specialtyTitle || 'Especialista',
       executionMode,
       accent: spec.accent || createdTask?.accent || '#0254ec',
+      mascot: spec.mascot || createdTask?.mascot || null,
       goal: spec.goal || createdTask?.goal || '',
       shortBadge: (spec.name || 'Bot').replace(/^Bot\s+/i, '').slice(0, 14)
     };
@@ -3657,7 +3708,7 @@ class ZeroBrowserApp {
     const orderCard = document.createElement('div');
     orderCard.className = 'grokbot-central-card';
     const oTitle = document.createElement('h4');
-    oTitle.textContent = 'Ordem de Execução GrokBot (Economia de Tokens)';
+    oTitle.textContent = 'Ordem de Execução do Bot (Economia de Tokens)';
     const oDesc = document.createElement('p');
     oDesc.textContent = '1. Ferramenta Declarada (WebMCP) → 2. Rota HTTP Aprendida → 3. Receita Determinística → 4. Interface Visual.';
     const oActions = document.createElement('div');
